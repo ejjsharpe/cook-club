@@ -1,0 +1,15 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cook-club-server",
+  "main": "src/index.ts",
+  "account_id": "46fa47bc2bba51d75383b4dfe6e3deb1",
+  "compatibility_date": "2025-02-20",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cook-club-db",
+      "database_id": "606dfcce-41fb-4661-9a04-e983cf9729a5",
+      "migrations_dir": "./src/db/drizzle"
+    }
+  ]
+}

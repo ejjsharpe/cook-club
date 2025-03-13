@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "cook-club",
+    "slug": "cook-club",
+    "version": "1.0.0",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "cookclub",
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "newArchEnabled": true,
+    "plugins": [
+      ["expo-dev-launcher", { "launchMode": "most-recent" }],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "extraPods": [
+              { "name": "SDWebImage", "modular_headers": true },
+              { "name": "SDWebImageSVGCoder", "modular_headers": true }
+            ],
+            "deploymentTarget": "16.0"
+          }
+        }
+      ],
+      "./plugins/withIosDeploymentTarget.js",
+      ["react-native-bottom-tabs"],
+      ["expo-font"]
+    ],
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ejjsharpe.cookclub"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.ejjsharpe.cookclub"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "069653dd-8a04-43d0-8bc7-1746ab8b83e5"
+      }
+    }
+  }
+}

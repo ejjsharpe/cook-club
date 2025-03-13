@@ -1,0 +1,27 @@
+{
+  "name": "cook-club-server",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --minify",
+    "generate": "drizzle-kit generate",
+    "migrate": "bunx wrangler d1 migrations apply cook-club-db --local"
+  },
+  "dependencies": {
+    "@better-auth/expo": "1.2.2-beta.2",
+    "@hono/trpc-server": "^0.3.4",
+    "better-auth": "^1.2.1",
+    "drizzle-orm": "^0.40.0",
+    "hono": "^4.7.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "@types/node": "^22.13.5",
+    "drizzle-kit": "^0.30.4",
+    "eslint-config-universe": "^14.0.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^3.110.0"
+  },
+  "eslintConfig": {
+    "extends": "universe/node"
+  }
+}
