@@ -1,7 +1,6 @@
 {
   "name": "cook-club",
   "devDependencies": {
-    "turbo": "^2.4.2",
     "nx": "20.8.1"
   },
   "packageManager": "bun@1.2.3",
