@@ -1,8 +1,8 @@
 import { StyleSheet, UnistylesRuntime } from 'react-native-unistyles';
 
 import { BaseButton } from './BaseButton';
-import { Text } from './Text';
-import { AppleLogo } from './svg/AppleLogo';
+import { Text } from '../Text';
+import { AppleLogo } from '../svg/AppleLogo';
 
 import { useSignInWithSocial } from '@/api/auth';
 

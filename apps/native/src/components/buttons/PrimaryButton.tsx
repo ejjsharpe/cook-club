@@ -2,7 +2,7 @@ import { ViewStyle } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { BaseButton } from './BaseButton';
-import { Text } from './Text';
+import { Text } from '../Text';
 
 export interface ButtonProps {
   children: string;

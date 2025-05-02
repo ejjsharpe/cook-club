@@ -6,14 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { useSignInWithEmail, useSignInWithSocial } from '@/api/auth';
-import { BackButton } from '@/components/BackButton';
-import { BaseButton } from '@/components/BaseButton';
 import { Input } from '@/components/Input';
-import { PrimaryButton } from '@/components/PrimaryButton';
-import { SignInWithAppleButton } from '@/components/SignInWithAppleButton';
-import { SignInWithGoogleButton } from '@/components/SignInWithGoogleButton';
 import { VSpace } from '@/components/Space';
 import { Text } from '@/components/Text';
+import { BackButton } from '@/components/buttons/BackButton';
+import { BaseButton } from '@/components/buttons/BaseButton';
+import { PrimaryButton } from '@/components/buttons/PrimaryButton';
+import { SignInWithAppleButton } from '@/components/buttons/SignInWithAppleButton';
+import { SignInWithGoogleButton } from '@/components/buttons/SignInWithGoogleButton';
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState('');

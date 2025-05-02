@@ -12,22 +12,38 @@
     },
     "newArchEnabled": true,
     "plugins": [
-      ["expo-dev-launcher", { "launchMode": "most-recent" }],
+      [
+        "expo-dev-launcher",
+        {
+          "launchMode": "most-recent"
+        }
+      ],
       [
         "expo-build-properties",
         {
           "ios": {
             "extraPods": [
-              { "name": "SDWebImage", "modular_headers": true },
-              { "name": "SDWebImageSVGCoder", "modular_headers": true }
+              {
+                "name": "SDWebImage",
+                "modular_headers": true
+              },
+              {
+                "name": "SDWebImageSVGCoder",
+                "modular_headers": true
+              }
             ],
             "deploymentTarget": "16.0"
           }
         }
       ],
-      "./plugins/withIosDeploymentTarget.js",
-      ["react-native-bottom-tabs"],
-      ["expo-font"]
+      [
+        "react-native-bottom-tabs"
+      ],
+      [
+        "expo-font"
+      ],
+      "expo-web-browser",
+      "react-native-edge-to-edge"
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -37,7 +53,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ejjsharpe.cookclub"

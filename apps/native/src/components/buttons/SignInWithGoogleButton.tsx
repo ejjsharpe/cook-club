@@ -1,8 +1,8 @@
 import { StyleSheet } from 'react-native-unistyles';
 
 import { BaseButton } from './BaseButton';
-import { Text } from './Text';
-import { GoogleLogo } from './svg/GoogleLogo';
+import { Text } from '../Text';
+import { GoogleLogo } from '../svg/GoogleLogo';
 
 import { useSignInWithSocial } from '@/api/auth';
 
