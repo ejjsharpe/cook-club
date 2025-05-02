@@ -19,6 +19,7 @@
   ],
   "trustedDependencies": [
     "esbuild",
+    "nx",
     "sharp",
     "workerd"
   ]

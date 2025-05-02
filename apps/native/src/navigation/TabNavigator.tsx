@@ -1,10 +1,9 @@
-import { createNativeBottomTabNavigator } from '@bottom-tabs/react-navigation';
-import { AppleIcon } from 'react-native-bottom-tabs';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { MyRecipesScreen } from '@/screens/MyRecipesScreen';
 import { SearchScreen } from '@/screens/SearchScreen';
 
-const Tab = createNativeBottomTabNavigator();
+const Tab = createBottomTabNavigator();
 
 export const TabNavigator = () => {
   return (
@@ -12,33 +11,9 @@ export const TabNavigator = () => {
       screenOptions={{
         tabBarActiveTintColor: 'black',
       }}>
-      <Tab.Screen
-        name="Search"
-        component={MyRecipesScreen}
-        options={{
-          tabBarIcon: (): AppleIcon => ({
-            sfSymbol: 'magnifyingglass',
-          }),
-        }}
-      />
-      <Tab.Screen
-        name="Add recipe"
-        component={SearchScreen}
-        options={{
-          tabBarIcon: (): AppleIcon => ({
-            sfSymbol: 'plus.app',
-          }),
-        }}
-      />
-      <Tab.Screen
-        name="My Recipes"
-        component={SearchScreen}
-        options={{
-          tabBarIcon: (): AppleIcon => ({
-            sfSymbol: 'book.pages',
-          }),
-        }}
-      />
+      <Tab.Screen name="Search" component={MyRecipesScreen} />
+      <Tab.Screen name="Add recipe" component={SearchScreen} />
+      <Tab.Screen name="My Recipes" component={SearchScreen} />
     </Tab.Navigator>
   );
 };
