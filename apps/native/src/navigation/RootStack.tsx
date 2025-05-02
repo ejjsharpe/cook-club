@@ -25,6 +25,9 @@ const RootStack = createNativeStackNavigator({
   groups: {
     SignedIn: {
       if: useIsSignedIn,
+      screenOptions: {
+        headerShown: false,
+      },
       screens: {
         Tabs: TabNavigator,
       },
@@ -36,7 +39,6 @@ const RootStack = createNativeStackNavigator({
       },
       screens: {
         Start: { screen: StartScreen },
-
         'Sign In': {
           screen: SignInScreen,
           options: {

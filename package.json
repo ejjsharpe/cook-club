@@ -1,15 +1,16 @@
 {
   "name": "cook-club",
   "devDependencies": {
-    "turbo": "^2.4.2"
+    "turbo": "^2.4.2",
+    "nx": "20.8.1"
   },
   "packageManager": "bun@1.2.3",
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "test": "turbo run test",
-    "check-types": "turbo run check-types"
+    "dev": "nx run-many -t dev",
+    "build": "nx run-many -t build",
+    "lint": "nx run-many -t lint",
+    "test": "nx run-many -t test",
+    "check-types": "nx run-many -t check-types"
   },
   "type": "module",
   "workspaces": [
