@@ -90,6 +90,10 @@
         "@trpc/tanstack-react-query": "^11.0.0-rc.802",
       },
     },
+    "tooling/typescript": {
+      "name": "@repo/tsconfig",
+      "version": "0.1.0",
+    },
   },
   "trustedDependencies": [
     "workerd",
@@ -598,6 +602,8 @@
     "@repo/db": ["@repo/db@workspace:packages/db"],
 
     "@repo/trpc": ["@repo/trpc@workspace:packages/trpc"],
+
+    "@repo/tsconfig": ["@repo/tsconfig@workspace:tooling/typescript"],
 
     "@rtsao/scc": ["@rtsao/scc@1.1.0", "", {}, "sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g=="],
 

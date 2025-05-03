@@ -1,15 +1,6 @@
 {
-  "extends": "expo/tsconfig.base",
-  "type": "module",
+  "extends": "@repo/tsconfig/base.json",
   "compilerOptions": {
-    "module": "ES2022",
-    "strict": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
-    "moduleResolution": "bundler",
-    "noEmit": true
+    "jsx": "react-native"
   },
-  "include": ["src"]
 }
