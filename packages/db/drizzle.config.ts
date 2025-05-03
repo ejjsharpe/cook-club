@@ -9,8 +9,8 @@ if (
 }
 
 export default defineConfig({
-  out: "./src/db/drizzle",
-  schema: "./src/db/schemas/index.ts",
+  out: "./drizzle",
+  schema: "./schemas",
   dialect: "sqlite",
   driver: "d1-http",
   dbCredentials: {
