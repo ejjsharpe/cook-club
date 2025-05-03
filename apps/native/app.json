@@ -19,9 +19,6 @@
         }
       ],
       [
-        "react-native-bottom-tabs"
-      ],
-      [
         "expo-font"
       ],
       "expo-web-browser",

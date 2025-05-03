@@ -9,7 +9,7 @@
       "binding": "DB",
       "database_name": "cook-club-db",
       "database_id": "606dfcce-41fb-4661-9a04-e983cf9729a5",
-      "migrations_dir": "./src/db/drizzle"
+      "migrations_dir": "@repo/db/drizzle"
     }
   ]
 }

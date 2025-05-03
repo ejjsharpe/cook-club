@@ -2,8 +2,8 @@ import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
-import { getDb } from "../db";
-import * as schema from "../db/schemas";
+import { getDb } from "../../../../packages/db";
+import * as schema from "../../../../packages/db/schemas";
 import { Env } from "../types";
 
 function createAuth(env: Env) {

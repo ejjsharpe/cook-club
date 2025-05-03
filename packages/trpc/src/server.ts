@@ -1,9 +1,9 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 
-import { getDb } from "../../../apps/server/src/db";
 import { getAuth } from "../../../apps/server/src/lib/auth";
 import type { Env } from "../../../apps/server/src/types";
+import { getDb } from "../../db";
 
 export async function createContext(
   opts: FetchCreateContextFnOptions,
@@ -39,8 +39,7 @@ export const authedProcedure = t.procedure.use(async function isAuthed(opts) {
 });
 
 export const appRouter = router({
-  test: publicProcedure.query(() => "hello tRPC v10!"),
-  getUser: publicProcedure.query(() => "hello tRPC v10!"),
+  getUser: publicProcedure.query(({ ctx }) => ctx.user),
 });
 
 export type AppRouter = typeof appRouter;
