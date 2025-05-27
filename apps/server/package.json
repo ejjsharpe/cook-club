@@ -5,17 +5,17 @@
     "deploy": "wrangler deploy --minify"
   },
   "dependencies": {
-    "@better-auth/expo": "1.2.7",
+    "@better-auth/expo": "1.2.8",
     "@hono/trpc-server": "^0.3.4",
-    "better-auth": "^1.2.7",
-    "hono": "4.7.8"
+    "better-auth": "^1.2.8",
+    "hono": "4.7.10"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250502.0",
-    "@types/node": "^22.15.3",
+    "@cloudflare/workers-types": "^4.20250525.0",
+    "@types/node": "^22.15.21",
     "eslint-config-universe": "15.0.3",
     "typescript": "^5.8.3",
-    "wrangler": "^4.14.1"
+    "wrangler": "4.16.1"
   },
   "eslintConfig": {
     "extends": "universe/node"

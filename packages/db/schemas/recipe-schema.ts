@@ -4,11 +4,9 @@ import { user } from './auth-schema';
 // ─── Central recipes store ────────────────────────────────────────────────────
 export const recipes = sqliteTable('recipes', {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    sourceUrl: text('source_url').unique(),                    // URL if scraped, null if user input
     name: text('name').notNull(),
+    uploadedBy: text('uploaded_by').notNull(),
     description: text('description'),
-    author: text('author'),
-    datePublished: integer('date_published', { mode: 'timestamp' }), // optional timestamp
     prepTime: text('prep_time'),
     cookTime: text('cook_time'),
     totalTime: text('total_time'),
@@ -17,9 +15,15 @@ export const recipes = sqliteTable('recipes', {
     recipeCuisine: text('recipe_cuisine'),
     keywords: text('keywords'),
     nutrition: text('nutrition'),
-    scrapedAt: integer('scraped_at', { mode: 'timestamp' }),     // only for scraped recipes
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),                                               
-    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull()                                               
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+    
+    
+    // properties for scraped recipes
+    author: text('author'),
+    scrapedAt: integer('scraped_at', { mode: 'timestamp' }),     // only for scraped recipes
+    sourceUrl: text('source_url'),
+    datePublished: integer('date_published', { mode: 'timestamp' }),
   });
   
   // ─── Join table: which users have saved or uploaded recipes ─────────────────
@@ -32,7 +36,6 @@ export const recipes = sqliteTable('recipes', {
       .notNull()
       .references(() => recipes.id, { onDelete: 'cascade' }),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
-
   });
   
   // ─── Additional recipe detail tables ─────────────────────────────────────────

@@ -3,12 +3,13 @@
   "type": "module",
   "exports": {
     "./client": "./src/client.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server/index.ts"
   },
   "dependencies": {
     "@trpc/client": "^11.0.0-rc.802",
     "@trpc/server": "^11.0.0-rc.802",
-    "@trpc/tanstack-react-query": "^11.0.0-rc.802"
+    "@trpc/tanstack-react-query": "^11.0.0-rc.802",
+    "arktype": "^2.1.20"
   },
   "eslintConfig": {
     "extends": "universe/node"

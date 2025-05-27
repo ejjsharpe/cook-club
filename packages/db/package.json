@@ -3,15 +3,15 @@
     "version": "1.0.0",
     "main": "index.ts",
     "scripts": {
-    "generate": "drizzle-kit generate",
-    "migrate": "bunx wrangler d1 migrations apply cook-club-db --local"
+        "generate": "drizzle-kit generate",
+        "migrate": "bunx wrangler d1 migrations apply cook-club-db --local"
     },
     "dependencies": {
-      "drizzle-orm": "0.43.1"
+        "drizzle-orm": "0.43.1"
     },
     "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250502.0",
-    "drizzle-kit": "0.31.0",
-    "typescript": "^5.8.3"
+        "@cloudflare/workers-types": "^4.20250525.0",
+        "drizzle-kit": "^0.31.1",
+        "typescript": "^5.8.3"
     }
-  }
+}

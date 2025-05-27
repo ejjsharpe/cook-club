@@ -5,17 +5,17 @@ import { StyleSheet } from 'react-native-unistyles';
 import { Text } from './Text';
 
 interface Props extends TextInputProps {
-  label: string;
+  label?: string;
 }
 
-export const Input = ({ label, ...props }: Props) => {
+export const Input = ({ label, style, ...props }: Props) => {
   const [isFocused, setIsFocused] = useState(false);
 
   return (
     <View style={styles.container}>
       {!!label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        style={[styles.input, isFocused && styles.focused, props.style]}
+        style={[styles.input, isFocused && styles.focused, style]}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         {...props}

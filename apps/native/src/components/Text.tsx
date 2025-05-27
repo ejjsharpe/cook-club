@@ -2,7 +2,7 @@ import { Text as _Text, TextProps } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 interface Props extends TextProps {
-  type?: 'body' | 'bodyFaded' | 'largeTitle' | 'title1' | 'highlight';
+  type?: 'body' | 'bodyFaded' | 'largeTitle' | 'title1' | 'title2' | 'highlight' | 'heading';
 }
 
 export const Text = ({ type = 'body', ...props }: Props) => {
@@ -41,6 +41,17 @@ const styles = StyleSheet.create((theme) => ({
           color: theme.colors.text,
           fontFamily: theme.fonts.baskervilleBold,
           letterSpacing: -1,
+        },
+        title2: {
+          fontSize: 25,
+          color: theme.colors.text,
+          fontFamily: theme.fonts.baskervilleBold,
+          letterSpacing: -1,
+        },
+        heading: {
+          fontSize: 17,
+          color: theme.colors.text,
+          fontFamily: theme.fonts.baskervilleBold,
         },
       },
     },

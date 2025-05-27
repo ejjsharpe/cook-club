@@ -3,6 +3,9 @@
   "name": "cook-club-server",
   "main": "src/index.ts",
   "account_id": "46fa47bc2bba51d75383b4dfe6e3deb1",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "compatibility_date": "2025-02-20",
   "d1_databases": [
     {

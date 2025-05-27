@@ -1,13 +1,12 @@
 import { expo } from "@better-auth/expo";
+import { getDb } from "@repo/db";
+import * as schema from "@repo/db/schemas";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
-import { getDb } from "../../../../packages/db";
-import * as schema from "../../../../packages/db/schemas";
 import { Env } from "../types";
 
 function createAuth(env: Env) {
-  console.log(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET);
   return betterAuth({
     database: drizzleAdapter(getDb(env), {
       provider: "sqlite",
