@@ -6,9 +6,24 @@ import { createTRPCContext } from "@trpc/tanstack-react-query";
 
 import type { AppRouter } from "./server";
 
-export const createTRPCClient = ({ apiUrl }: { apiUrl: string }) => {
+export const createTRPCClient = ({
+  apiUrl,
+  cookie,
+}: {
+  apiUrl: string;
+  cookie: string | undefined;
+}) => {
   return _createTRPCClient<AppRouter>({
-    links: [httpBatchLink({ url: apiUrl })],
+    links: [
+      httpBatchLink({
+        url: apiUrl,
+        headers() {
+          return {
+            cookie,
+          };
+        },
+      }),
+    ],
   });
 };
 

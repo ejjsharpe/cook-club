@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import { useSession } from '@/api/auth';
+import { useSessionContext } from './sessionContext';
 
 const SignInContext = createContext<boolean>(false);
 
@@ -15,10 +15,8 @@ export function useIsSignedOut() {
 }
 
 export const SignedInProvider = ({ children }: { children: React.ReactNode }) => {
-  const { data, isPending } = useSession();
+  const session = useSessionContext();
 
-  if (isPending) return null;
-
-  const isSignedIn = !!data?.session;
+  const isSignedIn = !!session;
   return <SignInContext.Provider value={isSignedIn}>{children}</SignInContext.Provider>;
 };
