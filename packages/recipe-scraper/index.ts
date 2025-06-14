@@ -44,18 +44,18 @@ export interface RawRecipe {
 export interface Recipe {
   name: string;
   description: string;
-  image: string[];
+  images: string[];
   author: string;
   datePublished: string;
   prepTime: string;
   cookTime: string;
   totalTime: string;
   recipeYield: string;
-  recipeCategory: string[];
-  recipeCuisine: string[];
+  categories: string[];
+  cuisines: string[];
   keywords: string[];
   nutrition: NutritionInformation;
-  recipeIngredient: string[];
+  recipeIngredients: string[];
   recipeInstructions: string[];
 }
 
@@ -214,18 +214,18 @@ export function toRecipe(raw: Partial<RawRecipe>, baseUrl: string): Recipe {
   return {
     name: raw.name || "",
     description: raw.description || "",
-    image: normalizeStrings(raw.image).map((u) => resolveUrl(baseUrl, u)),
+    images: normalizeStrings(raw.image).map((u) => resolveUrl(baseUrl, u)),
     author: normalizeAuthor(raw.author),
     datePublished: raw.datePublished || "",
     prepTime: raw.prepTime || "",
     cookTime: raw.cookTime || "",
     totalTime: raw.totalTime || "",
     recipeYield: raw.recipeYield || "",
-    recipeCategory: normalizeStrings(raw.recipeCategory),
-    recipeCuisine: normalizeStrings(raw.recipeCuisine),
+    categories: normalizeStrings(raw.recipeCategory),
+    cuisines: normalizeStrings(raw.recipeCuisine),
     keywords: normalizeStrings(raw.keywords),
     nutrition,
-    recipeIngredient: raw.recipeIngredient || [],
+    recipeIngredients: raw.recipeIngredient || [],
     recipeInstructions: normalize(raw.recipeInstructions)
       .map((s) => (typeof s === "string" ? s : s.text))
       .filter((s) => !!s),
