@@ -11,16 +11,11 @@ import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 
 export const AddRecipeScreen = () => {
   const [url, setUrl] = useState<string>('');
-  const { data, refetch } = useScrapeRecipe({ url });
-
-  useEffect(() => {
-    console.log('Scraped recipe data:', data);
-  }, [data]);
+  const { refetch: fetchRecipe } = useScrapeRecipe({ url });
 
   const onPressScrapeRecipe = async () => {
     try {
-      const something = await refetch();
-      console.log({ something });
+      const scrapedRecipe = await fetchRecipe();
     } catch (error) {
       console.error('Error scraping recipe:', error);
     }
