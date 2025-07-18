@@ -9,7 +9,9 @@
     "build": "nx run-many -t build",
     "lint": "nx run-many -t lint",
     "test": "nx run-many -t test",
-    "check-types": "nx run-many -t check-types"
+    "check-types": "nx run-many -t check-types",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "type": "module",
   "workspaces": [
@@ -25,6 +27,10 @@
   ],
   "dependencies": {
     "@better-auth/expo": "^1.2.7",
-    "better-auth": "^1.2.7"
-  }
+    "better-auth": "^1.2.7",
+    "expo": "~53.0.17",
+    "react": "19.0.0",
+    "react-native": "0.79.5"
+  },
+  "version": "1.0.0"
 }

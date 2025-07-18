@@ -1,0 +1,8 @@
+{
+  "android": {
+    "package": "com.ejjsharpe.cookclub"
+  },
+  "ios": {
+    "bundleIdentifier": "com.ejjsharpe.cookclub"
+  }
+}

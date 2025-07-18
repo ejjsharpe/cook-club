@@ -18,9 +18,7 @@
           "launchMode": "most-recent"
         }
       ],
-      [
-        "expo-font"
-      ],
+      ["expo-font"],
       "expo-web-browser",
       "react-native-edge-to-edge"
     ],
@@ -32,9 +30,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ejjsharpe.cookclub"

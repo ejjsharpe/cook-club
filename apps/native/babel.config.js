@@ -3,6 +3,6 @@ module.exports = function (api) {
 
   return {
     presets: ['babel-preset-expo'],
-    plugins: ['react-native-unistyles/plugin', 'react-native-reanimated/plugin'],
+    plugins: [['react-native-unistyles/plugin', { root: 'src' }], 'react-native-reanimated/plugin'],
   };
 };

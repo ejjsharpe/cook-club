@@ -7,11 +7,11 @@
         "migrate": "bunx wrangler d1 migrations apply cook-club-db --local"
     },
     "dependencies": {
-        "drizzle-orm": "0.43.1"
+        "drizzle-orm": "0.44.3"
     },
     "devDependencies": {
-        "@cloudflare/workers-types": "^4.20250525.0",
-        "drizzle-kit": "^0.31.1",
+        "@cloudflare/workers-types": "^4.20250718.0",
+        "drizzle-kit": "^0.31.4",
         "typescript": "^5.8.3"
     }
 }
