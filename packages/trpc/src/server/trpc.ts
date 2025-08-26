@@ -17,14 +17,3 @@ export const authedProcedure = t.procedure.use(async function isAuthed(opts) {
 
   return opts.next({ ...opts, ctx: { ...ctx, user: ctx.user } });
 });
-
-const s = scope({
-  pagination: {
-    "page?": "number > 0",
-    "limit?": "number <= 100 & number > 0",
-  },
-});
-
-const PaginationParamsParser = s.type("pagination");
-
-export const paginatedProcedure = authedProcedure.input(PaginationParamsParser);

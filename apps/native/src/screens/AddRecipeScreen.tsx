@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
@@ -22,6 +22,7 @@ export const AddRecipeScreen = () => {
 
       navigate('EditRecipe', { recipe: scrapedRecipe.data });
     } catch (error) {
+      // TODO: handle badly scraped recipe
       console.error('Error scraping recipe:', error);
     }
   };

@@ -1,9 +1,8 @@
 import { userRecipes, recipes } from "@repo/db/schemas";
-import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq } from "drizzle-orm";
+import { eq, lt, desc, and, ilike } from "drizzle-orm";
 
-import { router, authedProcedure, paginatedProcedure } from "../trpc";
+import { router, authedProcedure } from "../trpc";
 
 export const userRouter = router({
   getUser: authedProcedure.query(({ ctx }) => {
@@ -12,33 +11,48 @@ export const userRouter = router({
     };
   }),
 
-  getUsersRecipes: paginatedProcedure.query(async ({ input, ctx }) => {
-    if (input instanceof type.errors) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: input.summary,
-      });
-    }
+  getUserRecipes: authedProcedure
+    .input(
+      type({
+        limit: "number = 20",
+        cursor: "number?",
+        search: "string?",
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { limit, cursor, search } = input;
 
-    const usersRecipes = await ctx.db
-      .select()
-      .from(userRecipes)
-      .innerJoin(recipes, eq(userRecipes.recipeId, recipes.id))
-      .where(eq(userRecipes.userId, ctx.user.id))
-      .limit(input.limit ?? 10)
-      .offset((input.page ?? 0) * (input.limit ?? 10));
+      const userRecipesList = await ctx.db
+        .select({
+          recipe: recipes,
+          userRecipe: userRecipes,
+        })
+        .from(userRecipes)
+        .innerJoin(recipes, eq(userRecipes.recipeId, recipes.id))
+        .where(
+          and(
+            eq(userRecipes.userId, ctx.user.id),
+            cursor ? lt(userRecipes.createdAt, new Date(cursor)) : undefined,
+            search ? ilike(recipes.name, `%${search}%`) : undefined
+          )
+        )
+        .orderBy(desc(userRecipes.createdAt))
+        .limit(limit + 1);
 
-    const allUsersRecipes = await ctx.db
-      .select()
-      .from(userRecipes)
-      .innerJoin(recipes, eq(userRecipes.recipeId, recipes.id))
-      .where(eq(userRecipes.userId, ctx.user.id));
+      const items = userRecipesList.map((item) => ({
+        ...item.recipe,
+        addedAt: item.userRecipe.createdAt,
+      }));
 
-    return {
-      recipes: usersRecipes,
-      total: allUsersRecipes.length,
-      page: input.page ?? 0,
-      limit: input.limit ?? 10,
-    };
-  }),
+      let nextCursor: number | undefined = undefined;
+      if (items.length > limit) {
+        const nextItem = items.pop();
+        nextCursor = nextItem?.addedAt.getTime();
+      }
+
+      return {
+        items,
+        nextCursor,
+      };
+    }),
 });

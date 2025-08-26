@@ -10,7 +10,7 @@ export const recipes = sqliteTable("recipes", {
   prepTime: text("prep_time"),
   cookTime: text("cook_time"),
   totalTime: text("total_time"),
-  servings: text("servings"),
+  servings: integer("servings"),
   category: text("category"),
   cuisine: text("cuisine"),
   keywords: text("keywords"),
@@ -46,7 +46,7 @@ export const recipeImages = sqliteTable("recipe_images", {
   url: text("url").notNull(),
 });
 
-export const ingredients = sqliteTable("recipe_ingredients", {
+export const recipeIngredients = sqliteTable("recipe_ingredients", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   recipeId: integer("recipe_id")
     .notNull()
@@ -55,7 +55,7 @@ export const ingredients = sqliteTable("recipe_ingredients", {
   ingredient: text("ingredient").notNull(),
 });
 
-export const instructions = sqliteTable("recipe_instructions", {
+export const recipeInstructions = sqliteTable("recipe_instructions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   recipeId: integer("recipe_id")
     .notNull()

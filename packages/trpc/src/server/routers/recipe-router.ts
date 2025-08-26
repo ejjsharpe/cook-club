@@ -1,6 +1,6 @@
 import {
-  ingredients,
-  instructions,
+  recipeIngredients,
+  recipeInstructions,
   recipeImages,
   recipes,
 } from "@repo/db/schemas";
@@ -38,7 +38,7 @@ export const RecipePostValidator = type({
   "prepTime?": "string",
   "cookTime?": "string",
   "totalTime?": "string",
-  "yield?": "string",
+  "servings?": "number",
   "category?": "string",
   "cuisine?": "string",
   "keywords?": "string",
@@ -90,7 +90,7 @@ export const recipeRouter = router({
 
         // Insert ingredients
         const insertedIngredients = await ctx.db
-          .insert(ingredients)
+          .insert(recipeIngredients)
           .values(
             input.ingredients.map((ingredient) => ({
               ...ingredient,
@@ -98,13 +98,13 @@ export const recipeRouter = router({
             }))
           )
           .returning({
-            index: ingredients.index,
-            ingredient: ingredients.ingredient,
+            index: recipeIngredients.index,
+            ingredient: recipeIngredients.ingredient,
           });
 
         // Insert instructions
         const insertedInstructions = await ctx.db
-          .insert(instructions)
+          .insert(recipeInstructions)
           .values(
             input.instructions.map((instruction) => ({
               ...instruction,
@@ -112,8 +112,8 @@ export const recipeRouter = router({
             }))
           )
           .returning({
-            index: instructions.index,
-            instruction: instructions.instruction,
+            index: recipeInstructions.index,
+            instruction: recipeInstructions.instruction,
           });
 
         // Insert images

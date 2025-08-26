@@ -105,7 +105,7 @@ export default function EditRecipeScreen() {
       description: description.trim() || undefined,
       prepTime: formatDurationISO(prepTime) || undefined,
       cookTime: formatDurationISO(cookTime) || undefined,
-      yield: servings.toString(),
+      servings,
       ingredients: ingredients
         .map((ing, idx) => ({ index: idx, ingredient: ing.trim() }))
         .filter((ing) => ing.ingredient),
