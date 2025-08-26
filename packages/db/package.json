@@ -1,17 +1,17 @@
 {
-    "name": "@repo/db",
-    "version": "1.0.0",
-    "main": "index.ts",
-    "scripts": {
-        "generate": "drizzle-kit generate",
-        "migrate": "bunx wrangler d1 migrations apply cook-club-db --local"
-    },
-    "dependencies": {
-        "drizzle-orm": "0.44.3"
-    },
-    "devDependencies": {
-        "@cloudflare/workers-types": "^4.20250718.0",
-        "drizzle-kit": "^0.31.4",
-        "typescript": "^5.8.3"
-    }
+  "name": "@repo/db",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "migrate": "bunx wrangler d1 migrations apply cook-club-db --local --config ../../apps/server/wrangler.jsonc"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.44.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250718.0",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.8.3"
+  }
 }

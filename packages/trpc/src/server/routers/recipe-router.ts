@@ -1,6 +1,7 @@
 import {
-  recipeIngredients,
-  recipeInstructions,
+  ingredients,
+  instructions,
+  recipeImages,
   recipes,
 } from "@repo/db/schemas";
 import { scrapeRecipe } from "@repo/recipe-scraper";
@@ -14,12 +15,12 @@ const ImageRecord = type({
 });
 
 const IngredientRecord = type({
-  position: "number",
+  index: "number",
   ingredient: "string",
 });
 
 const InstructionRecord = type({
-  position: "number",
+  index: "number",
   instruction: "string",
 });
 
@@ -37,9 +38,9 @@ export const RecipePostValidator = type({
   "prepTime?": "string",
   "cookTime?": "string",
   "totalTime?": "string",
-  "recipeYield?": "string",
-  "recipeCategory?": "string",
-  "recipeCuisine?": "string",
+  "yield?": "string",
+  "category?": "string",
+  "cuisine?": "string",
   "keywords?": "string",
   "nutrition?": "string",
   "images?": ImageRecord.array(),
@@ -57,13 +58,11 @@ export const recipeRouter = router({
       });
     }
 
-    console.log({ recipe });
-
     return recipe;
   }),
   postRecipe: authedProcedure
     .input(RecipePostValidator)
-    .query(async ({ input, ctx }) => {
+    .mutation(async ({ input, ctx }) => {
       if (input instanceof type.errors) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -71,8 +70,10 @@ export const recipeRouter = router({
         });
       }
 
-      const insertedRecipe = ctx.db.transaction(async (tx) => {
-        const recipe = await tx
+      try {
+        // TODO: Transactions currently not supported in drizzle with D1. Fix later
+        // Insert recipe
+        const recipe = await ctx.db
           .insert(recipes)
           .values({
             ...input,
@@ -87,8 +88,9 @@ export const recipeRouter = router({
           .returning()
           .get();
 
-        const ingredients = await tx
-          .insert(recipeIngredients)
+        // Insert ingredients
+        const insertedIngredients = await ctx.db
+          .insert(ingredients)
           .values(
             input.ingredients.map((ingredient) => ({
               ...ingredient,
@@ -96,12 +98,13 @@ export const recipeRouter = router({
             }))
           )
           .returning({
-            position: recipeIngredients.position,
-            ingredient: recipeIngredients.ingredient,
+            index: ingredients.index,
+            ingredient: ingredients.ingredient,
           });
 
-        const instructions = await tx
-          .insert(recipeInstructions)
+        // Insert instructions
+        const insertedInstructions = await ctx.db
+          .insert(instructions)
           .values(
             input.instructions.map((instruction) => ({
               ...instruction,
@@ -109,16 +112,38 @@ export const recipeRouter = router({
             }))
           )
           .returning({
-            position: recipeInstructions.position,
-            instruction: recipeInstructions.instruction,
+            index: instructions.index,
+            instruction: instructions.instruction,
           });
+
+        // Insert images
+        let images: { url: string }[] = [];
+        if (input.images && input.images.length > 0) {
+          images = await ctx.db
+            .insert(recipeImages)
+            .values(
+              input.images.map((image) => ({
+                recipeId: recipe.id,
+                url: image.url,
+              }))
+            )
+            .returning({
+              url: recipeImages.url,
+            });
+        }
 
         return {
           ...recipe,
-          ingredients,
-          instructions,
+          ingredients: insertedIngredients,
+          instructions: insertedInstructions,
+          images,
         };
-      });
-      return insertedRecipe;
+      } catch (err) {
+        console.error("Error saving recipe:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to save recipe",
+        });
+      }
     }),
 });

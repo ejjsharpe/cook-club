@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import { TouchableOpacity } from 'react-native';
 
-import { BackIcon } from './svg/BackIcon';
+import { BackIcon } from '@/components/svg/BackIcon';
 
 export const BackButton = ({ color = 'white' }) => {
   const { goBack } = useNavigation();

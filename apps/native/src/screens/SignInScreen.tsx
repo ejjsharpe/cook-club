@@ -5,7 +5,7 @@ import { Platform, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { useSignInWithEmail, useSignInWithSocial } from '@/api/auth';
+import { useSignInWithEmail } from '@/api/auth';
 import { Input } from '@/components/Input';
 import { VSpace } from '@/components/Space';
 import { Text } from '@/components/Text';

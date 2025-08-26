@@ -50,13 +50,13 @@ export interface Recipe {
   prepTime: string;
   cookTime: string;
   totalTime: string;
-  recipeYield: string;
+  servings: number | null;
   categories: string[];
   cuisines: string[];
   keywords: string[];
   nutrition: NutritionInformation;
-  recipeIngredients: string[];
-  recipeInstructions: string[];
+  ingredients: string[];
+  instructions: string[];
 }
 
 const USER_AGENTS = [
@@ -119,12 +119,23 @@ function parseJsonLd(
       if (typeof result.image === "string") {
         result.image = resolveUrl(baseUrl, result.image);
       } else if (Array.isArray(result.image)) {
-        result.image = result.image.map((src: string) =>
-          resolveUrl(baseUrl, src)
-        );
+        result.image = result.image
+          .map((src: any) => {
+            if (typeof src === "string") {
+              return resolveUrl(baseUrl, src);
+            } else if (typeof src === "object" && src) {
+              // Handle image objects with url, @id, or contentUrl properties
+              const imageUrl =
+                src.url || src["@id"] || src.contentUrl || src.src;
+              return imageUrl ? resolveUrl(baseUrl, imageUrl) : "";
+            }
+            return "";
+          })
+          .filter((url: string) => url);
       }
-      if (Array.isArray(item.recipeInstructions)) {
-        result.recipeInstructions = item.recipeInstructions
+
+      if (Array.isArray(item.instructions)) {
+        result.recipeInstructions = item.instructions
           .map((step: any) =>
             typeof step === "string" ? step : step.text || ""
           )
@@ -205,6 +216,34 @@ function normalizeAuthor(a?: OneOrMany<string | Person>): string {
   return first ? (typeof first === "string" ? first : first.name) : "";
 }
 
+function extractServingsFromYield(yieldStr?: string): number | null {
+  if (!yieldStr) return null;
+
+  // Common patterns for servings/yield
+  const patterns = [
+    /(\d+)\s*servings?/i, // "4 servings", "8 Servings"
+    /serves?\s*(\d+)/i, // "serves 4", "Serves 6"
+    /makes?\s*(\d+)/i, // "makes 8", "Makes 12"
+    /(\d+)\s*portions?/i, // "6 portions", "4 Portions"
+    /(\d+)\s*people?/i, // "4 people", "6 People"
+    /yield:?\s*(\d+)/i, // "Yield: 8", "yield 4"
+    /^(\d+)$/, // Just a number "6"
+    /(\d+)\s*-\s*(\d+)/, // Range "4-6", take the first number
+  ];
+
+  for (const pattern of patterns) {
+    const match = yieldStr.match(pattern);
+    if (match) {
+      const num = parseInt(match[1]!, 10);
+      if (!isNaN(num) && num > 0) {
+        return num;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function toRecipe(raw: Partial<RawRecipe>, baseUrl: string): Recipe {
   const nutEntries = raw.nutrition
     ? Object.entries(raw.nutrition).filter(([k]) => k !== "@type")
@@ -220,13 +259,13 @@ export function toRecipe(raw: Partial<RawRecipe>, baseUrl: string): Recipe {
     prepTime: raw.prepTime || "",
     cookTime: raw.cookTime || "",
     totalTime: raw.totalTime || "",
-    recipeYield: raw.recipeYield || "",
+    servings: extractServingsFromYield(raw.recipeYield),
     categories: normalizeStrings(raw.recipeCategory),
     cuisines: normalizeStrings(raw.recipeCuisine),
     keywords: normalizeStrings(raw.keywords),
     nutrition,
-    recipeIngredients: raw.recipeIngredient || [],
-    recipeInstructions: normalize(raw.recipeInstructions)
+    ingredients: raw.recipeIngredient || [],
+    instructions: normalize(raw.recipeInstructions)
       .map((s) => (typeof s === "string" ? s : s.text))
       .filter((s) => !!s),
   };

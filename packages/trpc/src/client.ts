@@ -5,6 +5,7 @@ import {
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 
 import type { AppRouter } from "./server";
+import { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 
 export const createTRPCClient = ({
   apiUrl,
@@ -26,5 +27,8 @@ export const createTRPCClient = ({
     ],
   });
 };
+
+export type Inputs = inferRouterInputs<AppRouter>;
+export type Outputs = inferRouterOutputs<AppRouter>;
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();

@@ -8,14 +8,19 @@ import { Input } from '@/components/Input';
 import { VSpace } from '@/components/Space';
 import { Text } from '@/components/Text';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
+import { useNavigation } from '@react-navigation/native';
 
 export const AddRecipeScreen = () => {
   const [url, setUrl] = useState<string>('');
   const { refetch: fetchRecipe } = useScrapeRecipe({ url });
+  const { navigate } = useNavigation();
 
   const onPressScrapeRecipe = async () => {
     try {
       const scrapedRecipe = await fetchRecipe();
+      if (!scrapedRecipe.data) throw new Error('No recipe data');
+
+      navigate('EditRecipe', { recipe: scrapedRecipe.data });
     } catch (error) {
       console.error('Error scraping recipe:', error);
     }
