@@ -32,6 +32,7 @@ import { SignedInProvider } from '@/lib/signedInContext';
 import { TRPCProvider } from '@/lib/trpc';
 import { Navigation } from '@/navigation/RootStack';
 import { SessionProvider } from '@/lib/sessionContext';
+import { Text, TextComponent, View } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -98,12 +99,12 @@ export default function App() {
   }
 
   return (
-    <ReactQueryProvider>
-      <SessionProvider>
-        <TRPCProvider>
-          <SignedInProvider>
-            <GestureHandlerRootView>
-              <SafeAreaProvider>
+    <SafeAreaProvider>
+      <ReactQueryProvider>
+        <SessionProvider>
+          <TRPCProvider>
+            <SignedInProvider>
+              <GestureHandlerRootView>
                 <Navigation
                   onReady={onNavigationReady}
                   linking={linking}
@@ -112,11 +113,11 @@ export default function App() {
                     colors: { ...DefaultTheme.colors, background: '#FFF' },
                   }}
                 />
-              </SafeAreaProvider>
-            </GestureHandlerRootView>
-          </SignedInProvider>
-        </TRPCProvider>
-      </SessionProvider>
-    </ReactQueryProvider>
+              </GestureHandlerRootView>
+            </SignedInProvider>
+          </TRPCProvider>
+        </SessionProvider>
+      </ReactQueryProvider>
+    </SafeAreaProvider>
   );
 }

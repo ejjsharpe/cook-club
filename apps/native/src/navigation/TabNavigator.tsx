@@ -14,11 +14,11 @@ export const TabNavigator = () => {
         tabBarActiveTintColor: 'black',
         headerShown: false,
       }}>
-      <Tab.Screen name="Search" component={MyRecipesScreen} />
+      <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Add recipe" component={AddRecipeScreen} />
       <Tab.Screen
         name="My Recipes"
-        component={SearchScreen}
+        component={MyRecipesScreen}
         options={{
           tabBarIcon(props) {
             return <OpenBookIcon color={props.color} size={props.size} />;

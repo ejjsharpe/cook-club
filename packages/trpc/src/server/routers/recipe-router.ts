@@ -3,10 +3,12 @@ import {
   recipeInstructions,
   recipeImages,
   recipes,
+  userRecipes,
 } from "@repo/db/schemas";
 import { scrapeRecipe } from "@repo/recipe-scraper";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
+import { eq, lt, desc, and, like } from "drizzle-orm";
 
 import { router, authedProcedure } from "../trpc";
 
@@ -132,6 +134,12 @@ export const recipeRouter = router({
             });
         }
 
+        await ctx.db.insert(userRecipes).values({
+          userId: ctx.user.id,
+          recipeId: recipe.id,
+          createdAt: new Date(),
+        });
+
         return {
           ...recipe,
           ingredients: insertedIngredients,
@@ -144,6 +152,58 @@ export const recipeRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to save recipe",
         });
+      }
+    }),
+
+  getUserRecipes: authedProcedure
+    .input(
+      type({
+        limit: "number = 20",
+        cursor: "number?",
+        search: "string?",
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { limit, cursor, search } = input;
+
+      try {
+        const userRecipesList = await ctx.db
+          .select({
+            recipe: recipes,
+            userRecipe: userRecipes,
+          })
+          .from(userRecipes)
+          .innerJoin(recipes, eq(userRecipes.recipeId, recipes.id))
+          .where(
+            and(
+              eq(userRecipes.userId, ctx.user.id),
+              cursor ? lt(userRecipes.createdAt, new Date(cursor)) : undefined,
+              search
+                ? like(recipes.name, `%${search.toLowerCase()}%`)
+                : undefined
+            )
+          )
+          .orderBy(desc(userRecipes.createdAt))
+          .limit(limit + 1);
+
+        const items = userRecipesList.map((item) => ({
+          ...item.recipe,
+          addedAt: item.userRecipe.createdAt,
+        }));
+
+        let nextCursor: number | undefined = undefined;
+        if (items.length > limit) {
+          const nextItem = items.pop();
+          nextCursor = nextItem?.addedAt.getTime();
+        }
+
+        return {
+          items,
+          nextCursor,
+        };
+      } catch (err) {
+        console.log({ err });
+        throw err;
       }
     }),
 });

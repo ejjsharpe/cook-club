@@ -79,8 +79,6 @@ export default function EditRecipeScreen() {
     },
   });
 
-  console.log(saveRecipeMutation.error);
-
   const onSave = () => {
     // Validate required fields
     if (!title.trim()) {

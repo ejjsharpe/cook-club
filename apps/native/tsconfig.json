@@ -2,5 +2,5 @@
   "extends": "@repo/tsconfig/base.json",
   "compilerOptions": {
     "jsx": "react-native"
-  },
+  }
 }

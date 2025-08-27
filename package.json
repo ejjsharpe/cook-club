@@ -25,12 +25,5 @@
     "sharp",
     "workerd"
   ],
-  "dependencies": {
-    "@better-auth/expo": "^1.2.7",
-    "better-auth": "^1.2.7",
-    "expo": "~53.0.17",
-    "react": "19.0.0",
-    "react-native": "0.79.5"
-  },
   "version": "1.0.0"
 }
