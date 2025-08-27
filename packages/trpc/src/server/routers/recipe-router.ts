@@ -8,7 +8,7 @@ import {
 import { scrapeRecipe } from "@repo/recipe-scraper";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, lt, desc, and, like } from "drizzle-orm";
+import { eq, lt, desc, and, like, count, gte } from "drizzle-orm";
 
 import { router, authedProcedure } from "../trpc";
 
@@ -204,6 +204,46 @@ export const recipeRouter = router({
       } catch (err) {
         console.log({ err });
         throw err;
+      }
+    }),
+
+  getPopularRecipes: authedProcedure
+    .input(
+      type({
+        limit: "number = 10",
+        "daysBack?": "number",
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { limit, daysBack } = input;
+
+      try {
+        // Calculate date threshold (e.g., last 7 days for trending saves)
+        const dateThreshold = new Date();
+        dateThreshold.setDate(dateThreshold.getDate() - (daysBack || 7));
+
+        const popularRecipes = await ctx.db
+          .select({
+            recipe: recipes,
+            saveCount: count(userRecipes.id),
+          })
+          .from(recipes)
+          .leftJoin(userRecipes, eq(recipes.id, userRecipes.recipeId))
+          .where(gte(userRecipes.createdAt, dateThreshold))
+          .groupBy(recipes.id)
+          .orderBy(desc(count(userRecipes.id)))
+          .limit(limit);
+
+        return popularRecipes.map((item) => ({
+          ...item.recipe,
+          saveCount: item.saveCount,
+        }));
+      } catch (err) {
+        console.error("Error fetching popular recipes:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch popular recipes",
+        });
       }
     }),
 });

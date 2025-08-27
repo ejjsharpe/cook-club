@@ -22,3 +22,17 @@ export const useGetUserRecipes = ({ search, limit = 20 }: UseGetUserRecipesParam
 
   return useInfiniteQuery(infiniteQueryOptions);
 };
+
+interface UsePopularRecipesParams {
+  limit?: number;
+  daysBack?: number;
+}
+
+export const usePopularRecipes = ({ limit = 10, daysBack = 7 }: UsePopularRecipesParams = {}) => {
+  const trpc = useTRPC();
+
+  return useQuery({
+    ...trpc.recipe.getPopularRecipes.queryOptions({ limit, daysBack }),
+    staleTime: 1000 * 60 * 15, // 15 minutes - popular recipes don't change often
+  });
+};

@@ -1,2 +1,3 @@
 export * from "./auth-schema";
-export * from "./recipe-schema"
+export * from "./recipe-schema";
+export * from "./follows-schema";
