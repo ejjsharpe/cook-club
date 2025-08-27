@@ -57,11 +57,11 @@ export const FollowsScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Use specific user's data instead of current user's data
-  const { data: userFollowing, isLoading: isLoadingUserFollowing } = useUserFollowing({ userId });
-  const { data: userFollowers, isLoading: isLoadingUserFollowers } = useUserFollowers({ userId });
+  const { data: userFollowing, isPending: isPendingUserFollowing } = useUserFollowing({ userId });
+  const { data: userFollowers, isPending: isPendingUserFollowers } = useUserFollowers({ userId });
 
   // Keep search functionality for current user
-  const { data: searchResults, isLoading: isSearching } = useSearchUsers({
+  const { data: searchResults, isPending: isSearching } = useSearchUsers({
     query: searchQuery,
     limit: 20,
   });
@@ -100,7 +100,7 @@ export const FollowsScreen = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'following':
-        if (isLoadingUserFollowing) {
+        if (isPendingUserFollowing) {
           return (
             <View style={styles.centered}>
               <ActivityIndicator size="large" />
@@ -126,7 +126,7 @@ export const FollowsScreen = () => {
         );
 
       case 'followers':
-        if (isLoadingUserFollowers) {
+        if (isPendingUserFollowers) {
           return (
             <View style={styles.centered}>
               <ActivityIndicator size="large" />
@@ -191,11 +191,10 @@ export const FollowsScreen = () => {
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
-        <VSpace size={8} />
-        <BackButton />
-        <VSpace size={20} />
-
         <View style={styles.header}>
+          <VSpace size={8} />
+          <BackButton />
+          <VSpace size={20} />
           <Text type="title2">{userName}</Text>
           <VSpace size={20} />
 
