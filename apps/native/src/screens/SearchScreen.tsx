@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { View, FlatList, ScrollView } from 'react-native';
+import { View, FlatList, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
+import { useNavigation } from '@react-navigation/native';
 
 import { Text } from '@/components/Text';
 import { Input } from '@/components/Input';
 import { VSpace } from '@/components/Space';
 import { PopularRecipeCard } from '@/components/PopularRecipeCard';
 import { usePopularRecipes } from '@/api/recipe';
+import { useUser } from '@/api/user';
+import { Image } from 'expo-image';
 
 interface PopularRecipe {
   id: number;
@@ -22,6 +25,32 @@ interface PopularRecipe {
 export const SearchScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: popularRecipes, isLoading: isLoadingPopular } = usePopularRecipes();
+  const { data: userProfile } = useUser();
+
+  const navigation = useNavigation();
+
+  const handleAvatarPress = () => {
+    if (userProfile?.user?.id) {
+      navigation.navigate('UserProfile', { userId: userProfile.user.id });
+    }
+  };
+
+  const renderAvatar = () => {
+    if (!userProfile) return null;
+    return (
+      <TouchableOpacity style={styles.avatar} onPress={handleAvatarPress} activeOpacity={0.7}>
+        {userProfile.user.image ? (
+          <Image source={{ uri: userProfile.user.image }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text type="heading" style={styles.avatarText}>
+              {userProfile.user.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const renderPopularRecipe = ({ item }: { item: PopularRecipe }) => (
     <PopularRecipeCard
@@ -91,7 +120,10 @@ export const SearchScreen = () => {
 
           {/* Search Header */}
           <View style={styles.searchContainer}>
-            <Text type="title2">Discover</Text>
+            <View style={styles.headerRow}>
+              <Text type="title2">Discover</Text>
+              {renderAvatar()}
+            </View>
             <VSpace size={16} />
             <Input
               placeholder="Search recipes, ingredients..."
@@ -122,6 +154,32 @@ const styles = StyleSheet.create((theme) => ({
   },
   searchContainer: {
     paddingHorizontal: 20,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 16,
+    color: theme.colors.primary,
   },
   carouselContainer: {
     marginBottom: 32,

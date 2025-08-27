@@ -3,7 +3,7 @@ import { TouchableOpacity } from 'react-native';
 
 import { BackIcon } from '@/components/svg/BackIcon';
 
-export const BackButton = ({ color = 'white' }) => {
+export const BackButton = ({ color = 'black' }) => {
   const { goBack } = useNavigation();
   return (
     <TouchableOpacity onPress={goBack}>

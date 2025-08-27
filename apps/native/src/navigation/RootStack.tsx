@@ -4,6 +4,8 @@ import { lazy } from 'react';
 
 import { TabNavigator } from './TabNavigator';
 import EditRecipeScreen from '@/screens/EditRecipeScreen';
+import { UserProfileScreen } from '@/screens/UserProfileScreen';
+import { FollowsScreen } from '@/screens/FollowsScreen';
 
 import { useIsSignedIn, useIsSignedOut } from '@/lib/signedInContext';
 import { Outputs } from '@repo/trpc/client';
@@ -20,6 +22,8 @@ declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {
       EditRecipe: { recipe: Recipe };
+      UserProfile: { userId: string };
+      FollowsList: { userId: string; activeTab: 'following' | 'followers'; userName: string };
       [key: string]: undefined;
     }
   }
@@ -38,6 +42,8 @@ const RootStack = createNativeStackNavigator({
       screens: {
         Tabs: TabNavigator,
         EditRecipe: { screen: EditRecipeScreen },
+        UserProfile: { screen: UserProfileScreen },
+        FollowsList: { screen: FollowsScreen },
       },
     },
     SignedOut: {
