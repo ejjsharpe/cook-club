@@ -22,7 +22,7 @@ interface PopularRecipe {
   saveCount: number;
 }
 
-export const SearchScreen = () => {
+export const DiscoverScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: popularRecipes, isLoading: isLoadingPopular } = usePopularRecipes();
   const { data: userProfile } = useUser();
@@ -55,10 +55,7 @@ export const SearchScreen = () => {
   const renderPopularRecipe = ({ item }: { item: PopularRecipe }) => (
     <PopularRecipeCard
       recipe={item}
-      onPress={() => {
-        // TODO: Navigate to recipe detail screen
-        console.log('Popular recipe pressed:', item.name);
-      }}
+      onPress={() => navigation.navigate('RecipeDetail', { recipeId: item.id })}
     />
   );
 

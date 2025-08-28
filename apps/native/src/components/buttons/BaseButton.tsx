@@ -12,7 +12,7 @@ interface BaseButtonProps {
   children: React.ReactNode;
   onPress: PressableProps['onPress'];
   disabled?: boolean;
-  style?: ViewStyle;
+  style?: PressableProps['style'];
 }
 
 export function BaseButton({ children, onPress, disabled, style }: BaseButtonProps) {

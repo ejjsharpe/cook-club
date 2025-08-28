@@ -1,5 +1,6 @@
 import { View, TouchableOpacity } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
+import { Image } from 'expo-image';
 
 import { Text } from './Text';
 
@@ -11,6 +12,7 @@ interface PopularRecipe {
   servings?: number | null;
   category?: string | null;
   saveCount: number;
+  coverImage?: string | null;
 }
 
 interface Props {
@@ -21,13 +23,16 @@ interface Props {
 export const PopularRecipeCard = ({ recipe, onPress }: Props) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.content}>
+      {recipe.coverImage && (
+        <Image source={{ uri: recipe.coverImage }} style={styles.coverImage} />
+      )}
+      <View style={[styles.content, recipe.coverImage && styles.contentWithImage]}>
         <Text type="heading" numberOfLines={2} style={styles.title}>
           {recipe.name}
         </Text>
         
         {recipe.description && (
-          <Text type="bodyFaded" numberOfLines={2} style={styles.description}>
+          <Text type="bodyFaded" numberOfLines={recipe.coverImage ? 1 : 2} style={styles.description}>
             {recipe.description}
           </Text>
         )}
@@ -73,10 +78,19 @@ const styles = StyleSheet.create((theme) => ({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3, // Android shadow
+    overflow: 'hidden',
+  },
+  coverImage: {
+    width: '100%',
+    height: 120,
+    backgroundColor: theme.colors.border,
   },
   content: {
     padding: 16,
     height: 140, // Fixed height for consistent carousel appearance
+  },
+  contentWithImage: {
+    height: 120, // Reduced height when image is present
   },
   title: {
     marginBottom: 6,

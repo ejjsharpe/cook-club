@@ -8,16 +8,17 @@ export interface ButtonProps {
   children: string;
   onPress: () => void;
   disabled?: boolean;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
 }
 
 export function PrimaryButton({ children, onPress, disabled, style }: ButtonProps) {
   return (
-    <BaseButton style={styles.container} disabled={disabled} onPress={onPress}>
+    <BaseButton style={[styles.container, style]} disabled={disabled} onPress={onPress}>
       <Text style={styles.text}>{children}</Text>
     </BaseButton>
   );
 }
+
 const styles = StyleSheet.create((theme) => ({
   container: {
     width: '100%',

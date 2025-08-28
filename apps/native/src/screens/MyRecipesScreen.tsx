@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { View, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
+import { useNavigation } from '@react-navigation/native';
 
 import { Text } from '@/components/Text';
 import { Input } from '@/components/Input';
@@ -23,6 +24,7 @@ interface Recipe {
 }
 
 export const MyRecipesScreen = () => {
+  const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } =
@@ -37,10 +39,7 @@ export const MyRecipesScreen = () => {
   const renderRecipe = ({ item }: { item: Recipe }) => (
     <RecipeCard
       recipe={item}
-      onPress={() => {
-        // TODO: Navigate to recipe detail screen
-        console.log('Recipe pressed:', item.name);
-      }}
+      onPress={() => navigation.navigate('RecipeDetail', { recipeId: item.id })}
     />
   );
 

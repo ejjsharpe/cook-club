@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { OpenBookIcon } from '@/components/svg/OpenBookIcon';
 import { AddRecipeScreen } from '@/screens/AddRecipeScreen';
 import { MyRecipesScreen } from '@/screens/MyRecipesScreen';
-import { SearchScreen } from '@/screens/SearchScreen';
+import { DiscoverScreen } from '@/screens/DiscoverScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -14,7 +14,7 @@ export const TabNavigator = () => {
         tabBarActiveTintColor: 'black',
         headerShown: false,
       }}>
-      <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Discover" component={DiscoverScreen} />
       <Tab.Screen name="Add recipe" component={AddRecipeScreen} />
       <Tab.Screen
         name="My Recipes"

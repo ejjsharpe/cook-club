@@ -1,5 +1,6 @@
 import { View, TouchableOpacity } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
+import { Image } from 'expo-image';
 
 import { Text } from './Text';
 import { VSpace } from './Space';
@@ -15,6 +16,7 @@ interface Recipe {
   category?: string | null;
   cuisine?: string | null;
   addedAt: string;
+  coverImage?: string | null;
 }
 
 interface Props {
@@ -25,6 +27,9 @@ interface Props {
 export const RecipeCard = ({ recipe, onPress }: Props) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+      {recipe.coverImage && (
+        <Image source={{ uri: recipe.coverImage }} style={styles.coverImage} />
+      )}
       <View style={styles.content}>
         <Text type="heading" numberOfLines={2}>
           {recipe.name}
@@ -32,7 +37,7 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
         {recipe.description && (
           <>
             <VSpace size={4} />
-            <Text type="bodyFaded" numberOfLines={3}>
+            <Text type="bodyFaded" numberOfLines={recipe.coverImage ? 2 : 3}>
               {recipe.description}
             </Text>
           </>
@@ -68,6 +73,12 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     marginVertical: 6,
     marginHorizontal: 20,
+    overflow: 'hidden',
+  },
+  coverImage: {
+    width: '100%',
+    height: 160,
+    backgroundColor: theme.colors.border,
   },
   content: {
     padding: 16,

@@ -6,6 +6,7 @@ import { TabNavigator } from './TabNavigator';
 import EditRecipeScreen from '@/screens/EditRecipeScreen';
 import { UserProfileScreen } from '@/screens/UserProfileScreen';
 import { FollowsScreen } from '@/screens/FollowsScreen';
+import { RecipeDetailScreen } from '@/screens/RecipeDetailScreen';
 
 import { useIsSignedIn, useIsSignedOut } from '@/lib/signedInContext';
 import { Outputs } from '@repo/trpc/client';
@@ -24,6 +25,7 @@ declare global {
       EditRecipe: { recipe: Recipe };
       UserProfile: { userId: string };
       FollowsList: { userId: string; activeTab: 'following' | 'followers'; userName: string };
+      RecipeDetail: { recipeId: number };
       [key: string]: undefined;
     }
   }
@@ -44,6 +46,7 @@ const RootStack = createNativeStackNavigator({
         EditRecipe: { screen: EditRecipeScreen },
         UserProfile: { screen: UserProfileScreen },
         FollowsList: { screen: FollowsScreen },
+        RecipeDetail: { screen: RecipeDetailScreen },
       },
     },
     SignedOut: {

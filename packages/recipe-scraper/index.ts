@@ -32,7 +32,7 @@ export interface RawRecipe {
   prepTime?: string;
   cookTime?: string;
   totalTime?: string;
-  recipeYield?: string;
+  recipeYield?: OneOrMany<string>;
   recipeCategory?: OneOrMany<string>;
   recipeCuisine?: OneOrMany<string>;
   keywords?: OneOrMany<string>;
@@ -216,8 +216,15 @@ function normalizeAuthor(a?: OneOrMany<string | Person>): string {
   return first ? (typeof first === "string" ? first : first.name) : "";
 }
 
-function extractServingsFromYield(yieldStr?: string): number | null {
-  if (!yieldStr) return null;
+function extractServingsFromYield(
+  yieldValue?: string | string[]
+): number | null {
+  if (!yieldValue) return null;
+
+  // Convert array to string, or use string as-is
+  const yieldStr = Array.isArray(yieldValue)
+    ? yieldValue.join(" ")
+    : yieldValue;
 
   // Common patterns for servings/yield
   const patterns = [

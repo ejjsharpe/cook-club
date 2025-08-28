@@ -4,6 +4,7 @@ import {
   recipeImages,
   recipes,
   userRecipes,
+  user,
 } from "@repo/db/schemas";
 import { scrapeRecipe } from "@repo/recipe-scraper";
 import { TRPCError } from "@trpc/server";
@@ -52,15 +53,24 @@ const UrlValidator = type({ url: "string.url" });
 
 export const recipeRouter = router({
   scrapeRecipe: authedProcedure.input(UrlValidator).query(async ({ input }) => {
-    const recipe = await scrapeRecipe(input.url);
-    if (!recipe) {
+    try {
+      const recipe = await scrapeRecipe(input.url);
+      if (!recipe) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No recipe found at the provided URL.",
+        });
+      }
+      return recipe;
+    } catch (err) {
+      console.error("Error scraping recipe:", err);
+
       throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "No recipe found at the provided URL.",
+        code: "INTERNAL_SERVER_ERROR",
+        message:
+          "Failed to scrape recipe. The website might be blocking requests or experiencing issues.",
       });
     }
-
-    return recipe;
   }),
   postRecipe: authedProcedure
     .input(RecipePostValidator)
@@ -171,9 +181,11 @@ export const recipeRouter = router({
           .select({
             recipe: recipes,
             userRecipe: userRecipes,
+            firstImage: recipeImages.url,
           })
           .from(userRecipes)
           .innerJoin(recipes, eq(userRecipes.recipeId, recipes.id))
+          .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
           .where(
             and(
               eq(userRecipes.userId, ctx.user.id),
@@ -183,12 +195,14 @@ export const recipeRouter = router({
                 : undefined
             )
           )
+          .groupBy(userRecipes.id, recipes.id) // Group to get only one image per recipe
           .orderBy(desc(userRecipes.createdAt))
           .limit(limit + 1);
 
         const items = userRecipesList.map((item) => ({
           ...item.recipe,
           addedAt: item.userRecipe.createdAt,
+          coverImage: item.firstImage,
         }));
 
         let nextCursor: number | undefined = undefined;
@@ -226,9 +240,11 @@ export const recipeRouter = router({
           .select({
             recipe: recipes,
             saveCount: count(userRecipes.id),
+            firstImage: recipeImages.url,
           })
           .from(recipes)
           .leftJoin(userRecipes, eq(recipes.id, userRecipes.recipeId))
+          .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
           .where(gte(userRecipes.createdAt, dateThreshold))
           .groupBy(recipes.id)
           .orderBy(desc(count(userRecipes.id)))
@@ -237,12 +253,176 @@ export const recipeRouter = router({
         return popularRecipes.map((item) => ({
           ...item.recipe,
           saveCount: item.saveCount,
+          coverImage: item.firstImage,
         }));
       } catch (err) {
         console.error("Error fetching popular recipes:", err);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch popular recipes",
+        });
+      }
+    }),
+
+  getRecipeDetail: authedProcedure
+    .input(
+      type({
+        recipeId: "number",
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { recipeId } = input;
+
+      try {
+        // Get recipe with uploader info
+        const recipeData = await ctx.db
+          .select({
+            recipe: recipes,
+            uploader: {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              image: user.image,
+            },
+          })
+          .from(recipes)
+          .innerJoin(user, eq(recipes.uploadedBy, user.id))
+          .where(eq(recipes.id, recipeId))
+          .get();
+
+        if (!recipeData) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Recipe not found",
+          });
+        }
+
+        // Get recipe images
+        const images = await ctx.db
+          .select({
+            id: recipeImages.id,
+            url: recipeImages.url,
+          })
+          .from(recipeImages)
+          .where(eq(recipeImages.recipeId, recipeId));
+
+        // Get recipe ingredients
+        const ingredients = await ctx.db
+          .select({
+            index: recipeIngredients.index,
+            ingredient: recipeIngredients.ingredient,
+          })
+          .from(recipeIngredients)
+          .where(eq(recipeIngredients.recipeId, recipeId))
+          .orderBy(recipeIngredients.index);
+
+        // Get recipe instructions
+        const instructions = await ctx.db
+          .select({
+            index: recipeInstructions.index,
+            instruction: recipeInstructions.instruction,
+          })
+          .from(recipeInstructions)
+          .where(eq(recipeInstructions.recipeId, recipeId))
+          .orderBy(recipeInstructions.index);
+
+        // Get uploader's total recipe count
+        const uploaderRecipeCount = await ctx.db
+          .select({
+            count: count(recipes.id),
+          })
+          .from(recipes)
+          .where(eq(recipes.uploadedBy, recipeData.uploader.id))
+          .get();
+
+        // Check if current user has saved this recipe
+        const isSaved = await ctx.db
+          .select()
+          .from(userRecipes)
+          .where(
+            and(
+              eq(userRecipes.userId, ctx.user.id),
+              eq(userRecipes.recipeId, recipeId)
+            )
+          )
+          .get();
+
+        return {
+          ...recipeData.recipe,
+          uploadedBy: recipeData.uploader,
+          images,
+          ingredients,
+          instructions,
+          userRecipesCount: uploaderRecipeCount?.count || 0,
+          isSaved: !!isSaved,
+        };
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error fetching recipe detail:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch recipe detail",
+        });
+      }
+    }),
+
+  saveRecipe: authedProcedure
+    .input(
+      type({
+        recipeId: "number",
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { recipeId } = input;
+
+      try {
+        // Check if recipe exists
+        const recipe = await ctx.db
+          .select({ id: recipes.id })
+          .from(recipes)
+          .where(eq(recipes.id, recipeId))
+          .get();
+
+        if (!recipe) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Recipe not found",
+          });
+        }
+
+        // Check if already saved
+        const existingSave = await ctx.db
+          .select()
+          .from(userRecipes)
+          .where(
+            and(
+              eq(userRecipes.userId, ctx.user.id),
+              eq(userRecipes.recipeId, recipeId)
+            )
+          )
+          .get();
+
+        if (existingSave) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Recipe already saved",
+          });
+        }
+
+        // Save the recipe
+        await ctx.db.insert(userRecipes).values({
+          userId: ctx.user.id,
+          recipeId,
+          createdAt: new Date(),
+        });
+
+        return { success: true };
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error saving recipe:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to save recipe",
         });
       }
     }),
