@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
@@ -17,19 +17,19 @@ import { TimeValue, parseDuration, formatDurationISO } from '@/utils/timeUtils';
 
 export default function EditRecipeScreen() {
   const route = useRoute<RouteProp<ReactNavigation.RootParamList, 'EditRecipe'>>();
-  const prefill = route.params?.recipe;
+  const prefill = route.params?.scrapedRecipe;
   const navigation = useNavigation();
   const trpc = useTRPC();
 
-  const [title, setTitle] = useState(prefill.name || '');
-  const [author, setAuthor] = useState(prefill.author || '');
-  const [description, setDescription] = useState(prefill.description || '');
-  const [prepTime, setPrepTime] = useState<TimeValue>(parseDuration(prefill.prepTime || ''));
-  const [cookTime, setCookTime] = useState<TimeValue>(parseDuration(prefill.cookTime || ''));
-  const [servings, setServings] = useState<number>(prefill.servings || 4);
-  const [ingredients, setIngredients] = useState<string[]>(prefill.ingredients || []);
-  const [method, setMethod] = useState<string[]>(prefill.instructions || []);
-  const [images, setImages] = useState<string[]>(prefill.images || []);
+  const [title, setTitle] = useState(prefill?.name || '');
+  const [author, setAuthor] = useState(prefill?.author || '');
+  const [description, setDescription] = useState(prefill?.description || '');
+  const [prepTime, setPrepTime] = useState<TimeValue>(parseDuration(prefill?.prepTime || ''));
+  const [cookTime, setCookTime] = useState<TimeValue>(parseDuration(prefill?.cookTime || ''));
+  const [servings, setServings] = useState<number>(prefill?.servings || 4);
+  const [ingredients, setIngredients] = useState<string[]>(prefill?.ingredients || ['']);
+  const [method, setMethod] = useState<string[]>(prefill?.instructions || ['']);
+  const [images, setImages] = useState<string[]>(prefill?.images || []);
 
   const updateIngredient = (idx: number, value: string) => {
     setIngredients((prev) => prev.map((ing, i) => (i === idx ? value : ing)));
@@ -96,10 +96,17 @@ export default function EditRecipeScreen() {
       return;
     }
 
+    if (images.length === 0) {
+      Alert.alert('Error', 'Please add at least one image');
+      return;
+    }
+
+    // Determine if this is a scraped recipe
+    const isScrapedRecipe = !!prefill?.sourceUrl;
+
     // Prepare recipe data
     const recipeData = {
       name: title.trim(),
-      author: author.trim() || undefined,
       description: description.trim() || undefined,
       prepTime: formatDurationISO(prepTime) || undefined,
       cookTime: formatDurationISO(cookTime) || undefined,
@@ -110,7 +117,23 @@ export default function EditRecipeScreen() {
       instructions: method
         .map((step, idx) => ({ index: idx, instruction: step.trim() }))
         .filter((inst) => inst.instruction),
-      images: images.length > 0 ? images.map((url) => ({ url })) : undefined,
+      images: images.map((url) => ({ url })),
+      // Include scraped recipe fields if available
+      ...(isScrapedRecipe &&
+        prefill && {
+          sourceUrl: prefill.sourceUrl,
+          datePublished: prefill.datePublished
+            ? new Date(prefill.datePublished).getTime()
+            : undefined,
+          author: prefill.author,
+          categories: prefill.categories || [],
+          cuisines: prefill.cuisines || [],
+          keywords: prefill.keywords || [],
+        }),
+      // For manual recipes, use the author field from the form
+      ...(!isScrapedRecipe && {
+        author: author.trim() || undefined,
+      }),
     };
 
     saveRecipeMutation.mutate(recipeData);

@@ -41,7 +41,7 @@ export interface RawRecipe {
   recipeInstructions?: OneOrMany<string | { text: string }>;
 }
 
-export interface Recipe {
+export interface ScrapedRecipe {
   name: string;
   description: string;
   images: string[];
@@ -57,6 +57,7 @@ export interface Recipe {
   nutrition: NutritionInformation;
   ingredients: string[];
   instructions: string[];
+  sourceUrl: string;
 }
 
 const USER_AGENTS = [
@@ -251,7 +252,10 @@ function extractServingsFromYield(
   return null;
 }
 
-export function toRecipe(raw: Partial<RawRecipe>, baseUrl: string): Recipe {
+export function toRecipe(
+  raw: Partial<RawRecipe>,
+  baseUrl: string
+): ScrapedRecipe {
   const nutEntries = raw.nutrition
     ? Object.entries(raw.nutrition).filter(([k]) => k !== "@type")
     : [];
@@ -275,10 +279,11 @@ export function toRecipe(raw: Partial<RawRecipe>, baseUrl: string): Recipe {
     instructions: normalize(raw.recipeInstructions)
       .map((s) => (typeof s === "string" ? s : s.text))
       .filter((s) => !!s),
+    sourceUrl: baseUrl,
   };
 }
 
-export async function scrapeRecipe(url: string): Promise<Recipe> {
+export async function scrapeRecipe(url: string): Promise<ScrapedRecipe> {
   const html = await fetchHTMLContent(url);
   const $ = cheerio.load(html);
   const jsonLd = parseJsonLd($, url);

@@ -20,7 +20,7 @@ export const AddRecipeScreen = () => {
       const scrapedRecipe = await fetchRecipe();
       if (!scrapedRecipe.data) throw new Error('No recipe data');
 
-      navigate('EditRecipe', { recipe: scrapedRecipe.data });
+      navigate('EditRecipe', { scrapedRecipe: scrapedRecipe.data });
     } catch (error) {
       // TODO: handle badly scraped recipe
       console.error('Error scraping recipe:', error);

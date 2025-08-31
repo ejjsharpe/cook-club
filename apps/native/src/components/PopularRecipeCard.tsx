@@ -23,20 +23,21 @@ interface Props {
 export const PopularRecipeCard = ({ recipe, onPress }: Props) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      {recipe.coverImage && (
-        <Image source={{ uri: recipe.coverImage }} style={styles.coverImage} />
-      )}
+      {recipe.coverImage && <Image source={{ uri: recipe.coverImage }} style={styles.coverImage} />}
       <View style={[styles.content, recipe.coverImage && styles.contentWithImage]}>
         <Text type="heading" numberOfLines={2} style={styles.title}>
           {recipe.name}
         </Text>
-        
+
         {recipe.description && (
-          <Text type="bodyFaded" numberOfLines={recipe.coverImage ? 1 : 2} style={styles.description}>
+          <Text
+            type="bodyFaded"
+            numberOfLines={recipe.coverImage ? 1 : 2}
+            style={styles.description}>
             {recipe.description}
           </Text>
         )}
-        
+
         <View style={styles.footer}>
           <View style={styles.metadata}>
             {recipe.totalTime && (
@@ -44,13 +45,8 @@ export const PopularRecipeCard = ({ recipe, onPress }: Props) => {
                 {recipe.totalTime}
               </Text>
             )}
-            {recipe.category && (
-              <Text type="bodyFaded" style={styles.metadataText}>
-                {recipe.category}
-              </Text>
-            )}
           </View>
-          
+
           <View style={styles.popularityBadge}>
             <Text type="highlight" style={styles.saveCount}>
               {recipe.saveCount} saves

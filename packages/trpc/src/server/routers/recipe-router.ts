@@ -5,11 +5,12 @@ import {
   recipes,
   userRecipes,
   user,
+  tags,
 } from "@repo/db/schemas";
 import { scrapeRecipe } from "@repo/recipe-scraper";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, lt, desc, and, like, count, gte } from "drizzle-orm";
+import { eq, lt, desc, and, like, count, gte, inArray } from "drizzle-orm";
 
 import { router, authedProcedure } from "../trpc";
 
@@ -29,24 +30,19 @@ const InstructionRecord = type({
 
 export const RecipePostValidator = type({
   name: "string",
-  ingredients: IngredientRecord.array(),
-  instructions: InstructionRecord.array(),
+  ingredients: IngredientRecord.array().atLeastLength(1),
+  instructions: InstructionRecord.array().atLeastLength(1),
+  images: ImageRecord.array().atLeastLength(1),
 
   "sourceUrl?": "string",
-  "datePublished?": "number",
-  "author?": "string",
-  "scrapedAt?": "number",
+  "categories?": "string[]",
+  "cuisines?": "string[]",
 
   "description?": "string",
   "prepTime?": "string",
   "cookTime?": "string",
   "totalTime?": "string",
-  "servings?": "number",
-  "category?": "string",
-  "cuisine?": "string",
-  "keywords?": "string",
-  "nutrition?": "string",
-  "images?": ImageRecord.array(),
+  servings: "number > 0",
 });
 
 const UrlValidator = type({ url: "string.url" });
@@ -82,6 +78,52 @@ export const recipeRouter = router({
         });
       }
 
+      // Validate categories exist in tags table
+      if (input.categories && input.categories.length > 0) {
+        const existingCategoryTags = await ctx.db
+          .select({ name: tags.name })
+          .from(tags)
+          .where(
+            and(eq(tags.type, "category"), inArray(tags.name, input.categories))
+          );
+
+        const existingCategoryNames = existingCategoryTags.map(
+          (tag) => tag.name
+        );
+        const invalidCategories = input.categories.filter(
+          (cat) => !existingCategoryNames.includes(cat)
+        );
+
+        if (invalidCategories.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Invalid categories: ${invalidCategories.join(", ")}.`,
+          });
+        }
+      }
+
+      // Validate cuisines exist in tags table
+      if (input.cuisines && input.cuisines.length > 0) {
+        const existingCuisineTags = await ctx.db
+          .select({ name: tags.name })
+          .from(tags)
+          .where(
+            and(eq(tags.type, "cuisine"), inArray(tags.name, input.cuisines))
+          );
+
+        const existingCuisineNames = existingCuisineTags.map((tag) => tag.name);
+        const invalidCuisines = input.cuisines.filter(
+          (cuisine) => !existingCuisineNames.includes(cuisine)
+        );
+
+        if (invalidCuisines.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Invalid cuisines: ${invalidCuisines.join(", ")}.`,
+          });
+        }
+      }
+
       try {
         // TODO: Transactions currently not supported in drizzle with D1. Fix later
         // Insert recipe
@@ -89,10 +131,6 @@ export const recipeRouter = router({
           .insert(recipes)
           .values({
             ...input,
-            datePublished: input.datePublished
-              ? new Date(input.datePublished)
-              : null,
-            scrapedAt: input.scrapedAt ? new Date(input.scrapedAt) : null,
             createdAt: new Date(),
             updatedAt: new Date(),
             uploadedBy: ctx.user.id,
@@ -128,21 +166,18 @@ export const recipeRouter = router({
             instruction: recipeInstructions.instruction,
           });
 
-        // Insert images
-        let images: { url: string }[] = [];
-        if (input.images && input.images.length > 0) {
-          images = await ctx.db
-            .insert(recipeImages)
-            .values(
-              input.images.map((image) => ({
-                recipeId: recipe.id,
-                url: image.url,
-              }))
-            )
-            .returning({
-              url: recipeImages.url,
-            });
-        }
+        // Insert images (required)
+        const images = await ctx.db
+          .insert(recipeImages)
+          .values(
+            input.images.map((image: any) => ({
+              recipeId: recipe.id,
+              url: image.url,
+            }))
+          )
+          .returning({
+            url: recipeImages.url,
+          });
 
         await ctx.db.insert(userRecipes).values({
           userId: ctx.user.id,

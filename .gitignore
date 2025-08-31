@@ -28,5 +28,8 @@ android
 logs/
 *.log
 
+# Cache folders
+.cache/
+
 .nx/cache
 .nx/workspace-data

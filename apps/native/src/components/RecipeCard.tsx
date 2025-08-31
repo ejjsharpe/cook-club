@@ -27,9 +27,7 @@ interface Props {
 export const RecipeCard = ({ recipe, onPress }: Props) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      {recipe.coverImage && (
-        <Image source={{ uri: recipe.coverImage }} style={styles.coverImage} />
-      )}
+      {recipe.coverImage && <Image source={{ uri: recipe.coverImage }} style={styles.coverImage} />}
       <View style={styles.content}>
         <Text type="heading" numberOfLines={2}>
           {recipe.name}
@@ -52,11 +50,6 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
           {recipe.servings && (
             <Text type="bodyFaded" style={styles.metadataText}>
               {recipe.servings} servings
-            </Text>
-          )}
-          {recipe.category && (
-            <Text type="bodyFaded" style={styles.metadataText}>
-              {recipe.category}
             </Text>
           )}
         </View>

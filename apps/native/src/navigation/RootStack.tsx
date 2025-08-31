@@ -11,7 +11,7 @@ import { RecipeDetailScreen } from '@/screens/RecipeDetailScreen';
 import { useIsSignedIn, useIsSignedOut } from '@/lib/signedInContext';
 import { Outputs } from '@repo/trpc/client';
 
-type Recipe = Outputs['recipe']['scrapeRecipe'];
+type ScrapedRecipe = Outputs['recipe']['scrapeRecipe'];
 
 const StartScreen = lazy(() => import('@/screens/StartScreen'));
 const SignUpScreen = lazy(() => import('@/screens/SignUpScreen'));
@@ -22,7 +22,7 @@ type RootStackParamList = StaticParamList<typeof RootStack>;
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {
-      EditRecipe: { recipe: Recipe };
+      EditRecipe: { scrapedRecipe?: ScrapedRecipe };
       UserProfile: { userId: string };
       FollowsList: { userId: string; activeTab: 'following' | 'followers'; userName: string };
       RecipeDetail: { recipeId: number };

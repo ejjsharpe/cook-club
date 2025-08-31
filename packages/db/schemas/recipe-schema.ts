@@ -11,18 +11,12 @@ export const recipes = sqliteTable("recipes", {
   cookTime: text("cook_time"),
   totalTime: text("total_time"),
   servings: integer("servings"),
-  category: text("category"),
-  cuisine: text("cuisine"),
-  keywords: text("keywords"),
   nutrition: text("nutrition"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 
   // properties for scraped recipes
-  author: text("author"),
-  scrapedAt: integer("scraped_at", { mode: "timestamp" }), // only for scraped recipes
   sourceUrl: text("source_url"),
-  datePublished: integer("date_published", { mode: "timestamp" }),
 });
 
 // ─── Join table: which users have saved or uploaded recipes ─────────────────
@@ -62,4 +56,21 @@ export const recipeInstructions = sqliteTable("recipe_instructions", {
     .references(() => recipes.id, { onDelete: "cascade" }),
   index: integer("index").notNull(),
   instruction: text("instruction").notNull(),
+});
+
+// ─── Tags system ─────────────────────────────────────────────────────────────
+export const tags = sqliteTable("tags", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  type: text("type").notNull(), // e.g., "cuisine", "meal_type", "occasion"
+  name: text("name").notNull(), // e.g., "Italian", "Breakfast", "Birthday Party"
+});
+
+export const recipeTags = sqliteTable("recipe_tags", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  recipeId: integer("recipe_id")
+    .notNull()
+    .references(() => recipes.id, { onDelete: "cascade" }),
+  tagId: integer("tag_id")
+    .notNull()
+    .references(() => tags.id, { onDelete: "cascade" }),
 });
