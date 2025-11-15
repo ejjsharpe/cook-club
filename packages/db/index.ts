@@ -1,16 +1,19 @@
-import { drizzle, DrizzleD1Database } from "drizzle-orm/d1";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 
 import * as schema from "./schemas";
 
 interface Env {
-  DB: D1Database;
+  DATABASE_URL: string;
 }
 
-export let db: DrizzleD1Database<typeof schema>;
+export let db: NeonHttpDatabase<typeof schema>;
 
 export function getDb(env: Env) {
   if (!db) {
-    db = drizzle(env.DB);
+    const sql = neon(env.DATABASE_URL);
+    db = drizzle(sql, { schema });
   }
   return db;
 }

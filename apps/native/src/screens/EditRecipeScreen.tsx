@@ -74,8 +74,8 @@ export default function EditRecipeScreen() {
 
   const saveRecipeMutation = useMutation({
     ...trpc.recipe.postRecipe.mutationOptions(),
-    onSuccess: () => {
-      navigation.navigate('Recipe Detail');
+    onSuccess: ({ id }) => {
+      navigation.navigate('RecipeDetail', { recipeId: id });
     },
   });
 
@@ -126,8 +126,10 @@ export default function EditRecipeScreen() {
             ? new Date(prefill.datePublished).getTime()
             : undefined,
           author: prefill.author,
-          categories: prefill.categories || [],
-          cuisines: prefill.cuisines || [],
+          categories: [],
+          // categories: prefill.categories || [],
+          cusines: [],
+          // cuisines: prefill.cuisines || [],
           keywords: prefill.keywords || [],
         }),
       // For manual recipes, use the author field from the form

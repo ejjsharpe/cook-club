@@ -9,7 +9,7 @@ import { Env } from "../types";
 function createAuth(env: Env) {
   return betterAuth({
     database: drizzleAdapter(getDb(env), {
-      provider: "sqlite",
+      provider: "pg",
       schema,
     }),
     plugins: [expo()],

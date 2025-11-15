@@ -34,7 +34,7 @@ export const followsRouter = router({
               eq(follows.followingId, userId)
             )
           )
-          .get();
+          .then((rows) => rows[0]);
 
         if (existingFollow) {
           throw new TRPCError({
@@ -48,7 +48,7 @@ export const followsRouter = router({
           .select({ id: user.id })
           .from(user)
           .where(eq(user.id, userId))
-          .get();
+          .then((rows) => rows[0]);
 
         if (!targetUser) {
           throw new TRPCError({
@@ -66,7 +66,7 @@ export const followsRouter = router({
             createdAt: new Date(),
           })
           .returning()
-          .get();
+          .then((rows) => rows[0]);
 
         return follow;
       } catch (err) {
@@ -98,7 +98,7 @@ export const followsRouter = router({
               eq(follows.followingId, userId)
             )
           )
-          .get();
+          .then((rows) => rows[0]);
 
         if (!follow) {
           throw new TRPCError({
@@ -245,7 +245,7 @@ export const followsRouter = router({
           })
           .from(user)
           .where(eq(user.id, userId))
-          .get();
+          .then((rows) => rows[0]);
 
         if (!targetUser) {
           throw new TRPCError({
@@ -264,7 +264,7 @@ export const followsRouter = router({
               eq(follows.followingId, userId)
             )
           )
-          .get();
+          .then((rows) => rows[0]);
 
         // Check if they're following me
         const followsMe = await ctx.db
@@ -276,7 +276,7 @@ export const followsRouter = router({
               eq(follows.followingId, ctx.user.id)
             )
           )
-          .get();
+          .then((rows) => rows[0]);
 
         // Get follower/following counts
         const [followersCount, followingCount] = await Promise.all([

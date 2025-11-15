@@ -10,7 +10,7 @@ import {
 import { scrapeRecipe } from "@repo/recipe-scraper";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, lt, desc, and, like, count, gte, inArray } from "drizzle-orm";
+import { eq, lt, desc, and, like, count, gte, inArray, min } from "drizzle-orm";
 
 import { router, authedProcedure } from "../trpc";
 
@@ -125,72 +125,84 @@ export const recipeRouter = router({
       }
 
       try {
-        // TODO: Transactions currently not supported in drizzle with D1. Fix later
-        // Insert recipe
-        const recipe = await ctx.db
-          .insert(recipes)
-          .values({
-            ...input,
+        // Use transaction to ensure all inserts succeed or all fail
+        const result = await ctx.db.transaction(async (tx) => {
+          // Insert recipe
+          const recipe = await tx
+            .insert(recipes)
+            .values({
+              ...input,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              uploadedBy: ctx.user.id,
+            })
+            .returning()
+            .then((rows) => rows[0]);
+
+          if (!recipe) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Failed to create recipe",
+            });
+          }
+
+          // Insert ingredients
+          const insertedIngredients = await tx
+            .insert(recipeIngredients)
+            .values(
+              input.ingredients.map((ingredient) => ({
+                ...ingredient,
+                recipeId: recipe.id,
+              }))
+            )
+            .returning({
+              index: recipeIngredients.index,
+              ingredient: recipeIngredients.ingredient,
+            });
+
+          // Insert instructions
+          const insertedInstructions = await tx
+            .insert(recipeInstructions)
+            .values(
+              input.instructions.map((instruction) => ({
+                ...instruction,
+                recipeId: recipe.id,
+              }))
+            )
+            .returning({
+              index: recipeInstructions.index,
+              instruction: recipeInstructions.instruction,
+            });
+
+          // Insert images (required)
+          const images = await tx
+            .insert(recipeImages)
+            .values(
+              input.images.map((image: any) => ({
+                recipeId: recipe.id,
+                url: image.url,
+              }))
+            )
+            .returning({
+              url: recipeImages.url,
+            });
+
+          // Insert user recipe relationship
+          await tx.insert(userRecipes).values({
+            userId: ctx.user.id,
+            recipeId: recipe.id,
             createdAt: new Date(),
-            updatedAt: new Date(),
-            uploadedBy: ctx.user.id,
-          })
-          .returning()
-          .get();
-
-        // Insert ingredients
-        const insertedIngredients = await ctx.db
-          .insert(recipeIngredients)
-          .values(
-            input.ingredients.map((ingredient) => ({
-              ...ingredient,
-              recipeId: recipe.id,
-            }))
-          )
-          .returning({
-            index: recipeIngredients.index,
-            ingredient: recipeIngredients.ingredient,
           });
 
-        // Insert instructions
-        const insertedInstructions = await ctx.db
-          .insert(recipeInstructions)
-          .values(
-            input.instructions.map((instruction) => ({
-              ...instruction,
-              recipeId: recipe.id,
-            }))
-          )
-          .returning({
-            index: recipeInstructions.index,
-            instruction: recipeInstructions.instruction,
-          });
-
-        // Insert images (required)
-        const images = await ctx.db
-          .insert(recipeImages)
-          .values(
-            input.images.map((image: any) => ({
-              recipeId: recipe.id,
-              url: image.url,
-            }))
-          )
-          .returning({
-            url: recipeImages.url,
-          });
-
-        await ctx.db.insert(userRecipes).values({
-          userId: ctx.user.id,
-          recipeId: recipe.id,
-          createdAt: new Date(),
+          return {
+            ...recipe,
+            ingredients: insertedIngredients,
+            instructions: insertedInstructions,
+            images,
+          };
         });
 
-        return {
-          ...recipe,
-          ingredients: insertedIngredients,
-          instructions: insertedInstructions,
-          images,
-        };
+        return result;
       } catch (err) {
         console.error("Error saving recipe:", err);
         throw new TRPCError({
@@ -216,7 +228,7 @@ export const recipeRouter = router({
           .select({
             recipe: recipes,
             userRecipe: userRecipes,
-            firstImage: recipeImages.url,
+            firstImage: min(recipeImages.url),
           })
           .from(userRecipes)
           .innerJoin(recipes, eq(userRecipes.recipeId, recipes.id))
@@ -275,7 +287,7 @@ export const recipeRouter = router({
           .select({
             recipe: recipes,
             saveCount: count(userRecipes.id),
-            firstImage: recipeImages.url,
+            firstImage: min(recipeImages.url),
           })
           .from(recipes)
           .leftJoin(userRecipes, eq(recipes.id, userRecipes.recipeId))
@@ -323,7 +335,7 @@ export const recipeRouter = router({
           .from(recipes)
           .innerJoin(user, eq(recipes.uploadedBy, user.id))
           .where(eq(recipes.id, recipeId))
-          .get();
+          .then((rows) => rows[0]);
 
         if (!recipeData) {
           throw new TRPCError({
@@ -368,7 +380,7 @@ export const recipeRouter = router({
           })
           .from(recipes)
           .where(eq(recipes.uploadedBy, recipeData.uploader.id))
-          .get();
+          .then((rows) => rows[0]);
 
         // Check if current user has saved this recipe
         const isSaved = await ctx.db
@@ -380,7 +392,7 @@ export const recipeRouter = router({
               eq(userRecipes.recipeId, recipeId)
             )
           )
-          .get();
+          .then((rows) => rows[0]);
 
         return {
           ...recipeData.recipe,
@@ -416,7 +428,7 @@ export const recipeRouter = router({
           .select({ id: recipes.id })
           .from(recipes)
           .where(eq(recipes.id, recipeId))
-          .get();
+          .then((rows) => rows[0]);
 
         if (!recipe) {
           throw new TRPCError({
@@ -435,7 +447,7 @@ export const recipeRouter = router({
               eq(userRecipes.recipeId, recipeId)
             )
           )
-          .get();
+          .then((rows) => rows[0]);
 
         if (existingSave) {
           throw new TRPCError({

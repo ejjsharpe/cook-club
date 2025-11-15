@@ -4,9 +4,11 @@
   "main": "index.ts",
   "scripts": {
     "generate": "drizzle-kit generate",
-    "migrate": "bunx wrangler d1 migrations apply cook-club-db --local --config ../../apps/server/wrangler.jsonc"
+    "migrate": "drizzle-kit migrate",
+    "push": "drizzle-kit push"
   },
   "dependencies": {
+    "@neondatabase/serverless": "latest",
     "drizzle-orm": "0.44.3"
   },
   "devDependencies": {

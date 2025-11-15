@@ -1,21 +1,14 @@
 import { defineConfig } from "drizzle-kit";
 
-if (
-  !process.env.CLOUDFLARE_ACCOUNT_ID ||
-  !process.env.CLOUDFLARE_DATABASE_ID ||
-  !process.env.CLOUDFLARE_D1_TOKEN
-) {
-  throw new Error("Missing env variables");
+if (!process.env.DATABASE_URL) {
+  throw new Error("Missing DATABASE_URL environment variable");
 }
 
 export default defineConfig({
   out: "./drizzle",
   schema: "./schemas",
-  dialect: "sqlite",
-  driver: "d1-http",
+  dialect: "postgresql",
   dbCredentials: {
-    accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
-    databaseId: process.env.CLOUDFLARE_DATABASE_ID,
-    token: process.env.CLOUDFLARE_D1_TOKEN,
+    url: process.env.DATABASE_URL,
   },
 });
