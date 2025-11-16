@@ -4,13 +4,25 @@ import {
   recipeImages,
   recipes,
   userRecipes,
+  userLikes,
   user,
   tags,
+  recipeTags,
 } from "@repo/db/schemas";
 import { scrapeRecipe } from "@repo/recipe-scraper";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, lt, desc, and, like, count, gte, inArray, min } from "drizzle-orm";
+import {
+  eq,
+  lt,
+  desc,
+  and,
+  like,
+  count,
+  inArray,
+  min,
+  sql,
+} from "drizzle-orm";
 
 import { router, authedProcedure } from "../trpc";
 
@@ -78,15 +90,28 @@ export const recipeRouter = router({
         });
       }
 
-      // Validate categories exist in tags table
-      if (input.categories && input.categories.length > 0) {
-        const existingCategoryTags = await ctx.db
-          .select({ name: tags.name })
-          .from(tags)
-          .where(
-            and(eq(tags.type, "category"), inArray(tags.name, input.categories))
-          );
+      // Parallelize validation queries
+      const [existingCategoryTags, existingCuisineTags] = await Promise.all([
+        input.categories && input.categories.length > 0
+          ? ctx.db
+              .select({ name: tags.name })
+              .from(tags)
+              .where(
+                and(eq(tags.type, "category"), inArray(tags.name, input.categories))
+              )
+          : Promise.resolve([]),
+        input.cuisines && input.cuisines.length > 0
+          ? ctx.db
+              .select({ name: tags.name })
+              .from(tags)
+              .where(
+                and(eq(tags.type, "cuisine"), inArray(tags.name, input.cuisines))
+              )
+          : Promise.resolve([]),
+      ]);
 
+      // Validate categories
+      if (input.categories && input.categories.length > 0) {
         const existingCategoryNames = existingCategoryTags.map(
           (tag) => tag.name
         );
@@ -102,15 +127,8 @@ export const recipeRouter = router({
         }
       }
 
-      // Validate cuisines exist in tags table
+      // Validate cuisines
       if (input.cuisines && input.cuisines.length > 0) {
-        const existingCuisineTags = await ctx.db
-          .select({ name: tags.name })
-          .from(tags)
-          .where(
-            and(eq(tags.type, "cuisine"), inArray(tags.name, input.cuisines))
-          );
-
         const existingCuisineNames = existingCuisineTags.map((tag) => tag.name);
         const invalidCuisines = input.cuisines.filter(
           (cuisine) => !existingCuisineNames.includes(cuisine)
@@ -268,49 +286,6 @@ export const recipeRouter = router({
       }
     }),
 
-  getPopularRecipes: authedProcedure
-    .input(
-      type({
-        limit: "number = 10",
-        "daysBack?": "number",
-      })
-    )
-    .query(async ({ ctx, input }) => {
-      const { limit, daysBack } = input;
-
-      try {
-        // Calculate date threshold (e.g., last 7 days for trending saves)
-        const dateThreshold = new Date();
-        dateThreshold.setDate(dateThreshold.getDate() - (daysBack || 7));
-
-        const popularRecipes = await ctx.db
-          .select({
-            recipe: recipes,
-            saveCount: count(userRecipes.id),
-            firstImage: min(recipeImages.url),
-          })
-          .from(recipes)
-          .leftJoin(userRecipes, eq(recipes.id, userRecipes.recipeId))
-          .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
-          .where(gte(userRecipes.createdAt, dateThreshold))
-          .groupBy(recipes.id)
-          .orderBy(desc(count(userRecipes.id)))
-          .limit(limit);
-
-        return popularRecipes.map((item) => ({
-          ...item.recipe,
-          saveCount: item.saveCount,
-          coverImage: item.firstImage,
-        }));
-      } catch (err) {
-        console.error("Error fetching popular recipes:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch popular recipes",
-        });
-      }
-    }),
-
   getRecipeDetail: authedProcedure
     .input(
       type({
@@ -321,7 +296,7 @@ export const recipeRouter = router({
       const { recipeId } = input;
 
       try {
-        // Get recipe with uploader info
+        // Single query with all aggregations and checks
         const recipeData = await ctx.db
           .select({
             recipe: recipes,
@@ -331,6 +306,28 @@ export const recipeRouter = router({
               email: user.email,
               image: user.image,
             },
+            likeCount: sql<number>`(
+              SELECT COUNT(*) FROM ${userLikes}
+              WHERE ${userLikes.recipeId} = ${recipes.id}
+            )`,
+            saveCount: sql<number>`(
+              SELECT COUNT(*) FROM ${userRecipes}
+              WHERE ${userRecipes.recipeId} = ${recipes.id}
+            )`,
+            uploaderRecipeCount: sql<number>`(
+              SELECT COUNT(*) FROM ${recipes} AS r
+              WHERE r.uploaded_by = ${recipes.uploadedBy}
+            )`,
+            isSaved: sql<boolean>`EXISTS(
+              SELECT 1 FROM ${userRecipes}
+              WHERE ${userRecipes.recipeId} = ${recipes.id}
+              AND ${userRecipes.userId} = ${ctx.user.id}
+            )`,
+            isLiked: sql<boolean>`EXISTS(
+              SELECT 1 FROM ${userLikes}
+              WHERE ${userLikes.recipeId} = ${recipes.id}
+              AND ${userLikes.userId} = ${ctx.user.id}
+            )`,
           })
           .from(recipes)
           .innerJoin(user, eq(recipes.uploadedBy, user.id))
@@ -344,55 +341,31 @@ export const recipeRouter = router({
           });
         }
 
-        // Get recipe images
-        const images = await ctx.db
-          .select({
-            id: recipeImages.id,
-            url: recipeImages.url,
-          })
-          .from(recipeImages)
-          .where(eq(recipeImages.recipeId, recipeId));
+        // Parallelize remaining queries
+        const [images, ingredients, instructions] = await Promise.all([
+          ctx.db
+            .select({ id: recipeImages.id, url: recipeImages.url })
+            .from(recipeImages)
+            .where(eq(recipeImages.recipeId, recipeId)),
 
-        // Get recipe ingredients
-        const ingredients = await ctx.db
-          .select({
-            index: recipeIngredients.index,
-            ingredient: recipeIngredients.ingredient,
-          })
-          .from(recipeIngredients)
-          .where(eq(recipeIngredients.recipeId, recipeId))
-          .orderBy(recipeIngredients.index);
+          ctx.db
+            .select({
+              index: recipeIngredients.index,
+              ingredient: recipeIngredients.ingredient,
+            })
+            .from(recipeIngredients)
+            .where(eq(recipeIngredients.recipeId, recipeId))
+            .orderBy(recipeIngredients.index),
 
-        // Get recipe instructions
-        const instructions = await ctx.db
-          .select({
-            index: recipeInstructions.index,
-            instruction: recipeInstructions.instruction,
-          })
-          .from(recipeInstructions)
-          .where(eq(recipeInstructions.recipeId, recipeId))
-          .orderBy(recipeInstructions.index);
-
-        // Get uploader's total recipe count
-        const uploaderRecipeCount = await ctx.db
-          .select({
-            count: count(recipes.id),
-          })
-          .from(recipes)
-          .where(eq(recipes.uploadedBy, recipeData.uploader.id))
-          .then((rows) => rows[0]);
-
-        // Check if current user has saved this recipe
-        const isSaved = await ctx.db
-          .select()
-          .from(userRecipes)
-          .where(
-            and(
-              eq(userRecipes.userId, ctx.user.id),
-              eq(userRecipes.recipeId, recipeId)
-            )
-          )
-          .then((rows) => rows[0]);
+          ctx.db
+            .select({
+              index: recipeInstructions.index,
+              instruction: recipeInstructions.instruction,
+            })
+            .from(recipeInstructions)
+            .where(eq(recipeInstructions.recipeId, recipeId))
+            .orderBy(recipeInstructions.index),
+        ]);
 
         return {
           ...recipeData.recipe,
@@ -400,8 +373,11 @@ export const recipeRouter = router({
           images,
           ingredients,
           instructions,
-          userRecipesCount: uploaderRecipeCount?.count || 0,
-          isSaved: !!isSaved,
+          userRecipesCount: recipeData.uploaderRecipeCount,
+          isSaved: recipeData.isSaved,
+          isLiked: recipeData.isLiked,
+          likeCount: recipeData.likeCount,
+          saveCount: recipeData.saveCount,
         };
       } catch (err) {
         if (err instanceof TRPCError) throw err;
@@ -450,10 +426,16 @@ export const recipeRouter = router({
           .then((rows) => rows[0]);
 
         if (existingSave) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Recipe already saved",
-          });
+          // Unsave - remove the save
+          await ctx.db
+            .delete(userRecipes)
+            .where(
+              and(
+                eq(userRecipes.userId, ctx.user.id),
+                eq(userRecipes.recipeId, recipeId)
+              )
+            );
+          return { success: true, saved: false };
         }
 
         // Save the recipe
@@ -463,7 +445,7 @@ export const recipeRouter = router({
           createdAt: new Date(),
         });
 
-        return { success: true };
+        return { success: true, saved: true };
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         console.error("Error saving recipe:", err);
@@ -473,4 +455,263 @@ export const recipeRouter = router({
         });
       }
     }),
+
+  unsaveRecipe: authedProcedure
+    .input(
+      type({
+        recipeId: "number",
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { recipeId } = input;
+
+      try {
+        // Delete the save record
+        await ctx.db
+          .delete(userRecipes)
+          .where(
+            and(
+              eq(userRecipes.userId, ctx.user.id),
+              eq(userRecipes.recipeId, recipeId)
+            )
+          );
+
+        return { success: true };
+      } catch (err) {
+        console.error("Error unsaving recipe:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to unsave recipe",
+        });
+      }
+    }),
+
+  likeRecipe: authedProcedure
+    .input(
+      type({
+        recipeId: "number",
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { recipeId } = input;
+
+      try {
+        // Check if recipe exists
+        const recipe = await ctx.db
+          .select({ id: recipes.id })
+          .from(recipes)
+          .where(eq(recipes.id, recipeId))
+          .then((rows) => rows[0]);
+
+        if (!recipe) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Recipe not found",
+          });
+        }
+
+        // Check if already liked
+        const existingLike = await ctx.db
+          .select()
+          .from(userLikes)
+          .where(
+            and(
+              eq(userLikes.userId, ctx.user.id),
+              eq(userLikes.recipeId, recipeId)
+            )
+          )
+          .then((rows) => rows[0]);
+
+        if (existingLike) {
+          // Unlike - remove the like
+          await ctx.db
+            .delete(userLikes)
+            .where(
+              and(
+                eq(userLikes.userId, ctx.user.id),
+                eq(userLikes.recipeId, recipeId)
+              )
+            );
+          return { success: true, liked: false };
+        }
+
+        // Like the recipe
+        await ctx.db.insert(userLikes).values({
+          userId: ctx.user.id,
+          recipeId,
+          createdAt: new Date(),
+        });
+
+        return { success: true, liked: true };
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error liking recipe:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to like recipe",
+        });
+      }
+    }),
+
+  getRecommendedRecipes: authedProcedure
+    .input(
+      type({
+        limit: "number = 20",
+        cursor: "number?",
+        "tagIds?": "number[]",
+        "maxTotalTime?": "string",
+        search: "string?",
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { limit, cursor, tagIds, maxTotalTime, search } = input;
+
+      try {
+        // Build the base query with hybrid scoring
+        const recommendedRecipesList = await ctx.db
+          .select({
+            recipe: recipes,
+            uploader: {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              image: user.image,
+            },
+            firstImage: min(recipeImages.url),
+            saveCount: sql<number>`COUNT(DISTINCT ${userRecipes.id})`,
+            likeCount: sql<number>`COUNT(DISTINCT ${userLikes.id})`,
+            isSaved: sql<boolean>`EXISTS(
+              SELECT 1 FROM ${userRecipes}
+              WHERE ${userRecipes.recipeId} = ${recipes.id}
+              AND ${userRecipes.userId} = ${ctx.user.id}
+            )`,
+            isLiked: sql<boolean>`EXISTS(
+              SELECT 1 FROM ${userLikes}
+              WHERE ${userLikes.recipeId} = ${recipes.id}
+              AND ${userLikes.userId} = ${ctx.user.id}
+            )`,
+            recipeTags: sql<number[]>`COALESCE(
+              array_agg(DISTINCT ${recipeTags.tagId}) FILTER (WHERE ${recipeTags.tagId} IS NOT NULL),
+              ARRAY[]::integer[]
+            )`,
+          })
+          .from(recipes)
+          .innerJoin(user, eq(recipes.uploadedBy, user.id))
+          .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
+          .leftJoin(userRecipes, eq(recipes.id, userRecipes.recipeId))
+          .leftJoin(userLikes, eq(recipes.id, userLikes.recipeId))
+          .leftJoin(recipeTags, eq(recipes.id, recipeTags.recipeId))
+          .where(
+            and(
+              // Cursor-based pagination
+              cursor ? lt(recipes.createdAt, new Date(cursor)) : undefined,
+              // Search filter
+              search
+                ? like(recipes.name, `%${search.toLowerCase()}%`)
+                : undefined,
+              // Total time filter
+              maxTotalTime
+                ? like(recipes.totalTime, `%${maxTotalTime}%`)
+                : undefined
+            )
+          )
+          .groupBy(recipes.id, user.id, user.name, user.email, user.image)
+          .having(
+            // Tag filter - use HAVING instead of WHERE subquery for better performance
+            tagIds && tagIds.length > 0
+              ? sql`COUNT(DISTINCT CASE WHEN ${recipeTags.tagId} = ANY(${tagIds}) THEN ${recipeTags.tagId} END) > 0`
+              : undefined
+          )
+          .orderBy(
+            desc(sql`COUNT(DISTINCT ${userLikes.id}) + COUNT(DISTINCT ${userRecipes.id})`),
+            desc(recipes.createdAt)
+          )
+          .limit(limit + 1);
+
+        // Get tags for each recipe
+        const recipeIds = recommendedRecipesList.map((item) => item.recipe.id);
+        const tagsData =
+          recipeIds.length > 0
+            ? await ctx.db
+                .select({
+                  recipeId: recipeTags.recipeId,
+                  tag: tags,
+                })
+                .from(recipeTags)
+                .innerJoin(tags, eq(recipeTags.tagId, tags.id))
+                .where(inArray(recipeTags.recipeId, recipeIds))
+            : [];
+
+        // Group tags by recipe
+        const tagsByRecipe = tagsData.reduce(
+          (acc, item) => {
+            if (!acc[item.recipeId]) {
+              acc[item.recipeId] = [];
+            }
+            if (item.tag) {
+              acc[item.recipeId]!.push(item.tag);
+            }
+            return acc;
+          },
+          {} as Record<number, (typeof tags.$inferSelect)[]>
+        );
+
+        const items = recommendedRecipesList.map((item) => ({
+          ...item.recipe,
+          uploadedBy: item.uploader,
+          coverImage: item.firstImage,
+          saveCount: item.saveCount,
+          likeCount: item.likeCount,
+          isSaved: item.isSaved,
+          isLiked: item.isLiked,
+          tags: tagsByRecipe[item.recipe.id] || [],
+        }));
+
+        let nextCursor: number | undefined = undefined;
+        if (items.length > limit) {
+          const nextItem = items.pop();
+          nextCursor = nextItem?.createdAt.getTime();
+        }
+
+        return {
+          items,
+          nextCursor,
+        };
+      } catch (err) {
+        console.error("Error fetching recommended recipes:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch recommended recipes",
+        });
+      }
+    }),
+
+  getUserPreferences: authedProcedure.query(async ({ ctx }) => {
+    try {
+      // Analyze user's saved recipes to find most frequent tags
+      const userTagPreferences = await ctx.db
+        .select({
+          tag: tags,
+          count: count(recipeTags.id),
+        })
+        .from(userRecipes)
+        .innerJoin(recipeTags, eq(userRecipes.recipeId, recipeTags.recipeId))
+        .innerJoin(tags, eq(recipeTags.tagId, tags.id))
+        .where(eq(userRecipes.userId, ctx.user.id))
+        .groupBy(tags.id)
+        .orderBy(desc(count(recipeTags.id)))
+        .limit(15);
+
+      return userTagPreferences.map((item) => ({
+        ...item.tag,
+        count: item.count,
+      }));
+    } catch (err) {
+      console.error("Error fetching user preferences:", err);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch user preferences",
+      });
+    }
+  }),
 });

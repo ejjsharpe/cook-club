@@ -14,6 +14,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SheetProvider } from 'react-native-actions-sheet';
 
 import startImage1 from '@/assets/images/start-food-1.jpg';
 import startImage10 from '@/assets/images/start-food-10.jpg';
@@ -105,14 +106,16 @@ export default function App() {
           <TRPCProvider>
             <SignedInProvider>
               <GestureHandlerRootView>
-                <Navigation
-                  onReady={onNavigationReady}
-                  linking={linking}
-                  theme={{
-                    ...DefaultTheme,
-                    colors: { ...DefaultTheme.colors, background: '#FFF' },
-                  }}
-                />
+                <SheetProvider>
+                  <Navigation
+                    onReady={onNavigationReady}
+                    linking={linking}
+                    theme={{
+                      ...DefaultTheme,
+                      colors: { ...DefaultTheme.colors, background: '#FFF' },
+                    }}
+                  />
+                </SheetProvider>
               </GestureHandlerRootView>
             </SignedInProvider>
           </TRPCProvider>
