@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   FlatList,
@@ -48,26 +48,28 @@ export const RecipeDetailScreen = () => {
   const navigation = useNavigation();
   const { recipeId } = route.params;
 
-  const { data: recipe, isLoading, error } = useRecipeDetail({ recipeId });
+  const { data: recipe, isPending, error } = useRecipeDetail({ recipeId });
   const saveRecipeMutation = useSaveRecipe();
 
   const [activeTab, setActiveTab] = useState<TabType>('ingredients');
   const [servings, setServings] = useState(1);
+  const hasInitializedServings = useRef(false);
 
-  // Update servings when recipe data loads
-  if (recipe && recipe.servings && servings === 1 && recipe.servings !== 1) {
-    setServings(recipe.servings);
-  }
+  useEffect(() => {
+    if (recipe?.servings && !hasInitializedServings.current) {
+      setServings(recipe.servings);
+      hasInitializedServings.current = true;
+    }
+  }, [recipe?.servings]);
 
   const servingMultiplier = recipe?.servings ? servings / recipe.servings : 1;
 
   const handleSaveRecipe = () => {
-    if (recipe && !recipe.isSaved) {
-      saveRecipeMutation.mutate({ recipeId: recipe.id });
-    }
+    if (!recipe) return;
+    saveRecipeMutation.mutate({ recipeId: recipe.id });
   };
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <View style={[styles.screen, styles.centered]}>
         <ActivityIndicator size="large" />
@@ -146,7 +148,9 @@ export const RecipeDetailScreen = () => {
         <View style={styles.servingsButtons}>
           <TouchableOpacity
             style={styles.servingsButton}
-            onPress={() => setServings(Math.max(1, servings - 1))}>
+            onPress={() => {
+              setServings(Math.max(1, servings - 1));
+            }}>
             <Text type="heading" style={styles.servingsButtonText}>
               -
             </Text>
