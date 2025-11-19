@@ -39,13 +39,14 @@ export const useFollowUser = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  return useMutation({
-    ...trpc.follows.followUser.mutationOptions(),
+  const mutationOptions = trpc.follows.followUser.mutationOptions({
     onSuccess: () => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['follows'] });
     },
   });
+
+  return useMutation(mutationOptions);
 };
 
 export const useUnfollowUser = () => {

@@ -11,12 +11,9 @@ import { VSpace } from '@/components/Space';
 import { SearchBar } from '@/components/SearchBar';
 import { RecommendedRecipeCard } from '@/components/RecommendedRecipeCard';
 import { SheetManager } from '@/components/FilterBottomSheet';
-import {
-  useRecommendedRecipes,
-  useUserPreferences,
-  useSaveRecipe,
-  useLikeRecipe,
-} from '@/api/recipe';
+import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
+import { useRecommendedRecipes, useUserPreferences, useLikeRecipe } from '@/api/recipe';
+import { useGetUserCollections, useToggleRecipeInCollection } from '@/api/collection';
 import { useUser } from '@/api/user';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -42,7 +39,7 @@ interface RecommendedRecipe {
   servings?: number | null;
   saveCount: number;
   likeCount: number;
-  isSaved: boolean;
+  collectionIds: number[];
   isLiked: boolean;
   coverImage?: string | null;
   tags: Tag[];
@@ -140,6 +137,7 @@ export const DiscoverScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>();
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Debounce search query
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -147,25 +145,16 @@ export const DiscoverScreen = () => {
   // API hooks
   const { data: userProfile } = useUser();
   const { data: userPreferences = [] } = useUserPreferences();
-  const saveRecipeMutation = useSaveRecipe();
+  const { data: userCollections = [] } = useGetUserCollections();
   const likeRecipeMutation = useLikeRecipe();
+  const toggleMutation = useToggleRecipeInCollection();
 
-  const {
-    data,
-    isPending,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    refetch,
-    isRefetching,
-    isError,
-  } = useRecommendedRecipes({
-    search: debouncedSearch,
-    tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-    maxTotalTime,
-  });
-
-  console.log({ isError });
+  const { data, isPending, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } =
+    useRecommendedRecipes({
+      search: debouncedSearch,
+      tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+      maxTotalTime,
+    });
 
   // Flatten paginated data
   const recipes = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data]);
@@ -186,12 +175,19 @@ export const DiscoverScreen = () => {
   };
 
   const handleSavePress = (recipeId: number) => {
-    saveRecipeMutation.mutate({ recipeId });
-  };
+    // Check if user has multiple collections
+    const hasMultipleCollections = (userCollections?.length ?? 0) > 1;
 
-  const handleSharePress = (recipeId: number) => {
-    // TODO: Implement share functionality
-    console.log('Share recipe:', recipeId);
+    if (hasMultipleCollections) {
+      // User has multiple collections - show selector to choose
+      CollectionSheetManager.show('collection-selector-sheet', {
+        payload: { recipeId },
+      });
+    } else {
+      // Single collection (or no collections) - quick save/unsave to default
+      // When collectionId is undefined, backend will use default collection
+      toggleMutation.mutate({ recipeId, collectionId: undefined });
+    }
   };
 
   const handleUserPress = (userId: string) => {
@@ -204,8 +200,10 @@ export const DiscoverScreen = () => {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const handleRefresh = useCallback(() => {
-    refetch();
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
   }, [refetch]);
 
   const handleFilterPress = () => {
@@ -281,7 +279,7 @@ export const DiscoverScreen = () => {
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} />}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.container}
         />

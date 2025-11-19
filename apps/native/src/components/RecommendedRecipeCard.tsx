@@ -29,7 +29,7 @@ interface RecommendedRecipe {
   servings?: number | null;
   saveCount: number;
   likeCount: number;
-  isSaved: boolean;
+  collectionIds: number[];
   isLiked: boolean;
   coverImage?: string | null;
   tags: Tag[];
@@ -68,6 +68,7 @@ export const RecommendedRecipeCard = ({
   onUserPress,
 }: Props) => {
   const timeAgo = formatDistanceToNow(new Date(recipe.createdAt), { addSuffix: true });
+  const isSaved = recipe.collectionIds.length > 0;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
@@ -146,9 +147,9 @@ export const RecommendedRecipeCard = ({
           onPress={onSavePress}
           activeOpacity={0.7}>
           <Ionicons
-            name={recipe.isSaved ? 'bookmark' : 'bookmark-outline'}
+            name={isSaved ? 'bookmark' : 'bookmark-outline'}
             size={24}
-            style={recipe.isSaved ? styles.iconSaved : styles.iconDefault}
+            style={isSaved ? styles.iconSaved : styles.iconDefault}
           />
         </TouchableOpacity>
       </View>

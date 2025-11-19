@@ -82,7 +82,7 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
   return (
     <ActionSheet
       id={props.sheetId}
-      snapPoints={[85]}
+      snapPoints={[100]}
       initialSnapIndex={0}
       gestureEnabled={true}
       enableGesturesInScrollView={false}

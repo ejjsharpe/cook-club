@@ -1,5 +1,13 @@
 import { useTRPC } from '@repo/trpc/client';
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
+import { Alert } from 'react-native';
+import type { inferOutput } from '@trpc/tanstack-react-query';
 
 export const useScrapeRecipe = ({ url }: { url: string }) => {
   const trpc = useTRPC();
@@ -23,20 +31,6 @@ export const useGetUserRecipes = ({ search, limit = 20 }: UseGetUserRecipesParam
   return useInfiniteQuery(infiniteQueryOptions);
 };
 
-interface UsePopularRecipesParams {
-  limit?: number;
-  daysBack?: number;
-}
-
-export const usePopularRecipes = ({ limit = 10, daysBack = 7 }: UsePopularRecipesParams = {}) => {
-  const trpc = useTRPC();
-
-  return useQuery({
-    ...trpc.recipe.getPopularRecipes.queryOptions({ limit, daysBack }),
-    staleTime: 1000 * 60 * 15, // 15 minutes - popular recipes don't change often
-  });
-};
-
 // Get recipe detail
 interface UseRecipeDetailParams {
   recipeId: number;
@@ -48,42 +42,95 @@ export const useRecipeDetail = ({ recipeId }: UseRecipeDetailParams) => {
   return useQuery(trpc.recipe.getRecipeDetail.queryOptions({ recipeId }));
 };
 
-// Save recipe mutation
-export const useSaveRecipe = () => {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    ...trpc.recipe.saveRecipe.mutationOptions(),
-    onSuccess: (_, variables) => {
-      // Invalidate recipe detail to update isSaved status
-      queryClient.invalidateQueries({
-        queryKey: ['recipe', 'getRecipeDetail', { recipeId: variables.recipeId }],
-      });
-      // Invalidate user recipes list
-      queryClient.invalidateQueries({ queryKey: ['recipe', 'getUserRecipes'] });
-      // Invalidate recommended recipes to update isSaved status
-      queryClient.invalidateQueries({ queryKey: ['recipe', 'getRecommendedRecipes'] });
-    },
-  });
-};
-
-// Like recipe mutation
+// Like recipe mutation with optimistic updates
 export const useLikeRecipe = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  return useMutation({
-    ...trpc.recipe.likeRecipe.mutationOptions(),
-    onSuccess: (_, variables) => {
-      // Invalidate recipe detail to update isLiked status
-      queryClient.invalidateQueries({
-        queryKey: ['recipe', 'getRecipeDetail', { recipeId: variables.recipeId }],
+  type RecommendedRecipesOutput = inferOutput<typeof trpc.recipe.getRecommendedRecipes>;
+  type RecipeDetailOutput = inferOutput<typeof trpc.recipe.getRecipeDetail>;
+
+  const mutationOptions = trpc.recipe.likeRecipe.mutationOptions({
+    onMutate: async (variables) => {
+      const { recipeId } = variables;
+
+      // Use type-safe query filters and keys from tRPC
+      const recommendedRecipesFilter = trpc.recipe.getRecommendedRecipes.pathFilter();
+      const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
+
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries(recommendedRecipesFilter);
+      await queryClient.cancelQueries(recipeDetailFilter);
+
+      // Snapshot the previous values
+      const previousRecommended = queryClient.getQueriesData(recommendedRecipesFilter);
+      const previousDetail = queryClient.getQueriesData(recipeDetailFilter);
+
+      // Optimistically update all recommended recipes infinite queries
+      queryClient.setQueriesData<InfiniteData<RecommendedRecipesOutput>>(
+        recommendedRecipesFilter,
+        (old) => {
+          // Ensure this is an infinite query with pages
+          if (!old?.pages) {
+            return old;
+          }
+
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.map((item) =>
+                item.id === recipeId
+                  ? {
+                      ...item,
+                      isLiked: !item.isLiked,
+                      likeCount: item.isLiked ? item.likeCount - 1 : item.likeCount + 1,
+                    }
+                  : item
+              ),
+            })),
+          };
+        }
+      );
+
+      // Optimistically update recipe detail queries
+      queryClient.setQueriesData<RecipeDetailOutput>(recipeDetailFilter, (old) => {
+        if (!old || old.id !== recipeId) return old;
+        return {
+          ...old,
+          isLiked: !old.isLiked,
+          likeCount: old.isLiked ? old.likeCount - 1 : old.likeCount + 1,
+        };
       });
-      // Invalidate recommended recipes to update isLiked status
-      queryClient.invalidateQueries({ queryKey: ['recipe', 'getRecommendedRecipes'] });
+
+      return { previousRecommended, previousDetail };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback optimistic updates on error
+      if (context?.previousRecommended) {
+        context.previousRecommended.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousDetail) {
+        context.previousDetail.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+
+      Alert.alert('Error', 'Failed to like recipe. Please try again.');
+    },
+    onSettled: () => {
+      // Invalidate queries to refetch and ensure cache is in sync with server
+      const recommendedRecipesFilter = trpc.recipe.getRecommendedRecipes.pathFilter();
+      const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
+
+      queryClient.invalidateQueries(recommendedRecipesFilter);
+      queryClient.invalidateQueries(recipeDetailFilter);
     },
   });
+
+  return useMutation(mutationOptions);
 };
 
 // Get recommended recipes with filters

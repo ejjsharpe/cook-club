@@ -5,7 +5,9 @@ import {
   serial,
   timestamp,
   index,
+  boolean,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
 
 // ─── Central recipes store ────────────────────────────────────────────────────
@@ -34,28 +36,52 @@ export const recipes = pgTable(
   ]
 );
 
-// ─── Join table: which users have saved recipes ──────────────────────────────
-export const userRecipes = pgTable(
-  "user_recipes",
+// ─── Collections: user-created recipe collections ────────────────────────────
+export const collections = pgTable(
+  "collections",
   {
     id: serial("id").primaryKey(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    recipeId: integer("recipe_id")
-      .notNull()
-      .references(() => recipes.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [
-    index("user_recipes_user_id_idx").on(table.userId),
-    index("user_recipes_recipe_id_idx").on(table.recipeId),
-    index("user_recipes_created_at_idx").on(table.createdAt),
-    index("user_recipes_user_id_created_at_idx").on(
+    index("collections_user_id_idx").on(table.userId),
+    index("collections_user_id_created_at_idx").on(
       table.userId,
       table.createdAt.desc()
     ),
-    index("user_recipes_user_recipe_idx").on(table.userId, table.recipeId),
+    // Ensure only one default collection per user
+    index("collections_user_default_unique_idx")
+      .on(table.userId, table.isDefault)
+      .where(sql`${table.isDefault} = true`),
+  ]
+);
+
+// ─── Join table: which recipes are in which collections ──────────────────────
+export const recipeCollections = pgTable(
+  "recipe_collections",
+  {
+    id: serial("id").primaryKey(),
+    recipeId: integer("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    collectionId: integer("collection_id")
+      .notNull()
+      .references(() => collections.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [
+    index("recipe_collections_recipe_id_idx").on(table.recipeId),
+    index("recipe_collections_collection_id_idx").on(table.collectionId),
+    index("recipe_collections_recipe_collection_idx").on(
+      table.recipeId,
+      table.collectionId
+    ),
   ]
 );
 

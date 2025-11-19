@@ -3,7 +3,8 @@ import {
   recipeInstructions,
   recipeImages,
   recipes,
-  userRecipes,
+  recipeCollections,
+  collections,
   userLikes,
   user,
   tags,
@@ -19,6 +20,7 @@ import {
   and,
   like,
   count,
+  countDistinct,
   inArray,
   min,
   sql,
@@ -97,7 +99,10 @@ export const recipeRouter = router({
               .select({ name: tags.name })
               .from(tags)
               .where(
-                and(eq(tags.type, "category"), inArray(tags.name, input.categories))
+                and(
+                  eq(tags.type, "category"),
+                  inArray(tags.name, input.categories)
+                )
               )
           : Promise.resolve([]),
         input.cuisines && input.cuisines.length > 0
@@ -105,7 +110,10 @@ export const recipeRouter = router({
               .select({ name: tags.name })
               .from(tags)
               .where(
-                and(eq(tags.type, "cuisine"), inArray(tags.name, input.cuisines))
+                and(
+                  eq(tags.type, "cuisine"),
+                  inArray(tags.name, input.cuisines)
+                )
               )
           : Promise.resolve([]),
       ]);
@@ -205,13 +213,6 @@ export const recipeRouter = router({
               url: recipeImages.url,
             });
 
-          // Insert user recipe relationship
-          await tx.insert(userRecipes).values({
-            userId: ctx.user.id,
-            recipeId: recipe.id,
-            createdAt: new Date(),
-          });
-
           return {
             ...recipe,
             ingredients: insertedIngredients,
@@ -245,28 +246,34 @@ export const recipeRouter = router({
         const userRecipesList = await ctx.db
           .select({
             recipe: recipes,
-            userRecipe: userRecipes,
+            recipeCollection: recipeCollections,
             firstImage: min(recipeImages.url),
           })
-          .from(userRecipes)
-          .innerJoin(recipes, eq(userRecipes.recipeId, recipes.id))
+          .from(recipeCollections)
+          .innerJoin(
+            collections,
+            eq(recipeCollections.collectionId, collections.id)
+          )
+          .innerJoin(recipes, eq(recipeCollections.recipeId, recipes.id))
           .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
           .where(
             and(
-              eq(userRecipes.userId, ctx.user.id),
-              cursor ? lt(userRecipes.createdAt, new Date(cursor)) : undefined,
+              eq(collections.userId, ctx.user.id),
+              cursor
+                ? lt(recipeCollections.createdAt, new Date(cursor))
+                : undefined,
               search
                 ? like(recipes.name, `%${search.toLowerCase()}%`)
                 : undefined
             )
           )
-          .groupBy(userRecipes.id, recipes.id) // Group to get only one image per recipe
-          .orderBy(desc(userRecipes.createdAt))
+          .groupBy(recipeCollections.id, recipes.id) // Group to get only one image per recipe
+          .orderBy(desc(recipeCollections.createdAt))
           .limit(limit + 1);
 
         const items = userRecipesList.map((item) => ({
           ...item.recipe,
-          addedAt: item.userRecipe.createdAt,
+          addedAt: item.recipeCollection.createdAt,
           coverImage: item.firstImage,
         }));
 
@@ -296,7 +303,7 @@ export const recipeRouter = router({
       const { recipeId } = input;
 
       try {
-        // Single query with all aggregations and checks
+        // Single query with all aggregations and checks using Drizzle helpers
         const recipeData = await ctx.db
           .select({
             recipe: recipes,
@@ -306,23 +313,26 @@ export const recipeRouter = router({
               email: user.email,
               image: user.image,
             },
+            // Scalar subquery: count of likes for this recipe
+            // Note: Must use CAST to INTEGER for Neon database to return number type
             likeCount: sql<number>`(
-              SELECT COUNT(*) FROM ${userLikes}
+              SELECT CAST(COUNT(*) AS INTEGER)
+              FROM ${userLikes}
               WHERE ${userLikes.recipeId} = ${recipes.id}
             )`,
+            // Scalar subquery: count of saves for this recipe
             saveCount: sql<number>`(
-              SELECT COUNT(*) FROM ${userRecipes}
-              WHERE ${userRecipes.recipeId} = ${recipes.id}
+              SELECT CAST(COUNT(DISTINCT ${recipeCollections.id}) AS INTEGER)
+              FROM ${recipeCollections}
+              WHERE ${recipeCollections.recipeId} = ${recipes.id}
             )`,
+            // Scalar subquery: total recipes by this uploader
             uploaderRecipeCount: sql<number>`(
-              SELECT COUNT(*) FROM ${recipes} AS r
+              SELECT CAST(COUNT(*) AS INTEGER)
+              FROM ${recipes} r
               WHERE r.uploaded_by = ${recipes.uploadedBy}
             )`,
-            isSaved: sql<boolean>`EXISTS(
-              SELECT 1 FROM ${userRecipes}
-              WHERE ${userRecipes.recipeId} = ${recipes.id}
-              AND ${userRecipes.userId} = ${ctx.user.id}
-            )`,
+            // EXISTS: check if current user has liked this recipe
             isLiked: sql<boolean>`EXISTS(
               SELECT 1 FROM ${userLikes}
               WHERE ${userLikes.recipeId} = ${recipes.id}
@@ -340,6 +350,20 @@ export const recipeRouter = router({
             message: "Recipe not found",
           });
         }
+
+        // Get collection IDs for this recipe and current user
+        const userRecipeCollections = await ctx.db
+          .select({ collectionId: recipeCollections.collectionId })
+          .from(recipeCollections)
+          .innerJoin(collections, eq(recipeCollections.collectionId, collections.id))
+          .where(
+            and(
+              eq(recipeCollections.recipeId, recipeId),
+              eq(collections.userId, ctx.user.id)
+            )
+          );
+
+        const collectionIds = userRecipeCollections.map((rc) => rc.collectionId);
 
         // Parallelize remaining queries
         const [images, ingredients, instructions] = await Promise.all([
@@ -374,7 +398,7 @@ export const recipeRouter = router({
           ingredients,
           instructions,
           userRecipesCount: recipeData.uploaderRecipeCount,
-          isSaved: recipeData.isSaved,
+          collectionIds,
           isLiked: recipeData.isLiked,
           likeCount: recipeData.likeCount,
           saveCount: recipeData.saveCount,
@@ -385,103 +409,6 @@ export const recipeRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch recipe detail",
-        });
-      }
-    }),
-
-  saveRecipe: authedProcedure
-    .input(
-      type({
-        recipeId: "number",
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { recipeId } = input;
-
-      try {
-        // Check if recipe exists
-        const recipe = await ctx.db
-          .select({ id: recipes.id })
-          .from(recipes)
-          .where(eq(recipes.id, recipeId))
-          .then((rows) => rows[0]);
-
-        if (!recipe) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Recipe not found",
-          });
-        }
-
-        // Check if already saved
-        const existingSave = await ctx.db
-          .select()
-          .from(userRecipes)
-          .where(
-            and(
-              eq(userRecipes.userId, ctx.user.id),
-              eq(userRecipes.recipeId, recipeId)
-            )
-          )
-          .then((rows) => rows[0]);
-
-        if (existingSave) {
-          // Unsave - remove the save
-          await ctx.db
-            .delete(userRecipes)
-            .where(
-              and(
-                eq(userRecipes.userId, ctx.user.id),
-                eq(userRecipes.recipeId, recipeId)
-              )
-            );
-          return { success: true, saved: false };
-        }
-
-        // Save the recipe
-        await ctx.db.insert(userRecipes).values({
-          userId: ctx.user.id,
-          recipeId,
-          createdAt: new Date(),
-        });
-
-        return { success: true, saved: true };
-      } catch (err) {
-        if (err instanceof TRPCError) throw err;
-        console.error("Error saving recipe:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to save recipe",
-        });
-      }
-    }),
-
-  unsaveRecipe: authedProcedure
-    .input(
-      type({
-        recipeId: "number",
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { recipeId } = input;
-
-      try {
-        // Delete the save record
-        await ctx.db
-          .delete(userRecipes)
-          .where(
-            and(
-              eq(userRecipes.userId, ctx.user.id),
-              eq(userRecipes.recipeId, recipeId)
-            )
-          );
-
-        return { success: true };
-      } catch (err) {
-        console.error("Error unsaving recipe:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to unsave recipe",
         });
       }
     }),
@@ -578,18 +505,17 @@ export const recipeRouter = router({
               image: user.image,
             },
             firstImage: min(recipeImages.url),
-            saveCount: sql<number>`COUNT(DISTINCT ${userRecipes.id})`,
-            likeCount: sql<number>`COUNT(DISTINCT ${userLikes.id})`,
-            isSaved: sql<boolean>`EXISTS(
-              SELECT 1 FROM ${userRecipes}
-              WHERE ${userRecipes.recipeId} = ${recipes.id}
-              AND ${userRecipes.userId} = ${ctx.user.id}
-            )`,
+            // Use Drizzle's countDistinct for aggregations
+            saveCount: countDistinct(recipeCollections.id),
+            likeCount: countDistinct(userLikes.id),
+            // EXISTS: check if current user has liked this recipe
             isLiked: sql<boolean>`EXISTS(
               SELECT 1 FROM ${userLikes}
               WHERE ${userLikes.recipeId} = ${recipes.id}
               AND ${userLikes.userId} = ${ctx.user.id}
             )`,
+            // PostgreSQL-specific: array_agg with DISTINCT and FILTER
+            // This aggregates all tag IDs for a recipe into an array, filtering out nulls
             recipeTags: sql<number[]>`COALESCE(
               array_agg(DISTINCT ${recipeTags.tagId}) FILTER (WHERE ${recipeTags.tagId} IS NOT NULL),
               ARRAY[]::integer[]
@@ -598,7 +524,10 @@ export const recipeRouter = router({
           .from(recipes)
           .innerJoin(user, eq(recipes.uploadedBy, user.id))
           .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
-          .leftJoin(userRecipes, eq(recipes.id, userRecipes.recipeId))
+          .leftJoin(
+            recipeCollections,
+            eq(recipes.id, recipeCollections.recipeId)
+          )
           .leftJoin(userLikes, eq(recipes.id, userLikes.recipeId))
           .leftJoin(recipeTags, eq(recipes.id, recipeTags.recipeId))
           .where(
@@ -623,16 +552,18 @@ export const recipeRouter = router({
               : undefined
           )
           .orderBy(
-            desc(sql`COUNT(DISTINCT ${userLikes.id}) + COUNT(DISTINCT ${userRecipes.id})`),
+            // Order by popularity score: sum of likes and saves
+            desc(sql`${countDistinct(userLikes.id)} + ${countDistinct(recipeCollections.id)}`),
             desc(recipes.createdAt)
           )
           .limit(limit + 1);
 
-        // Get tags for each recipe
+        // Get tags and collection IDs for each recipe
         const recipeIds = recommendedRecipesList.map((item) => item.recipe.id);
-        const tagsData =
+
+        const [tagsData, collectionsData] = await Promise.all([
           recipeIds.length > 0
-            ? await ctx.db
+            ? ctx.db
                 .select({
                   recipeId: recipeTags.recipeId,
                   tag: tags,
@@ -640,7 +571,23 @@ export const recipeRouter = router({
                 .from(recipeTags)
                 .innerJoin(tags, eq(recipeTags.tagId, tags.id))
                 .where(inArray(recipeTags.recipeId, recipeIds))
-            : [];
+            : [],
+          recipeIds.length > 0
+            ? ctx.db
+                .select({
+                  recipeId: recipeCollections.recipeId,
+                  collectionId: recipeCollections.collectionId,
+                })
+                .from(recipeCollections)
+                .innerJoin(collections, eq(recipeCollections.collectionId, collections.id))
+                .where(
+                  and(
+                    inArray(recipeCollections.recipeId, recipeIds),
+                    eq(collections.userId, ctx.user.id)
+                  )
+                )
+            : [],
+        ]);
 
         // Group tags by recipe
         const tagsByRecipe = tagsData.reduce(
@@ -656,13 +603,25 @@ export const recipeRouter = router({
           {} as Record<number, (typeof tags.$inferSelect)[]>
         );
 
+        // Group collection IDs by recipe
+        const collectionsByRecipe = collectionsData.reduce(
+          (acc, item) => {
+            if (!acc[item.recipeId]) {
+              acc[item.recipeId] = [];
+            }
+            acc[item.recipeId]!.push(item.collectionId);
+            return acc;
+          },
+          {} as Record<number, number[]>
+        );
+
         const items = recommendedRecipesList.map((item) => ({
           ...item.recipe,
           uploadedBy: item.uploader,
           coverImage: item.firstImage,
           saveCount: item.saveCount,
           likeCount: item.likeCount,
-          isSaved: item.isSaved,
+          collectionIds: collectionsByRecipe[item.recipe.id] || [],
           isLiked: item.isLiked,
           tags: tagsByRecipe[item.recipe.id] || [],
         }));
@@ -694,10 +653,17 @@ export const recipeRouter = router({
           tag: tags,
           count: count(recipeTags.id),
         })
-        .from(userRecipes)
-        .innerJoin(recipeTags, eq(userRecipes.recipeId, recipeTags.recipeId))
+        .from(recipeCollections)
+        .innerJoin(
+          collections,
+          eq(recipeCollections.collectionId, collections.id)
+        )
+        .innerJoin(
+          recipeTags,
+          eq(recipeCollections.recipeId, recipeTags.recipeId)
+        )
         .innerJoin(tags, eq(recipeTags.tagId, tags.id))
-        .where(eq(userRecipes.userId, ctx.user.id))
+        .where(eq(collections.userId, ctx.user.id))
         .groupBy(tags.id)
         .orderBy(desc(count(recipeTags.id)))
         .limit(15);

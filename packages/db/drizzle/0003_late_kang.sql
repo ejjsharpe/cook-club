@@ -1,0 +1,1 @@
+CREATE INDEX "collections_user_default_unique_idx" ON "collections" USING btree ("user_id","is_default") WHERE "collections"."is_default" = true;

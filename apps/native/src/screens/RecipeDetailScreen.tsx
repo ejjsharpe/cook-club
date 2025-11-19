@@ -16,7 +16,9 @@ import { Text } from '@/components/Text';
 import { VSpace, HSpace } from '@/components/Space';
 import { BackButton } from '@/components/buttons/BackButton';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
-import { useRecipeDetail, useSaveRecipe } from '@/api/recipe';
+import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
+import { useRecipeDetail } from '@/api/recipe';
+import { useRecipeSave } from '@/hooks/useRecipeSave';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_HEIGHT = 360;
@@ -34,13 +36,6 @@ interface RecipeImage {
   url: string;
 }
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  image?: string | null;
-}
-
 type TabType = 'ingredients' | 'method';
 
 export const RecipeDetailScreen = () => {
@@ -49,11 +44,15 @@ export const RecipeDetailScreen = () => {
   const { recipeId } = route.params;
 
   const { data: recipe, isPending, error } = useRecipeDetail({ recipeId });
-  const saveRecipeMutation = useSaveRecipe();
 
   const [activeTab, setActiveTab] = useState<TabType>('ingredients');
   const [servings, setServings] = useState(1);
   const hasInitializedServings = useRef(false);
+
+  // Use the unified save hook
+  const { handleSavePress, isSaved, isSaving, hasMultipleCollections } = useRecipeSave(
+    recipe || { id: recipeId, collectionIds: [] }
+  );
 
   useEffect(() => {
     if (recipe?.servings && !hasInitializedServings.current) {
@@ -66,7 +65,16 @@ export const RecipeDetailScreen = () => {
 
   const handleSaveRecipe = () => {
     if (!recipe) return;
-    saveRecipeMutation.mutate({ recipeId: recipe.id });
+
+    if (hasMultipleCollections) {
+      // User has multiple collections - show selector sheet
+      CollectionSheetManager.show('collection-selector-sheet', {
+        payload: { recipeId: recipe.id },
+      });
+    } else {
+      // Use the unified save logic
+      handleSavePress();
+    }
   };
 
   if (isPending) {
@@ -134,10 +142,10 @@ export const RecipeDetailScreen = () => {
   const renderControls = () => (
     <View style={styles.controlsSection}>
       <PrimaryButton
-        style={recipe.isSaved ? [styles.saveButton, styles.savedButton] : styles.saveButton}
+        style={isSaved ? [styles.saveButton, styles.savedButton] : styles.saveButton}
         onPress={handleSaveRecipe}
-        disabled={recipe.isSaved || saveRecipeMutation.isPending}>
-        {saveRecipeMutation.isPending ? 'Saving...' : recipe.isSaved ? 'Saved' : 'Save Recipe'}
+        disabled={isSaving}>
+        {isSaved ? 'Manage Collections' : 'Save Recipe'}
       </PrimaryButton>
 
       <View style={styles.servingsControl}>
