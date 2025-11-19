@@ -21,7 +21,7 @@ interface User {
   image?: string | null;
 }
 
-interface RecommendedRecipe {
+interface Recipe {
   id: number;
   name: string;
   description?: string | null;
@@ -38,7 +38,7 @@ interface RecommendedRecipe {
 }
 
 interface Props {
-  recipe: RecommendedRecipe;
+  recipe: Recipe;
   onPress?: () => void;
   onLikePress?: () => void;
   onSavePress?: () => void;
@@ -60,7 +60,7 @@ const getInitials = (name: string): string => {
   return name.substring(0, 2).toUpperCase();
 };
 
-export const RecommendedRecipeCard = ({
+export const FullWidthRecipeCard = ({
   recipe,
   onPress,
   onLikePress,

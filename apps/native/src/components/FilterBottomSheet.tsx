@@ -25,7 +25,6 @@ interface FilterSheetPayload {
   onTagsChange: (tagIds: number[]) => void;
   maxTotalTime?: string;
   onTimeChange: (time: string | undefined) => void;
-  userPreferences: Tag[];
   allTags?: Tag[];
 }
 
@@ -75,7 +74,6 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
     onTagsChange = () => {},
     maxTotalTime,
     onTimeChange = () => {},
-    userPreferences = [],
     allTags = [],
   } = props.payload || {};
 
@@ -98,27 +96,6 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
 
         <ScrollView style={styles.scrollView}>
           <View style={styles.scrollContent}>
-            {/* User Preferences Section */}
-            {userPreferences.length > 0 && (
-              <>
-                <Text type="heading" style={styles.sectionTitle}>
-                  Based on your saves
-                </Text>
-                <VSpace size={12} />
-                <View style={styles.chipGrid}>
-                  {userPreferences.map((tag) => (
-                    <TagChip
-                      key={tag.id}
-                      label={`${tag.name} (${tag.count})`}
-                      selected={selectedTagIds.includes(tag.id)}
-                      onPress={() => handleTagToggle(tag.id, selectedTagIds, onTagsChange)}
-                    />
-                  ))}
-                </View>
-                <VSpace size={24} />
-              </>
-            )}
-
             {/* Time Filter Section */}
             <Text type="heading" style={styles.sectionTitle}>
               Max cooking time

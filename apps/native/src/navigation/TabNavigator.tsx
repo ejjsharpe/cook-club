@@ -1,9 +1,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
+import { HomeScreen } from '@/screens/HomeScreen';
+import { DiscoverScreen } from '@/screens/DiscoverScreen';
 import { AddRecipeScreen } from '@/screens/AddRecipeScreen';
 import { MyRecipesScreen } from '@/screens/MyRecipesScreen';
-import { DiscoverScreen } from '@/screens/DiscoverScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -14,6 +15,15 @@ export const TabNavigator = () => {
         tabBarActiveTintColor: 'black',
         headerShown: false,
       }}>
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarIcon(props) {
+            return <Ionicons name="home" color={props.color} size={props.size} />;
+          },
+        }}
+      />
       <Tab.Screen
         name="Discover"
         component={DiscoverScreen}

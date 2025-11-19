@@ -1,20 +1,26 @@
 import { useState, useCallback, useMemo } from 'react';
-import { View, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import {
+  View,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 
 import { Text } from '@/components/Text';
 import { VSpace } from '@/components/Space';
 import { SearchBar } from '@/components/SearchBar';
-import { RecommendedRecipeCard } from '@/components/RecommendedRecipeCard';
+import { FullWidthRecipeCard } from '@/components/FullWidthRecipeCard';
 import { SheetManager } from '@/components/FilterBottomSheet';
 import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
-import { useRecommendedRecipes, useUserPreferences, useLikeRecipe } from '@/api/recipe';
+import { TagChip } from '@/components/TagChip';
+import { useRecommendedRecipes, useLikeRecipe, useAllTags } from '@/api/recipe';
 import { useGetUserCollections, useToggleRecipeInCollection } from '@/api/collection';
-import { useUser } from '@/api/user';
 import { useDebounce } from '@/hooks/useDebounce';
 
 interface Tag {
@@ -47,69 +53,39 @@ interface RecommendedRecipe {
   createdAt: string;
 }
 
-interface UserProfile {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    image?: string | null;
-    createdAt: string;
-    updatedAt: string;
-    emailVerified: boolean;
-  };
-}
-
 interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  userProfile: UserProfile | undefined;
-  onAvatarPress: () => void;
   selectedTagIds: number[];
   maxTotalTime: string | undefined;
   onFilterPress: () => void;
+  cuisines: Tag[];
+  categories: Tag[];
+  onTagPress: (tagId: number) => void;
 }
 
 const Header = ({
   searchQuery,
   setSearchQuery,
-  userProfile,
-  onAvatarPress,
   selectedTagIds,
   maxTotalTime,
   onFilterPress,
+  cuisines,
+  categories,
+  onTagPress,
 }: HeaderProps) => {
-  const renderAvatar = () => {
-    if (!userProfile) return null;
-    return (
-      <TouchableOpacity style={styles.avatar} onPress={onAvatarPress} activeOpacity={0.7}>
-        {userProfile.user.image ? (
-          <Image source={{ uri: userProfile.user.image }} style={styles.avatarImage} />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Text type="heading" style={styles.avatarText}>
-              {userProfile.user.name.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <>
       <VSpace size={20} />
       <View style={styles.searchContainer}>
-        <View style={styles.headerRow}>
-          <Text type="title2">Discover</Text>
-          {renderAvatar()}
-        </View>
+        <Text type="title2">Discover</Text>
         <VSpace size={16} />
         <View style={styles.searchRow}>
           <View style={styles.searchBarWrapper}>
             <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search recipes..."
+              placeholder="Search all recipes..."
             />
           </View>
           <TouchableOpacity style={styles.filterButton} onPress={onFilterPress} activeOpacity={0.7}>
@@ -124,6 +100,59 @@ const Header = ({
             />
           </TouchableOpacity>
         </View>
+
+        {/* Show shortcuts when search is empty */}
+        {!searchQuery && (
+          <>
+            <VSpace size={20} />
+            {cuisines.length > 0 && (
+              <>
+                <Text type="heading" style={styles.shortcutTitle}>
+                  Cuisines
+                </Text>
+                <VSpace size={12} />
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.shortcutList}
+                >
+                  {cuisines.map((tag) => (
+                    <TagChip
+                      key={tag.id}
+                      label={tag.name}
+                      selected={selectedTagIds.includes(tag.id)}
+                      onPress={() => onTagPress(tag.id)}
+                    />
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            {categories.length > 0 && (
+              <>
+                <VSpace size={20} />
+                <Text type="heading" style={styles.shortcutTitle}>
+                  Categories
+                </Text>
+                <VSpace size={12} />
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.shortcutList}
+                >
+                  {categories.map((tag) => (
+                    <TagChip
+                      key={tag.id}
+                      label={tag.name}
+                      selected={selectedTagIds.includes(tag.id)}
+                      onPress={() => onTagPress(tag.id)}
+                    />
+                  ))}
+                </ScrollView>
+              </>
+            )}
+          </>
+        )}
       </View>
       <VSpace size={16} />
     </>
@@ -143,29 +172,40 @@ export const DiscoverScreen = () => {
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // API hooks
-  const { data: userProfile } = useUser();
-  const { data: userPreferences = [] } = useUserPreferences();
+  const { data: allTags = [] } = useAllTags();
   const { data: userCollections = [] } = useGetUserCollections();
   const likeRecipeMutation = useLikeRecipe();
   const toggleMutation = useToggleRecipeInCollection();
 
-  const { data, isPending, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } =
-    useRecommendedRecipes({
-      search: debouncedSearch,
-      tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-      maxTotalTime,
-    });
+  // Separate cuisines and categories
+  const cuisines = useMemo(() => allTags.filter((tag) => tag.type === 'cuisine'), [allTags]);
+  const categories = useMemo(() => allTags.filter((tag) => tag.type === 'category'), [allTags]);
+
+  // Determine if we should fetch recipes
+  const shouldFetchRecipes =
+    debouncedSearch.trim() !== '' || selectedTagIds.length > 0 || maxTotalTime !== undefined;
+
+  const {
+    data,
+    isPending,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+    isFetching,
+  } = useRecommendedRecipes({
+    search: debouncedSearch,
+    tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+    maxTotalTime,
+  });
 
   // Flatten paginated data
-  const recipes = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data]);
+  const recipes = useMemo(() => {
+    if (!shouldFetchRecipes) return [];
+    return data?.pages.flatMap((page) => page.items) ?? [];
+  }, [data, shouldFetchRecipes]);
 
   // Handlers
-  const handleAvatarPress = () => {
-    if (userProfile?.user?.id) {
-      navigation.navigate('UserProfile', { userId: userProfile.user.id });
-    }
-  };
-
   const handleRecipePress = (recipeId: number) => {
     navigation.navigate('RecipeDetail', { recipeId });
   };
@@ -195,16 +235,17 @@ export const DiscoverScreen = () => {
   };
 
   const handleLoadMore = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
+    if (shouldFetchRecipes && hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [shouldFetchRecipes, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleRefresh = useCallback(async () => {
+    if (!shouldFetchRecipes) return;
     setIsRefreshing(true);
     await refetch();
     setIsRefreshing(false);
-  }, [refetch]);
+  }, [shouldFetchRecipes, refetch]);
 
   const handleFilterPress = () => {
     SheetManager.show('filter-sheet', {
@@ -213,14 +254,26 @@ export const DiscoverScreen = () => {
         onTagsChange: setSelectedTagIds,
         maxTotalTime,
         onTimeChange: setMaxTotalTime,
-        userPreferences,
+        allTags,
       },
+    });
+  };
+
+  const handleTagPress = (tagId: number) => {
+    setSelectedTagIds((prev) => {
+      if (prev.includes(tagId)) {
+        // Remove tag if already selected
+        return prev.filter((id) => id !== tagId);
+      } else {
+        // Add tag to selection
+        return [...prev, tagId];
+      }
     });
   };
 
   // Render functions
   const renderRecipe = ({ item }: { item: RecommendedRecipe }) => (
-    <RecommendedRecipeCard
+    <FullWidthRecipeCard
       recipe={item}
       onPress={() => handleRecipePress(item.id)}
       onLikePress={() => handleLikePress(item.id)}
@@ -230,8 +283,35 @@ export const DiscoverScreen = () => {
   );
 
   const renderEmpty = () => {
-    if (isPending) return null;
+    // Show loading state
+    if (isPending || isFetching) {
+      return (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" />
+          <VSpace size={16} />
+          <Text type="bodyFaded">Searching recipes...</Text>
+          <VSpace size={80} />
+        </View>
+      );
+    }
 
+    // Show prompt to search when no filters/search applied
+    if (!shouldFetchRecipes) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="search-outline" size={64} style={styles.emptyIcon} />
+          <VSpace size={16} />
+          <Text type="heading">Start searching</Text>
+          <VSpace size={8} />
+          <Text type="bodyFaded" style={styles.emptyText}>
+            Enter a search term or select a cuisine/category to discover recipes
+          </Text>
+          <VSpace size={80} />
+        </View>
+      );
+    }
+
+    // Show no results found
     return (
       <View style={styles.emptyState}>
         <Ionicons name="restaurant-outline" size={64} style={styles.emptyIcon} />
@@ -268,18 +348,25 @@ export const DiscoverScreen = () => {
             <Header
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
-              userProfile={userProfile}
-              onAvatarPress={handleAvatarPress}
               selectedTagIds={selectedTagIds}
               maxTotalTime={maxTotalTime}
               onFilterPress={handleFilterPress}
+              cuisines={cuisines}
+              categories={categories}
+              onTagPress={handleTagPress}
             />
           }
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={renderFooter}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              enabled={shouldFetchRecipes}
+            />
+          }
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.container}
         />
@@ -298,32 +385,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   searchContainer: {
     paddingHorizontal: 20,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-  },
-  avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 16,
-    color: theme.colors.primary,
   },
   searchRow: {
     flexDirection: 'row',
@@ -347,6 +408,13 @@ const styles = StyleSheet.create((theme) => ({
   },
   filterIconActive: {
     color: theme.colors.primary,
+  },
+  shortcutTitle: {
+    fontSize: 16,
+  },
+  shortcutList: {
+    gap: 8,
+    paddingRight: 20,
   },
   emptyState: {
     flex: 1,

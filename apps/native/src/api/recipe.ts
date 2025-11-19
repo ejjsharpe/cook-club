@@ -169,3 +169,17 @@ export const useUserPreferences = () => {
     staleTime: 1000 * 60 * 30, // 30 minutes - preferences change slowly
   });
 };
+
+// Get all tags, optionally filtered by type (cuisine or category)
+interface UseAllTagsParams {
+  type?: string;
+}
+
+export const useAllTags = ({ type }: UseAllTagsParams = {}) => {
+  const trpc = useTRPC();
+
+  return useQuery({
+    ...trpc.recipe.getAllTags.queryOptions({ type }),
+    staleTime: 1000 * 60 * 60, // 1 hour - tags change very rarely
+  });
+};

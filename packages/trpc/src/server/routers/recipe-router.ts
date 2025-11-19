@@ -19,6 +19,7 @@ import {
   desc,
   and,
   like,
+  ilike,
   count,
   countDistinct,
   inArray,
@@ -263,7 +264,7 @@ export const recipeRouter = router({
                 ? lt(recipeCollections.createdAt, new Date(cursor))
                 : undefined,
               search
-                ? like(recipes.name, `%${search.toLowerCase()}%`)
+                ? ilike(recipes.name, `%${search}%`)
                 : undefined
             )
           )
@@ -534,9 +535,9 @@ export const recipeRouter = router({
             and(
               // Cursor-based pagination
               cursor ? lt(recipes.createdAt, new Date(cursor)) : undefined,
-              // Search filter
+              // Search filter - use ilike for case-insensitive search
               search
-                ? like(recipes.name, `%${search.toLowerCase()}%`)
+                ? ilike(recipes.name, `%${search}%`)
                 : undefined,
               // Total time filter
               maxTotalTime
@@ -680,4 +681,32 @@ export const recipeRouter = router({
       });
     }
   }),
+
+  getAllTags: authedProcedure
+    .input(
+      type({
+        "type?": "string",
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        const allTags = await ctx.db
+          .select({
+            id: tags.id,
+            name: tags.name,
+            type: tags.type,
+          })
+          .from(tags)
+          .where(input.type ? eq(tags.type, input.type) : undefined)
+          .orderBy(tags.name);
+
+        return allTags;
+      } catch (err) {
+        console.error("Error fetching all tags:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch tags",
+        });
+      }
+    }),
 });
