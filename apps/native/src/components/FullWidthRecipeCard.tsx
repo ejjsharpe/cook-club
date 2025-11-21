@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
+import { memo, useMemo } from 'react';
 
 import { Text } from './Text';
 import { TagChip } from './TagChip';
@@ -60,127 +61,141 @@ const getInitials = (name: string): string => {
   return name.substring(0, 2).toUpperCase();
 };
 
-export const FullWidthRecipeCard = ({
-  recipe,
-  onPress,
-  onLikePress,
-  onSavePress,
-  onUserPress,
-}: Props) => {
-  const timeAgo = formatDistanceToNow(new Date(recipe.createdAt), { addSuffix: true });
-  const isSaved = recipe.collectionIds.length > 0;
+export const FullWidthRecipeCard = memo(
+  ({ recipe, onPress, onLikePress, onSavePress, onUserPress }: Props) => {
+    const timeAgo = useMemo(
+      () => formatDistanceToNow(new Date(recipe.createdAt), { addSuffix: true }),
+      [recipe.createdAt]
+    );
+    const isSaved = recipe.collectionIds.length > 0;
+    const userInitials = useMemo(
+      () => getInitials(recipe.uploadedBy.name),
+      [recipe.uploadedBy.name]
+    );
 
-  return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-      {/* User Header */}
-      <TouchableOpacity style={styles.userHeader} onPress={onUserPress} activeOpacity={0.7}>
-        <View style={styles.avatar}>
-          {recipe.uploadedBy.image ? (
-            <Image source={{ uri: recipe.uploadedBy.image }} style={styles.avatarImage} />
+    return (
+      <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+        {/* User Header */}
+        <TouchableOpacity style={styles.userHeader} onPress={onUserPress} activeOpacity={0.7}>
+          <View style={styles.avatar}>
+            {recipe.uploadedBy.image ? (
+              <Image
+                source={{ uri: recipe.uploadedBy.image }}
+                style={styles.avatarImage}
+                cachePolicy="memory-disk"
+                transition={100}
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarInitials}>{userInitials}</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.userInfo}>
+            <Text type="body" style={styles.userName}>
+              {recipe.uploadedBy.name}
+            </Text>
+            <Text type="bodyFaded" style={styles.uploadTime}>
+              {timeAgo}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Recipe Image with Gradient Overlay */}
+        <View style={styles.imageContainer}>
+          {recipe.coverImage ? (
+            <Image
+              source={{ uri: recipe.coverImage }}
+              style={styles.coverImage}
+              cachePolicy="memory-disk"
+              priority="normal"
+              transition={200}
+            />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarInitials}>{getInitials(recipe.uploadedBy.name)}</Text>
+            <View style={[styles.coverImage, styles.placeholderImage]}>
+              <Ionicons name="restaurant" size={64} style={styles.placeholderIcon} />
             </View>
           )}
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={styles.gradient} />
+          <View style={styles.overlay}>
+            <Text type="title2" style={styles.recipeName} numberOfLines={2}>
+              {recipe.name}
+            </Text>
+            {(recipe.totalTime || recipe.servings) && (
+              <View style={styles.overlayMetadata}>
+                {recipe.totalTime && (
+                  <View style={styles.overlayMetadataItem}>
+                    <Ionicons name="time-outline" size={14} style={styles.overlayMetadataIcon} />
+                    <Text style={styles.overlayMetadataText}>{recipe.totalTime}</Text>
+                  </View>
+                )}
+                {recipe.servings && (
+                  <View style={styles.overlayMetadataItem}>
+                    <Ionicons name="people-outline" size={14} style={styles.overlayMetadataIcon} />
+                    <Text style={styles.overlayMetadataText}>{recipe.servings}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
         </View>
-        <View style={styles.userInfo}>
-          <Text type="body" style={styles.userName}>
-            {recipe.uploadedBy.name}
-          </Text>
-          <Text type="bodyFaded" style={styles.uploadTime}>
-            {timeAgo}
-          </Text>
+
+        {/* Interaction Buttons */}
+        <View style={styles.interactionButtons}>
+          <TouchableOpacity
+            style={styles.interactionButton}
+            onPress={onLikePress}
+            activeOpacity={0.7}>
+            <Ionicons
+              name={recipe.isLiked ? 'heart' : 'heart-outline'}
+              size={24}
+              style={recipe.isLiked ? styles.iconLiked : styles.iconDefault}
+            />
+            {recipe.likeCount > 0 && (
+              <Text style={styles.interactionButtonText}>{recipe.likeCount}</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.interactionButton}
+            onPress={onSavePress}
+            activeOpacity={0.7}>
+            <Ionicons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={24}
+              style={isSaved ? styles.iconSaved : styles.iconDefault}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Recipe Details */}
+        <View style={styles.content}>
+          {/* Description */}
+          {recipe.description && (
+            <Text type="bodyFaded" numberOfLines={2} style={styles.description}>
+              {recipe.description}
+            </Text>
+          )}
+
+          {/* Tags */}
+          {recipe.tags.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.tagsContainer}
+              contentContainerStyle={styles.tagsContent}>
+              {recipe.tags.map((tag) => (
+                <View key={tag.id}>
+                  <TagChip label={tag.name} selected={false} onPress={() => {}} />
+                </View>
+              ))}
+            </ScrollView>
+          )}
         </View>
       </TouchableOpacity>
-
-      {/* Recipe Image with Gradient Overlay */}
-      <View style={styles.imageContainer}>
-        {recipe.coverImage ? (
-          <Image source={{ uri: recipe.coverImage }} style={styles.coverImage} />
-        ) : (
-          <View style={[styles.coverImage, styles.placeholderImage]}>
-            <Ionicons name="restaurant" size={64} style={styles.placeholderIcon} />
-          </View>
-        )}
-        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={styles.gradient} />
-        <View style={styles.overlay}>
-          <Text type="title2" style={styles.recipeName} numberOfLines={2}>
-            {recipe.name}
-          </Text>
-          {(recipe.totalTime || recipe.servings) && (
-            <View style={styles.overlayMetadata}>
-              {recipe.totalTime && (
-                <View style={styles.overlayMetadataItem}>
-                  <Ionicons name="time-outline" size={14} style={styles.overlayMetadataIcon} />
-                  <Text style={styles.overlayMetadataText}>{recipe.totalTime}</Text>
-                </View>
-              )}
-              {recipe.servings && (
-                <View style={styles.overlayMetadataItem}>
-                  <Ionicons name="people-outline" size={14} style={styles.overlayMetadataIcon} />
-                  <Text style={styles.overlayMetadataText}>{recipe.servings}</Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Interaction Buttons */}
-      <View style={styles.interactionButtons}>
-        <TouchableOpacity
-          style={styles.interactionButton}
-          onPress={onLikePress}
-          activeOpacity={0.7}>
-          <Ionicons
-            name={recipe.isLiked ? 'heart' : 'heart-outline'}
-            size={24}
-            style={recipe.isLiked ? styles.iconLiked : styles.iconDefault}
-          />
-          {recipe.likeCount > 0 && (
-            <Text style={styles.interactionButtonText}>{recipe.likeCount}</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.interactionButton}
-          onPress={onSavePress}
-          activeOpacity={0.7}>
-          <Ionicons
-            name={isSaved ? 'bookmark' : 'bookmark-outline'}
-            size={24}
-            style={isSaved ? styles.iconSaved : styles.iconDefault}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Recipe Details */}
-      <View style={styles.content}>
-        {/* Description */}
-        {recipe.description && (
-          <Text type="bodyFaded" numberOfLines={2} style={styles.description}>
-            {recipe.description}
-          </Text>
-        )}
-
-        {/* Tags */}
-        {recipe.tags.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tagsContainer}
-            contentContainerStyle={styles.tagsContent}>
-            {recipe.tags.map((tag) => (
-              <View key={tag.id} style={styles.tagWrapper}>
-                <TagChip label={tag.name} selected={false} onPress={() => {}} />
-              </View>
-            ))}
-          </ScrollView>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-};
+    );
+  }
+);
 
 const styles = StyleSheet.create((theme) => ({
   card: {
@@ -346,8 +361,5 @@ const styles = StyleSheet.create((theme) => ({
   },
   tagsContent: {
     gap: 8,
-  },
-  tagWrapper: {
-    // Wrapper to apply gap between chips
   },
 }));

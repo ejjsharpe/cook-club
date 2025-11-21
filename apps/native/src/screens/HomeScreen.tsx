@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, memo } from 'react';
 import { View, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
@@ -13,6 +13,8 @@ import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
 import { useRecommendedRecipes, useLikeRecipe } from '@/api/recipe';
 import { useGetUserCollections, useToggleRecipeInCollection } from '@/api/collection';
 import { useUser } from '@/api/user';
+import { useScrollToTop } from '@react-navigation/native';
+import { LegendList } from '@legendapp/list';
 
 interface Tag {
   id: number;
@@ -61,13 +63,18 @@ interface HeaderProps {
   onAvatarPress: () => void;
 }
 
-const Header = ({ userProfile, onAvatarPress }: HeaderProps) => {
+const Header = memo(({ userProfile, onAvatarPress }: HeaderProps) => {
   const renderAvatar = () => {
     if (!userProfile) return null;
     return (
       <TouchableOpacity style={styles.avatar} onPress={onAvatarPress} activeOpacity={0.7}>
         {userProfile.user.image ? (
-          <Image source={{ uri: userProfile.user.image }} style={styles.avatarImage} />
+          <Image
+            source={{ uri: userProfile.user.image }}
+            style={styles.avatarImage}
+            cachePolicy="memory-disk"
+            transition={100}
+          />
         ) : (
           <View style={styles.avatarPlaceholder}>
             <Text type="heading" style={styles.avatarText}>
@@ -96,9 +103,11 @@ const Header = ({ userProfile, onAvatarPress }: HeaderProps) => {
       <VSpace size={16} />
     </>
   );
-};
+});
 
 export const HomeScreen = () => {
+  const flatListRef = useRef(null);
+  useScrollToTop(flatListRef);
   const navigation = useNavigation();
 
   // State
@@ -117,39 +126,51 @@ export const HomeScreen = () => {
   const recipes = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data]);
 
   // Handlers
-  const handleAvatarPress = () => {
+  const handleAvatarPress = useCallback(() => {
     if (userProfile?.user?.id) {
       navigation.navigate('UserProfile', { userId: userProfile.user.id });
     }
-  };
+  }, [userProfile?.user?.id, navigation]);
 
-  const handleRecipePress = (recipeId: number) => {
-    navigation.navigate('RecipeDetail', { recipeId });
-  };
+  const handleRecipePress = useCallback(
+    (recipeId: number) => {
+      navigation.navigate('RecipeDetail', { recipeId });
+    },
+    [navigation]
+  );
 
-  const handleLikePress = (recipeId: number) => {
-    likeRecipeMutation.mutate({ recipeId });
-  };
+  const handleLikePress = useCallback(
+    (recipeId: number) => {
+      likeRecipeMutation.mutate({ recipeId });
+    },
+    [likeRecipeMutation]
+  );
 
-  const handleSavePress = (recipeId: number) => {
-    // Check if user has multiple collections
-    const hasMultipleCollections = (userCollections?.length ?? 0) > 1;
+  const handleSavePress = useCallback(
+    (recipeId: number) => {
+      // Check if user has multiple collections
+      const hasMultipleCollections = (userCollections?.length ?? 0) > 1;
 
-    if (hasMultipleCollections) {
-      // User has multiple collections - show selector to choose
-      CollectionSheetManager.show('collection-selector-sheet', {
-        payload: { recipeId },
-      });
-    } else {
-      // Single collection (or no collections) - quick save/unsave to default
-      // When collectionId is undefined, backend will use default collection
-      toggleMutation.mutate({ recipeId, collectionId: undefined });
-    }
-  };
+      if (hasMultipleCollections) {
+        // User has multiple collections - show selector to choose
+        CollectionSheetManager.show('collection-selector-sheet', {
+          payload: { recipeId },
+        });
+      } else {
+        // Single collection (or no collections) - quick save/unsave to default
+        // When collectionId is undefined, backend will use default collection
+        toggleMutation.mutate({ recipeId, collectionId: undefined });
+      }
+    },
+    [userCollections?.length, toggleMutation]
+  );
 
-  const handleUserPress = (userId: string) => {
-    navigation.navigate('UserProfile', { userId });
-  };
+  const handleUserPress = useCallback(
+    (userId: string) => {
+      navigation.navigate('UserProfile', { userId });
+    },
+    [navigation]
+  );
 
   const handleLoadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -164,14 +185,17 @@ export const HomeScreen = () => {
   }, [refetch]);
 
   // Render functions
-  const renderRecipe = ({ item }: { item: RecommendedRecipe }) => (
-    <FullWidthRecipeCard
-      recipe={item}
-      onPress={() => handleRecipePress(item.id)}
-      onLikePress={() => handleLikePress(item.id)}
-      onSavePress={() => handleSavePress(item.id)}
-      onUserPress={() => handleUserPress(item.uploadedBy.id)}
-    />
+  const renderRecipe = useCallback(
+    ({ item }: { item: RecommendedRecipe }) => (
+      <FullWidthRecipeCard
+        recipe={item}
+        onPress={() => handleRecipePress(item.id)}
+        onLikePress={() => handleLikePress(item.id)}
+        onSavePress={() => handleSavePress(item.id)}
+        onUserPress={() => handleUserPress(item.uploadedBy.id)}
+      />
+    ),
+    [handleRecipePress, handleLikePress, handleSavePress, handleUserPress]
   );
 
   const renderEmpty = () => {
@@ -205,10 +229,11 @@ export const HomeScreen = () => {
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container} edges={['top']}>
-        <FlatList
+        <LegendList
+          ref={flatListRef}
           data={recipes}
           renderItem={renderRecipe}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item, index) => item.id.toString() + index}
           ListHeaderComponent={
             <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
           }
@@ -218,7 +243,8 @@ export const HomeScreen = () => {
           onEndReachedThreshold={0.5}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.container}
+          recycleItems={true}
+          maintainVisibleContentPosition
         />
       </SafeAreaView>
     </View>

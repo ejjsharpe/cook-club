@@ -5,14 +5,18 @@
   "scripts": {
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "push": "drizzle-kit push"
+    "push": "drizzle-kit push",
+    "seed": "DATABASE_URL='postgresql://neondb_owner:npg_vIM9kPjoufX1@ep-weathered-surf-ab9exhm4-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require' bun run seed.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "latest",
+    "bcryptjs": "^3.0.3",
     "drizzle-orm": "0.44.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250718.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/bcryptjs": "^3.0.0",
     "drizzle-kit": "^0.31.4",
     "typescript": "^5.8.3"
   }
