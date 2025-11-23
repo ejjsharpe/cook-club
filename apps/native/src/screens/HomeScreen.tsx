@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, memo } from 'react';
-import { View, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 import { useNavigation } from '@react-navigation/native';
@@ -105,9 +105,37 @@ const Header = memo(({ userProfile, onAvatarPress }: HeaderProps) => {
   );
 });
 
+const Footer = ({ isFetchingNextPage }: { isFetchingNextPage: boolean }) => {
+  if (!isFetchingNextPage) return null;
+
+  return (
+    <View style={styles.footerLoader}>
+      <ActivityIndicator size="large" />
+      <VSpace size={20} />
+    </View>
+  );
+};
+
+const Empty = ({ isPending }: { isPending: boolean }) => {
+  if (isPending) return null;
+
+  return (
+    <View style={styles.emptyState}>
+      <Ionicons name="restaurant-outline" size={64} style={styles.emptyIcon} />
+      <VSpace size={16} />
+      <Text type="heading">No recipes found</Text>
+      <VSpace size={8} />
+      <Text type="bodyFaded" style={styles.emptyText}>
+        Check back soon for new recommended recipes
+      </Text>
+      <VSpace size={80} />
+    </View>
+  );
+};
+
 export const HomeScreen = () => {
-  const flatListRef = useRef(null);
-  useScrollToTop(flatListRef);
+  const listRef = useRef(null);
+  useScrollToTop(listRef);
   const navigation = useNavigation();
 
   // State
@@ -184,7 +212,6 @@ export const HomeScreen = () => {
     setIsRefreshing(false);
   }, [refetch]);
 
-  // Render functions
   const renderRecipe = useCallback(
     ({ item }: { item: RecommendedRecipe }) => (
       <FullWidthRecipeCard
@@ -198,52 +225,25 @@ export const HomeScreen = () => {
     [handleRecipePress, handleLikePress, handleSavePress, handleUserPress]
   );
 
-  const renderEmpty = () => {
-    if (isPending) return null;
-
-    return (
-      <View style={styles.emptyState}>
-        <Ionicons name="restaurant-outline" size={64} style={styles.emptyIcon} />
-        <VSpace size={16} />
-        <Text type="heading">No recipes found</Text>
-        <VSpace size={8} />
-        <Text type="bodyFaded" style={styles.emptyText}>
-          Check back soon for new recommended recipes
-        </Text>
-        <VSpace size={80} />
-      </View>
-    );
-  };
-
-  const renderFooter = () => {
-    if (!isFetchingNextPage) return null;
-
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="large" />
-        <VSpace size={20} />
-      </View>
-    );
-  };
-
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container} edges={['top']}>
         <LegendList
-          ref={flatListRef}
+          ref={listRef}
           data={recipes}
           renderItem={renderRecipe}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item, index) => item.id.toString() + index}
           ListHeaderComponent={
             <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
           }
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
+          ListEmptyComponent={<Empty isPending={isPending} />}
+          ListFooterComponent={<Footer isFetchingNextPage={isFetchingNextPage} />}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
+          drawDistance={100}
         />
       </SafeAreaView>
     </View>
