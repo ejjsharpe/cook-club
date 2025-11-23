@@ -243,8 +243,7 @@ export const HomeScreen = () => {
           onEndReachedThreshold={0.5}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
           showsVerticalScrollIndicator={false}
-          recycleItems={true}
-          maintainVisibleContentPosition
+          nestedScrollEnabled
         />
       </SafeAreaView>
     </View>

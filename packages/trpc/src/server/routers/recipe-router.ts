@@ -263,9 +263,7 @@ export const recipeRouter = router({
               cursor
                 ? lt(recipeCollections.createdAt, new Date(cursor))
                 : undefined,
-              search
-                ? ilike(recipes.name, `%${search}%`)
-                : undefined
+              search ? ilike(recipes.name, `%${search}%`) : undefined
             )
           )
           .groupBy(recipeCollections.id, recipes.id) // Group to get only one image per recipe
@@ -289,7 +287,6 @@ export const recipeRouter = router({
           nextCursor,
         };
       } catch (err) {
-        console.log({ err });
         throw err;
       }
     }),
@@ -356,7 +353,10 @@ export const recipeRouter = router({
         const userRecipeCollections = await ctx.db
           .select({ collectionId: recipeCollections.collectionId })
           .from(recipeCollections)
-          .innerJoin(collections, eq(recipeCollections.collectionId, collections.id))
+          .innerJoin(
+            collections,
+            eq(recipeCollections.collectionId, collections.id)
+          )
           .where(
             and(
               eq(recipeCollections.recipeId, recipeId),
@@ -364,7 +364,9 @@ export const recipeRouter = router({
             )
           );
 
-        const collectionIds = userRecipeCollections.map((rc) => rc.collectionId);
+        const collectionIds = userRecipeCollections.map(
+          (rc) => rc.collectionId
+        );
 
         // Parallelize remaining queries
         const [images, ingredients, instructions] = await Promise.all([
@@ -536,9 +538,7 @@ export const recipeRouter = router({
               // Cursor-based pagination
               cursor ? lt(recipes.createdAt, new Date(cursor)) : undefined,
               // Search filter - use ilike for case-insensitive search
-              search
-                ? ilike(recipes.name, `%${search}%`)
-                : undefined,
+              search ? ilike(recipes.name, `%${search}%`) : undefined,
               // Total time filter
               maxTotalTime
                 ? like(recipes.totalTime, `%${maxTotalTime}%`)
@@ -554,7 +554,9 @@ export const recipeRouter = router({
           )
           .orderBy(
             // Order by popularity score: sum of likes and saves
-            desc(sql`${countDistinct(userLikes.id)} + ${countDistinct(recipeCollections.id)}`),
+            desc(
+              sql`${countDistinct(userLikes.id)} + ${countDistinct(recipeCollections.id)}`
+            ),
             desc(recipes.createdAt)
           )
           .limit(limit + 1);
@@ -580,7 +582,10 @@ export const recipeRouter = router({
                   collectionId: recipeCollections.collectionId,
                 })
                 .from(recipeCollections)
-                .innerJoin(collections, eq(recipeCollections.collectionId, collections.id))
+                .innerJoin(
+                  collections,
+                  eq(recipeCollections.collectionId, collections.id)
+                )
                 .where(
                   and(
                     inArray(recipeCollections.recipeId, recipeIds),

@@ -54,7 +54,6 @@ function cacheImages(images: any[]) {
 }
 
 export default function App() {
-  console.log('app');
   const [isFontsLoaded, isFontsError] = useFonts({
     AlbertSans_400Regular,
     AlbertSans_700Bold,

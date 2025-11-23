@@ -298,7 +298,6 @@ export const followsRouter = router({
           followingCount: followingCount.length,
         };
       } catch (err) {
-        console.log({ err });
         if (err instanceof TRPCError) throw err;
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
