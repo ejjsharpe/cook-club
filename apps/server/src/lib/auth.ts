@@ -12,7 +12,7 @@ function createAuth(env: Env) {
       provider: "pg",
       schema,
     }),
-    plugins: [expo()],
+    plugins: [expo({ disableOriginOverride: true })],
     trustedOrigins: ["cookclub://"],
     emailAndPassword: {
       enabled: true,

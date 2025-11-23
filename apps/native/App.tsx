@@ -33,7 +33,6 @@ import { SignedInProvider } from '@/lib/signedInContext';
 import { TRPCProvider } from '@/lib/trpc';
 import { Navigation } from '@/navigation/RootStack';
 import { SessionProvider } from '@/lib/sessionContext';
-import { Text, TextComponent, View } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -55,6 +54,7 @@ function cacheImages(images: any[]) {
 }
 
 export default function App() {
+  console.log('app');
   const [isFontsLoaded, isFontsError] = useFonts({
     AlbertSans_400Regular,
     AlbertSans_700Bold,

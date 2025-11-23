@@ -26,17 +26,17 @@ export function BaseButton({ children, onPress, disabled, style }: BaseButtonPro
 
   const onPressIn = () => {
     sv.value = withSpring(0.97, {
-      damping: 1,
+      damping: 8,
       stiffness: 100,
-      mass: 0.3,
+      mass: 0.4,
     });
   };
 
   const onPressOut = () => {
     sv.value = withSpring(1, {
-      damping: 1,
-      stiffness: 200,
-      mass: 0.3,
+      damping: 8,
+      stiffness: 100,
+      mass: 0.4,
     });
   };
 

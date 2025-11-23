@@ -1,7 +1,7 @@
 {
   "name": "cook-club",
   "devDependencies": {
-    "nx": "^21.1.2"
+    "nx": "^22.1.1"
   },
   "packageManager": "bun@1.2.3",
   "scripts": {
@@ -25,8 +25,5 @@
     "sharp",
     "workerd"
   ],
-  "version": "1.0.0",
-  "dependencies": {
-    "react-native-actions-sheet": "^0.9.8"
-  }
+  "version": "1.0.0"
 }

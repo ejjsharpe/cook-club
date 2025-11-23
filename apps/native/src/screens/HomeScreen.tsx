@@ -233,7 +233,7 @@ export const HomeScreen = () => {
           ref={flatListRef}
           data={recipes}
           renderItem={renderRecipe}
-          keyExtractor={(item, index) => item.id.toString() + index}
+          keyExtractor={(item) => item.id.toString()}
           ListHeaderComponent={
             <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
           }

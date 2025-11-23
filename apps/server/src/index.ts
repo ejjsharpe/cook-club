@@ -32,8 +32,10 @@ app.use("*", async (c, next) => {
   return next();
 });
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => {
-  return getAuth(c.env).handler(c.req.raw);
+app.on(["POST", "GET"], "/api/auth/*", async (c) => {
+  const res = await getAuth(c.env).handler(c.req.raw);
+
+  return res;
 });
 
 app.use(
