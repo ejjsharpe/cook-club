@@ -243,7 +243,6 @@ export const HomeScreen = () => {
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
-          drawDistance={100}
         />
       </SafeAreaView>
     </View>
