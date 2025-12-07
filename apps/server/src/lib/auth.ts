@@ -6,7 +6,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 import { Env } from "../types";
 
-function createAuth(env: Env) {
+export function getAuth(env: Env) {
   return betterAuth({
     database: drizzleAdapter(getDb(env), {
       provider: "pg",
@@ -38,14 +38,4 @@ function createAuth(env: Env) {
       },
     },
   });
-}
-
-export let auth: ReturnType<typeof createAuth>;
-
-export function getAuth(env: Env) {
-  if (!auth) {
-    auth = createAuth(env);
-  }
-
-  return auth;
 }
