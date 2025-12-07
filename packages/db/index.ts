@@ -1,6 +1,6 @@
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
-import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool } from "@neondatabase/serverless";
+import type { NeonDatabase } from "drizzle-orm/neon-serverless";
 
 import * as schema from "./schemas";
 
@@ -8,12 +8,12 @@ interface Env {
   DATABASE_URL: string;
 }
 
-export let db: NeonHttpDatabase<typeof schema>;
+export type DbType = NeonDatabase<typeof schema>;
 
-export function getDb(env: Env) {
-  if (!db) {
-    const sql = neon(env.DATABASE_URL);
-    db = drizzle(sql, { schema });
-  }
+export function getDb(env: Env): DbType {
+  const pool = new Pool({ connectionString: env.DATABASE_URL });
+
+  const db = drizzle(pool, { schema });
+
   return db;
 }

@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Cook Club is a social recipe sharing mobile application built as an Nx monorepo. The architecture consists of:
+
 - **React Native mobile app** (Expo 54) for iOS/Android
 - **Cloudflare Workers backend** (Hono + tRPC)
 - **Shared packages** for database, tRPC, and recipe scraping
@@ -14,6 +15,7 @@ Cook Club is a social recipe sharing mobile application built as an Nx monorepo.
 ## Development Commands
 
 ### Root-level Commands (runs across all workspaces)
+
 ```bash
 bun run dev            # Start all dev servers
 bun run build          # Build all workspaces
@@ -25,6 +27,7 @@ bun run android        # Run Android emulator
 ```
 
 ### Native App (`apps/native/`)
+
 ```bash
 cd apps/native
 bun run dev            # Run iOS simulator
@@ -40,6 +43,7 @@ bun run build:prod     # EAS production build
 ```
 
 ### Server (`apps/server/`)
+
 ```bash
 cd apps/server
 bun run dev            # Start Wrangler dev server
@@ -47,6 +51,7 @@ bun run deploy         # Deploy to Cloudflare Workers
 ```
 
 ### Database (`packages/db/`)
+
 ```bash
 cd packages/db
 bun run generate       # Generate migrations from schema
@@ -58,6 +63,7 @@ bun run seed           # Seed database with sample data
 ## Architecture
 
 ### Monorepo Structure
+
 ```
 apps/
   native/         # Expo React Native mobile app
@@ -74,6 +80,7 @@ tooling/
 ### Technology Stack
 
 **Frontend (Native App)**:
+
 - React Native 0.81.5 with Expo 54
 - React 19.1.0
 - TanStack React Query for server state management
@@ -86,15 +93,17 @@ tooling/
 - Legend List for performant list rendering
 
 **Backend**:
+
 - Cloudflare Workers (Node.js compatible mode)
 - Hono web framework
 - tRPC server with HTTP adapter
 - Better Auth for sessions and OAuth
 
 **Database**:
+
 - PostgreSQL via Neon (serverless)
 - Drizzle ORM for schema and migrations
-- Neon HTTP driver for Cloudflare Workers compatibility
+- Neon WebSocket driver for Cloudflare Workers (provides session and transaction support)
 
 ### Authentication Flow
 
@@ -109,12 +118,14 @@ Authentication routes are handled at `/api/auth/*` on the server. The mobile app
 ### tRPC Architecture
 
 The tRPC router (`packages/trpc/src/server/index.ts`) aggregates feature-based routers:
+
 - `user`: User queries (get current user)
 - `recipe`: Recipe operations (scrape, create, list, detail, like, recommendations)
 - `follows`: Follow/unfollow operations
 - `collection`: Collection management (create, add/remove recipes)
 
 **Procedure Types**:
+
 - `publicProcedure`: No authentication required
 - `authedProcedure`: Requires authenticated user in context
 
@@ -126,12 +137,14 @@ Provides each request with: `db`, `auth`, `user`, `env`, `request`
 Key tables (in `packages/db/schemas/`):
 
 **Authentication** (`auth-schema.ts`):
+
 - `user`: Core user data (id, email, name, image)
 - `session`: Login sessions with tokens
 - `account`: OAuth provider accounts
 - `verification`: Email verification tokens
 
 **Recipes** (`recipe-schema.ts`):
+
 - `recipes`: Main recipe table (name, times, servings, nutrition, sourceUrl)
 - `recipeImages`: 1-to-many images per recipe
 - `recipeIngredients`: Ingredients with index ordering
@@ -143,6 +156,7 @@ Key tables (in `packages/db/schemas/`):
 - `recipeTags`: Join table for recipe categorization
 
 **Social** (`follows-schema.ts`):
+
 - `follows`: User-to-user follower relationships
 
 All schemas use cascading deletes (`onDelete: 'cascade'`) and strategic indexes on frequently queried columns.
@@ -163,6 +177,7 @@ The `recipe.scrapeRecipe` endpoint uses `@repo/recipe-scraper` to extract struct
 
 **Pagination**:
 Uses cursor-based pagination for infinite scroll. Key queries:
+
 - `recipe.getRecommendedRecipes`: Paginated feed with tag/time/search filters
 - `recipe.getUserRecipes`: User's recipes with search and pagination
 
@@ -197,18 +212,30 @@ Uses Arktype for runtime validation on tRPC inputs/outputs.
 
 ### Working with the Database
 
+**Database Connection**:
+The database uses Neon's WebSocket driver (`drizzle-orm/neon-serverless`) for Cloudflare Workers compatibility. A new connection pool is created for each request in the tRPC context, as WebSocket connections cannot outlive a single request in serverless environments.
+
+**Connection Flow**:
+
+1. `getDb(env)` in `packages/db/index.ts` creates a new `Pool` instance
+2. Pool is passed to Drizzle ORM with schema
+3. Connection is established when first query is executed
+4. Connection automatically closes when request completes
+
 **Making Schema Changes**:
+
 1. Edit schema files in `packages/db/schemas/`
 2. Run `bun run generate` to create migration
 3. Run `bun run migrate` to apply migration
 
 **Direct Schema Push** (development only):
+
 ```bash
 bun run push  # Pushes schema directly without migrations
 ```
 
 **Seeding**:
-The seed script creates sample users, recipes, tags, and relationships. The `DATABASE_URL` is hardcoded in the package.json seed script.
+The seed script creates sample users, recipes, tags, and relationships. The `DATABASE_URL` is hardcoded in the package.json seed script. Note: The seed script uses the HTTP driver since it runs in Node.js, not Cloudflare Workers.
 
 ### Nx Caching
 
@@ -219,6 +246,7 @@ Build tasks depend on upstream builds (`dependsOn: ["^build"]`), ensuring packag
 ### Environment Variables
 
 Server requires these environment variables (set in Wrangler secrets or `.dev.vars`):
+
 - `DATABASE_URL`: Neon PostgreSQL connection string
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: Google OAuth
 - `FB_CLIENT_ID`, `FB_CLIENT_SECRET`: Facebook OAuth
@@ -228,6 +256,7 @@ Server requires these environment variables (set in Wrangler secrets or `.dev.va
 ### Recipe Scraper
 
 The `@repo/recipe-scraper` package (`packages/recipe-scraper/`) extracts recipe data from URLs by:
+
 1. Fetching HTML with rotating user agents (iOS/Android)
 2. Parsing JSON-LD and Schema.org microdata
 3. Normalizing to a `ScrapedRecipe` format
@@ -237,6 +266,7 @@ Main function: `scrapeRecipe(url)` returns structured recipe data (name, ingredi
 ### Type Safety
 
 End-to-end type safety via tRPC:
+
 - Frontend gets fully typed API client
 - Input/output types exported from `@repo/trpc/client`
 - No need for separate API type definitions
@@ -244,14 +274,16 @@ End-to-end type safety via tRPC:
 ### Working with tRPC
 
 **Adding New Endpoints**:
+
 1. Create/update router in `packages/trpc/src/server/routers/`
 2. Add to root router in `packages/trpc/src/server/index.ts`
 3. Use `publicProcedure` or `authedProcedure`
 4. Mobile app automatically gets typed hooks
 
 **Using in Native App**:
+
 ```typescript
-import { useTRPC } from '@/lib/trpc';
+import { useTRPC } from "@/lib/trpc";
 
 const trpc = useTRPC();
 const { data } = trpc.recipe.getRecipeDetail.useQuery({ id: recipeId });
@@ -261,12 +293,14 @@ const { data } = trpc.recipe.getRecipeDetail.useQuery({ id: recipeId });
 
 **Mobile App**:
 Uses EAS Build for iOS/Android builds:
+
 - `bun run build:dev` - Development build
 - `bun run build:preview` - Preview build
 - `bun run build:prod` - Production build
 
 **Server**:
 Deploy to Cloudflare Workers:
+
 ```bash
 cd apps/server
 bun run deploy
@@ -278,6 +312,7 @@ Compatibility date: `2025-02-20`
 ### Testing and Quality
 
 Run across all workspaces from root:
+
 ```bash
 bun run lint          # ESLint + Prettier checks
 bun run check-types   # TypeScript type checking
