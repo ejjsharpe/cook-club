@@ -35,7 +35,9 @@ const ImageRecord = type({
 
 const IngredientRecord = type({
   index: "number",
-  ingredient: "string",
+  quantity: "string | null",
+  unit: "string | null",
+  name: "string",
 });
 
 const InstructionRecord = type({
@@ -184,7 +186,9 @@ export const recipeRouter = router({
             )
             .returning({
               index: recipeIngredients.index,
-              ingredient: recipeIngredients.ingredient,
+              quantity: recipeIngredients.quantity,
+              unit: recipeIngredients.unit,
+              name: recipeIngredients.name,
             });
 
           // Insert instructions
@@ -378,7 +382,9 @@ export const recipeRouter = router({
           ctx.db
             .select({
               index: recipeIngredients.index,
-              ingredient: recipeIngredients.ingredient,
+              quantity: recipeIngredients.quantity,
+              unit: recipeIngredients.unit,
+              name: recipeIngredients.name,
             })
             .from(recipeIngredients)
             .where(eq(recipeIngredients.recipeId, recipeId))

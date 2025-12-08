@@ -6,6 +6,7 @@ import {
   timestamp,
   index,
   boolean,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
@@ -126,7 +127,10 @@ export const recipeIngredients = pgTable(
       .notNull()
       .references(() => recipes.id, { onDelete: "cascade" }),
     index: integer("index").notNull(),
-    ingredient: text("ingredient").notNull(),
+    // Structured ingredient fields
+    quantity: numeric("quantity"),
+    unit: text("unit"),
+    name: text("name").notNull(),
   },
   (table) => [
     index("recipe_ingredients_recipe_id_idx").on(table.recipeId),

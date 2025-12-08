@@ -5,6 +5,7 @@ import { HomeScreen } from '@/screens/HomeScreen';
 import { DiscoverScreen } from '@/screens/DiscoverScreen';
 import { AddRecipeScreen } from '@/screens/AddRecipeScreen';
 import { MyRecipesScreen } from '@/screens/MyRecipesScreen';
+import { ShoppingListScreen } from '@/screens/ShoppingListScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -48,6 +49,15 @@ export const TabNavigator = () => {
         options={{
           tabBarIcon(props) {
             return <Ionicons name="book" color={props.color} size={props.size} />;
+          },
+        }}
+      />
+      <Tab.Screen
+        name="Shopping List"
+        component={ShoppingListScreen}
+        options={{
+          tabBarIcon(props) {
+            return <Ionicons name="list" color={props.color} size={props.size} />;
           },
         }}
       />

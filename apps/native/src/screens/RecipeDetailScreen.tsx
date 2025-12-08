@@ -19,6 +19,7 @@ import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
 import { useRecipeDetail } from '@/api/recipe';
 import { useRecipeSave } from '@/hooks/useRecipeSave';
+import { useAddRecipeToShoppingList } from '@/api/shopping';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_HEIGHT = 360;
@@ -54,6 +55,9 @@ export const RecipeDetailScreen = () => {
     recipe || { id: recipeId, collectionIds: [] }
   );
 
+  // Shopping list hook
+  const addToShoppingMutation = useAddRecipeToShoppingList();
+
   useEffect(() => {
     if (recipe?.servings && !hasInitializedServings.current) {
       setServings(recipe.servings);
@@ -77,6 +81,11 @@ export const RecipeDetailScreen = () => {
     }
   };
 
+  const handleAddToShoppingList = () => {
+    if (!recipe) return;
+    addToShoppingMutation.mutate({ recipeId: recipe.id });
+  };
+
   if (isPending) {
     return (
       <View style={[styles.screen, styles.centered]}>
@@ -95,17 +104,22 @@ export const RecipeDetailScreen = () => {
     );
   }
 
-  const adjustIngredientAmount = (ingredient: string): string => {
-    if (!ingredient) return '';
-
-    // Simple regex to find numbers and fractions at the beginning
-    const match = ingredient.match(/^(\d+(?:\/\d+)?|\d*\.?\d+)\s*(.*)$/);
-    if (match?.[1] && servingMultiplier !== 1) {
-      const amount = parseFloat(match[1]);
-      const newAmount = (amount * servingMultiplier).toFixed(2);
-      return `${parseFloat(newAmount)} ${match[2]}`;
+  const formatIngredient = (quantity: string | null, unit: string | null, name: string): string => {
+    if (!quantity) {
+      return name;
     }
-    return ingredient;
+
+    const adjustedQuantity = parseFloat(quantity) * servingMultiplier;
+    const formattedQuantity =
+      adjustedQuantity % 1 === 0
+        ? adjustedQuantity.toString()
+        : adjustedQuantity.toFixed(2).replace(/\.?0+$/, '');
+
+    if (unit) {
+      return `${formattedQuantity} ${unit} ${name}`;
+    }
+
+    return `${formattedQuantity} ${name}`;
   };
 
   const renderImage = ({ item, index }: { item: RecipeImage; index: number }) => (
@@ -141,12 +155,20 @@ export const RecipeDetailScreen = () => {
 
   const renderControls = () => (
     <View style={styles.controlsSection}>
-      <PrimaryButton
-        style={isSaved ? [styles.saveButton, styles.savedButton] : styles.saveButton}
-        onPress={handleSaveRecipe}
-        disabled={isSaving}>
-        {isSaved ? 'Manage Collections' : 'Save Recipe'}
-      </PrimaryButton>
+      <View style={styles.buttonsRow}>
+        <PrimaryButton
+          style={[styles.actionButton, isSaved ? styles.savedButton : {}]}
+          onPress={handleSaveRecipe}
+          disabled={isSaving}>
+          {isSaved ? 'Manage Collections' : 'Save Recipe'}
+        </PrimaryButton>
+        <PrimaryButton
+          style={styles.actionButton}
+          onPress={handleAddToShoppingList}
+          disabled={addToShoppingMutation.isPending}>
+          Add to Shopping List
+        </PrimaryButton>
+      </View>
 
       <View style={styles.servingsControl}>
         <Text type="bodyFaded" style={styles.servingsLabel}>
@@ -197,11 +219,46 @@ export const RecipeDetailScreen = () => {
     if (activeTab === 'ingredients') {
       return (
         <View style={styles.tabContent}>
-          {recipe.ingredients.map((item: { index: number; ingredient: string }, index: number) => (
-            <View key={index} style={styles.ingredientItem}>
-              <Text type="body">{adjustIngredientAmount(item.ingredient)}</Text>
-            </View>
-          ))}
+          {recipe.ingredients.map(
+            (
+              item: {
+                index: number;
+                quantity: string | null;
+                unit: string | null;
+                name: string;
+              },
+              index: number
+            ) => {
+              const adjustedQuantity = item.quantity
+                ? parseFloat(item.quantity) * servingMultiplier
+                : null;
+              const formattedQuantity = adjustedQuantity
+                ? adjustedQuantity % 1 === 0
+                  ? adjustedQuantity.toString()
+                  : adjustedQuantity.toFixed(2).replace(/\.?0+$/, '')
+                : null;
+
+              return (
+                <View key={index} style={styles.ingredientItem}>
+                  <Text type="body">
+                    {formattedQuantity && (
+                      <Text type="heading" style={styles.ingredientQuantity}>
+                        {formattedQuantity}
+                      </Text>
+                    )}
+                    {item.unit && (
+                      <Text type="heading" style={styles.ingredientQuantity}>
+                        {formattedQuantity ? ' ' : ''}
+                        {item.unit}
+                      </Text>
+                    )}
+                    {(formattedQuantity || item.unit) && ' '}
+                    {item.name}
+                  </Text>
+                </View>
+              );
+            }
+          )}
         </View>
       );
     } else {
@@ -386,13 +443,15 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 2,
   },
   controlsSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: 'column',
+    gap: 16,
   },
-  saveButton: {
+  buttonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
     flex: 1,
-    marginRight: 20,
   },
   savedButton: {
     backgroundColor: theme.colors.primary + '30',
@@ -460,6 +519,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border + '30',
+  },
+  ingredientQuantity: {
+    fontFamily: theme.fonts.albertBold,
   },
   instructionItem: {
     flexDirection: 'row',

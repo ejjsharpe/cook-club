@@ -29,6 +29,61 @@ function randomDate(daysAgo: number): Date {
   return new Date(randomTime);
 }
 
+// Parse ingredient text to extract structured data
+interface ParsedIngredient {
+  quantity: string | null;
+  unit: string | null;
+  name: string;
+}
+
+function parseIngredient(ingredientText: string): ParsedIngredient {
+  if (!ingredientText || typeof ingredientText !== "string") {
+    return { quantity: null, unit: null, name: ingredientText || "" };
+  }
+
+  // Regex matches: [quantity] [unit] [ingredient name]
+  // Examples: "2 cups flour", "1/2 tsp salt", "2 1/4 cups flour", "3 large carrots"
+  // Matches whole numbers, fractions, decimals, and mixed fractions (e.g., "2 1/4")
+  const match = ingredientText.match(
+    /^(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.?\d+)\s*([a-zA-Z\s]*?)\s+(.+)$/
+  );
+
+  if (match) {
+    const quantityStr = match[1];
+    const unit = match[2]?.trim() || null;
+    const name = match[3]?.trim() || ingredientText;
+
+    // Convert fractions and mixed fractions to decimals
+    // e.g., "1/2" -> "0.5", "2 1/4" -> "2.25"
+    let quantity: string | null = null;
+    if (quantityStr) {
+      if (quantityStr.includes("/")) {
+        // Check if it's a mixed fraction (e.g., "2 1/4")
+        if (quantityStr.includes(" ")) {
+          const [whole, fraction] = quantityStr.split(" ");
+          if (whole && fraction) {
+            const [numerator, denominator] = fraction.split("/");
+            const wholeNum = parseFloat(whole);
+            const fractionNum = parseFloat(numerator!) / parseFloat(denominator!);
+            quantity = (wholeNum + fractionNum).toString();
+          }
+        } else {
+          // Simple fraction (e.g., "1/2")
+          const [numerator, denominator] = quantityStr.split("/");
+          quantity = (parseFloat(numerator!) / parseFloat(denominator!)).toString();
+        }
+      } else {
+        quantity = parseFloat(quantityStr).toString();
+      }
+    }
+
+    return { quantity, unit, name };
+  }
+
+  // If no match, treat entire text as ingredient name
+  return { quantity: null, unit: null, name: ingredientText.trim() };
+}
+
 // Shuffle array
 function shuffle<T>(array: T[]): T[] {
   const shuffled = [...array];
@@ -53,6 +108,11 @@ async function clearDatabase(db: ReturnType<typeof drizzle>) {
   await db.delete(schema.recipeImages);
   await db.delete(schema.recipes);
   await db.delete(schema.tags);
+  // Shopping list tables
+  await db.delete(schema.shoppingListItems);
+  await db.delete(schema.shoppingListRecipes);
+  await db.delete(schema.shoppingLists);
+  // Auth tables
   await db.delete(schema.verification);
   await db.delete(schema.session);
   await db.delete(schema.account);
@@ -178,13 +238,18 @@ async function seedRecipes(
 
       allRecipes.push(insertedRecipe!);
 
-      // Insert ingredients
+      // Insert ingredients with structured data
       await db.insert(schema.recipeIngredients).values(
-        recipeInfo.ingredients.map((ingredient: string, idx: number) => ({
-          recipeId: insertedRecipe!.id,
-          index: idx,
-          ingredient,
-        }))
+        recipeInfo.ingredients.map((ingredient: string, idx: number) => {
+          const parsed = parseIngredient(ingredient);
+          return {
+            recipeId: insertedRecipe!.id,
+            index: idx,
+            quantity: parsed.quantity,
+            unit: parsed.unit,
+            name: parsed.name,
+          };
+        })
       );
 
       // Insert instructions

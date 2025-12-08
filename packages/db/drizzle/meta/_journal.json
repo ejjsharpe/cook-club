@@ -29,6 +29,20 @@
       "when": 1763563830421,
       "tag": "0003_late_kang",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1765234290733,
+      "tag": "0004_strong_magus",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1765235459548,
+      "tag": "0005_light_richard_fisk",
+      "breakpoints": true
     }
   ]
 }
