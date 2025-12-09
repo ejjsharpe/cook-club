@@ -35,8 +35,8 @@ interface ShoppingListItem {
   isChecked: boolean;
   sourceRecipeIds: string | null;
   sourceRecipeNames: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Recipe {
@@ -86,18 +86,14 @@ export const ShoppingListScreen = () => {
   };
 
   const handleRemoveRecipe = (recipeId: number, recipeName: string) => {
-    Alert.alert(
-      'Remove Recipe',
-      `Remove all ingredients from "${recipeName}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => removeRecipeMutation.mutate({ recipeId }),
-        },
-      ]
-    );
+    Alert.alert('Remove Recipe', `Remove all ingredients from "${recipeName}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => removeRecipeMutation.mutate({ recipeId }),
+      },
+    ]);
   };
 
   const handleAddManualItem = () => {
@@ -123,11 +119,7 @@ export const ShoppingListScreen = () => {
       onPress={() => handleRecipePress(item.id)}
       activeOpacity={0.7}>
       {item.imageUrl ? (
-        <Image
-          source={{ uri: item.imageUrl }}
-          style={styles.recipeChipImage}
-          contentFit="cover"
-        />
+        <Image source={{ uri: item.imageUrl }} style={styles.recipeChipImage} contentFit="cover" />
       ) : (
         <View style={[styles.recipeChipImage, styles.recipeChipImagePlaceholder]}>
           <Ionicons name="image-outline" size={20} style={styles.placeholderIcon} />
@@ -150,9 +142,7 @@ export const ShoppingListScreen = () => {
 
   const renderRightActions = (itemId: number) => {
     return (
-      <TouchableOpacity
-        style={styles.deleteAction}
-        onPress={() => handleRemoveItem(itemId)}>
+      <TouchableOpacity style={styles.deleteAction} onPress={() => handleRemoveItem(itemId)}>
         <Ionicons name="trash" size={24} color="#fff" />
       </TouchableOpacity>
     );
@@ -164,19 +154,11 @@ export const ShoppingListScreen = () => {
         style={[styles.itemRow, item.isChecked && styles.itemRowChecked]}
         onPress={() => handleToggleCheck(item.id)}
         activeOpacity={0.7}>
-        <View
-          style={[
-            styles.checkbox,
-            item.isChecked && styles.checkboxChecked,
-          ]}>
-          {item.isChecked && (
-            <Ionicons name="checkmark" size={20} style={styles.checkIcon} />
-          )}
+        <View style={[styles.checkbox, item.isChecked && styles.checkboxChecked]}>
+          {item.isChecked && <Ionicons name="checkmark" size={20} style={styles.checkIcon} />}
         </View>
         <View style={styles.itemContent}>
-          <Text
-            type="body"
-            style={[styles.itemText, item.isChecked && styles.itemTextChecked]}>
+          <Text type="body" style={[styles.itemText, item.isChecked && styles.itemTextChecked]}>
             {item.displayText}
           </Text>
           {item.sourceRecipeNames && (
@@ -251,9 +233,7 @@ export const ShoppingListScreen = () => {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.recipeChipsContainer}>
               {recipes.map((recipe: Recipe) => (
-                <View key={recipe.id}>
-                  {renderRecipeChip({ item: recipe })}
-                </View>
+                <View key={recipe.id}>{renderRecipeChip({ item: recipe })}</View>
               ))}
             </ScrollView>
             <VSpace size={12} />
@@ -279,10 +259,7 @@ export const ShoppingListScreen = () => {
             <Ionicons
               name="add-circle"
               size={32}
-              style={[
-                styles.addIcon,
-                !manualItemText.trim() && styles.addIconDisabled,
-              ]}
+              style={[styles.addIcon, !manualItemText.trim() && styles.addIconDisabled]}
             />
           </TouchableOpacity>
         </View>
@@ -384,8 +361,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   input: {
     flex: 1,
-    height: 44,
     paddingHorizontal: 12,
+    paddingVertical: 10.5,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.border,

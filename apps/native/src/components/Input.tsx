@@ -31,7 +31,8 @@ const styles = StyleSheet.create((theme) => ({
   label: { marginBottom: 8, marginLeft: 4 },
   input: {
     width: '100%',
-    padding: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10.5,
     borderRadius: theme.borderRadius.medium,
     borderColor: theme.colors.border,
     borderWidth: 1,

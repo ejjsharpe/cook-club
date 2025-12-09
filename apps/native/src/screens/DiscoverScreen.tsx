@@ -200,9 +200,11 @@ export const DiscoverScreen = () => {
   });
 
   // Flatten paginated data
-  const recipes = useMemo(() => {
+  const recipes: RecommendedRecipe[] = useMemo(() => {
     if (!shouldFetchRecipes) return [];
-    return data?.pages.flatMap((page) => page.items) ?? [];
+    return (
+      data?.pages.flatMap((page: any) => page?.items ?? []) ?? []
+    );
   }, [data, shouldFetchRecipes]);
 
   // Handlers

@@ -151,7 +151,10 @@ export const HomeScreen = () => {
     useRecommendedRecipes();
 
   // Flatten paginated data
-  const recipes = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data]);
+  const recipes: RecommendedRecipe[] = useMemo(
+    () => data?.pages.flatMap((page: any) => page?.items ?? []) ?? [],
+    [data]
+  );
 
   // Handlers
   const handleAvatarPress = useCallback(() => {
@@ -232,7 +235,7 @@ export const HomeScreen = () => {
           ref={listRef}
           data={recipes}
           renderItem={renderRecipe}
-          keyExtractor={(item, index) => item.id.toString() + index}
+          keyExtractor={(item) => item.id.toString()}
           ListHeaderComponent={
             <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
           }

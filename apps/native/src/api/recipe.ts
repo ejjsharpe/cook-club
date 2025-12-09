@@ -151,12 +151,22 @@ export const useRecommendedRecipes = ({
 
   const infiniteQueryOptions = trpc.recipe.getRecommendedRecipes.infiniteQueryOptions(
     { tagIds, maxTotalTime, search, limit },
-    { getNextPageParam: (lastPage) => lastPage?.nextCursor }
+    {
+      getNextPageParam: (lastPage) => {
+        // Use offset pagination with seed
+        if (!lastPage?.nextOffset) return undefined;
+        return {
+          offset: lastPage.nextOffset,
+          seed: lastPage.seed,
+        };
+      },
+      initialPageParam: { offset: 0, seed: undefined },
+    }
   );
 
   return useInfiniteQuery({
     ...infiniteQueryOptions,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0, // Always fetch fresh results (new seed on refresh)
   });
 };
 

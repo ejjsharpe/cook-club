@@ -9,6 +9,7 @@ import {
   user,
   tags,
   recipeTags,
+  follows,
 } from "@repo/db/schemas";
 import { scrapeRecipe } from "@repo/recipe-scraper";
 import { TRPCError } from "@trpc/server";
@@ -493,17 +494,36 @@ export const recipeRouter = router({
     .input(
       type({
         limit: "number = 20",
-        cursor: "number?",
+        offset: "number = 0",
+        "seed?": "number",
         "tagIds?": "number[]",
         "maxTotalTime?": "string",
         search: "string?",
       })
     )
     .query(async ({ ctx, input }) => {
-      const { limit, cursor, tagIds, maxTotalTime, search } = input;
+      const { limit, offset, tagIds, maxTotalTime, search } = input;
+
+      // Use provided seed or generate a new one for fresh results
+      // Seed must be between 0 and 1 for PostgreSQL's setseed()
+      const seed = input.seed ?? Math.random();
 
       try {
+        // Set random seed for consistent results within this pagination session
+        await ctx.db.execute(sql`SELECT setseed(${seed})`);
+
         // Build the base query with hybrid scoring
+        // Popularity score components:
+        // - Base engagement: likes + saves
+        // - Follow boost: +10 points if current user follows the recipe uploader
+        // - Random jitter: RANDOM() * 5 for variety (consistent with seed)
+        const popularityScoreExpr = sql<number>`
+          ${countDistinct(userLikes.id)} +
+          ${countDistinct(recipeCollections.id)} +
+          CASE WHEN ${follows.id} IS NOT NULL THEN 10 ELSE 0 END +
+          (RANDOM() * 5)
+        `;
+
         const recommendedRecipesList = await ctx.db
           .select({
             recipe: recipes,
@@ -517,6 +537,10 @@ export const recipeRouter = router({
             // Use Drizzle's countDistinct for aggregations
             saveCount: countDistinct(recipeCollections.id),
             likeCount: countDistinct(userLikes.id),
+            // Calculate popularity score for cursor
+            popularityScore: popularityScoreExpr,
+            // Check if current user follows the uploader
+            isFollowing: sql<boolean>`${follows.id} IS NOT NULL`,
             // EXISTS: check if current user has liked this recipe
             isLiked: sql<boolean>`EXISTS(
               SELECT 1 FROM ${userLikes}
@@ -539,10 +563,15 @@ export const recipeRouter = router({
           )
           .leftJoin(userLikes, eq(recipes.id, userLikes.recipeId))
           .leftJoin(recipeTags, eq(recipes.id, recipeTags.recipeId))
+          .leftJoin(
+            follows,
+            and(
+              eq(follows.followingId, recipes.uploadedBy),
+              eq(follows.followerId, ctx.user.id)
+            )
+          )
           .where(
             and(
-              // Cursor-based pagination
-              cursor ? lt(recipes.createdAt, new Date(cursor)) : undefined,
               // Search filter - use ilike for case-insensitive search
               search ? ilike(recipes.name, `%${search}%`) : undefined,
               // Total time filter
@@ -551,7 +580,7 @@ export const recipeRouter = router({
                 : undefined
             )
           )
-          .groupBy(recipes.id, user.id, user.name, user.email, user.image)
+          .groupBy(recipes.id, user.id, user.name, user.email, user.image, follows.id)
           .having(
             // Tag filter - use HAVING instead of WHERE subquery for better performance
             tagIds && tagIds.length > 0
@@ -559,13 +588,13 @@ export const recipeRouter = router({
               : undefined
           )
           .orderBy(
-            // Order by popularity score: sum of likes and saves
-            desc(
-              sql`${countDistinct(userLikes.id)} + ${countDistinct(recipeCollections.id)}`
-            ),
-            desc(recipes.createdAt)
+            // Order by popularity score with random jitter
+            desc(popularityScoreExpr),
+            desc(recipes.createdAt),
+            desc(recipes.id)
           )
-          .limit(limit + 1);
+          .limit(limit)
+          .offset(offset);
 
         // Get tags and collection IDs for each recipe
         const recipeIds = recommendedRecipesList.map((item) => item.recipe.id);
@@ -635,18 +664,19 @@ export const recipeRouter = router({
           likeCount: item.likeCount,
           collectionIds: collectionsByRecipe[item.recipe.id] || [],
           isLiked: item.isLiked,
+          isFollowing: item.isFollowing,
           tags: tagsByRecipe[item.recipe.id] || [],
+          popularityScore: item.popularityScore,
         }));
 
-        let nextCursor: number | undefined = undefined;
-        if (items.length > limit) {
-          const nextItem = items.pop();
-          nextCursor = nextItem?.createdAt.getTime();
-        }
+        // Calculate next offset for pagination
+        const hasMore = items.length === limit;
+        const nextOffset = hasMore ? offset + limit : undefined;
 
         return {
           items,
-          nextCursor,
+          nextOffset,
+          seed, // Return seed so client can pass it back for consistent pagination
         };
       } catch (err) {
         console.error("Error fetching recommended recipes:", err);

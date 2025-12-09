@@ -38,7 +38,7 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: theme.colors.border,
     paddingHorizontal: 12,
-    height: 44,
+    paddingVertical: 10.5,
   },
   searchIcon: {
     marginRight: 8,
