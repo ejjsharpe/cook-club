@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate",
-    "push": "drizzle-kit push",
-    "seed": "DATABASE_URL='postgresql://neondb_owner:npg_vIM9kPjoufX1@ep-weathered-surf-ab9exhm4-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require' bun run seed.ts"
+    "generate": "dotenvx run -- drizzle-kit generate",
+    "migrate": "dotenvx run -- drizzle-kit migrate",
+    "migrate:prod": "dotenvx run -f .env.production -- drizzle-kit migrate",
+    "push": "dotenvx run -- drizzle-kit push",
+    "push:prod": "dotenvx run -f .env.production -- drizzle-kit push",
+    "seed": "dotenvx run -- bun run seed.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "latest",
@@ -14,6 +16,7 @@
     "drizzle-orm": "0.44.3"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.34.0",
     "@cloudflare/workers-types": "^4.20250718.0",
     "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^3.0.0",
