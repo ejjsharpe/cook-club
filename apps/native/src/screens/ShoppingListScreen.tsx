@@ -11,10 +11,10 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { KeyboardAvoidingView, KeyboardStickyView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable'
 
 import {
   useGetShoppingList,
@@ -237,7 +237,7 @@ export const ShoppingListScreen = () => {
 
         {/* Recipe Chips */}
         {recipes.length > 0 && (
-          <>
+          <View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -247,7 +247,7 @@ export const ShoppingListScreen = () => {
               ))}
             </ScrollView>
             <VSpace size={12} />
-          </>
+          </View>
         )}
 
         {/* Shopping List Items */}
@@ -264,11 +264,10 @@ export const ShoppingListScreen = () => {
           ]}
         />
       </SafeAreaView>
-
       {/* Bottom Input - sticks to keyboard */}
       <KeyboardStickyView
-        style={[styles.inputSection]}
-        offset={{ closed: 0, opened: insets.bottom + 48 }}>
+        style={styles.inputSection}
+        offset={{ closed: 48, opened: insets.bottom + 96 }}>
         <TextInput
           style={styles.input}
           placeholder="Add item (e.g., 2 cups milk)"
@@ -321,14 +320,13 @@ const styles = StyleSheet.create((theme) => ({
   // Recipe Chips
   recipeChipsContainer: {
     paddingHorizontal: 20,
-    gap: 8,
+    paddingVertical: 4,
+    width: '100%'
   },
   recipeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 56,
-    minWidth: 100,
-    maxWidth: 200,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
@@ -351,7 +349,6 @@ const styles = StyleSheet.create((theme) => ({
     opacity: 0.3,
   },
   recipeChipText: {
-    flex: 1,
     fontSize: 14,
   },
   recipeChipRemove: {
@@ -366,12 +363,13 @@ const styles = StyleSheet.create((theme) => ({
   inputSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border + '30',
+    borderTopColor: theme.colors.border,
     backgroundColor: theme.colors.background,
     gap: 8,
+    paddingBottom: 60
   },
   input: {
     flex: 1,
@@ -427,8 +425,6 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 12,
     paddingHorizontal: 20,
     backgroundColor: theme.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '30',
   },
   itemRowChecked: {
     opacity: 0.5,

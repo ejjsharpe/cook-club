@@ -417,6 +417,7 @@ export const shoppingRouter = router({
 
   /**
    * Remove individual item from shopping list
+   * Also removes the recipe if this was the last item from that recipe
    */
   removeItem: authedProcedure
     .input(
@@ -428,9 +429,12 @@ export const shoppingRouter = router({
       const { itemId } = input;
 
       try {
-        // Verify ownership before deleting
+        // Verify ownership and get item details
         const item = await ctx.db
-          .select({ listId: shoppingListItems.shoppingListId })
+          .select({
+            listId: shoppingListItems.shoppingListId,
+            sourceRecipeId: shoppingListItems.sourceRecipeId,
+          })
           .from(shoppingListItems)
           .innerJoin(
             shoppingLists,
@@ -451,9 +455,38 @@ export const shoppingRouter = router({
           });
         }
 
-        await ctx.db
-          .delete(shoppingListItems)
-          .where(eq(shoppingListItems.id, itemId));
+        await ctx.db.transaction(async (tx) => {
+          // Delete the item
+          await tx
+            .delete(shoppingListItems)
+            .where(eq(shoppingListItems.id, itemId));
+
+          // If this item was from a recipe, check if it was the last item
+          if (item.sourceRecipeId) {
+            const remainingItems = await tx
+              .select({ id: shoppingListItems.id })
+              .from(shoppingListItems)
+              .where(
+                and(
+                  eq(shoppingListItems.shoppingListId, item.listId),
+                  eq(shoppingListItems.sourceRecipeId, item.sourceRecipeId)
+                )
+              )
+              .limit(1);
+
+            // If no items remain from this recipe, remove the recipe too
+            if (remainingItems.length === 0) {
+              await tx
+                .delete(shoppingListRecipes)
+                .where(
+                  and(
+                    eq(shoppingListRecipes.shoppingListId, item.listId),
+                    eq(shoppingListRecipes.recipeId, item.sourceRecipeId)
+                  )
+                );
+            }
+          }
+        });
 
         return { success: true };
       } catch (err) {
@@ -468,6 +501,7 @@ export const shoppingRouter = router({
 
   /**
    * Clear all checked items
+   * Also removes recipes if all their items were checked and cleared
    */
   clearCheckedItems: authedProcedure.mutation(async ({ ctx }) => {
     try {
@@ -482,15 +516,66 @@ export const shoppingRouter = router({
         return { success: true, deletedCount: 0 };
       }
 
-      // Delete all checked items
-      await ctx.db
-        .delete(shoppingListItems)
-        .where(
-          and(
-            eq(shoppingListItems.shoppingListId, shoppingList.id),
-            eq(shoppingListItems.isChecked, true)
-          )
-        );
+      await ctx.db.transaction(async (tx) => {
+        // Get all checked items that are being deleted
+        const checkedItems = await tx
+          .select({
+            id: shoppingListItems.id,
+            sourceRecipeId: shoppingListItems.sourceRecipeId,
+          })
+          .from(shoppingListItems)
+          .where(
+            and(
+              eq(shoppingListItems.shoppingListId, shoppingList.id),
+              eq(shoppingListItems.isChecked, true)
+            )
+          );
+
+        // Collect unique recipe IDs from checked items
+        const recipeIds = [
+          ...new Set(
+            checkedItems
+              .map((item) => item.sourceRecipeId)
+              .filter((id): id is number => id !== null)
+          ),
+        ];
+
+        // Delete all checked items
+        await tx
+          .delete(shoppingListItems)
+          .where(
+            and(
+              eq(shoppingListItems.shoppingListId, shoppingList.id),
+              eq(shoppingListItems.isChecked, true)
+            )
+          );
+
+        // For each recipe, check if any items remain
+        for (const recipeId of recipeIds) {
+          const remainingItems = await tx
+            .select({ id: shoppingListItems.id })
+            .from(shoppingListItems)
+            .where(
+              and(
+                eq(shoppingListItems.shoppingListId, shoppingList.id),
+                eq(shoppingListItems.sourceRecipeId, recipeId)
+              )
+            )
+            .limit(1);
+
+          // If no items remain from this recipe, remove the recipe
+          if (remainingItems.length === 0) {
+            await tx
+              .delete(shoppingListRecipes)
+              .where(
+                and(
+                  eq(shoppingListRecipes.shoppingListId, shoppingList.id),
+                  eq(shoppingListRecipes.recipeId, recipeId)
+                )
+              );
+          }
+        }
+      });
 
       return { success: true };
     } catch (err) {
