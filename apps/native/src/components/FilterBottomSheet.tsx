@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import ActionSheet, {
   SheetManager,
@@ -45,37 +46,46 @@ const TIME_OPTIONS = [
 ];
 
 const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
-  const handleTagToggle = (
-    tagId: number,
-    selectedTagIds: number[],
-    onTagsChange: (tagIds: number[]) => void
-  ) => {
-    if (selectedTagIds.includes(tagId)) {
-      onTagsChange(selectedTagIds.filter((id) => id !== tagId));
-    } else {
-      onTagsChange([...selectedTagIds, tagId]);
-    }
-  };
-
-  const handleClear = (
-    onTagsChange: (tagIds: number[]) => void,
-    onTimeChange: (time: string | undefined) => void
-  ) => {
-    onTagsChange([]);
-    onTimeChange(undefined);
-  };
-
-  const handleApply = () => {
-    SheetManager.hide('filter-sheet');
-  };
-
   const {
-    selectedTagIds = [],
+    selectedTagIds: initialSelectedTagIds = [],
     onTagsChange = () => {},
-    maxTotalTime,
+    maxTotalTime: initialMaxTotalTime,
     onTimeChange = () => {},
     allTags = [],
   } = props.payload || {};
+
+  // Local state for immediate UI updates
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(initialSelectedTagIds);
+  const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>(initialMaxTotalTime);
+
+  // Sync local state with props when sheet opens
+  useEffect(() => {
+    setSelectedTagIds(initialSelectedTagIds);
+    setMaxTotalTime(initialMaxTotalTime);
+  }, [initialSelectedTagIds, initialMaxTotalTime]);
+
+  const handleTagToggle = (tagId: number) => {
+    if (selectedTagIds.includes(tagId)) {
+      setSelectedTagIds(selectedTagIds.filter((id) => id !== tagId));
+    } else {
+      setSelectedTagIds([...selectedTagIds, tagId]);
+    }
+  };
+
+  const handleTimeToggle = (time: string) => {
+    setMaxTotalTime(maxTotalTime === time ? undefined : time);
+  };
+
+  const handleClear = () => {
+    setSelectedTagIds([]);
+    setMaxTotalTime(undefined);
+  };
+
+  const handleApply = () => {
+    onTagsChange(selectedTagIds);
+    onTimeChange(maxTotalTime);
+    SheetManager.hide('filter-sheet');
+  };
 
   return (
     <ActionSheet
@@ -107,9 +117,7 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
                   key={option.value}
                   label={option.label}
                   selected={maxTotalTime === option.value}
-                  onPress={() =>
-                    onTimeChange(maxTotalTime === option.value ? undefined : option.value)
-                  }
+                  onPress={() => handleTimeToggle(option.value)}
                 />
               ))}
             </View>
@@ -128,7 +136,7 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
                       key={tag.id}
                       label={tag.name}
                       selected={selectedTagIds.includes(tag.id)}
-                      onPress={() => handleTagToggle(tag.id, selectedTagIds, onTagsChange)}
+                      onPress={() => handleTagToggle(tag.id)}
                     />
                   ))}
                 </View>
@@ -140,9 +148,7 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
 
         {/* Action Buttons */}
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => handleClear(onTagsChange, onTimeChange)}>
+          <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
             <Text type="bodyFaded">Clear all</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.applyButton} onPress={handleApply}>

@@ -21,7 +21,7 @@ export const SearchBar = ({ value, onChangeText, placeholder = 'Search recipes..
         autoCorrect={false}
       />
       {value.length > 0 && (
-        <TouchableOpacity onPress={() => onChangeText('')} style={styles.clearButton}>
+        <TouchableOpacity onPress={() => onChangeText('')}>
           <Ionicons name="close-circle" size={20} style={styles.clearIcon} />
         </TouchableOpacity>
       )}
@@ -49,9 +49,6 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 16,
     color: theme.colors.text,
     fontFamily: theme.fonts.albertRegular,
-  },
-  clearButton: {
-    padding: 4,
   },
   clearIcon: {
     color: theme.colors.text,
