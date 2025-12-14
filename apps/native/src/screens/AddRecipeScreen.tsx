@@ -1,15 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
-import { Ionicons } from '@expo/vector-icons';
 
 import { useScrapeRecipe } from '@/api/recipe';
 import { Input } from '@/components/Input';
 import { VSpace } from '@/components/Space';
 import { Text } from '@/components/Text';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
-import { useNavigation } from '@react-navigation/native';
 
 const OptionCard = ({
   icon,

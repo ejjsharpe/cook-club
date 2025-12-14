@@ -1,5 +1,6 @@
 import { Session } from 'better-auth';
 import { createContext, useContext } from 'react';
+
 import { authClient } from './authClient';
 
 interface User {

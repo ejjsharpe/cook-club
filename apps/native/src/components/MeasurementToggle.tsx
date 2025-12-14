@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
+
 import { Text } from './Text';
+
 import { MeasurementSystem, getMeasurementDisplayName } from '@/lib/measurementPreferences';
 
 interface MeasurementToggleProps {

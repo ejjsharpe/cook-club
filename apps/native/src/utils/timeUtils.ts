@@ -80,7 +80,7 @@ export function formatTime(time: TimeValue): string {
 
   // Create a duration object for date-fns
   const duration = { hours, minutes };
-  
+
   // Use date-fns formatDuration with custom format
   return formatDuration(duration, {
     format: hours > 0 && minutes > 0 ? ['hours', 'minutes'] : hours > 0 ? ['hours'] : ['minutes'],
@@ -123,11 +123,11 @@ export function fromTotalMinutes(totalMinutes: number): TimeValue {
   // Use date-fns to create duration from milliseconds
   const duration = intervalToDuration({
     start: 0,
-    end: totalMinutes * 60 * 1000 // Convert minutes to milliseconds
+    end: totalMinutes * 60 * 1000, // Convert minutes to milliseconds
   });
-  
+
   return {
     hours: duration.hours || 0,
-    minutes: duration.minutes || 0
+    minutes: duration.minutes || 0,
   };
 }

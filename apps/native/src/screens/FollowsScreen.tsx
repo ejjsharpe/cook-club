@@ -1,15 +1,9 @@
+import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
 import { View, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 
-import { Text } from '@/components/Text';
-import { Input } from '@/components/Input';
-import { VSpace } from '@/components/Space';
-import { UserCard } from '@/components/UserCard';
-import { UserSearchCard } from '@/components/UserSearchCard';
-import { BackButton } from '@/components/buttons/BackButton';
 import {
   useFollowing,
   useFollowers,
@@ -17,6 +11,12 @@ import {
   useUserFollowers,
   useUserFollowing,
 } from '@/api/follows';
+import { Input } from '@/components/Input';
+import { VSpace } from '@/components/Space';
+import { Text } from '@/components/Text';
+import { UserCard } from '@/components/UserCard';
+import { UserSearchCard } from '@/components/UserSearchCard';
+import { BackButton } from '@/components/buttons/BackButton';
 
 type TabType = 'following' | 'followers' | 'search';
 

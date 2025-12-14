@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, TouchableOpacity, Modal, ScrollView } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Text } from './Text';
+import { StyleSheet } from 'react-native-unistyles';
+
 import { VSpace } from './Space';
+import { Text } from './Text';
 import { PrimaryButton } from './buttons/PrimaryButton';
+
 import { TimeValue, formatTime } from '@/utils/timeUtils';
 
 interface TimePickerProps {
@@ -14,7 +16,12 @@ interface TimePickerProps {
   placeholder?: string;
 }
 
-export function TimePicker({ label, value, onValueChange, placeholder = "Tap to set" }: TimePickerProps) {
+export function TimePicker({
+  label,
+  value,
+  onValueChange,
+  placeholder = 'Tap to set',
+}: TimePickerProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [tempHours, setTempHours] = useState(value.hours);
   const [tempMinutes, setTempMinutes] = useState(value.minutes);
@@ -40,7 +47,7 @@ export function TimePicker({ label, value, onValueChange, placeholder = "Tap to 
 
   // Generate hour options (0-23)
   const hourOptions = Array.from({ length: 24 }, (_, i) => i);
-  
+
   // Generate minute options (0, 5, 10, 15, ..., 55)
   const minuteOptions = Array.from({ length: 12 }, (_, i) => i * 5);
 
@@ -50,13 +57,7 @@ export function TimePicker({ label, value, onValueChange, placeholder = "Tap to 
         {label}
       </Text>
       <TouchableOpacity style={styles.picker} onPress={handleOpen}>
-        <Text 
-          type="body" 
-          style={[
-            styles.pickerText, 
-            !formatTime(value) && styles.placeholderText
-          ]}
-        >
+        <Text type="body" style={[styles.pickerText, !formatTime(value) && styles.placeholderText]}>
           {displayText}
         </Text>
         <Text style={styles.arrow}>⌄</Text>
@@ -66,8 +67,7 @@ export function TimePicker({ label, value, onValueChange, placeholder = "Tap to 
         visible={isVisible}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={handleCancel}
-      >
+        onRequestClose={handleCancel}>
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={handleCancel}>
@@ -78,34 +78,27 @@ export function TimePicker({ label, value, onValueChange, placeholder = "Tap to 
               <Text type="highlight">Done</Text>
             </TouchableOpacity>
           </View>
-          
+
           <VSpace size={20} />
-          
+
           <View style={styles.pickerContainer}>
             {/* Hours Column */}
             <View style={styles.pickerColumn}>
-              <Text type="heading" style={styles.columnTitle}>Hours</Text>
-              <ScrollView 
+              <Text type="heading" style={styles.columnTitle}>
+                Hours
+              </Text>
+              <ScrollView
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-              >
+                contentContainerStyle={styles.scrollContent}>
                 {hourOptions.map((hour) => (
                   <TouchableOpacity
                     key={hour}
-                    style={[
-                      styles.option,
-                      tempHours === hour && styles.selectedOption
-                    ]}
-                    onPress={() => setTempHours(hour)}
-                  >
-                    <Text 
-                      type="body" 
-                      style={[
-                        styles.optionText,
-                        tempHours === hour && styles.selectedOptionText
-                      ]}
-                    >
+                    style={[styles.option, tempHours === hour && styles.selectedOption]}
+                    onPress={() => setTempHours(hour)}>
+                    <Text
+                      type="body"
+                      style={[styles.optionText, tempHours === hour && styles.selectedOptionText]}>
                       {hour}
                     </Text>
                   </TouchableOpacity>
@@ -115,28 +108,24 @@ export function TimePicker({ label, value, onValueChange, placeholder = "Tap to 
 
             {/* Minutes Column */}
             <View style={styles.pickerColumn}>
-              <Text type="heading" style={styles.columnTitle}>Minutes</Text>
-              <ScrollView 
+              <Text type="heading" style={styles.columnTitle}>
+                Minutes
+              </Text>
+              <ScrollView
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-              >
+                contentContainerStyle={styles.scrollContent}>
                 {minuteOptions.map((minute) => (
                   <TouchableOpacity
                     key={minute}
-                    style={[
-                      styles.option,
-                      tempMinutes === minute && styles.selectedOption
-                    ]}
-                    onPress={() => setTempMinutes(minute)}
-                  >
-                    <Text 
-                      type="body" 
+                    style={[styles.option, tempMinutes === minute && styles.selectedOption]}
+                    onPress={() => setTempMinutes(minute)}>
+                    <Text
+                      type="body"
                       style={[
                         styles.optionText,
-                        tempMinutes === minute && styles.selectedOptionText
-                      ]}
-                    >
+                        tempMinutes === minute && styles.selectedOptionText,
+                      ]}>
                       {minute}
                     </Text>
                   </TouchableOpacity>
@@ -146,29 +135,30 @@ export function TimePicker({ label, value, onValueChange, placeholder = "Tap to 
           </View>
 
           <VSpace size={20} />
-          
+
           <View style={styles.previewContainer}>
-            <Text type="body" style={styles.previewLabel}>Preview:</Text>
+            <Text type="body" style={styles.previewLabel}>
+              Preview:
+            </Text>
             <Text type="title2" style={styles.previewText}>
               {formatTime({ hours: tempHours, minutes: tempMinutes }) || 'No time set'}
             </Text>
           </View>
 
           <VSpace size={20} />
-          
+
           <View style={styles.modalActions}>
-            <TouchableOpacity 
-              style={styles.clearButton} 
+            <TouchableOpacity
+              style={styles.clearButton}
               onPress={() => {
                 setTempHours(0);
                 setTempMinutes(0);
-              }}
-            >
-              <Text type="body" style={styles.clearButtonText}>Clear</Text>
+              }}>
+              <Text type="body" style={styles.clearButtonText}>
+                Clear
+              </Text>
             </TouchableOpacity>
-            <PrimaryButton onPress={handleConfirm}>
-              Set Time
-            </PrimaryButton>
+            <PrimaryButton onPress={handleConfirm}>Set Time</PrimaryButton>
           </View>
         </SafeAreaView>
       </Modal>

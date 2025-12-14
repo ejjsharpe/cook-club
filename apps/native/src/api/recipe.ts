@@ -6,8 +6,8 @@ import {
   useQueryClient,
   type InfiniteData,
 } from '@tanstack/react-query';
-import { Alert } from 'react-native';
 import type { inferOutput } from '@trpc/tanstack-react-query';
+import { Alert } from 'react-native';
 
 export const useScrapeRecipe = ({ url }: { url: string }) => {
   const trpc = useTRPC();

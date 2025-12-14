@@ -1,8 +1,9 @@
 import { View, TouchableOpacity, Image } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Text } from './Text';
 import { HSpace } from './Space';
+import { Text } from './Text';
+
 import { useFollowUser } from '@/api/follows';
 
 interface User {

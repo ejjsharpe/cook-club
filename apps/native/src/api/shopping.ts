@@ -53,9 +53,7 @@ export const useToggleItemChecked = () => {
         return {
           ...old,
           items: old.items.map((item: any) =>
-            item.id === itemId
-              ? { ...item, isChecked: !item.isChecked }
-              : item
+            item.id === itemId ? { ...item, isChecked: !item.isChecked } : item
           ),
         };
       });

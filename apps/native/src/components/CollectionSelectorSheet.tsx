@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { View, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import ActionSheet, {
@@ -8,10 +9,9 @@ import ActionSheet, {
   ScrollView,
 } from 'react-native-actions-sheet';
 import { StyleSheet } from 'react-native-unistyles';
-import { Ionicons } from '@expo/vector-icons';
 
-import { Text } from './Text';
 import { VSpace } from './Space';
+import { Text } from './Text';
 import {
   useGetUserCollections,
   useToggleRecipeInCollection,
@@ -70,7 +70,7 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
       id={props.sheetId}
       snapPoints={[100]}
       initialSnapIndex={0}
-      gestureEnabled={true}
+      gestureEnabled
       enableGesturesInScrollView={false}
       indicatorStyle={styles.indicator}>
       <View>

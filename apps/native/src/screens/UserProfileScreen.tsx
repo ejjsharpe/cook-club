@@ -1,14 +1,14 @@
+import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { View, Image, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 
-import { Text } from '@/components/Text';
-import { VSpace } from '@/components/Space';
-import { PrimaryButton } from '@/components/buttons/PrimaryButton';
-import { BackButton } from '@/components/buttons/BackButton';
 import { useUserProfile, useFollowUser, useUnfollowUser } from '@/api/follows';
 import { useUser } from '@/api/user';
+import { VSpace } from '@/components/Space';
+import { Text } from '@/components/Text';
+import { BackButton } from '@/components/buttons/BackButton';
+import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 
 type UserProfileScreenParams = {
   UserProfile: {

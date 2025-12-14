@@ -1,18 +1,19 @@
+import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
+import { useTRPC } from '@repo/trpc/client';
+import { useMutation } from '@tanstack/react-query';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, FlatList, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
-import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'expo-image';
+
 import { Input } from '@/components/Input';
-import { Text } from '@/components/Text';
-import { PrimaryButton } from '@/components/buttons/PrimaryButton';
-import { BackButton } from '@/components/buttons/BackButton';
 import { VSpace } from '@/components/Space';
+import { Text } from '@/components/Text';
 import { TimePicker } from '@/components/TimePicker';
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import { useTRPC } from '@repo/trpc/client';
-import { useMutation } from '@tanstack/react-query';
+import { BackButton } from '@/components/buttons/BackButton';
+import { PrimaryButton } from '@/components/buttons/PrimaryButton';
 import { TimeValue, parseDuration, formatDurationISO } from '@/utils/timeUtils';
 
 interface ParsedIngredient {
@@ -291,7 +292,7 @@ export default function EditRecipeScreen() {
                   <Input
                     value={ing}
                     onChangeText={(v) => updateIngredient(idx, v)}
-                    placeholder={`e.g. 2 Carrots`}
+                    placeholder="e.g. 2 Carrots"
                     style={{ flex: 1 }}
                     multiline
                   />

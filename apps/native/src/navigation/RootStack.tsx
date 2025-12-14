@@ -1,15 +1,15 @@
 import { createStaticNavigation, StaticParamList } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Outputs } from '@repo/trpc/client';
 import { lazy } from 'react';
 
 import { TabNavigator } from './TabNavigator';
-import EditRecipeScreen from '@/screens/EditRecipeScreen';
-import { UserProfileScreen } from '@/screens/UserProfileScreen';
-import { FollowsScreen } from '@/screens/FollowsScreen';
-import { RecipeDetailScreen } from '@/screens/RecipeDetailScreen';
 
 import { useIsSignedIn, useIsSignedOut } from '@/lib/signedInContext';
-import { Outputs } from '@repo/trpc/client';
+import EditRecipeScreen from '@/screens/EditRecipeScreen';
+import { FollowsScreen } from '@/screens/FollowsScreen';
+import { RecipeDetailScreen } from '@/screens/RecipeDetailScreen';
+import { UserProfileScreen } from '@/screens/UserProfileScreen';
 
 type ScrapedRecipe = Outputs['recipe']['scrapeRecipe'];
 

@@ -1,6 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { View, TextInput, TouchableOpacity } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
-import { Ionicons } from '@expo/vector-icons';
 
 interface Props {
   value: string;

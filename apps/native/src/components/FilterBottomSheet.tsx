@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import ActionSheet, {
@@ -8,11 +9,10 @@ import ActionSheet, {
   ScrollView,
 } from 'react-native-actions-sheet';
 import { StyleSheet } from 'react-native-unistyles';
-import { Ionicons } from '@expo/vector-icons';
 
-import { Text } from './Text';
-import { TagChip } from './TagChip';
 import { VSpace } from './Space';
+import { TagChip } from './TagChip';
+import { Text } from './Text';
 
 interface Tag {
   id: number;
@@ -92,7 +92,7 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
       id={props.sheetId}
       snapPoints={[100]}
       initialSnapIndex={0}
-      gestureEnabled={true}
+      gestureEnabled
       enableGesturesInScrollView={false}
       indicatorStyle={styles.indicator}>
       <View>

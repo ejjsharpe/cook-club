@@ -1,20 +1,19 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LegendList } from '@legendapp/list';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
+import { Image } from 'expo-image';
 import { useState, useCallback, useMemo, useRef, memo } from 'react';
 import { View, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 
-import { Text } from '@/components/Text';
-import { VSpace } from '@/components/Space';
-import { FullWidthRecipeCard } from '@/components/FullWidthRecipeCard';
-import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
-import { useRecommendedRecipes, useLikeRecipe } from '@/api/recipe';
 import { useGetUserCollections, useToggleRecipeInCollection } from '@/api/collection';
+import { useRecommendedRecipes, useLikeRecipe } from '@/api/recipe';
 import { useUser } from '@/api/user';
-import { useScrollToTop } from '@react-navigation/native';
-import { LegendList } from '@legendapp/list';
+import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
+import { FullWidthRecipeCard } from '@/components/FullWidthRecipeCard';
+import { VSpace } from '@/components/Space';
+import { Text } from '@/components/Text';
 
 interface Tag {
   id: number;

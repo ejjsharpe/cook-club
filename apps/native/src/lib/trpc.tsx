@@ -1,5 +1,6 @@
 import { TRPCProvider as _TRPCProvider, createTRPCClient } from '@repo/trpc/client';
 import { useQueryClient } from '@tanstack/react-query';
+
 import { authClient } from './authClient';
 
 export const TRPCProvider = ({ children }: { children: React.ReactNode }) => {

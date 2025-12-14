@@ -1,13 +1,12 @@
-import { View, TouchableOpacity, ScrollView } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useMemo } from 'react';
+import { View, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 
 import { Text } from './Text';
-import { TagChip } from './TagChip';
 
 interface Tag {
   id: number;
@@ -176,21 +175,6 @@ export const FullWidthRecipeCard = memo(
               {recipe.description}
             </Text>
           )}
-
-          {/* Tags */}
-          {recipe.tags.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.tagsContainer}
-              contentContainerStyle={styles.tagsContent}>
-              {recipe.tags.map((tag) => (
-                <View key={tag.id}>
-                  <TagChip label={tag.name} selected={false} onPress={() => {}} />
-                </View>
-              ))}
-            </ScrollView>
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -355,11 +339,5 @@ const styles = StyleSheet.create((theme) => ({
   },
   saveCountText: {
     fontSize: 14,
-  },
-  tagsContainer: {
-    marginTop: 4,
-  },
-  tagsContent: {
-    gap: 8,
   },
 }));

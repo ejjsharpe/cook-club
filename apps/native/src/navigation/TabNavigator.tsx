@@ -1,9 +1,9 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-import { HomeScreen } from '@/screens/HomeScreen';
-import { DiscoverScreen } from '@/screens/DiscoverScreen';
 import { AddRecipeScreen } from '@/screens/AddRecipeScreen';
+import { DiscoverScreen } from '@/screens/DiscoverScreen';
+import { HomeScreen } from '@/screens/HomeScreen';
 import { MyRecipesScreen } from '@/screens/MyRecipesScreen';
 import { ShoppingListScreen } from '@/screens/ShoppingListScreen';
 

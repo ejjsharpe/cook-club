@@ -220,7 +220,9 @@ export function convertMeasurement(
   }
 
   try {
-    return convert(amount).from(fromUnit.convertUnit as any).to(toUnit.convertUnit as any);
+    return convert(amount)
+      .from(fromUnit.convertUnit as any)
+      .to(toUnit.convertUnit as any);
   } catch (error) {
     console.warn('Conversion error:', error);
     return null;
@@ -284,39 +286,39 @@ export function convertIngredientText(
   if (detected.unit.type === 'volume') {
     if (targetSystem === 'metric') {
       // Convert to base unit (ml) to determine appropriate target
-      const mlUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'ml');
+      const mlUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'ml');
       if (!mlUnit) return ingredientText;
       const mlAmount = convertMeasurement(detected.amount, detected.unit, mlUnit);
       if (mlAmount && mlAmount >= 1000) {
-        targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'l') || targetUnit;
+        targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'l') || targetUnit;
       } else {
-        targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'ml') || targetUnit;
+        targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'ml') || targetUnit;
       }
     } else {
       // Imperial - choose based on amount
       if (detected.amount >= 0.25) {
-        targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'cup') || targetUnit;
+        targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'cup') || targetUnit;
       } else {
-        targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'Tbs') || targetUnit;
+        targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'Tbs') || targetUnit;
       }
     }
   } else if (detected.unit.type === 'weight') {
     if (targetSystem === 'metric') {
       // Convert to base unit (g) to determine appropriate target
-      const gUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'g');
+      const gUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'g');
       if (!gUnit) return ingredientText;
       const gAmount = convertMeasurement(detected.amount, detected.unit, gUnit);
       if (gAmount && gAmount >= 1000) {
-        targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'kg') || targetUnit;
+        targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'kg') || targetUnit;
       } else {
-        targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'g') || targetUnit;
+        targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'g') || targetUnit;
       }
     } else {
       // Imperial - choose based on amount
       if (detected.amount >= 1) {
-        targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'lb') || targetUnit;
+        targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'lb') || targetUnit;
       } else {
-        targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'oz') || targetUnit;
+        targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'oz') || targetUnit;
       }
     }
   }
@@ -398,36 +400,36 @@ export function convertMethodText(methodText: string, targetSystem: 'metric' | '
       let targetUnit = targetUnits[0];
       if (unit.type === 'volume') {
         if (targetSystem === 'metric') {
-          const mlUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'ml');
+          const mlUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'ml');
           if (!mlUnit) return match;
           const mlAmount = convertMeasurement(amount, unit, mlUnit);
           if (mlAmount && mlAmount >= 1000) {
-            targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'l') || targetUnit;
+            targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'l') || targetUnit;
           } else {
-            targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'ml') || targetUnit;
+            targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'ml') || targetUnit;
           }
         } else {
           if (amount >= 0.25) {
-            targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'cup') || targetUnit;
+            targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'cup') || targetUnit;
           } else {
-            targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'Tbs') || targetUnit;
+            targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'Tbs') || targetUnit;
           }
         }
       } else if (unit.type === 'weight') {
         if (targetSystem === 'metric') {
-          const gUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'g');
+          const gUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'g');
           if (!gUnit) return match;
           const gAmount = convertMeasurement(amount, unit, gUnit);
           if (gAmount && gAmount >= 1000) {
-            targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'kg') || targetUnit;
+            targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'kg') || targetUnit;
           } else {
-            targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'g') || targetUnit;
+            targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'g') || targetUnit;
           }
         } else {
           if (amount >= 1) {
-            targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'lb') || targetUnit;
+            targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'lb') || targetUnit;
           } else {
-            targetUnit = MEASUREMENT_UNITS.find(u => u.convertUnit === 'oz') || targetUnit;
+            targetUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === 'oz') || targetUnit;
           }
         }
       }
@@ -447,7 +449,9 @@ export function convertMethodText(methodText: string, targetSystem: 'metric' | '
   return result;
 }
 
-export function detectSystemFromIngredients(ingredients: string[]): 'metric' | 'imperial' | 'mixed' {
+export function detectSystemFromIngredients(
+  ingredients: string[]
+): 'metric' | 'imperial' | 'mixed' {
   const detectedSystems = ingredients
     .map((ing) => detectMeasurement(ing))
     .filter((det) => det.unit && det.unit.system !== 'universal')

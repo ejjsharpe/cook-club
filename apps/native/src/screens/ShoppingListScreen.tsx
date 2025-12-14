@@ -1,3 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import {
   View,
@@ -8,16 +11,11 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { KeyboardAvoidingView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { Image } from 'expo-image';
 
-import { Text } from '@/components/Text';
-import { VSpace } from '@/components/Space';
 import {
   useGetShoppingList,
   useToggleItemChecked,
@@ -26,6 +24,8 @@ import {
   useRemoveRecipeFromList,
   useAddManualItem,
 } from '@/api/shopping';
+import { VSpace } from '@/components/Space';
+import { Text } from '@/components/Text';
 
 interface ShoppingListItem {
   id: number;
@@ -34,12 +34,12 @@ interface ShoppingListItem {
   unit: string | null;
   displayText: string;
   isChecked: boolean;
-  sourceItems: Array<{
+  sourceItems: {
     id: number;
     quantity: number | null;
     sourceRecipeId: number | null;
     sourceRecipeName: string | null;
-  }>;
+  }[];
 }
 
 interface Recipe {

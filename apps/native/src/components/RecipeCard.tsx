@@ -1,11 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { View, TouchableOpacity } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
-import { Image } from 'expo-image';
 
-import { Text } from './Text';
 import { VSpace } from './Space';
 import { TagChip } from './TagChip';
-import { Ionicons } from '@expo/vector-icons';
+import { Text } from './Text';
 
 interface Tag {
   id: number;
