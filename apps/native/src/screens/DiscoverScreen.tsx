@@ -18,7 +18,6 @@ import { SearchBar } from '@/components/SearchBar';
 import { FullWidthRecipeCard } from '@/components/FullWidthRecipeCard';
 import { SheetManager } from '@/components/FilterBottomSheet';
 import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
-import { TagChip } from '@/components/TagChip';
 import { useSearchAllRecipes, useLikeRecipe, useAllTags } from '@/api/recipe';
 import { useGetUserCollections, useToggleRecipeInCollection } from '@/api/collection';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -59,8 +58,6 @@ interface HeaderProps {
   selectedTagIds: number[];
   maxTotalTime: string | undefined;
   onFilterPress: () => void;
-  cuisines: Tag[];
-  categories: Tag[];
   onTagPress: (tagId: number) => void;
 }
 
@@ -70,9 +67,6 @@ const Header = ({
   selectedTagIds,
   maxTotalTime,
   onFilterPress,
-  cuisines,
-  categories,
-  onTagPress,
 }: HeaderProps) => {
   return (
     <>
@@ -100,57 +94,6 @@ const Header = ({
             />
           </TouchableOpacity>
         </View>
-
-        {/* Show shortcuts when search is empty */}
-        {!searchQuery && (
-          <>
-            <VSpace size={20} />
-            {cuisines.length > 0 && (
-              <>
-                <Text type="heading" style={styles.shortcutTitle}>
-                  Cuisines
-                </Text>
-                <VSpace size={12} />
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.shortcutList}>
-                  {cuisines.map((tag) => (
-                    <TagChip
-                      key={tag.id}
-                      label={tag.name}
-                      selected={selectedTagIds.includes(tag.id)}
-                      onPress={() => onTagPress(tag.id)}
-                    />
-                  ))}
-                </ScrollView>
-              </>
-            )}
-
-            {categories.length > 0 && (
-              <>
-                <VSpace size={20} />
-                <Text type="heading" style={styles.shortcutTitle}>
-                  Categories
-                </Text>
-                <VSpace size={12} />
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.shortcutList}>
-                  {categories.map((tag) => (
-                    <TagChip
-                      key={tag.id}
-                      label={tag.name}
-                      selected={selectedTagIds.includes(tag.id)}
-                      onPress={() => onTagPress(tag.id)}
-                    />
-                  ))}
-                </ScrollView>
-              </>
-            )}
-          </>
-        )}
       </View>
       <VSpace size={16} />
     </>
@@ -174,10 +117,6 @@ export const DiscoverScreen = () => {
   const { data: userCollections = [] } = useGetUserCollections();
   const likeRecipeMutation = useLikeRecipe();
   const toggleMutation = useToggleRecipeInCollection();
-
-  // Separate cuisines and categories
-  const cuisines = useMemo(() => allTags.filter((tag) => tag.type === 'cuisine'), [allTags]);
-  const categories = useMemo(() => allTags.filter((tag) => tag.type === 'category'), [allTags]);
 
   // Determine if we should fetch recipes
   const shouldFetchRecipes =
@@ -342,8 +281,6 @@ export const DiscoverScreen = () => {
               selectedTagIds={selectedTagIds}
               maxTotalTime={maxTotalTime}
               onFilterPress={handleFilterPress}
-              cuisines={cuisines}
-              categories={categories}
               onTagPress={handleTagPress}
             />
           }

@@ -27,7 +27,7 @@ export const UserProfileScreen = () => {
   const { data: profile, isLoading, error } = useUserProfile({ userId });
   const followMutation = useFollowUser();
   const unfollowMutation = useUnfollowUser();
-  
+
   const isOwnProfile = currentUser?.user?.id === userId;
 
   const handleFollow = () => {
@@ -178,15 +178,16 @@ export const UserProfileScreen = () => {
 
             {/* Follower Stats */}
             <View style={styles.statsContainer}>
-              <TouchableOpacity 
-                style={styles.statItem} 
-                onPress={() => navigation.navigate('FollowsList', { 
-                  userId, 
-                  activeTab: 'followers', 
-                  userName: profile.user.name 
-                })}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={() =>
+                  navigation.navigate('FollowsList', {
+                    userId,
+                    activeTab: 'followers',
+                    userName: profile.user.name,
+                  })
+                }
+                activeOpacity={0.7}>
                 <Text type="heading" style={styles.statNumber}>
                   {profile.followersCount}
                 </Text>
@@ -194,15 +195,16 @@ export const UserProfileScreen = () => {
                   Followers
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.statItem} 
-                onPress={() => navigation.navigate('FollowsList', { 
-                  userId, 
-                  activeTab: 'following', 
-                  userName: profile.user.name 
-                })}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity
+                style={styles.statItem}
+                onPress={() =>
+                  navigation.navigate('FollowsList', {
+                    userId,
+                    activeTab: 'following',
+                    userName: profile.user.name,
+                  })
+                }
+                activeOpacity={0.7}>
                 <Text type="heading" style={styles.statNumber}>
                   {profile.followingCount}
                 </Text>

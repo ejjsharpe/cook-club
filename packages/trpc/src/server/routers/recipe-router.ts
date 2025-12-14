@@ -296,6 +296,12 @@ export const recipeRouter = router({
             recipe: recipes,
             recipeCollection: recipeCollections,
             firstImage: min(recipeImages.url),
+            uploader: {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              image: user.image,
+            },
           })
           .from(recipeCollections)
           .innerJoin(
@@ -303,6 +309,7 @@ export const recipeRouter = router({
             eq(recipeCollections.collectionId, collections.id)
           )
           .innerJoin(recipes, eq(recipeCollections.recipeId, recipes.id))
+          .innerJoin(user, eq(recipes.uploadedBy, user.id))
           .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
           .where(
             and(
@@ -313,14 +320,52 @@ export const recipeRouter = router({
               search ? ilike(recipes.name, `%${search}%`) : undefined
             )
           )
-          .groupBy(recipeCollections.id, recipes.id) // Group to get only one image per recipe
+          .groupBy(
+            recipeCollections.id,
+            recipes.id,
+            user.id,
+            user.name,
+            user.email,
+            user.image
+          )
           .orderBy(desc(recipeCollections.createdAt))
           .limit(limit + 1);
+
+        // Get recipe IDs to fetch tags
+        const recipeIds = userRecipesList.map((item) => item.recipe.id);
+
+        const tagsData =
+          recipeIds.length > 0
+            ? await ctx.db
+                .select({
+                  recipeId: recipeTags.recipeId,
+                  tag: tags,
+                })
+                .from(recipeTags)
+                .innerJoin(tags, eq(recipeTags.tagId, tags.id))
+                .where(inArray(recipeTags.recipeId, recipeIds))
+            : [];
+
+        // Group tags by recipe
+        const tagsByRecipe = tagsData.reduce(
+          (acc, item) => {
+            if (!acc[item.recipeId]) {
+              acc[item.recipeId] = [];
+            }
+            if (item.tag) {
+              acc[item.recipeId]!.push(item.tag);
+            }
+            return acc;
+          },
+          {} as Record<number, (typeof tags.$inferSelect)[]>
+        );
 
         const items = userRecipesList.map((item) => ({
           ...item.recipe,
           addedAt: item.recipeCollection.createdAt,
           coverImage: item.firstImage,
+          uploadedBy: item.uploader,
+          tags: tagsByRecipe[item.recipe.id] || [],
         }));
 
         let nextCursor: number | undefined = undefined;

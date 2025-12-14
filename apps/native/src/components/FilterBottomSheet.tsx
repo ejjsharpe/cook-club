@@ -118,6 +118,7 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
                   label={option.label}
                   selected={maxTotalTime === option.value}
                   onPress={() => handleTimeToggle(option.value)}
+                  size="medium"
                 />
               ))}
             </View>
@@ -137,6 +138,7 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
                       label={tag.name}
                       selected={selectedTagIds.includes(tag.id)}
                       onPress={() => handleTagToggle(tag.id)}
+                      size="medium"
                     />
                   ))}
                 </View>

@@ -4,6 +4,19 @@ import { Image } from 'expo-image';
 
 import { Text } from './Text';
 import { VSpace } from './Space';
+import { TagChip } from './TagChip';
+
+interface Tag {
+  id: number;
+  name: string;
+  type: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  image?: string | null;
+}
 
 interface Recipe {
   id: number;
@@ -17,6 +30,8 @@ interface Recipe {
   cuisine?: string | null;
   addedAt: string;
   coverImage?: string | null;
+  tags?: Tag[];
+  uploadedBy?: User;
 }
 
 interface Props {
@@ -25,34 +40,71 @@ interface Props {
 }
 
 export const RecipeCard = ({ recipe, onPress }: Props) => {
+  // Show max 3 tags
+  const maxTags = 3;
+  const visibleTags = recipe.tags?.slice(0, maxTags) || [];
+  const remainingTagsCount = (recipe.tags?.length || 0) - maxTags;
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      {recipe.coverImage && <Image source={{ uri: recipe.coverImage }} style={styles.coverImage} />}
+      {/* Thumbnail on the left */}
+      <View style={styles.thumbnail}>
+        {recipe.coverImage ? (
+          <Image source={{ uri: recipe.coverImage }} style={styles.thumbnailImage} />
+        ) : (
+          <View style={styles.thumbnailPlaceholder} />
+        )}
+      </View>
+
+      {/* Content on the right */}
       <View style={styles.content}>
-        <Text type="heading" numberOfLines={2}>
+        {/* Recipe title */}
+        <Text type="heading" numberOfLines={2} style={styles.title}>
           {recipe.name}
         </Text>
-        {recipe.description && (
+
+        <VSpace size={8} />
+
+        {/* Tags */}
+        {visibleTags.length > 0 && (
           <>
-            <VSpace size={4} />
-            <Text type="bodyFaded" numberOfLines={recipe.coverImage ? 2 : 3}>
-              {recipe.description}
-            </Text>
+            <View style={styles.tagsContainer}>
+              {visibleTags.map((tag) => (
+                <TagChip key={tag.id} label={tag.name} size="small" />
+              ))}
+              {remainingTagsCount > 0 && <TagChip label={`+${remainingTagsCount}`} size="small" />}
+            </View>
+            <VSpace size={8} />
           </>
         )}
-        <VSpace size={8} />
-        <View style={styles.metadata}>
-          {recipe.totalTime && (
-            <Text type="bodyFaded" style={styles.metadataText}>
+
+        {/* Cook time */}
+        {recipe.totalTime && (
+          <>
+            <Text type="bodyFaded" style={styles.cookTime}>
               {recipe.totalTime}
             </Text>
-          )}
-          {recipe.servings && (
-            <Text type="bodyFaded" style={styles.metadataText}>
-              {recipe.servings} servings
+            <VSpace size={12} />
+          </>
+        )}
+
+        {/* Uploader info at bottom right */}
+        {recipe.uploadedBy && (
+          <View style={styles.uploaderContainer}>
+            {recipe.uploadedBy.image ? (
+              <Image source={{ uri: recipe.uploadedBy.image }} style={styles.uploaderAvatar} />
+            ) : (
+              <View style={styles.uploaderAvatarPlaceholder}>
+                <Text style={styles.uploaderAvatarText}>
+                  {recipe.uploadedBy.name?.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <Text type="bodyFaded" style={styles.uploaderName} numberOfLines={1}>
+              {recipe.uploadedBy.name}
             </Text>
-          )}
-        </View>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -60,6 +112,7 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
 
 const styles = StyleSheet.create((theme) => ({
   card: {
+    flexDirection: 'row',
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
@@ -67,21 +120,64 @@ const styles = StyleSheet.create((theme) => ({
     marginVertical: 6,
     marginHorizontal: 20,
     overflow: 'hidden',
+    minHeight: 120,
   },
-  coverImage: {
+  thumbnail: {
+    width: 100,
+    height: '100%',
+  },
+  thumbnailImage: {
     width: '100%',
-    height: 160,
+    height: '100%',
+    backgroundColor: theme.colors.border,
+  },
+  thumbnailPlaceholder: {
+    width: '100%',
+    height: '100%',
     backgroundColor: theme.colors.border,
   },
   content: {
-    padding: 16,
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
   },
-  metadata: {
+  title: {
+    fontSize: 16,
+  },
+  tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
-  metadataText: {
-    fontSize: 14,
+  cookTime: {
+    fontSize: 13,
+  },
+  uploaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 6,
+  },
+  uploaderAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  uploaderAvatarPlaceholder: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploaderAvatarText: {
+    fontSize: 10,
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+  uploaderName: {
+    fontSize: 12,
+    maxWidth: 120,
   },
 }));

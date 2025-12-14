@@ -10,18 +10,9 @@ import { VSpace } from '@/components/Space';
 import { RecipeCard } from '@/components/RecipeCard';
 import { useGetUserRecipes } from '@/api/recipe';
 
-interface Recipe {
-  id: number;
-  name: string;
-  description?: string | null;
-  prepTime?: string | null;
-  cookTime?: string | null;
-  totalTime?: string | null;
-  servings?: number | null;
-  category?: string | null;
-  cuisine?: string | null;
-  addedAt: string;
-}
+type Recipe = NonNullable<
+  ReturnType<typeof useGetUserRecipes>['data']
+>['pages'][number]['items'][number];
 
 export const MyRecipesScreen = () => {
   const navigation = useNavigation();
