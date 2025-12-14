@@ -38,7 +38,7 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
 
   const { data: collections, isLoading } = useGetUserCollections({ recipeId });
   const toggleMutation = useToggleRecipeInCollection();
-  const createMutation = useCreateCollection();
+  const createCollectionMutation = useCreateCollection();
 
   const handleToggleCollection = (collectionId: number) => {
     if (!recipeId) return;
@@ -49,9 +49,10 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
     if (!newCollectionName.trim()) return;
 
     try {
-      const newCollection = await createMutation.mutateAsync({ name: newCollectionName.trim() });
+      const newCollection = await createCollectionMutation.mutateAsync({
+        name: newCollectionName.trim(),
+      });
 
-      // Automatically add recipe to the new collection
       if (newCollection && recipeId) {
         await toggleMutation.mutateAsync({ recipeId, collectionId: newCollection.id });
       }
@@ -166,12 +167,12 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
                       <TouchableOpacity
                         style={[
                           styles.saveButton,
-                          (!newCollectionName.trim() || createMutation.isPending) &&
+                          (!newCollectionName.trim() || createCollectionMutation.isPending) &&
                             styles.saveButtonDisabled,
                         ]}
                         onPress={handleCreateCollection}
-                        disabled={!newCollectionName.trim() || createMutation.isPending}>
-                        {createMutation.isPending ? (
+                        disabled={!newCollectionName.trim() || createCollectionMutation.isPending}>
+                        {createCollectionMutation.isPending ? (
                           <ActivityIndicator size="small" color="#fff" />
                         ) : (
                           <Text type="highlight" style={styles.saveButtonText}>

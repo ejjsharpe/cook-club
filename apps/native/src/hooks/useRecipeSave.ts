@@ -1,4 +1,4 @@
-import { useGetUserCollections, useToggleRecipeInCollection } from '../api/collection';
+import { useToggleRecipeInCollection } from '../api/collection';
 
 interface Recipe {
   id: number;
@@ -10,10 +10,8 @@ interface Recipe {
  * Centralizes the decision between quick save and showing collection selector
  */
 export const useRecipeSave = (recipe: Recipe) => {
-  const { data: userCollections } = useGetUserCollections();
   const toggleMutation = useToggleRecipeInCollection();
 
-  const hasMultipleCollections = (userCollections?.length ?? 0) > 1;
   const collectionIds = recipe.collectionIds ?? [];
   const isSaved = collectionIds.length > 0;
 
@@ -27,6 +25,5 @@ export const useRecipeSave = (recipe: Recipe) => {
     handleSavePress,
     isSaved,
     isSaving: toggleMutation.isPending,
-    hasMultipleCollections,
   };
 };

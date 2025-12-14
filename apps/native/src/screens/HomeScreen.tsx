@@ -178,19 +178,9 @@ export const HomeScreen = () => {
 
   const handleSavePress = useCallback(
     (recipeId: number) => {
-      // Check if user has multiple collections
-      const hasMultipleCollections = (userCollections?.length ?? 0) > 1;
-
-      if (hasMultipleCollections) {
-        // User has multiple collections - show selector to choose
         CollectionSheetManager.show('collection-selector-sheet', {
           payload: { recipeId },
         });
-      } else {
-        // Single collection (or no collections) - quick save/unsave to default
-        // When collectionId is undefined, backend will use default collection
-        toggleMutation.mutate({ recipeId, collectionId: undefined });
-      }
     },
     [userCollections?.length, toggleMutation]
   );

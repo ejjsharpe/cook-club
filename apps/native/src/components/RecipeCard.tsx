@@ -116,8 +116,9 @@ const styles = StyleSheet.create((theme) => ({
   content: {
     flex: 1,
     height: '100%',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     padding: 8,
+    gap: 8,
     paddingHorizontal: 12,
   },
   title: {

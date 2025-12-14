@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,14 +13,13 @@ import {
 } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { useRecipeDetail } from '@/api/recipe';
-import { useAddRecipeToShoppingList } from '@/api/shopping';
+import { useRecipeDetail, useLikeRecipe } from '@/api/recipe';
+import { useAddRecipeToShoppingList, useRemoveRecipeFromList } from '@/api/shopping';
 import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
 import { VSpace, HSpace } from '@/components/Space';
 import { Text } from '@/components/Text';
 import { BackButton } from '@/components/buttons/BackButton';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
-import { useRecipeSave } from '@/hooks/useRecipeSave';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_HEIGHT = 360;
@@ -50,13 +50,10 @@ export const RecipeDetailScreen = () => {
   const [servings, setServings] = useState(1);
   const hasInitializedServings = useRef(false);
 
-  // Use the unified save hook
-  const { handleSavePress, isSaved, isSaving, hasMultipleCollections } = useRecipeSave(
-    recipe || { id: recipeId, collectionIds: [] }
-  );
-
-  // Shopping list hook
+  // Mutations
   const addToShoppingMutation = useAddRecipeToShoppingList();
+  const removeFromShoppingMutation = useRemoveRecipeFromList();
+  const likeMutation = useLikeRecipe();
 
   useEffect(() => {
     if (recipe?.servings && !hasInitializedServings.current) {
@@ -70,24 +67,29 @@ export const RecipeDetailScreen = () => {
   const handleSaveRecipe = () => {
     if (!recipe) return;
 
-    if (hasMultipleCollections) {
-      // User has multiple collections - show selector sheet
-      CollectionSheetManager.show('collection-selector-sheet', {
-        payload: { recipeId: recipe.id },
-      });
+    CollectionSheetManager.show('collection-selector-sheet', {
+      payload: { recipeId: recipe.id },
+    });
+  };
+
+  const handleToggleShoppingList = () => {
+    if (!recipe) return;
+
+    if (recipe.isInShoppingList) {
+      // Remove from shopping list
+      removeFromShoppingMutation.mutate({ recipeId: recipe.id });
     } else {
-      // Use the unified save logic
-      handleSavePress();
+      // Add to shopping list with current servings value for scaling
+      addToShoppingMutation.mutate({
+        recipeId: recipe.id,
+        servings: servings !== recipe.servings ? servings : undefined,
+      });
     }
   };
 
-  const handleAddToShoppingList = () => {
+  const handleLikeRecipe = () => {
     if (!recipe) return;
-    // Pass the current servings value to enable recipe scaling
-    addToShoppingMutation.mutate({
-      recipeId: recipe.id,
-      servings: servings !== recipe.servings ? servings : undefined,
-    });
+    likeMutation.mutate({ recipeId: recipe.id });
   };
 
   if (isPending) {
@@ -157,24 +159,12 @@ export const RecipeDetailScreen = () => {
     </View>
   );
 
+  const isSaved = !!recipe.collectionIds.length;
+
   const renderControls = () => (
     <View style={styles.controlsSection}>
-      <View style={styles.buttonsRow}>
-        <PrimaryButton
-          style={[styles.actionButton, isSaved ? styles.savedButton : {}]}
-          onPress={handleSaveRecipe}
-          disabled={isSaving}>
-          {isSaved ? 'Manage Collections' : 'Save Recipe'}
-        </PrimaryButton>
-        <PrimaryButton
-          style={styles.actionButton}
-          onPress={handleAddToShoppingList}
-          disabled={addToShoppingMutation.isPending}>
-          Add to Shopping List
-        </PrimaryButton>
-      </View>
-
-      <View style={styles.servingsControl}>
+      {/* Left side - Servings toggler */}
+      <View style={styles.leftControls}>
         <Text type="bodyFaded" style={styles.servingsLabel}>
           Servings
         </Text>
@@ -200,6 +190,45 @@ export const RecipeDetailScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Right side - Icon buttons */}
+      <View style={styles.rightControls}>
+        {/* Save button */}
+        <TouchableOpacity
+          style={[styles.iconButton, isSaved && styles.iconButtonActive]}
+          onPress={handleSaveRecipe}>
+          <Ionicons
+            name={isSaved ? 'bookmark' : 'bookmark-outline'}
+            size={24}
+            color={isSaved ? '#fff' : undefined}
+            style={styles.iconButtonIcon}
+          />
+        </TouchableOpacity>
+
+        {/* Shopping list button */}
+        <TouchableOpacity
+          style={[styles.iconButton, recipe.isInShoppingList && styles.iconButtonActive]}
+          onPress={handleToggleShoppingList}>
+          <Ionicons
+            name={recipe.isInShoppingList ? 'cart' : 'cart-outline'}
+            size={24}
+            color={recipe.isInShoppingList ? '#fff' : undefined}
+            style={styles.iconButtonIcon}
+          />
+        </TouchableOpacity>
+
+        {/* Like button */}
+        <TouchableOpacity
+          style={[styles.iconButton, recipe.isLiked && styles.iconButtonActive]}
+          onPress={handleLikeRecipe}>
+          <Ionicons
+            name={recipe.isLiked ? 'heart' : 'heart-outline'}
+            size={24}
+            color={recipe.isLiked ? '#fff' : undefined}
+            style={styles.iconButtonIcon}
+          />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -447,26 +476,39 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 2,
   },
   controlsSection: {
-    flexDirection: 'column',
-    gap: 16,
-  },
-  buttonsRow: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  actionButton: {
+  leftControls: {
     flex: 1,
   },
-  savedButton: {
-    backgroundColor: theme.colors.primary + '30',
+  rightControls: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconButtonActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  iconButtonIcon: {
+    color: theme.colors.text,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-  },
-  servingsControl: {
-    alignItems: 'center',
   },
   servingsLabel: {
     fontSize: 14,

@@ -9,6 +9,7 @@ import { Input } from '@/components/Input';
 import { RecipeCard } from '@/components/RecipeCard';
 import { VSpace } from '@/components/Space';
 import { Text } from '@/components/Text';
+import { LegendList } from '@legendapp/list';
 
 type Recipe = NonNullable<
   ReturnType<typeof useGetUserRecipes>['data']
@@ -76,7 +77,7 @@ export const MyRecipesScreen = () => {
   };
 
   return (
-    <View style={styles.screen}>
+
       <SafeAreaView style={styles.container}>
         <VSpace size={28} />
         <View style={styles.header}>
@@ -91,7 +92,7 @@ export const MyRecipesScreen = () => {
           />
         </View>
         <VSpace size={16} />
-        <FlatList
+        <LegendList
           data={recipes}
           renderItem={renderRecipe}
           keyExtractor={(item) => item.id.toString()}
@@ -104,17 +105,15 @@ export const MyRecipesScreen = () => {
             styles.listContent,
             recipes.length === 0 && styles.emptyListContent,
           ]}
+          ItemSeparatorComponent={() => <VSpace size={12}/>}
+
         />
       </SafeAreaView>
-    </View>
+
   );
 };
 
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   container: {
     flex: 1,
   },
@@ -122,6 +121,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   listContent: {
+    flex: 1,
     paddingBottom: 20,
   },
   emptyListContent: {

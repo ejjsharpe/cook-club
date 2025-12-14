@@ -99,7 +99,35 @@ export const useToggleRecipeInCollection = () => {
       // Update all caches with new collectionIds
       updateRecipeCollections(queryClient, trpc, recipeId, newCollectionIds);
 
-      return { previousRecipeDetail, recipeDetailQueryKey };
+      // Optimistically update the collections list query (for the CollectionSelectorSheet)
+      const previousCollectionsData: any[] = [];
+      queryClient.setQueriesData<any>(collectionsFilter, (old: any) => {
+        if (!old) return old;
+
+        // Store previous data for rollback
+        previousCollectionsData.push(old);
+
+        // Update hasRecipe for the toggled collection
+        return old.map((collection: any) => {
+          // If collectionId is provided, toggle that specific collection
+          if (collectionId !== undefined && collection.id === collectionId) {
+            return {
+              ...collection,
+              hasRecipe: !collection.hasRecipe,
+            };
+          }
+          // If collectionId is not provided, toggle the default collection
+          if (collectionId === undefined && collection.isDefault) {
+            return {
+              ...collection,
+              hasRecipe: !collection.hasRecipe,
+            };
+          }
+          return collection;
+        });
+      });
+
+      return { previousRecipeDetail, recipeDetailQueryKey, previousCollectionsData };
     },
     onError: (_err, variables, context) => {
       const { recipeId } = variables;
@@ -117,6 +145,15 @@ export const useToggleRecipeInCollection = () => {
         );
       }
 
+      // Rollback collections list data
+      if (context?.previousCollectionsData && context.previousCollectionsData.length > 0) {
+        const collectionsFilter = trpc.collection.getUserCollections.pathFilter();
+        let dataIndex = 0;
+        queryClient.setQueriesData<any>(collectionsFilter, () => {
+          return context.previousCollectionsData[dataIndex++];
+        });
+      }
+
       Alert.alert('Error', 'Failed to update collection. Please try again.');
     },
     onSettled: () => {
@@ -124,10 +161,12 @@ export const useToggleRecipeInCollection = () => {
       const recommendedRecipesFilter = trpc.recipe.getRecommendedRecipes.pathFilter();
       const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
       const collectionsFilter = trpc.collection.getUserCollections.pathFilter();
+      const userRecipesFilter = trpc.recipe.getUserRecipes.pathFilter();
 
       queryClient.invalidateQueries(recommendedRecipesFilter);
       queryClient.invalidateQueries(recipeDetailFilter);
       queryClient.invalidateQueries(collectionsFilter);
+      queryClient.invalidateQueries(userRecipesFilter);
     },
   });
 

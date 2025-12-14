@@ -10,6 +10,8 @@ import {
   tags,
   recipeTags,
   follows,
+  shoppingLists,
+  shoppingListRecipes,
 } from "@repo/db/schemas";
 import { scrapeRecipe } from "@repo/recipe-scraper";
 import { TRPCError } from "@trpc/server";
@@ -428,6 +430,13 @@ export const recipeRouter = router({
               WHERE ${userLikes.recipeId} = ${recipes.id}
               AND ${userLikes.userId} = ${ctx.user.id}
             )`,
+            // EXISTS: check if recipe is in current user's shopping list
+            isInShoppingList: sql<boolean>`EXISTS(
+              SELECT 1 FROM ${shoppingListRecipes}
+              INNER JOIN ${shoppingLists} ON ${shoppingListRecipes.shoppingListId} = ${shoppingLists.id}
+              WHERE ${shoppingListRecipes.recipeId} = ${recipes.id}
+              AND ${shoppingLists.userId} = ${ctx.user.id}
+            )`,
           })
           .from(recipes)
           .innerJoin(user, eq(recipes.uploadedBy, user.id))
@@ -497,6 +506,7 @@ export const recipeRouter = router({
           userRecipesCount: recipeData.uploaderRecipeCount,
           collectionIds,
           isLiked: recipeData.isLiked,
+          isInShoppingList: recipeData.isInShoppingList,
           likeCount: recipeData.likeCount,
           saveCount: recipeData.saveCount,
         };
