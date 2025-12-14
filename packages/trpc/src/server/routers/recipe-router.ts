@@ -29,16 +29,36 @@ import {
 } from "drizzle-orm";
 
 import { router, authedProcedure } from "../trpc";
+import {
+  parseIngredient,
+  parseIngredients,
+} from "../../utils/ingredientParser";
+import { normalizeUnit } from "../../utils/unitNormalizer";
 
 const ImageRecord = type({
   url: "string.url",
 });
 
-const IngredientRecord = type({
+// Support both unparsed and parsed ingredient formats for flexibility
+const IngredientRecordUnparsed = type({
+  index: "number",
+  ingredient: "string", // Unparsed text like "2 cups flour"
+});
+
+const IngredientRecordParsed = type({
   index: "number",
   quantity: "string | null",
   unit: "string | null",
   name: "string",
+});
+
+// Accept either format - UI can send unparsed, API will parse
+const IngredientRecord = type({
+  index: "number",
+  "ingredient?": "string", // Unparsed format
+  "quantity?": "string | null", // Parsed format
+  "unit?": "string | null", // Parsed format
+  "name?": "string", // Parsed format
 });
 
 const InstructionRecord = type({
@@ -176,11 +196,33 @@ export const recipeRouter = router({
             });
           }
 
+          // Parse ingredients if needed (support both formats)
+          const parsedIngredients = input.ingredients.map((ing) => {
+            // Check if ingredient is in unparsed format (has 'ingredient' field)
+            if ("ingredient" in ing && ing.ingredient) {
+              // Parse the ingredient text
+              const parsed = parseIngredient(ing.ingredient);
+              return {
+                index: ing.index,
+                quantity: parsed.quantity?.toString() || null,
+                unit: normalizeUnit(parsed.unit),
+                name: parsed.name,
+              };
+            }
+            // Already parsed - just normalize the unit
+            return {
+              index: ing.index,
+              quantity: ing.quantity || null,
+              unit: normalizeUnit(ing.unit || null),
+              name: ing.name || "",
+            };
+          });
+
           // Insert ingredients
           const insertedIngredients = await tx
             .insert(recipeIngredients)
             .values(
-              input.ingredients.map((ingredient) => ({
+              parsedIngredients.map((ingredient) => ({
                 ...ingredient,
                 recipeId: recipe.id,
               }))
@@ -494,34 +536,20 @@ export const recipeRouter = router({
     .input(
       type({
         limit: "number = 20",
-        offset: "number = 0",
-        "seed?": "number",
-        "tagIds?": "number[]",
-        "maxTotalTime?": "string",
-        search: "string?",
+        "cursor?": {
+          id: "number",
+          score: "number",
+        },
       })
     )
     .query(async ({ ctx, input }) => {
-      const { limit, offset, tagIds, maxTotalTime, search } = input;
-
-      // Use provided seed or generate a new one for fresh results
-      // Seed must be between 0 and 1 for PostgreSQL's setseed()
-      const seed = input.seed ?? Math.random();
+      const { limit, cursor } = input;
 
       try {
-        // Set random seed for consistent results within this pagination session
-        await ctx.db.execute(sql`SELECT setseed(${seed})`);
-
-        // Build the base query with hybrid scoring
-        // Popularity score components:
-        // - Base engagement: likes + saves
-        // - Follow boost: +10 points if current user follows the recipe uploader
-        // - Random jitter: RANDOM() * 5 for variety (consistent with seed)
-        const popularityScoreExpr = sql<number>`
+        const relevanceScoreExpr = sql<number>`
           ${countDistinct(userLikes.id)} +
           ${countDistinct(recipeCollections.id)} +
-          CASE WHEN ${follows.id} IS NOT NULL THEN 10 ELSE 0 END +
-          (RANDOM() * 5)
+          CASE WHEN ${follows.id} IS NOT NULL THEN 10 ELSE 0 END
         `;
 
         const recommendedRecipesList = await ctx.db
@@ -534,21 +562,15 @@ export const recipeRouter = router({
               image: user.image,
             },
             firstImage: min(recipeImages.url),
-            // Use Drizzle's countDistinct for aggregations
             saveCount: countDistinct(recipeCollections.id),
             likeCount: countDistinct(userLikes.id),
-            // Calculate popularity score for cursor
-            popularityScore: popularityScoreExpr,
-            // Check if current user follows the uploader
+            relevanceScore: relevanceScoreExpr,
             isFollowing: sql<boolean>`${follows.id} IS NOT NULL`,
-            // EXISTS: check if current user has liked this recipe
             isLiked: sql<boolean>`EXISTS(
               SELECT 1 FROM ${userLikes}
               WHERE ${userLikes.recipeId} = ${recipes.id}
               AND ${userLikes.userId} = ${ctx.user.id}
             )`,
-            // PostgreSQL-specific: array_agg with DISTINCT and FILTER
-            // This aggregates all tag IDs for a recipe into an array, filtering out nulls
             recipeTags: sql<number[]>`COALESCE(
               array_agg(DISTINCT ${recipeTags.tagId}) FILTER (WHERE ${recipeTags.tagId} IS NOT NULL),
               ARRAY[]::integer[]
@@ -570,31 +592,26 @@ export const recipeRouter = router({
               eq(follows.followerId, ctx.user.id)
             )
           )
-          .where(
-            and(
-              // Search filter - use ilike for case-insensitive search
-              search ? ilike(recipes.name, `%${search}%`) : undefined,
-              // Total time filter
-              maxTotalTime
-                ? like(recipes.totalTime, `%${maxTotalTime}%`)
-                : undefined
-            )
+          .groupBy(
+            recipes.id,
+            user.id,
+            user.name,
+            user.email,
+            user.image,
+            follows.id
           )
-          .groupBy(recipes.id, user.id, user.name, user.email, user.image, follows.id)
           .having(
-            // Tag filter - use HAVING instead of WHERE subquery for better performance
-            tagIds && tagIds.length > 0
-              ? sql`COUNT(DISTINCT CASE WHEN ${recipeTags.tagId} = ANY(${tagIds}) THEN ${recipeTags.tagId} END) > 0`
+            // Composite cursor: items with lower score, OR same score but lower ID
+            cursor
+              ? sql`(${relevanceScoreExpr} < ${cursor.score} OR (${relevanceScoreExpr} = ${cursor.score} AND ${recipes.id} < ${cursor.id}))`
               : undefined
           )
           .orderBy(
-            // Order by popularity score with random jitter
-            desc(popularityScoreExpr),
-            desc(recipes.createdAt),
+            // Order by relevance score, then by recipe ID for stable cursor pagination
+            desc(relevanceScoreExpr),
             desc(recipes.id)
           )
-          .limit(limit)
-          .offset(offset);
+          .limit(limit + 1);
 
         // Get tags and collection IDs for each recipe
         const recipeIds = recommendedRecipesList.map((item) => item.recipe.id);
@@ -656,7 +673,13 @@ export const recipeRouter = router({
           {} as Record<number, number[]>
         );
 
-        const items = recommendedRecipesList.map((item) => ({
+        // Determine if there are more results
+        const hasMore = recommendedRecipesList.length > limit;
+        const resultsToReturn = hasMore
+          ? recommendedRecipesList.slice(0, limit)
+          : recommendedRecipesList;
+
+        const items = resultsToReturn.map((item) => ({
           ...item.recipe,
           uploadedBy: item.uploader,
           coverImage: item.firstImage,
@@ -666,17 +689,19 @@ export const recipeRouter = router({
           isLiked: item.isLiked,
           isFollowing: item.isFollowing,
           tags: tagsByRecipe[item.recipe.id] || [],
-          popularityScore: item.popularityScore,
+          relevanceScore: Number(item.relevanceScore),
         }));
 
-        // Calculate next offset for pagination
-        const hasMore = items.length === limit;
-        const nextOffset = hasMore ? offset + limit : undefined;
+        // Composite cursor includes both score and ID for stable pagination
+        const lastItem = resultsToReturn[resultsToReturn.length - 1];
+        const nextCursor =
+          hasMore && lastItem
+            ? { id: lastItem.recipe.id, score: Number(lastItem.relevanceScore) }
+            : undefined;
 
         return {
           items,
-          nextOffset,
-          seed, // Return seed so client can pass it back for consistent pagination
+          nextCursor,
         };
       } catch (err) {
         console.error("Error fetching recommended recipes:", err);
@@ -747,6 +772,220 @@ export const recipeRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch tags",
+        });
+      }
+    }),
+
+  /**
+   * Parse ingredient text into structured format for preview
+   * Used by the UI to show users how their ingredients will be parsed before saving
+   */
+  parseIngredients: authedProcedure
+    .input(
+      type({
+        ingredients: "string[]",
+      })
+    )
+    .query(({ input }) => {
+      return parseIngredients(input.ingredients);
+    }),
+
+  searchAllRecipes: authedProcedure
+    .input(
+      type({
+        limit: "number = 20",
+        "cursor?": {
+          id: "number",
+          score: "number",
+        },
+        "search?": "string",
+        "tagIds?": "number[]",
+        "maxTotalTime?": "string",
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { limit, cursor, search, tagIds, maxTotalTime } = input;
+
+      try {
+        // Deterministic relevance score (no RANDOM jitter for stable pagination)
+        const relevanceScoreExpr = sql<number>`
+          ${countDistinct(userLikes.id)} +
+          ${countDistinct(recipeCollections.id)} +
+          CASE WHEN ${follows.id} IS NOT NULL THEN 10 ELSE 0 END
+        `;
+
+        const searchResults = await ctx.db
+          .select({
+            recipe: recipes,
+            uploader: {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              image: user.image,
+            },
+            firstImage: min(recipeImages.url),
+            saveCount: countDistinct(recipeCollections.id),
+            likeCount: countDistinct(userLikes.id),
+            relevanceScore: relevanceScoreExpr,
+            isFollowing: sql<boolean>`${follows.id} IS NOT NULL`,
+            isLiked: sql<boolean>`EXISTS(
+              SELECT 1 FROM ${userLikes}
+              WHERE ${userLikes.recipeId} = ${recipes.id}
+              AND ${userLikes.userId} = ${ctx.user.id}
+            )`,
+            recipeTags: sql<number[]>`COALESCE(
+              array_agg(DISTINCT ${recipeTags.tagId}) FILTER (WHERE ${recipeTags.tagId} IS NOT NULL),
+              ARRAY[]::integer[]
+            )`,
+          })
+          .from(recipes)
+          .innerJoin(user, eq(recipes.uploadedBy, user.id))
+          .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
+          .leftJoin(
+            recipeCollections,
+            eq(recipes.id, recipeCollections.recipeId)
+          )
+          .leftJoin(userLikes, eq(recipes.id, userLikes.recipeId))
+          .leftJoin(recipeTags, eq(recipes.id, recipeTags.recipeId))
+          .leftJoin(
+            follows,
+            and(
+              eq(follows.followingId, recipes.uploadedBy),
+              eq(follows.followerId, ctx.user.id)
+            )
+          )
+          .where(
+            and(
+              // Search filter - case-insensitive on name
+              search ? ilike(recipes.name, `%${search}%`) : undefined,
+              // Total time filter
+              maxTotalTime
+                ? like(recipes.totalTime, `%${maxTotalTime}%`)
+                : undefined
+            )
+          )
+          .groupBy(
+            recipes.id,
+            user.id,
+            user.name,
+            user.email,
+            user.image,
+            follows.id
+          )
+          .having(
+            and(
+              // Tag filter - use HAVING for post-aggregation filtering
+              tagIds && tagIds.length > 0
+                ? sql`COUNT(DISTINCT CASE WHEN ${inArray(recipeTags.tagId, tagIds)} THEN ${recipeTags.tagId} END) > 0`
+                : undefined,
+              // Composite cursor: items with lower score, OR same score but lower ID
+              cursor
+                ? sql`(${relevanceScoreExpr} < ${cursor.score} OR (${relevanceScoreExpr} = ${cursor.score} AND ${recipes.id} < ${cursor.id}))`
+                : undefined
+            )
+          )
+          .orderBy(
+            // Order by relevance score, then by recipe ID for stable cursor pagination
+            desc(relevanceScoreExpr),
+            desc(recipes.id)
+          )
+          .limit(limit + 1);
+
+        // Get tags and collection IDs for each recipe
+        const recipeIds = searchResults.map((item) => item.recipe.id);
+
+        const [tagsData, collectionsData] = await Promise.all([
+          recipeIds.length > 0
+            ? ctx.db
+                .select({
+                  recipeId: recipeTags.recipeId,
+                  tag: tags,
+                })
+                .from(recipeTags)
+                .innerJoin(tags, eq(recipeTags.tagId, tags.id))
+                .where(inArray(recipeTags.recipeId, recipeIds))
+            : [],
+          recipeIds.length > 0
+            ? ctx.db
+                .select({
+                  recipeId: recipeCollections.recipeId,
+                  collectionId: recipeCollections.collectionId,
+                })
+                .from(recipeCollections)
+                .innerJoin(
+                  collections,
+                  eq(recipeCollections.collectionId, collections.id)
+                )
+                .where(
+                  and(
+                    inArray(recipeCollections.recipeId, recipeIds),
+                    eq(collections.userId, ctx.user.id)
+                  )
+                )
+            : [],
+        ]);
+
+        // Group tags by recipe
+        const tagsByRecipe = tagsData.reduce(
+          (acc, item) => {
+            if (!acc[item.recipeId]) {
+              acc[item.recipeId] = [];
+            }
+            if (item.tag) {
+              acc[item.recipeId]!.push(item.tag);
+            }
+            return acc;
+          },
+          {} as Record<number, (typeof tags.$inferSelect)[]>
+        );
+
+        // Group collection IDs by recipe
+        const collectionsByRecipe = collectionsData.reduce(
+          (acc, item) => {
+            if (!acc[item.recipeId]) {
+              acc[item.recipeId] = [];
+            }
+            acc[item.recipeId]!.push(item.collectionId);
+            return acc;
+          },
+          {} as Record<number, number[]>
+        );
+
+        // Determine if there are more results
+        const hasMore = searchResults.length > limit;
+        const resultsToReturn = hasMore
+          ? searchResults.slice(0, limit)
+          : searchResults;
+
+        const items = resultsToReturn.map((item) => ({
+          ...item.recipe,
+          uploadedBy: item.uploader,
+          coverImage: item.firstImage,
+          saveCount: item.saveCount,
+          likeCount: item.likeCount,
+          collectionIds: collectionsByRecipe[item.recipe.id] || [],
+          isLiked: item.isLiked,
+          isFollowing: item.isFollowing,
+          tags: tagsByRecipe[item.recipe.id] || [],
+          relevanceScore: Number(item.relevanceScore),
+        }));
+
+        // Composite cursor includes both score and ID for stable pagination
+        const lastItem = resultsToReturn[resultsToReturn.length - 1];
+        const nextCursor =
+          hasMore && lastItem
+            ? { id: lastItem.recipe.id, score: Number(lastItem.relevanceScore) }
+            : undefined;
+
+        return {
+          items,
+          nextCursor,
+        };
+      } catch (err) {
+        console.error("Error searching recipes:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to search recipes",
         });
       }
     }),

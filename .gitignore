@@ -33,3 +33,6 @@ logs/
 
 .nx/cache
 .nx/workspace-data
+
+# TypeScript build info
+*.tsbuildinfo.json

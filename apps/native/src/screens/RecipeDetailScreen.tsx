@@ -83,7 +83,11 @@ export const RecipeDetailScreen = () => {
 
   const handleAddToShoppingList = () => {
     if (!recipe) return;
-    addToShoppingMutation.mutate({ recipeId: recipe.id });
+    // Pass the current servings value to enable recipe scaling
+    addToShoppingMutation.mutate({
+      recipeId: recipe.id,
+      servings: servings !== recipe.servings ? servings : undefined,
+    });
   };
 
   if (isPending) {

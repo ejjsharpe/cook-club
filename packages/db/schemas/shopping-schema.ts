@@ -26,7 +26,9 @@ export const shoppingLists = pgTable(
   (table) => [index("shopping_lists_user_id_idx").on(table.userId)]
 );
 
-// ─── Shopping List Items: individual ingredients ──────────────────────────
+// ─── Shopping List Items: individual recipe-ingredient rows ──────────────
+// Each row represents ONE recipe's contribution OR a manual item
+// Items with the same ingredientName + unit are aggregated at query time for display
 export const shoppingListItems = pgTable(
   "shopping_list_items",
   {
@@ -36,18 +38,19 @@ export const shoppingListItems = pgTable(
       .references(() => shoppingLists.id, { onDelete: "cascade" }),
     // Normalized ingredient name for grouping (lowercase, trimmed)
     ingredientName: text("ingredient_name").notNull(),
-    // Parsed quantity (for summing)
+    // Original display name (preserves casing, e.g. "Chicken Breast")
+    displayName: text("display_name").notNull(),
+    // Quantity for this specific recipe or manual entry
     quantity: numeric("quantity"),
     // Parsed unit (e.g., "cups", "tsp")
     unit: text("unit"),
-    // Human-readable display text (e.g., "3 cups flour")
-    displayText: text("display_text").notNull(),
     // Whether the item is checked off
     isChecked: boolean("is_checked").notNull().default(false),
-    // Comma-separated source recipe IDs (null for manual items)
-    sourceRecipeIds: text("source_recipe_ids"),
-    // Comma-separated source recipe names (null for manual items)
-    sourceRecipeNames: text("source_recipe_names"),
+    // Source recipe ID (null for manual items or user-edited/unlinked items)
+    // Only ONE recipe per row - this is the key change from the old model
+    sourceRecipeId: integer("source_recipe_id"),
+    // Source recipe name for display (null for manual items)
+    sourceRecipeName: text("source_recipe_name"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
@@ -58,6 +61,8 @@ export const shoppingListItems = pgTable(
       table.shoppingListId,
       table.ingredientName
     ),
+    // Index for finding items by recipe for efficient removal
+    index("shopping_list_items_source_recipe_idx").on(table.sourceRecipeId),
   ]
 );
 

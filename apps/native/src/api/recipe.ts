@@ -48,6 +48,7 @@ export const useLikeRecipe = () => {
   const queryClient = useQueryClient();
 
   type RecommendedRecipesOutput = inferOutput<typeof trpc.recipe.getRecommendedRecipes>;
+  type SearchAllRecipesOutput = inferOutput<typeof trpc.recipe.searchAllRecipes>;
   type RecipeDetailOutput = inferOutput<typeof trpc.recipe.getRecipeDetail>;
 
   const mutationOptions = trpc.recipe.likeRecipe.mutationOptions({
@@ -56,21 +57,49 @@ export const useLikeRecipe = () => {
 
       // Use type-safe query filters and keys from tRPC
       const recommendedRecipesFilter = trpc.recipe.getRecommendedRecipes.pathFilter();
+      const searchAllRecipesFilter = trpc.recipe.searchAllRecipes.pathFilter();
       const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
 
       // Cancel any outgoing refetches
       await queryClient.cancelQueries(recommendedRecipesFilter);
+      await queryClient.cancelQueries(searchAllRecipesFilter);
       await queryClient.cancelQueries(recipeDetailFilter);
 
       // Snapshot the previous values
       const previousRecommended = queryClient.getQueriesData(recommendedRecipesFilter);
+      const previousSearchAll = queryClient.getQueriesData(searchAllRecipesFilter);
       const previousDetail = queryClient.getQueriesData(recipeDetailFilter);
 
       // Optimistically update all recommended recipes infinite queries
       queryClient.setQueriesData<InfiniteData<RecommendedRecipesOutput>>(
         recommendedRecipesFilter,
         (old) => {
-          // Ensure this is an infinite query with pages
+          if (!old?.pages) {
+            return old;
+          }
+
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.map((item) =>
+                item.id === recipeId
+                  ? {
+                      ...item,
+                      isLiked: !item.isLiked,
+                      likeCount: item.isLiked ? item.likeCount - 1 : item.likeCount + 1,
+                    }
+                  : item
+              ),
+            })),
+          };
+        }
+      );
+
+      // Optimistically update all search results infinite queries
+      queryClient.setQueriesData<InfiniteData<SearchAllRecipesOutput>>(
+        searchAllRecipesFilter,
+        (old) => {
           if (!old?.pages) {
             return old;
           }
@@ -103,12 +132,17 @@ export const useLikeRecipe = () => {
         };
       });
 
-      return { previousRecommended, previousDetail };
+      return { previousRecommended, previousSearchAll, previousDetail };
     },
     onError: (_err, _variables, context) => {
       // Rollback optimistic updates on error
       if (context?.previousRecommended) {
         context.previousRecommended.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousSearchAll) {
+        context.previousSearchAll.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
       }
@@ -123,9 +157,11 @@ export const useLikeRecipe = () => {
     onSettled: () => {
       // Invalidate queries to refetch and ensure cache is in sync with server
       const recommendedRecipesFilter = trpc.recipe.getRecommendedRecipes.pathFilter();
+      const searchAllRecipesFilter = trpc.recipe.searchAllRecipes.pathFilter();
       const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
 
       queryClient.invalidateQueries(recommendedRecipesFilter);
+      queryClient.invalidateQueries(searchAllRecipesFilter);
       queryClient.invalidateQueries(recipeDetailFilter);
     },
   });
@@ -133,40 +169,49 @@ export const useLikeRecipe = () => {
   return useMutation(mutationOptions);
 };
 
-// Get recommended recipes with filters
+// Get recommended recipes
 interface UseRecommendedRecipesParams {
+  limit?: number;
+}
+
+export const useRecommendedRecipes = ({ limit = 20 }: UseRecommendedRecipesParams = {}) => {
+  const trpc = useTRPC();
+
+  const infiniteQueryOptions = trpc.recipe.getRecommendedRecipes.infiniteQueryOptions(
+    { limit },
+    {
+      getNextPageParam: (lastPage) => lastPage?.nextCursor,
+      staleTime: 0,
+    }
+  );
+
+  return useInfiniteQuery(infiniteQueryOptions);
+};
+
+// Search all recipes with filters and cursor-based pagination
+interface UseSearchAllRecipesParams {
   tagIds?: number[];
   maxTotalTime?: string;
   search?: string;
   limit?: number;
 }
 
-export const useRecommendedRecipes = ({
+export const useSearchAllRecipes = ({
   tagIds,
   maxTotalTime,
   search,
   limit = 20,
-}: UseRecommendedRecipesParams = {}) => {
+}: UseSearchAllRecipesParams = {}) => {
   const trpc = useTRPC();
 
-  const infiniteQueryOptions = trpc.recipe.getRecommendedRecipes.infiniteQueryOptions(
+  const infiniteQueryOptions = trpc.recipe.searchAllRecipes.infiniteQueryOptions(
     { tagIds, maxTotalTime, search, limit },
-    {
-      getNextPageParam: (lastPage) => {
-        // Use offset pagination with seed
-        if (!lastPage?.nextOffset) return undefined;
-        return {
-          offset: lastPage.nextOffset,
-          seed: lastPage.seed,
-        };
-      },
-      initialPageParam: { offset: 0, seed: undefined },
-    }
+    { getNextPageParam: (lastPage) => lastPage?.nextCursor }
   );
 
   return useInfiniteQuery({
     ...infiniteQueryOptions,
-    staleTime: 0, // Always fetch fresh results (new seed on refresh)
+    staleTime: 0,
   });
 };
 

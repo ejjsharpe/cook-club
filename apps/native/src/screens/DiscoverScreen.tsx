@@ -19,7 +19,7 @@ import { FullWidthRecipeCard } from '@/components/FullWidthRecipeCard';
 import { SheetManager } from '@/components/FilterBottomSheet';
 import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
 import { TagChip } from '@/components/TagChip';
-import { useRecommendedRecipes, useLikeRecipe, useAllTags } from '@/api/recipe';
+import { useSearchAllRecipes, useLikeRecipe, useAllTags } from '@/api/recipe';
 import { useGetUserCollections, useToggleRecipeInCollection } from '@/api/collection';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -114,8 +114,7 @@ const Header = ({
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.shortcutList}
-                >
+                  contentContainerStyle={styles.shortcutList}>
                   {cuisines.map((tag) => (
                     <TagChip
                       key={tag.id}
@@ -138,8 +137,7 @@ const Header = ({
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.shortcutList}
-                >
+                  contentContainerStyle={styles.shortcutList}>
                   {categories.map((tag) => (
                     <TagChip
                       key={tag.id}
@@ -185,26 +183,17 @@ export const DiscoverScreen = () => {
   const shouldFetchRecipes =
     debouncedSearch.trim() !== '' || selectedTagIds.length > 0 || maxTotalTime !== undefined;
 
-  const {
-    data,
-    isPending,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    refetch,
-    isFetching,
-  } = useRecommendedRecipes({
-    search: debouncedSearch,
-    tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-    maxTotalTime,
-  });
+  const { data, isPending, isFetchingNextPage, hasNextPage, fetchNextPage, refetch, isFetching } =
+    useSearchAllRecipes({
+      search: debouncedSearch,
+      tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+      maxTotalTime,
+    });
 
   // Flatten paginated data
   const recipes: RecommendedRecipe[] = useMemo(() => {
     if (!shouldFetchRecipes) return [];
-    return (
-      data?.pages.flatMap((page: any) => page?.items ?? []) ?? []
-    );
+    return data?.pages.flatMap((page: any) => page?.items ?? []) ?? [];
   }, [data, shouldFetchRecipes]);
 
   // Handlers
@@ -341,7 +330,7 @@ export const DiscoverScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView edges={['top']}>
         <FlatList
           data={recipes}
           renderItem={renderRecipe}
@@ -370,7 +359,6 @@ export const DiscoverScreen = () => {
             />
           }
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.container}
         />
       </SafeAreaView>
     </View>
@@ -382,9 +370,7 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  container: {
-    flex: 1,
-  },
+
   searchContainer: {
     paddingHorizontal: 20,
   },

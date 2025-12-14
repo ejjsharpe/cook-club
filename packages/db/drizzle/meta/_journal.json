@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1763199882669,
-      "tag": "0000_warm_changeling",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1763321692134,
-      "tag": "0001_slow_the_twelve",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1763418371950,
-      "tag": "0002_same_satana",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1763563830421,
-      "tag": "0003_late_kang",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1765234290733,
-      "tag": "0004_strong_magus",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1765235459548,
-      "tag": "0005_light_richard_fisk",
+      "when": 1765662402419,
+      "tag": "0000_harsh_the_initiative",
       "breakpoints": true
     }
   ]

@@ -10,83 +10,110 @@ import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
+import type { Context } from "../context";
+import {
+  parseIngredient,
+  normalizeIngredientName,
+} from "../../utils/ingredientParser";
+import { normalizeUnit } from "../../utils/unitNormalizer";
 
-// ─── Helper Functions ────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-interface ParsedIngredient {
-  quantity: number | null;
-  unit: string | null;
-  name: string;
+type DbClient = Context["db"];
+type TransactionClient = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+
+// ─── Database Helper Functions ───────────────────────────────────────────────
+
+/**
+ * Get or create a shopping list for a user
+ * Ensures type safety by always returning a defined shopping list
+ */
+async function getOrCreateShoppingList(db: DbClient, userId: string) {
+  const existingList = await db
+    .select()
+    .from(shoppingLists)
+    .where(eq(shoppingLists.userId, userId))
+    .then((rows) => rows[0]);
+
+  if (existingList) {
+    return existingList;
+  }
+
+  const newList = await db
+    .insert(shoppingLists)
+    .values({
+      userId,
+      name: "Shopping List",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .returning();
+
+  return newList[0]!;
 }
 
 /**
- * Parse ingredient text to extract quantity, unit, and ingredient name
- * Used for manually added items
+ * Insert a shopping list item for a specific recipe
+ * NEW MODEL: Creates ONE row per recipe-ingredient combination
+ * No aggregation at insert time - aggregation happens at query time
  */
-function parseIngredient(ingredientText: string): ParsedIngredient {
-  if (!ingredientText || typeof ingredientText !== "string") {
-    return { quantity: null, unit: null, name: ingredientText || "" };
+async function insertShoppingListItem(
+  db: DbClient | TransactionClient,
+  params: {
+    shoppingListId: number;
+    ingredientName: string;
+    quantity: number | null;
+    unit: string | null;
+    displayName: string;
+    sourceRecipeId?: number;
+    sourceRecipeName?: string;
   }
+) {
+  const {
+    shoppingListId,
+    ingredientName,
+    quantity,
+    unit,
+    displayName,
+    sourceRecipeId,
+    sourceRecipeName,
+  } = params;
 
-  // Regex matches: [quantity] [unit] [ingredient name]
-  // Examples: "2 cups flour", "1/2 tsp salt", "3 large carrots"
-  const match = ingredientText.match(
-    /^(\d+(?:\/\d+)?|\d*\.?\d+)\s*([a-zA-Z\s]*?)\s+(.+)$/
-  );
+  const normalizedName = normalizeIngredientName(ingredientName);
+  const normalizedUnit = normalizeUnit(unit); // Normalize units for better aggregation
 
-  if (match) {
-    const quantityStr = match[1];
-    const unit = match[2]?.trim() || null;
-    const name = match[3]?.trim() || ingredientText;
+  // Insert new item - one row per recipe
+  const [newItem] = await db
+    .insert(shoppingListItems)
+    .values({
+      shoppingListId,
+      ingredientName: normalizedName,
+      displayName,
+      quantity: quantity?.toString() || null,
+      unit: normalizedUnit,
+      isChecked: false,
+      sourceRecipeId: sourceRecipeId || null,
+      sourceRecipeName: sourceRecipeName || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .returning();
 
-    // Convert fractions to decimals (e.g., "1/2" -> 0.5)
-    let quantity: number | null = null;
-    if (quantityStr) {
-      if (quantityStr.includes("/")) {
-        const [numerator, denominator] = quantityStr.split("/");
-        quantity = parseFloat(numerator) / parseFloat(denominator);
-      } else {
-        quantity = parseFloat(quantityStr);
-      }
-    }
-
-    return { quantity, unit, name };
-  }
-
-  // If no match, treat entire text as ingredient name
-  return { quantity: null, unit: null, name: ingredientText.trim() };
+  return newItem!;
 }
 
-/**
- * Normalize ingredient name for grouping (lowercase, trimmed)
- */
-function normalizeIngredientName(name: string): string {
-  return name.toLowerCase().trim();
-}
+// ─── Ingredient Formatting Helper Functions ─────────────────────────────────
 
 /**
- * Format display text from parsed components
+ * Format quantity for display
  */
-function formatDisplayText(
-  quantity: number | null,
-  unit: string | null,
-  name: string
-): string {
-  if (!quantity) {
-    return name;
-  }
+function formatQuantity(quantity: number | null): string {
+  if (!quantity) return "";
 
   // Format quantity with up to 2 decimal places, removing trailing zeros
-  const formattedQuantity =
-    quantity % 1 === 0
-      ? quantity.toString()
-      : quantity.toFixed(2).replace(/\.?0+$/, "");
-
-  if (unit) {
-    return `${formattedQuantity} ${unit} ${name}`;
-  }
-
-  return `${formattedQuantity} ${name}`;
+  return quantity % 1 === 0
+    ? quantity.toString()
+    : quantity.toFixed(2).replace(/\.?0+$/, "");
 }
 
 // ─── Router ──────────────────────────────────────────────────────────────────
@@ -97,31 +124,93 @@ export const shoppingRouter = router({
    */
   getShoppingList: authedProcedure.query(async ({ ctx }) => {
     try {
-      // Get or create shopping list
-      let shoppingList = await ctx.db
-        .select()
-        .from(shoppingLists)
-        .where(eq(shoppingLists.userId, ctx.user.id))
-        .then((rows) => rows[0]);
+      const shoppingList = await getOrCreateShoppingList(ctx.db, ctx.user.id);
 
-      if (!shoppingList) {
-        [shoppingList] = await ctx.db
-          .insert(shoppingLists)
-          .values({
-            userId: ctx.user.id,
-            name: "Shopping List",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .returning();
-      }
-
-      // Get all items (unchecked first, then by created date)
-      const items = await ctx.db
+      // Get all individual items (one row per recipe-ingredient)
+      const rawItems = await ctx.db
         .select()
         .from(shoppingListItems)
         .where(eq(shoppingListItems.shoppingListId, shoppingList.id))
-        .orderBy(shoppingListItems.isChecked, desc(shoppingListItems.createdAt));
+        .orderBy(desc(shoppingListItems.createdAt));
+
+      // Aggregate items by ingredientName + unit
+      const aggregatedItemsMap = new Map<
+        string,
+        {
+          ingredientName: string;
+          displayName: string;
+          unit: string | null;
+          totalQuantity: number;
+          isChecked: boolean;
+          items: Array<{
+            id: number;
+            quantity: number | null;
+            sourceRecipeId: number | null;
+            sourceRecipeName: string | null;
+          }>;
+        }
+      >();
+
+      for (const item of rawItems) {
+        const key = `${item.ingredientName}::${item.unit || "null"}`;
+        const quantity = item.quantity ? parseFloat(item.quantity) : 0;
+
+        if (!aggregatedItemsMap.has(key)) {
+          aggregatedItemsMap.set(key, {
+            ingredientName: item.ingredientName,
+            displayName: item.displayName,
+            unit: item.unit,
+            totalQuantity: quantity,
+            isChecked: item.isChecked,
+            items: [
+              {
+                id: item.id,
+                quantity: quantity,
+                sourceRecipeId: item.sourceRecipeId,
+                sourceRecipeName: item.sourceRecipeName,
+              },
+            ],
+          });
+        } else {
+          const existing = aggregatedItemsMap.get(key)!;
+          existing.totalQuantity += quantity;
+          existing.items.push({
+            id: item.id,
+            quantity: quantity,
+            sourceRecipeId: item.sourceRecipeId,
+            sourceRecipeName: item.sourceRecipeName,
+          });
+          // If ANY item is checked, mark the whole group as checked
+          if (item.isChecked) {
+            existing.isChecked = true;
+          }
+        }
+      }
+
+      // Convert map to array and format for display
+      const items = Array.from(aggregatedItemsMap.values()).map((agg) => ({
+        // We use the first item's ID as the group ID for operations
+        id: agg.items[0]?.id || 0,
+        ingredientName: agg.ingredientName,
+        displayText: agg.unit
+          ? `${formatQuantity(agg.totalQuantity)} ${agg.unit} ${agg.displayName}`
+          : agg.totalQuantity
+            ? `${formatQuantity(agg.totalQuantity)} ${agg.displayName}`
+            : agg.displayName,
+        quantity: agg.totalQuantity,
+        unit: agg.unit,
+        isChecked: agg.isChecked,
+        // Return the underlying items for detailed view
+        sourceItems: agg.items,
+      }));
+
+      // Sort: unchecked first, then by display text
+      items.sort((a, b) => {
+        if (a.isChecked !== b.isChecked) {
+          return a.isChecked ? 1 : -1;
+        }
+        return a.displayText.localeCompare(b.displayText);
+      });
 
       // Get all recipes in the shopping list
       const recipesList = await ctx.db
@@ -149,36 +238,20 @@ export const shoppingRouter = router({
   }),
 
   /**
-   * Add recipe ingredients to shopping list with aggregation
+   * Add recipe ingredients to shopping list with optional scaling
    */
   addRecipeToShoppingList: authedProcedure
     .input(
       type({
         recipeId: "number",
+        "servings?": "number", // Optional: scale recipe to this many servings
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { recipeId } = input;
+      const { recipeId, servings } = input;
 
       try {
-        // Get or create shopping list
-        let shoppingList = await ctx.db
-          .select()
-          .from(shoppingLists)
-          .where(eq(shoppingLists.userId, ctx.user.id))
-          .then((rows) => rows[0]);
-
-        if (!shoppingList) {
-          [shoppingList] = await ctx.db
-            .insert(shoppingLists)
-            .values({
-              userId: ctx.user.id,
-              name: "Shopping List",
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .returning();
-        }
+        const shoppingList = await getOrCreateShoppingList(ctx.db, ctx.user.id);
 
         // Check if recipe already in shopping list
         const existingRecipe = await ctx.db
@@ -204,6 +277,7 @@ export const shoppingRouter = router({
           .select({
             id: recipes.id,
             name: recipes.name,
+            servings: recipes.servings,
           })
           .from(recipes)
           .where(eq(recipes.id, recipeId))
@@ -224,7 +298,7 @@ export const shoppingRouter = router({
           .limit(1)
           .then((rows) => rows[0]);
 
-        // Get recipe ingredients (now structured!)
+        // Get recipe ingredients
         const ingredients = await ctx.db
           .select({
             quantity: recipeIngredients.quantity,
@@ -234,6 +308,10 @@ export const shoppingRouter = router({
           .from(recipeIngredients)
           .where(eq(recipeIngredients.recipeId, recipeId))
           .orderBy(recipeIngredients.index);
+
+        // Calculate scaling factor if custom servings requested
+        const scalingFactor =
+          servings && recipe.servings ? servings / recipe.servings : 1;
 
         // Use a transaction for atomicity
         await ctx.db.transaction(async (tx) => {
@@ -246,66 +324,23 @@ export const shoppingRouter = router({
             createdAt: new Date(),
           });
 
-          // Process each ingredient
+          // Process each ingredient - create ONE row per ingredient
           for (const ing of ingredients) {
-            const normalizedName = normalizeIngredientName(ing.name);
-            const quantity = ing.quantity ? parseFloat(ing.quantity) : null;
+            // Parse quantity and apply scaling
+            const baseQuantity = ing.quantity ? parseFloat(ing.quantity) : null;
+            const scaledQuantity = baseQuantity
+              ? baseQuantity * scalingFactor
+              : null;
 
-            // Check if item with same normalized name and unit already exists
-            const existingItem = await tx
-              .select()
-              .from(shoppingListItems)
-              .where(
-                and(
-                  eq(shoppingListItems.shoppingListId, shoppingList.id),
-                  eq(shoppingListItems.ingredientName, normalizedName),
-                  ing.unit
-                    ? eq(shoppingListItems.unit, ing.unit)
-                    : sql`${shoppingListItems.unit} IS NULL`
-                )
-              )
-              .then((rows) => rows[0]);
-
-            if (existingItem && quantity !== null) {
-              // Aggregate: add quantities together
-              const existingQuantity = existingItem.quantity
-                ? parseFloat(existingItem.quantity)
-                : 0;
-              const newQuantity = existingQuantity + quantity;
-
-              // Update source recipe IDs and names
-              const sourceIds = existingItem.sourceRecipeIds
-                ? `${existingItem.sourceRecipeIds},${recipeId}`
-                : `${recipeId}`;
-              const sourceNames = existingItem.sourceRecipeNames
-                ? `${existingItem.sourceRecipeNames},${recipe.name}`
-                : recipe.name;
-
-              await tx
-                .update(shoppingListItems)
-                .set({
-                  quantity: newQuantity.toString(),
-                  displayText: formatDisplayText(newQuantity, ing.unit, ing.name),
-                  sourceRecipeIds: sourceIds,
-                  sourceRecipeNames: sourceNames,
-                  updatedAt: new Date(),
-                })
-                .where(eq(shoppingListItems.id, existingItem.id));
-            } else {
-              // Insert new item
-              await tx.insert(shoppingListItems).values({
-                shoppingListId: shoppingList.id,
-                ingredientName: normalizedName,
-                quantity: quantity?.toString() || null,
-                unit: ing.unit,
-                displayText: formatDisplayText(quantity, ing.unit, ing.name),
-                isChecked: false,
-                sourceRecipeIds: `${recipeId}`,
-                sourceRecipeNames: recipe.name,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              });
-            }
+            await insertShoppingListItem(tx, {
+              shoppingListId: shoppingList.id,
+              ingredientName: ing.name,
+              quantity: scaledQuantity,
+              unit: ing.unit, // Will be normalized in insertShoppingListItem
+              displayName: ing.name,
+              sourceRecipeId: recipeId,
+              sourceRecipeName: recipe.name,
+            });
           }
         });
 
@@ -469,6 +504,7 @@ export const shoppingRouter = router({
 
   /**
    * Remove all items from a specific recipe
+   * NEW MODEL: Simply delete all rows with matching sourceRecipeId
    */
   removeRecipeFromList: authedProcedure
     .input(
@@ -502,47 +538,16 @@ export const shoppingRouter = router({
               )
             );
 
-          // Get all items that contain this recipe
-          const items = await tx
-            .select()
-            .from(shoppingListItems)
-            .where(eq(shoppingListItems.shoppingListId, shoppingList.id));
-
-          for (const item of items) {
-            if (!item.sourceRecipeIds) continue;
-
-            const recipeIds = item.sourceRecipeIds
-              .split(",")
-              .map((id) => id.trim());
-            const recipeNames =
-              item.sourceRecipeNames?.split(",").map((name) => name.trim()) ||
-              [];
-
-            // Find index of recipe to remove
-            const indexToRemove = recipeIds.indexOf(recipeId.toString());
-            if (indexToRemove === -1) continue;
-
-            // Remove recipe ID and name from arrays
-            recipeIds.splice(indexToRemove, 1);
-            recipeNames.splice(indexToRemove, 1);
-
-            if (recipeIds.length === 0) {
-              // No more recipes contributing to this item, delete it
-              await tx
-                .delete(shoppingListItems)
-                .where(eq(shoppingListItems.id, item.id));
-            } else {
-              // Update source recipe lists
-              await tx
-                .update(shoppingListItems)
-                .set({
-                  sourceRecipeIds: recipeIds.join(","),
-                  sourceRecipeNames: recipeNames.join(","),
-                  updatedAt: new Date(),
-                })
-                .where(eq(shoppingListItems.id, item.id));
-            }
-          }
+          // Delete all items from this recipe
+          // This is MUCH simpler now - just delete rows with matching sourceRecipeId
+          await tx
+            .delete(shoppingListItems)
+            .where(
+              and(
+                eq(shoppingListItems.shoppingListId, shoppingList.id),
+                eq(shoppingListItems.sourceRecipeId, recipeId)
+              )
+            );
         });
 
         return { success: true };
@@ -575,94 +580,26 @@ export const shoppingRouter = router({
       }
 
       try {
-        // Get or create shopping list
-        let shoppingList = await ctx.db
-          .select()
-          .from(shoppingLists)
-          .where(eq(shoppingLists.userId, ctx.user.id))
-          .then((rows) => rows[0]);
-
-        if (!shoppingList) {
-          [shoppingList] = await ctx.db
-            .insert(shoppingLists)
-            .values({
-              userId: ctx.user.id,
-              name: "Shopping List",
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .returning();
-        }
+        const shoppingList = await getOrCreateShoppingList(ctx.db, ctx.user.id);
 
         // Parse ingredient
         const parsed = parseIngredient(ingredientText.trim());
-        const normalizedName = normalizeIngredientName(parsed.name);
 
-        // Check if item with same normalized name and unit already exists
-        const existingItem = await ctx.db
-          .select()
-          .from(shoppingListItems)
-          .where(
-            and(
-              eq(shoppingListItems.shoppingListId, shoppingList.id),
-              eq(shoppingListItems.ingredientName, normalizedName),
-              parsed.unit
-                ? eq(shoppingListItems.unit, parsed.unit)
-                : sql`${shoppingListItems.unit} IS NULL`
-            )
-          )
-          .then((rows) => rows[0]);
-
-        let item;
-
-        if (existingItem && parsed.quantity !== null) {
-          // Add to existing quantity
-          const existingQuantity = existingItem.quantity
-            ? parseFloat(existingItem.quantity)
-            : 0;
-          const newQuantity = existingQuantity + parsed.quantity;
-
-          [item] = await ctx.db
-            .update(shoppingListItems)
-            .set({
-              quantity: newQuantity.toString(),
-              displayText: formatDisplayText(
-                newQuantity,
-                parsed.unit,
-                parsed.name
-              ),
-              updatedAt: new Date(),
-            })
-            .where(eq(shoppingListItems.id, existingItem.id))
-            .returning();
-        } else {
-          // Insert new item
-          [item] = await ctx.db
-            .insert(shoppingListItems)
-            .values({
-              shoppingListId: shoppingList.id,
-              ingredientName: normalizedName,
-              quantity: parsed.quantity?.toString() || null,
-              unit: parsed.unit,
-              displayText: formatDisplayText(
-                parsed.quantity,
-                parsed.unit,
-                parsed.name
-              ),
-              isChecked: false,
-              sourceRecipeIds: null,
-              sourceRecipeNames: null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .returning();
-        }
+        // Insert the item (manual items have no sourceRecipeId)
+        const item = await insertShoppingListItem(ctx.db, {
+          shoppingListId: shoppingList.id,
+          ingredientName: parsed.name,
+          quantity: parsed.quantity,
+          unit: parsed.unit,
+          displayName: parsed.name,
+          // No source recipe for manual items - don't include optional fields
+        });
 
         return {
           success: true,
           item: {
             id: item.id,
-            displayText: item.displayText,
+            displayName: item.displayName,
           },
         };
       } catch (err) {
@@ -671,6 +608,67 @@ export const shoppingRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to add manual item",
+        });
+      }
+    }),
+
+  /**
+   * Edit an ingredient's quantity - this UNLINKS it from all recipes
+   * When a user edits an aggregated item, we:
+   * 1. Delete all recipe-linked items for this ingredient
+   * 2. Create a new manual (unlinked) item with the user's specified quantity
+   */
+  editIngredientQuantity: authedProcedure
+    .input(
+      type({
+        ingredientName: "string",
+        unit: "string | null",
+        newQuantity: "number",
+        displayName: "string",
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { ingredientName, unit, newQuantity, displayName } = input;
+
+      try {
+        const shoppingList = await getOrCreateShoppingList(ctx.db, ctx.user.id);
+        const normalizedName = normalizeIngredientName(ingredientName);
+
+        await ctx.db.transaction(async (tx) => {
+          // Delete ALL items (recipe-linked and manual) for this ingredient+unit combination
+          await tx
+            .delete(shoppingListItems)
+            .where(
+              and(
+                eq(shoppingListItems.shoppingListId, shoppingList.id),
+                eq(shoppingListItems.ingredientName, normalizedName),
+                unit
+                  ? eq(shoppingListItems.unit, unit)
+                  : sql`${shoppingListItems.unit} IS NULL`
+              )
+            );
+
+          // Create a new MANUAL item (no sourceRecipeId) with the user's quantity
+          await tx.insert(shoppingListItems).values({
+            shoppingListId: shoppingList.id,
+            ingredientName: normalizedName,
+            displayName,
+            quantity: newQuantity.toString(),
+            unit,
+            isChecked: false,
+            sourceRecipeId: null, // Explicitly unlinked from recipes
+            sourceRecipeName: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        });
+
+        return { success: true };
+      } catch (err) {
+        console.error("Error editing ingredient quantity:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to edit ingredient quantity",
         });
       }
     }),

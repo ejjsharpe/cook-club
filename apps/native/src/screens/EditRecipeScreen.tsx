@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Alert, FlatList } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Alert, FlatList, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,6 +14,14 @@ import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { useTRPC } from '@repo/trpc/client';
 import { useMutation } from '@tanstack/react-query';
 import { TimeValue, parseDuration, formatDurationISO } from '@/utils/timeUtils';
+
+interface ParsedIngredient {
+  quantity: number | null;
+  unit: string | null;
+  name: string;
+  confidence: 'high' | 'medium' | 'low';
+  originalText: string;
+}
 
 export default function EditRecipeScreen() {
   const route = useRoute<RouteProp<ReactNavigation.RootParamList, 'EditRecipe'>>();
@@ -30,6 +38,8 @@ export default function EditRecipeScreen() {
   const [ingredients, setIngredients] = useState<string[]>(prefill?.ingredients || ['']);
   const [method, setMethod] = useState<string[]>(prefill?.instructions || ['']);
   const [images, setImages] = useState<string[]>(prefill?.images || []);
+  const [showParsePreview, setShowParsePreview] = useState(false);
+  const [parsedIngredients, setParsedIngredients] = useState<ParsedIngredient[]>([]);
 
   const updateIngredient = (idx: number, value: string) => {
     setIngredients((prev) => prev.map((ing, i) => (i === idx ? value : ing)));
@@ -78,6 +88,30 @@ export default function EditRecipeScreen() {
       navigation.navigate('RecipeDetail', { recipeId: id });
     },
   });
+
+  const handlePreviewParsing = async () => {
+    const validIngredients = ingredients.filter((ing) => ing.trim());
+
+    if (validIngredients.length === 0) {
+      Alert.alert('Error', 'Please add at least one ingredient first');
+      return;
+    }
+
+    try {
+      const parsed = await trpc.recipe.parseIngredients?.query({
+        ingredients: validIngredients,
+      });
+
+      if (parsed) {
+        setParsedIngredients(parsed);
+        setShowParsePreview(true);
+      } else {
+        Alert.alert('Error', 'Parsing service unavailable. Please try again later.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to parse ingredients. Please try again.');
+    }
+  };
 
   const onSave = () => {
     // Validate required fields
@@ -274,6 +308,13 @@ export default function EditRecipeScreen() {
             <TouchableOpacity onPress={addIngredient} style={styles.addButton}>
               <Text type="highlight">+ Add ingredient</Text>
             </TouchableOpacity>
+            {ingredients.filter((ing) => ing.trim()).length > 0 && (
+              <TouchableOpacity onPress={handlePreviewParsing} style={styles.previewButton}>
+                <Text type="body" style={styles.previewButtonText}>
+                  👁️ Preview how ingredients will be parsed
+                </Text>
+              </TouchableOpacity>
+            )}
             <VSpace size={20} />
             {/* Method */}
             <Text type="heading">Method</Text>
@@ -306,6 +347,70 @@ export default function EditRecipeScreen() {
           </View>
         </SafeAreaView>
       </ScrollView>
+
+      {/* Ingredient Parsing Preview Modal */}
+      <Modal
+        visible={showParsePreview}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowParsePreview(false)}>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text type="title2">Parsed Ingredients</Text>
+            <TouchableOpacity onPress={() => setShowParsePreview(false)}>
+              <Text type="heading">Done</Text>
+            </TouchableOpacity>
+          </View>
+          <VSpace size={16} />
+          <Text type="body" style={styles.modalDescription}>
+            Here's how your ingredients will be stored. Check that quantities and units are parsed
+            correctly:
+          </Text>
+          <VSpace size={16} />
+          <ScrollView style={styles.modalScroll}>
+            {parsedIngredients.map((parsed, idx) => (
+              <View key={idx} style={styles.parsedItem}>
+                <View style={styles.parsedItemHeader}>
+                  <Text type="body" style={styles.originalText}>
+                    Original: "{parsed.originalText}"
+                  </Text>
+                  <View
+                    style={[
+                      styles.confidenceBadge,
+                      parsed.confidence === 'high' && styles.confidenceHigh,
+                      parsed.confidence === 'medium' && styles.confidenceMedium,
+                      parsed.confidence === 'low' && styles.confidenceLow,
+                    ]}>
+                    <Text style={styles.confidenceText}>{parsed.confidence}</Text>
+                  </View>
+                </View>
+                <VSpace size={8} />
+                <View style={styles.parsedFields}>
+                  <View style={styles.parsedField}>
+                    <Text type="bodyFaded">Quantity:</Text>
+                    <Text type="body">{parsed.quantity ?? 'none'}</Text>
+                  </View>
+                  <View style={styles.parsedField}>
+                    <Text type="bodyFaded">Unit:</Text>
+                    <Text type="body">{parsed.unit || 'none'}</Text>
+                  </View>
+                  <View style={styles.parsedField}>
+                    <Text type="bodyFaded">Ingredient:</Text>
+                    <Text type="body">{parsed.name}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+            <VSpace size={80} />
+          </ScrollView>
+          <View style={styles.modalFooter}>
+            <Text type="bodyFaded" style={styles.modalFooterText}>
+              If parsing looks incorrect, edit your ingredient text and preview again. The recipe
+              will be saved with these parsed values.
+            </Text>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -404,5 +509,92 @@ const styles = StyleSheet.create((theme) => ({
   addButton: {
     marginTop: 4,
     marginBottom: 8,
+  },
+  previewButton: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: theme.colors.border + '30',
+    alignItems: 'center',
+  },
+  previewButtonText: {
+    color: theme.colors.text,
+    fontSize: 14,
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalDescription: {
+    color: '#666',
+    lineHeight: 20,
+  },
+  modalScroll: {
+    flex: 1,
+  },
+  parsedItem: {
+    padding: 16,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  parsedItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  originalText: {
+    flex: 1,
+    fontStyle: 'italic',
+    color: '#666',
+    fontSize: 13,
+  },
+  confidenceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  confidenceHigh: {
+    backgroundColor: '#4CAF50',
+  },
+  confidenceMedium: {
+    backgroundColor: '#FF9800',
+  },
+  confidenceLow: {
+    backgroundColor: '#F44336',
+  },
+  confidenceText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  parsedFields: {
+    gap: 6,
+  },
+  parsedField: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalFooter: {
+    padding: 16,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  modalFooterText: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 }));

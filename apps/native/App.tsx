@@ -13,6 +13,7 @@ import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SheetProvider } from 'react-native-actions-sheet';
 
@@ -100,26 +101,28 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <ReactQueryProvider>
-        <SessionProvider>
-          <TRPCProvider>
-            <SignedInProvider>
-              <GestureHandlerRootView>
-                <SheetProvider>
-                  <Navigation
-                    onReady={onNavigationReady}
-                    linking={linking}
-                    theme={{
-                      ...DefaultTheme,
-                      colors: { ...DefaultTheme.colors, background: '#FFF' },
-                    }}
-                  />
-                </SheetProvider>
-              </GestureHandlerRootView>
-            </SignedInProvider>
-          </TRPCProvider>
-        </SessionProvider>
-      </ReactQueryProvider>
+      <KeyboardProvider>
+        <ReactQueryProvider>
+          <SessionProvider>
+            <TRPCProvider>
+              <SignedInProvider>
+                <GestureHandlerRootView>
+                  <SheetProvider>
+                    <Navigation
+                      onReady={onNavigationReady}
+                      linking={linking}
+                      theme={{
+                        ...DefaultTheme,
+                        colors: { ...DefaultTheme.colors, background: '#FFF' },
+                      }}
+                    />
+                  </SheetProvider>
+                </GestureHandlerRootView>
+              </SignedInProvider>
+            </TRPCProvider>
+          </SessionProvider>
+        </ReactQueryProvider>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }

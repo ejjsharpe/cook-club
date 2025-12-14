@@ -8,7 +8,8 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView, KeyboardStickyView } from 'react-native-keyboard-controller';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -29,14 +30,16 @@ import {
 interface ShoppingListItem {
   id: number;
   ingredientName: string;
-  quantity: string | null;
+  quantity: number;
   unit: string | null;
   displayText: string;
   isChecked: boolean;
-  sourceRecipeIds: string | null;
-  sourceRecipeNames: string | null;
-  createdAt: string;
-  updatedAt: string;
+  sourceItems: Array<{
+    id: number;
+    quantity: number | null;
+    sourceRecipeId: number | null;
+    sourceRecipeName: string | null;
+  }>;
 }
 
 interface Recipe {
@@ -45,8 +48,11 @@ interface Recipe {
   imageUrl: string | null;
 }
 
+const INPUT_SECTION_HEIGHT = 68;
+
 export const ShoppingListScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [manualItemText, setManualItemText] = useState('');
 
   const { data, isLoading, error } = useGetShoppingList();
@@ -161,9 +167,13 @@ export const ShoppingListScreen = () => {
           <Text type="body" style={[styles.itemText, item.isChecked && styles.itemTextChecked]}>
             {item.displayText}
           </Text>
-          {item.sourceRecipeNames && (
+          {item.sourceItems.length > 0 && item.sourceItems.some((si) => si.sourceRecipeName) && (
             <Text type="bodyFaded" style={styles.recipeTag}>
-              from {item.sourceRecipeNames}
+              from{' '}
+              {item.sourceItems
+                .filter((si) => si.sourceRecipeName)
+                .map((si) => si.sourceRecipeName)
+                .join(', ')}
             </Text>
           )}
         </View>
@@ -205,7 +215,7 @@ export const ShoppingListScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <VSpace size={28} />
 
         {/* Header */}
@@ -240,30 +250,6 @@ export const ShoppingListScreen = () => {
           </>
         )}
 
-        {/* Manual Item Input */}
-        <View style={styles.inputSection}>
-          <TextInput
-            style={styles.input}
-            placeholder="Add item (e.g., 2 cups milk)"
-            value={manualItemText}
-            onChangeText={setManualItemText}
-            onSubmitEditing={handleAddManualItem}
-            returnKeyType="done"
-            autoCapitalize="none"
-            placeholderTextColor="#999"
-          />
-          <TouchableOpacity
-            style={[styles.addButton, !manualItemText.trim() && styles.addButtonDisabled]}
-            onPress={handleAddManualItem}
-            disabled={!manualItemText.trim() || addManualMutation.isPending}>
-            <Ionicons
-              name="add-circle"
-              size={32}
-              style={[styles.addIcon, !manualItemText.trim() && styles.addIconDisabled]}
-            />
-          </TouchableOpacity>
-        </View>
-
         {/* Shopping List Items */}
         <FlatList
           data={items}
@@ -273,10 +259,37 @@ export const ShoppingListScreen = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.listContent,
+            { paddingBottom: INPUT_SECTION_HEIGHT + insets.bottom },
             items.length === 0 && styles.emptyListContent,
           ]}
         />
       </SafeAreaView>
+
+      {/* Bottom Input - sticks to keyboard */}
+      <KeyboardStickyView
+        style={[styles.inputSection]}
+        offset={{ closed: 0, opened: insets.bottom + 48 }}>
+        <TextInput
+          style={styles.input}
+          placeholder="Add item (e.g., 2 cups milk)"
+          value={manualItemText}
+          onChangeText={setManualItemText}
+          onSubmitEditing={handleAddManualItem}
+          returnKeyType="done"
+          autoCapitalize="none"
+          placeholderTextColor="#999"
+        />
+        <TouchableOpacity
+          style={[styles.addButton, !manualItemText.trim() && styles.addButtonDisabled]}
+          onPress={handleAddManualItem}
+          disabled={!manualItemText.trim() || addManualMutation.isPending}>
+          <Ionicons
+            name="add-circle"
+            size={32}
+            style={[styles.addIcon, !manualItemText.trim() && styles.addIconDisabled]}
+          />
+        </TouchableOpacity>
+      </KeyboardStickyView>
     </View>
   );
 };
@@ -349,14 +362,15 @@ const styles = StyleSheet.create((theme) => ({
     opacity: 0.5,
   },
 
-  // Manual Item Input
+  // Manual Item Input (positioned at bottom)
   inputSection: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '30',
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border + '30',
+    backgroundColor: theme.colors.background,
     gap: 8,
   },
   input: {
