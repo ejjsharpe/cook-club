@@ -15,22 +15,16 @@ export const TagChip = ({ label, selected = false, onPress, size = 'medium' }: P
 
   return (
     <Wrapper
-      style={[
-        styles.chip,
-        size === 'small' && styles.chipSmall,
-        selected && styles.chipSelected,
-      ]}
+      style={[styles.chip, size === 'small' && styles.chipSmall, selected && styles.chipSelected]}
       onPress={onPress}
-      activeOpacity={onPress ? 0.7 : 1}
-    >
+      activeOpacity={onPress ? 0.7 : 1}>
       <Text
         type="bodyFaded"
         style={[
           styles.chipText,
           size === 'small' && styles.chipTextSmall,
           selected && styles.chipTextSelected,
-        ]}
-      >
+        ]}>
         {label}
       </Text>
     </Wrapper>
@@ -39,7 +33,7 @@ export const TagChip = ({ label, selected = false, onPress, size = 'medium' }: P
 
 const styles = StyleSheet.create((theme) => ({
   chip: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
@@ -47,7 +41,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
   },
   chipSmall: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     paddingVertical: 4,
     borderRadius: theme.borderRadius.small,
   },
