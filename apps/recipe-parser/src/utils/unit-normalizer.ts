@@ -3,15 +3,11 @@
  *
  * Normalizes cooking measurement units to canonical forms.
  * This ensures that "cup", "cups", "c", and "C" all map to the same unit.
- *
- * Benefits:
- * - Better aggregation in shopping lists
- * - Consistent database storage
- * - Foundation for unit conversion features
  */
 
 /**
  * Mapping of canonical unit names to their variations
+ * Note: Case-sensitive entries are handled separately in CASE_SENSITIVE_MAPPINGS
  */
 const UNIT_MAPPINGS: Record<string, string[]> = {
   // Volume - Large
@@ -20,9 +16,9 @@ const UNIT_MAPPINGS: Record<string, string[]> = {
   quart: ["quart", "quarts", "qt", "qts"],
   pint: ["pint", "pints", "pt", "pts"],
 
-  // Volume - Small
-  tablespoon: ["tablespoon", "tablespoons", "tbsp", "tbs", "T"],
-  teaspoon: ["teaspoon", "teaspoons", "tsp", "ts", "t"],
+  // Volume - Small (note: "T" and "t" handled separately for case sensitivity)
+  tablespoon: ["tablespoon", "tablespoons", "tbsp", "tbs"],
+  teaspoon: ["teaspoon", "teaspoons", "tsp", "ts"],
 
   // Volume - Metric
   liter: ["liter", "liters", "litre", "litres", "l"],
@@ -53,8 +49,16 @@ const UNIT_MAPPINGS: Record<string, string[]> = {
 };
 
 /**
+ * Case-sensitive mappings for single-letter abbreviations
+ * "T" = tablespoon, "t" = teaspoon (common convention)
+ */
+const CASE_SENSITIVE_MAPPINGS: Record<string, string> = {
+  T: "tablespoon",
+  t: "teaspoon",
+};
+
+/**
  * Reverse mapping for faster lookup: variation → canonical
- * Built from UNIT_MAPPINGS
  */
 const VARIATION_TO_CANONICAL: Record<string, string> = {};
 
@@ -73,14 +77,18 @@ for (const [canonical, variations] of Object.entries(UNIT_MAPPINGS)) {
  * - "TBSP" → "tablespoon"
  * - "lbs" → "pound"
  * - "unknown" → "unknown" (returns as-is if not in mapping)
- *
- * @param input - The unit to normalize (e.g., "cups", "TBSP")
- * @returns The canonical unit name, or the input if no mapping exists
  */
 export function normalizeUnit(input: string | null): string | null {
   if (!input) return null;
 
-  const lowercased = input.toLowerCase().trim();
+  const trimmed = input.trim();
+
+  // Check case-sensitive mappings first (e.g., "T" vs "t")
+  if (trimmed in CASE_SENSITIVE_MAPPINGS) {
+    return CASE_SENSITIVE_MAPPINGS[trimmed]!;
+  }
+
+  const lowercased = trimmed.toLowerCase();
 
   // Return canonical form if found, otherwise return original (lowercased)
   return VARIATION_TO_CANONICAL[lowercased] || lowercased;
@@ -88,20 +96,16 @@ export function normalizeUnit(input: string | null): string | null {
 
 /**
  * Check if a unit is recognized in our mappings
- *
- * @param unit - The unit to check
- * @returns true if the unit is in our mappings, false otherwise
  */
 export function isRecognizedUnit(unit: string | null): boolean {
   if (!unit) return false;
-  const lowercased = unit.toLowerCase().trim();
-  return lowercased in VARIATION_TO_CANONICAL;
+  const trimmed = unit.trim();
+  if (trimmed in CASE_SENSITIVE_MAPPINGS) return true;
+  return trimmed.toLowerCase() in VARIATION_TO_CANONICAL;
 }
 
 /**
  * Get all recognized canonical units
- *
- * @returns Array of canonical unit names
  */
 export function getCanonicalUnits(): string[] {
   return Object.keys(UNIT_MAPPINGS);
@@ -109,9 +113,6 @@ export function getCanonicalUnits(): string[] {
 
 /**
  * Get all variations for a canonical unit
- *
- * @param canonical - The canonical unit name
- * @returns Array of variations, or empty array if not found
  */
 export function getUnitVariations(canonical: string): string[] {
   return UNIT_MAPPINGS[canonical] || [];

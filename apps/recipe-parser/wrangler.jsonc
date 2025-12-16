@@ -1,0 +1,19 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cook-club-recipe-parser",
+  "main": "src/index.ts",
+  "account_id": "46fa47bc2bba51d75383b4dfe6e3deb1",
+  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2025-02-20",
+  "workers_dev": false,
+  "ai": {
+    "binding": "AI"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "RECIPE_CACHE",
+      "id": "PLACEHOLDER_CREATE_IN_DASHBOARD",
+      "preview_id": "8d40df048b504ee39950c3ece6e71b9e"
+    }
+  ]
+}
