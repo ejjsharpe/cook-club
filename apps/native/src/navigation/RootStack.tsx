@@ -11,7 +11,8 @@ import { FollowsScreen } from '@/screens/FollowsScreen';
 import { RecipeDetailScreen } from '@/screens/RecipeDetailScreen';
 import { UserProfileScreen } from '@/screens/UserProfileScreen';
 
-type ScrapedRecipe = Outputs['recipe']['scrapeRecipe'];
+// Type for AI-parsed recipe result
+type ParsedRecipeResult = Outputs['recipe']['parseRecipeFromUrl'];
 
 const StartScreen = lazy(() => import('@/screens/StartScreen'));
 const SignUpScreen = lazy(() => import('@/screens/SignUpScreen'));
@@ -22,7 +23,7 @@ type RootStackParamList = StaticParamList<typeof RootStack>;
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {
-      EditRecipe: { scrapedRecipe?: ScrapedRecipe };
+      EditRecipe: { parsedRecipe?: ParsedRecipeResult };
       UserProfile: { userId: string };
       FollowsList: { userId: string; activeTab: 'following' | 'followers'; userName: string };
       RecipeDetail: { recipeId: number };

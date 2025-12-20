@@ -2,10 +2,10 @@ import {
   createTRPCClient as _createTRPCClient,
   httpBatchLink,
 } from "@trpc/client";
+import { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 
 import type { AppRouter } from "./server";
-import { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 
 export const createTRPCClient = ({
   apiUrl,

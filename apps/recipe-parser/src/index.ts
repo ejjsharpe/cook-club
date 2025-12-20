@@ -11,6 +11,7 @@ export type {
   ParseResponse,
   ParseResult,
   ParseError,
+  ParseMetadata,
 } from "./types";
 
 /**

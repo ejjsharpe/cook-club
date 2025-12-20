@@ -62,14 +62,12 @@
     "@types/react": "~19.1.10",
     "@typescript-eslint/eslint-plugin": "^8.37.0",
     "@typescript-eslint/parser": "^8.37.0",
-    "eslint": "8",
     "eslint-config-universe": "^15.0.3",
     "prettier": "^3.6.2",
     "typescript": "~5.9.2"
   },
   "eslintConfig": {
-    "extends": "universe/native",
-    "root": true
+    "extends": "universe/native"
   },
   "private": true,
   "trustedDependencies": [

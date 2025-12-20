@@ -1,6 +1,6 @@
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { useTRPC } from '@repo/trpc/client';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
@@ -26,18 +26,39 @@ interface ParsedIngredient {
 
 export default function EditRecipeScreen() {
   const route = useRoute<RouteProp<ReactNavigation.RootParamList, 'EditRecipe'>>();
-  const prefill = route.params?.scrapedRecipe;
+  const parsedRecipe = route.params?.parsedRecipe;
+  // Extract the recipe data if parsing was successful
+  const prefill = parsedRecipe?.success ? parsedRecipe.data : undefined;
   const navigation = useNavigation();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  // Convert structured ingredients back to text format for editing
+  const getIngredientText = () => {
+    if (!prefill?.ingredients) return [''];
+    return prefill.ingredients.map((ing) => {
+      const parts = [];
+      if (ing.quantity) parts.push(ing.quantity.toString());
+      if (ing.unit) parts.push(ing.unit);
+      parts.push(ing.name);
+      return parts.join(' ');
+    });
+  };
+
+  // Convert structured instructions to text format
+  const getInstructionsText = () => {
+    if (!prefill?.instructions) return [''];
+    return prefill.instructions.map((inst) => inst.instruction);
+  };
 
   const [title, setTitle] = useState(prefill?.name || '');
-  const [author, setAuthor] = useState(prefill?.author || '');
+  const [author, setAuthor] = useState('');
   const [description, setDescription] = useState(prefill?.description || '');
   const [prepTime, setPrepTime] = useState<TimeValue>(parseDuration(prefill?.prepTime || ''));
   const [cookTime, setCookTime] = useState<TimeValue>(parseDuration(prefill?.cookTime || ''));
   const [servings, setServings] = useState<number>(prefill?.servings || 4);
-  const [ingredients, setIngredients] = useState<string[]>(prefill?.ingredients || ['']);
-  const [method, setMethod] = useState<string[]>(prefill?.instructions || ['']);
+  const [ingredients, setIngredients] = useState<string[]>(getIngredientText);
+  const [method, setMethod] = useState<string[]>(getInstructionsText);
   const [images, setImages] = useState<string[]>(prefill?.images || []);
   const [showParsePreview, setShowParsePreview] = useState(false);
   const [parsedIngredients, setParsedIngredients] = useState<ParsedIngredient[]>([]);
@@ -99,9 +120,11 @@ export default function EditRecipeScreen() {
     }
 
     try {
-      const parsed = await trpc.recipe.parseIngredients?.query({
-        ingredients: validIngredients,
-      });
+      const parsed = await queryClient.fetchQuery(
+        trpc.recipe.parseIngredients.queryOptions({
+          ingredients: validIngredients,
+        })
+      );
 
       if (parsed) {
         setParsedIngredients(parsed);
@@ -136,8 +159,8 @@ export default function EditRecipeScreen() {
       return;
     }
 
-    // Determine if this is a scraped recipe
-    const isScrapedRecipe = !!prefill?.sourceUrl;
+    // Determine if this is an imported recipe (has sourceUrl from URL parsing)
+    const isImportedRecipe = !!prefill?.sourceUrl;
 
     // Prepare recipe data
     const recipeData = {
@@ -153,24 +176,13 @@ export default function EditRecipeScreen() {
         .map((step, idx) => ({ index: idx, instruction: step.trim() }))
         .filter((inst) => inst.instruction),
       images: images.map((url) => ({ url })),
-      // Include scraped recipe fields if available
-      ...(isScrapedRecipe &&
+      // Include source URL if imported from web
+      ...(isImportedRecipe &&
         prefill && {
-          sourceUrl: prefill.sourceUrl,
-          datePublished: prefill.datePublished
-            ? new Date(prefill.datePublished).getTime()
-            : undefined,
-          author: prefill.author,
-          categories: [],
-          // categories: prefill.categories || [],
-          cusines: [],
-          // cuisines: prefill.cuisines || [],
-          keywords: prefill.keywords || [],
+          sourceUrl: prefill.sourceUrl ?? undefined,
         }),
-      // For manual recipes, use the author field from the form
-      ...(!isScrapedRecipe && {
-        author: author.trim() || undefined,
-      }),
+      // Use author from form for all recipes
+      author: author.trim() || undefined,
     };
 
     saveRecipeMutation.mutate(recipeData);

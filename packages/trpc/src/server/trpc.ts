@@ -1,5 +1,4 @@
 import { initTRPC, TRPCError } from "@trpc/server";
-import { scope } from "arktype";
 
 import type { Context } from "./context";
 

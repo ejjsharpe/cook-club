@@ -12,7 +12,7 @@ export interface ParsedIngredient {
   quantity: number | null;
   unit: string | null;
   name: string;
-  confidence: 'high' | 'medium' | 'low';
+  confidence: "high" | "medium" | "low";
   originalText: string;
 }
 
@@ -26,13 +26,13 @@ export interface ParsedIngredient {
  * - "salt to taste" → { quantity: null, unit: null, name: "salt to taste", confidence: "low" }
  */
 export function parseIngredient(ingredientText: string): ParsedIngredient {
-  if (!ingredientText || typeof ingredientText !== 'string') {
+  if (!ingredientText || typeof ingredientText !== "string") {
     return {
       quantity: null,
       unit: null,
-      name: ingredientText || '',
-      confidence: 'low',
-      originalText: ingredientText || '',
+      name: ingredientText || "",
+      confidence: "low",
+      originalText: ingredientText || "",
     };
   }
 
@@ -41,7 +41,7 @@ export function parseIngredient(ingredientText: string): ParsedIngredient {
   // Regex matches: [quantity] [unit] [ingredient name]
   // Examples: "2 cups flour", "1/2 tsp salt", "3 large carrots"
   const match = trimmed.match(
-    /^(\d+(?:\/\d+)?|\d*\.?\d+)\s*([a-zA-Z\s]*?)\s+(.+)$/
+    /^(\d+(?:\/\d+)?|\d*\.?\d+)\s*([a-zA-Z\s]*?)\s+(.+)$/,
   );
 
   if (match) {
@@ -52,10 +52,10 @@ export function parseIngredient(ingredientText: string): ParsedIngredient {
     // Convert fractions to decimals (e.g., "1/2" -> 0.5)
     let quantity: number | null = null;
     if (quantityStr) {
-      if (quantityStr.includes('/')) {
-        const [numerator, denominator] = quantityStr.split('/');
-        const num = numerator ?? '0';
-        const denom = denominator ?? '1';
+      if (quantityStr.includes("/")) {
+        const [numerator, denominator] = quantityStr.split("/");
+        const num = numerator ?? "0";
+        const denom = denominator ?? "1";
         quantity = parseFloat(num) / parseFloat(denom);
       } else {
         quantity = parseFloat(quantityStr);
@@ -63,13 +63,13 @@ export function parseIngredient(ingredientText: string): ParsedIngredient {
     }
 
     // Determine confidence based on how well the parse worked
-    let confidence: 'high' | 'medium' | 'low';
+    let confidence: "high" | "medium" | "low";
     if (quantity && unit && name) {
-      confidence = 'high'; // All components extracted
+      confidence = "high"; // All components extracted
     } else if (quantity && name) {
-      confidence = 'medium'; // Quantity and name, but no unit
+      confidence = "medium"; // Quantity and name, but no unit
     } else {
-      confidence = 'low'; // Partial match
+      confidence = "low"; // Partial match
     }
 
     return {
@@ -86,7 +86,7 @@ export function parseIngredient(ingredientText: string): ParsedIngredient {
     quantity: null,
     unit: null,
     name: trimmed,
-    confidence: 'low',
+    confidence: "low",
     originalText: trimmed,
   };
 }
@@ -106,27 +106,27 @@ export function parseIngredient(ingredientText: string): ParsedIngredient {
  * - "Fresh Basil" → "basil"
  */
 export function normalizeIngredientName(name: string): string {
-  if (!name) return '';
+  if (!name) return "";
 
   let normalized = name.toLowerCase().trim();
 
   // Remove common adjectives (basic set - can be expanded)
   const adjectivesToRemove = [
-    'fresh',
-    'large',
-    'small',
-    'medium',
-    'whole',
-    'chopped',
-    'diced',
-    'sliced',
-    'minced',
+    "fresh",
+    "large",
+    "small",
+    "medium",
+    "whole",
+    "chopped",
+    "diced",
+    "sliced",
+    "minced",
   ];
 
   for (const adj of adjectivesToRemove) {
     // Remove adjective at start of string followed by space
-    const regex = new RegExp(`^${adj}\\s+`, 'i');
-    normalized = normalized.replace(regex, '');
+    const regex = new RegExp(`^${adj}\\s+`, "i");
+    normalized = normalized.replace(regex, "");
   }
 
   // Basic plural handling - remove trailing 's' if:
@@ -134,12 +134,12 @@ export function normalizeIngredientName(name: string): string {
   // - Word is longer than 3 characters (avoid "peas" → "pea")
   if (
     normalized.length > 3 &&
-    normalized.endsWith('s') &&
-    !normalized.endsWith('ss')
+    normalized.endsWith("s") &&
+    !normalized.endsWith("ss")
   ) {
     // Check if it's a common plural form
     // This is a simple heuristic - can be improved with a proper pluralization library
-    const exceptions = ['lentils', 'beans', 'peas', 'oats', 'noodles'];
+    const exceptions = ["lentils", "beans", "peas", "oats", "noodles"];
     if (!exceptions.includes(normalized)) {
       normalized = normalized.slice(0, -1);
     }
@@ -152,6 +152,8 @@ export function normalizeIngredientName(name: string): string {
  * Parse multiple ingredients at once
  * Useful for batch processing
  */
-export function parseIngredients(ingredientTexts: string[]): ParsedIngredient[] {
+export function parseIngredients(
+  ingredientTexts: string[],
+): ParsedIngredient[] {
   return ingredientTexts.map(parseIngredient);
 }

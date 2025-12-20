@@ -46,7 +46,7 @@ app.use(
     createContext: (opts, c) => {
       return createContext(opts, c.env);
     },
-  })
+  }),
 );
 
 export default app;

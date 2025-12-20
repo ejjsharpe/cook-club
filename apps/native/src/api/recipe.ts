@@ -9,10 +9,31 @@ import {
 import type { inferOutput } from '@trpc/tanstack-react-query';
 import { Alert } from 'react-native';
 
-export const useScrapeRecipe = ({ url }: { url: string }) => {
+// Parse recipe from URL using AI
+export const useParseRecipeFromUrl = ({ url }: { url: string }) => {
   const trpc = useTRPC();
 
-  return useQuery({ ...trpc.recipe.scrapeRecipe.queryOptions({ url }), enabled: false });
+  return useQuery({
+    ...trpc.recipe.parseRecipeFromUrl.queryOptions({ url }),
+    enabled: false, // Manual fetch
+  });
+};
+
+// Parse recipe from text using AI
+export const useParseRecipeFromText = ({ text }: { text: string }) => {
+  const trpc = useTRPC();
+
+  return useQuery({
+    ...trpc.recipe.parseRecipeFromText.queryOptions({ text }),
+    enabled: false, // Manual fetch
+  });
+};
+
+// Parse recipe from image using AI
+export const useParseRecipeFromImage = () => {
+  const trpc = useTRPC();
+
+  return useMutation(trpc.recipe.parseRecipeFromImage.mutationOptions());
 };
 
 interface UseGetUserRecipesParams {

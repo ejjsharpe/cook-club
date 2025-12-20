@@ -13,7 +13,6 @@ import {
   shoppingLists,
   shoppingListRecipes,
 } from "@repo/db/schemas";
-import { scrapeRecipe } from "@repo/recipe-scraper";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import {
@@ -30,12 +29,12 @@ import {
   sql,
 } from "drizzle-orm";
 
-import { router, authedProcedure } from "../trpc";
 import {
   parseIngredient,
   parseIngredients,
 } from "../../utils/ingredientParser";
 import { normalizeUnit } from "../../utils/unitNormalizer";
+import { router, authedProcedure } from "../trpc";
 
 const ImageRecord = type({
   url: "string.url",
@@ -55,13 +54,10 @@ const IngredientRecordParsed = type({
 });
 
 // Accept either format - UI can send unparsed, API will parse
-const IngredientRecord = type({
-  index: "number",
-  "ingredient?": "string", // Unparsed format
-  "quantity?": "string | null", // Parsed format
-  "unit?": "string | null", // Parsed format
-  "name?": "string", // Parsed format
-});
+const IngredientRecord = type.or(
+  IngredientRecordParsed,
+  IngredientRecordUnparsed,
+);
 
 const InstructionRecord = type({
   index: "number",
@@ -87,27 +83,77 @@ export const RecipePostValidator = type({
 
 const UrlValidator = type({ url: "string.url" });
 
+const MimeTypeValidator = type("'image/jpeg' | 'image/png' | 'image/webp'");
+
 export const recipeRouter = router({
-  scrapeRecipe: authedProcedure.input(UrlValidator).query(async ({ input }) => {
-    try {
-      const recipe = await scrapeRecipe(input.url);
-      if (!recipe) {
+  // Parse recipe from URL using AI
+  parseRecipeFromUrl: authedProcedure
+    .input(UrlValidator)
+    .query(async ({ ctx, input }) => {
+      try {
+        const result = await ctx.env.RECIPE_PARSER.parse({
+          type: "url",
+          data: input.url,
+        });
+
+        if (!result.success) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: result.error.message,
+          });
+        }
+
+        return result;
+      } catch (e) {
+        console.log(e, "ERROR");
+      }
+
+      throw new Error();
+    }),
+
+  // Parse recipe from text using AI
+  parseRecipeFromText: authedProcedure
+    .input(type({ text: "string" }))
+    .query(async ({ ctx, input }) => {
+      const result = await ctx.env.RECIPE_PARSER.parse({
+        type: "text",
+        data: input.text,
+      });
+
+      if (!result.success) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "No recipe found at the provided URL.",
+          message: result.error.message,
         });
       }
-      return recipe;
-    } catch (err) {
-      console.error("Error scraping recipe:", err);
 
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message:
-          "Failed to scrape recipe. The website might be blocking requests or experiencing issues.",
+      return result;
+    }),
+
+  // Parse recipe from image using AI (mutation due to large payload)
+  parseRecipeFromImage: authedProcedure
+    .input(
+      type({
+        imageBase64: "string",
+        mimeType: MimeTypeValidator,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.env.RECIPE_PARSER.parse({
+        type: "image",
+        data: input.imageBase64,
+        mimeType: input.mimeType,
       });
-    }
-  }),
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.error.message,
+        });
+      }
+
+      return result;
+    }),
   postRecipe: authedProcedure
     .input(RecipePostValidator)
     .mutation(async ({ input, ctx }) => {
@@ -127,8 +173,8 @@ export const recipeRouter = router({
               .where(
                 and(
                   eq(tags.type, "category"),
-                  inArray(tags.name, input.categories)
-                )
+                  inArray(tags.name, input.categories),
+                ),
               )
           : Promise.resolve([]),
         input.cuisines && input.cuisines.length > 0
@@ -138,8 +184,8 @@ export const recipeRouter = router({
               .where(
                 and(
                   eq(tags.type, "cuisine"),
-                  inArray(tags.name, input.cuisines)
-                )
+                  inArray(tags.name, input.cuisines),
+                ),
               )
           : Promise.resolve([]),
       ]);
@@ -147,10 +193,10 @@ export const recipeRouter = router({
       // Validate categories
       if (input.categories && input.categories.length > 0) {
         const existingCategoryNames = existingCategoryTags.map(
-          (tag) => tag.name
+          (tag) => tag.name,
         );
         const invalidCategories = input.categories.filter(
-          (cat) => !existingCategoryNames.includes(cat)
+          (cat) => !existingCategoryNames.includes(cat),
         );
 
         if (invalidCategories.length > 0) {
@@ -165,7 +211,7 @@ export const recipeRouter = router({
       if (input.cuisines && input.cuisines.length > 0) {
         const existingCuisineNames = existingCuisineTags.map((tag) => tag.name);
         const invalidCuisines = input.cuisines.filter(
-          (cuisine) => !existingCuisineNames.includes(cuisine)
+          (cuisine) => !existingCuisineNames.includes(cuisine),
         );
 
         if (invalidCuisines.length > 0) {
@@ -201,7 +247,7 @@ export const recipeRouter = router({
           // Parse ingredients if needed (support both formats)
           const parsedIngredients = input.ingredients.map((ing) => {
             // Check if ingredient is in unparsed format (has 'ingredient' field)
-            if ("ingredient" in ing && ing.ingredient) {
+            if ("ingredient" in ing) {
               // Parse the ingredient text
               const parsed = parseIngredient(ing.ingredient);
               return {
@@ -216,7 +262,7 @@ export const recipeRouter = router({
               index: ing.index,
               quantity: ing.quantity || null,
               unit: normalizeUnit(ing.unit || null),
-              name: ing.name || "",
+              name: ing.name,
             };
           });
 
@@ -227,7 +273,7 @@ export const recipeRouter = router({
               parsedIngredients.map((ingredient) => ({
                 ...ingredient,
                 recipeId: recipe.id,
-              }))
+              })),
             )
             .returning({
               index: recipeIngredients.index,
@@ -243,7 +289,7 @@ export const recipeRouter = router({
               input.instructions.map((instruction) => ({
                 ...instruction,
                 recipeId: recipe.id,
-              }))
+              })),
             )
             .returning({
               index: recipeInstructions.index,
@@ -257,7 +303,7 @@ export const recipeRouter = router({
               input.images.map((image: any) => ({
                 recipeId: recipe.id,
                 url: image.url,
-              }))
+              })),
             )
             .returning({
               url: recipeImages.url,
@@ -287,7 +333,7 @@ export const recipeRouter = router({
         limit: "number = 20",
         cursor: "number?",
         search: "string?",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { limit, cursor, search } = input;
@@ -308,7 +354,7 @@ export const recipeRouter = router({
           .from(recipeCollections)
           .innerJoin(
             collections,
-            eq(recipeCollections.collectionId, collections.id)
+            eq(recipeCollections.collectionId, collections.id),
           )
           .innerJoin(recipes, eq(recipeCollections.recipeId, recipes.id))
           .innerJoin(user, eq(recipes.uploadedBy, user.id))
@@ -319,8 +365,8 @@ export const recipeRouter = router({
               cursor
                 ? lt(recipeCollections.createdAt, new Date(cursor))
                 : undefined,
-              search ? ilike(recipes.name, `%${search}%`) : undefined
-            )
+              search ? ilike(recipes.name, `%${search}%`) : undefined,
+            ),
           )
           .groupBy(
             recipeCollections.id,
@@ -328,7 +374,7 @@ export const recipeRouter = router({
             user.id,
             user.name,
             user.email,
-            user.image
+            user.image,
           )
           .orderBy(desc(recipeCollections.createdAt))
           .limit(limit + 1);
@@ -359,7 +405,7 @@ export const recipeRouter = router({
             }
             return acc;
           },
-          {} as Record<number, (typeof tags.$inferSelect)[]>
+          {} as Record<number, (typeof tags.$inferSelect)[]>,
         );
 
         const items = userRecipesList.map((item) => ({
@@ -389,7 +435,7 @@ export const recipeRouter = router({
     .input(
       type({
         recipeId: "number",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { recipeId } = input;
@@ -456,17 +502,17 @@ export const recipeRouter = router({
           .from(recipeCollections)
           .innerJoin(
             collections,
-            eq(recipeCollections.collectionId, collections.id)
+            eq(recipeCollections.collectionId, collections.id),
           )
           .where(
             and(
               eq(recipeCollections.recipeId, recipeId),
-              eq(collections.userId, ctx.user.id)
-            )
+              eq(collections.userId, ctx.user.id),
+            ),
           );
 
         const collectionIds = userRecipeCollections.map(
-          (rc) => rc.collectionId
+          (rc) => rc.collectionId,
         );
 
         // Parallelize remaining queries
@@ -524,7 +570,7 @@ export const recipeRouter = router({
     .input(
       type({
         recipeId: "number",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { recipeId } = input;
@@ -551,8 +597,8 @@ export const recipeRouter = router({
           .where(
             and(
               eq(userLikes.userId, ctx.user.id),
-              eq(userLikes.recipeId, recipeId)
-            )
+              eq(userLikes.recipeId, recipeId),
+            ),
           )
           .then((rows) => rows[0]);
 
@@ -563,8 +609,8 @@ export const recipeRouter = router({
             .where(
               and(
                 eq(userLikes.userId, ctx.user.id),
-                eq(userLikes.recipeId, recipeId)
-              )
+                eq(userLikes.recipeId, recipeId),
+              ),
             );
           return { success: true, liked: false };
         }
@@ -595,7 +641,7 @@ export const recipeRouter = router({
           id: "number",
           score: "number",
         },
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { limit, cursor } = input;
@@ -636,7 +682,7 @@ export const recipeRouter = router({
           .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
           .leftJoin(
             recipeCollections,
-            eq(recipes.id, recipeCollections.recipeId)
+            eq(recipes.id, recipeCollections.recipeId),
           )
           .leftJoin(userLikes, eq(recipes.id, userLikes.recipeId))
           .leftJoin(recipeTags, eq(recipes.id, recipeTags.recipeId))
@@ -644,8 +690,8 @@ export const recipeRouter = router({
             follows,
             and(
               eq(follows.followingId, recipes.uploadedBy),
-              eq(follows.followerId, ctx.user.id)
-            )
+              eq(follows.followerId, ctx.user.id),
+            ),
           )
           .groupBy(
             recipes.id,
@@ -653,18 +699,18 @@ export const recipeRouter = router({
             user.name,
             user.email,
             user.image,
-            follows.id
+            follows.id,
           )
           .having(
             // Composite cursor: items with lower score, OR same score but lower ID
             cursor
               ? sql`(${relevanceScoreExpr} < ${cursor.score} OR (${relevanceScoreExpr} = ${cursor.score} AND ${recipes.id} < ${cursor.id}))`
-              : undefined
+              : undefined,
           )
           .orderBy(
             // Order by relevance score, then by recipe ID for stable cursor pagination
             desc(relevanceScoreExpr),
-            desc(recipes.id)
+            desc(recipes.id),
           )
           .limit(limit + 1);
 
@@ -691,13 +737,13 @@ export const recipeRouter = router({
                 .from(recipeCollections)
                 .innerJoin(
                   collections,
-                  eq(recipeCollections.collectionId, collections.id)
+                  eq(recipeCollections.collectionId, collections.id),
                 )
                 .where(
                   and(
                     inArray(recipeCollections.recipeId, recipeIds),
-                    eq(collections.userId, ctx.user.id)
-                  )
+                    eq(collections.userId, ctx.user.id),
+                  ),
                 )
             : [],
         ]);
@@ -713,7 +759,7 @@ export const recipeRouter = router({
             }
             return acc;
           },
-          {} as Record<number, (typeof tags.$inferSelect)[]>
+          {} as Record<number, (typeof tags.$inferSelect)[]>,
         );
 
         // Group collection IDs by recipe
@@ -725,7 +771,7 @@ export const recipeRouter = router({
             acc[item.recipeId]!.push(item.collectionId);
             return acc;
           },
-          {} as Record<number, number[]>
+          {} as Record<number, number[]>,
         );
 
         // Determine if there are more results
@@ -778,11 +824,11 @@ export const recipeRouter = router({
         .from(recipeCollections)
         .innerJoin(
           collections,
-          eq(recipeCollections.collectionId, collections.id)
+          eq(recipeCollections.collectionId, collections.id),
         )
         .innerJoin(
           recipeTags,
-          eq(recipeCollections.recipeId, recipeTags.recipeId)
+          eq(recipeCollections.recipeId, recipeTags.recipeId),
         )
         .innerJoin(tags, eq(recipeTags.tagId, tags.id))
         .where(eq(collections.userId, ctx.user.id))
@@ -807,7 +853,7 @@ export const recipeRouter = router({
     .input(
       type({
         "type?": "string",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       try {
@@ -839,7 +885,7 @@ export const recipeRouter = router({
     .input(
       type({
         ingredients: "string[]",
-      })
+      }),
     )
     .query(({ input }) => {
       return parseIngredients(input.ingredients);
@@ -856,7 +902,7 @@ export const recipeRouter = router({
         "search?": "string",
         "tagIds?": "number[]",
         "maxTotalTime?": "string",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { limit, cursor, search, tagIds, maxTotalTime } = input;
@@ -898,7 +944,7 @@ export const recipeRouter = router({
           .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
           .leftJoin(
             recipeCollections,
-            eq(recipes.id, recipeCollections.recipeId)
+            eq(recipes.id, recipeCollections.recipeId),
           )
           .leftJoin(userLikes, eq(recipes.id, userLikes.recipeId))
           .leftJoin(recipeTags, eq(recipes.id, recipeTags.recipeId))
@@ -906,8 +952,8 @@ export const recipeRouter = router({
             follows,
             and(
               eq(follows.followingId, recipes.uploadedBy),
-              eq(follows.followerId, ctx.user.id)
-            )
+              eq(follows.followerId, ctx.user.id),
+            ),
           )
           .where(
             and(
@@ -916,8 +962,8 @@ export const recipeRouter = router({
               // Total time filter
               maxTotalTime
                 ? like(recipes.totalTime, `%${maxTotalTime}%`)
-                : undefined
-            )
+                : undefined,
+            ),
           )
           .groupBy(
             recipes.id,
@@ -925,7 +971,7 @@ export const recipeRouter = router({
             user.name,
             user.email,
             user.image,
-            follows.id
+            follows.id,
           )
           .having(
             and(
@@ -936,13 +982,13 @@ export const recipeRouter = router({
               // Composite cursor: items with lower score, OR same score but lower ID
               cursor
                 ? sql`(${relevanceScoreExpr} < ${cursor.score} OR (${relevanceScoreExpr} = ${cursor.score} AND ${recipes.id} < ${cursor.id}))`
-                : undefined
-            )
+                : undefined,
+            ),
           )
           .orderBy(
             // Order by relevance score, then by recipe ID for stable cursor pagination
             desc(relevanceScoreExpr),
-            desc(recipes.id)
+            desc(recipes.id),
           )
           .limit(limit + 1);
 
@@ -969,13 +1015,13 @@ export const recipeRouter = router({
                 .from(recipeCollections)
                 .innerJoin(
                   collections,
-                  eq(recipeCollections.collectionId, collections.id)
+                  eq(recipeCollections.collectionId, collections.id),
                 )
                 .where(
                   and(
                     inArray(recipeCollections.recipeId, recipeIds),
-                    eq(collections.userId, ctx.user.id)
-                  )
+                    eq(collections.userId, ctx.user.id),
+                  ),
                 )
             : [],
         ]);
@@ -991,7 +1037,7 @@ export const recipeRouter = router({
             }
             return acc;
           },
-          {} as Record<number, (typeof tags.$inferSelect)[]>
+          {} as Record<number, (typeof tags.$inferSelect)[]>,
         );
 
         // Group collection IDs by recipe
@@ -1003,7 +1049,7 @@ export const recipeRouter = router({
             acc[item.recipeId]!.push(item.collectionId);
             return acc;
           },
-          {} as Record<number, number[]>
+          {} as Record<number, number[]>,
         );
 
         // Determine if there are more results
