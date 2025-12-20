@@ -10,6 +10,7 @@ export const IngredientSchema = type({
 export const InstructionSchema = type({
   index: "number >= 0",
   instruction: "string",
+  "imageUrl?": "string | null",
 });
 
 export const TagSchema = type({

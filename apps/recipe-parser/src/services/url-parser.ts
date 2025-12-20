@@ -2,15 +2,23 @@ import type { ParsedRecipe, Ingredient, Instruction } from "../schema";
 import { ParsedRecipeSchema } from "../schema";
 import type { Env, ParseResult } from "../types";
 import { parseRecipeFromHtml, type AiRecipeResult } from "./ai-client";
-import { getCachedRecipe, cacheRecipe } from "./cache";
-import { cleanHtml } from "../utils/html-cleaner";
+import { cacheRecipe } from "./cache";
+import {
+  cleanHtml,
+  extractImageUrls,
+  extractStepImageContext,
+} from "../utils/html-cleaner";
 import { fetchHtml } from "../utils/html-fetcher";
 import { normalizeUnit } from "../utils/unit-normalizer";
 
 /**
  * Convert AI result to ParsedRecipe format
  */
-function aiResultToRecipe(ai: AiRecipeResult, sourceUrl: string): ParsedRecipe {
+function aiResultToRecipe(
+  ai: AiRecipeResult,
+  sourceUrl: string,
+  images: string[],
+): ParsedRecipe {
   const ingredients: Ingredient[] = ai.ingredients.map((ing, index) => ({
     index,
     quantity: ing.quantity,
@@ -18,9 +26,10 @@ function aiResultToRecipe(ai: AiRecipeResult, sourceUrl: string): ParsedRecipe {
     name: ing.name,
   }));
 
-  const instructions: Instruction[] = ai.instructions.map((text, index) => ({
+  const instructions: Instruction[] = ai.instructions.map((inst, index) => ({
     index,
-    instruction: text,
+    instruction: inst.text,
+    imageUrl: inst.imageUrl || null,
   }));
 
   return {
@@ -33,7 +42,7 @@ function aiResultToRecipe(ai: AiRecipeResult, sourceUrl: string): ParsedRecipe {
     sourceUrl,
     ingredients,
     instructions,
-    images: [],
+    images,
     suggestedTags: ai.suggestedTags,
   };
 }
@@ -49,25 +58,26 @@ function aiResultToRecipe(ai: AiRecipeResult, sourceUrl: string): ParsedRecipe {
  * 5. Cache successful result
  */
 export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
-  const cached = await getCachedRecipe(env.RECIPE_CACHE, url);
-  if (cached) {
-    return {
-      success: true,
-      data: cached,
-      metadata: {
-        source: "url",
-        parseMethod: "structured_data",
-        confidence: "high",
-        cached: true,
-      },
-    };
-  }
+  // const cached = await getCachedRecipe(env.RECIPE_CACHE, url);
+  // if (cached) {
+  //   return {
+  //     success: true,
+  //     data: cached,
+  //     metadata: {
+  //       source: "url",
+  //       parseMethod: "structured_data",
+  //       confidence: "high",
+  //       cached: true,
+  //     },
+  //   };
+  // }
 
   // Fetch HTML
   let html: string;
   try {
     html = await fetchHtml(url);
   } catch (error) {
+    console.error(error);
     return {
       success: false,
       error: {
@@ -90,8 +100,17 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
       };
     }
 
-    const aiResult = await parseRecipeFromHtml(env.AI, cleanedContent);
-    const recipe = aiResultToRecipe(aiResult, url);
+    // Extract image URLs from the HTML
+    const imageUrls = extractImageUrls(html, url);
+
+    // Extract step image context to help AI associate images with steps
+    const stepImageContext = extractStepImageContext(html, url);
+
+    const aiResult = await parseRecipeFromHtml(
+      env.AI,
+      cleanedContent + stepImageContext,
+    );
+    const recipe = aiResultToRecipe(aiResult, url, imageUrls);
 
     const validation = ParsedRecipeSchema(recipe);
 

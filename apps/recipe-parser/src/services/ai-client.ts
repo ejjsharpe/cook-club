@@ -23,7 +23,10 @@ export interface AiRecipeResult {
     unit: string | null;
     name: string;
   }[];
-  instructions: string[];
+  instructions: {
+    text: string;
+    imageUrl?: string | null;
+  }[];
   suggestedTags?: {
     type: "cuisine" | "meal_type" | "occasion";
     name: string;
@@ -52,9 +55,7 @@ function parseAiResponse(response: string): AiRecipeResult {
   try {
     return JSON.parse(jsonStr);
   } catch {
-    throw new Error(
-      `Failed to parse AI response as JSON: ${jsonStr.slice(0, 200)}...`,
-    );
+    throw new Error(`Failed to parse AI response as JSON: ${jsonStr}`);
   }
 }
 

@@ -15,9 +15,10 @@ function aiResultToRecipe(ai: AiRecipeResult): ParsedRecipe {
     name: ing.name,
   }));
 
-  const instructions: Instruction[] = ai.instructions.map((text, index) => ({
+  const instructions: Instruction[] = ai.instructions.map((inst, index) => ({
     index,
-    instruction: text,
+    instruction: inst.text,
+    imageUrl: inst.imageUrl || null,
   }));
 
   return {

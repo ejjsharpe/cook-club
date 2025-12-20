@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -55,6 +56,7 @@ export const RecipeDetailScreen = () => {
   const [activeTab, setActiveTab] = useState<TabType>("ingredients");
   const [servings, setServings] = useState(1);
   const hasInitializedServings = useRef(false);
+  const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
 
   // Mutations
   const addToShoppingMutation = useAddRecipeToShoppingList();
@@ -335,7 +337,14 @@ export const RecipeDetailScreen = () => {
       return (
         <View style={styles.tabContent}>
           {recipe.instructions.map(
-            (item: { index: number; instruction: string }, index: number) => (
+            (
+              item: {
+                index: number;
+                instruction: string;
+                imageUrl?: string | null;
+              },
+              index: number,
+            ) => (
               <View key={index} style={styles.instructionItem}>
                 <View style={styles.stepNumber}>
                   <Text type="highlight" style={styles.stepNumberText}>
@@ -343,8 +352,23 @@ export const RecipeDetailScreen = () => {
                   </Text>
                 </View>
                 <HSpace size={12} />
-                <View style={styles.instructionText}>
+                <View style={styles.instructionTextContainer}>
                   <Text type="body">{item.instruction}</Text>
+                  {item.imageUrl && (
+                    <>
+                      <VSpace size={12} />
+                      <TouchableOpacity
+                        onPress={() => setExpandedImageUrl(item.imageUrl!)}
+                        style={styles.stepImageThumbnail}
+                      >
+                        <Image
+                          source={{ uri: item.imageUrl }}
+                          style={styles.stepImage}
+                          contentFit="cover"
+                        />
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
               </View>
             ),
@@ -418,6 +442,37 @@ export const RecipeDetailScreen = () => {
           <VSpace size={40} />
         </View>
       </ScrollView>
+
+      {/* Full-screen image modal */}
+      <Modal
+        visible={expandedImageUrl !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExpandedImageUrl(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setExpandedImageUrl(null)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setExpandedImageUrl(null)}
+            >
+              <Ionicons name="close" size={32} color="#fff" />
+            </TouchableOpacity>
+
+            {expandedImageUrl && (
+              <Image
+                source={{ uri: expandedImageUrl }}
+                style={styles.expandedImage}
+                contentFit="contain"
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -625,8 +680,43 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 14,
     fontFamily: theme.fonts.albertBold,
   },
-  instructionText: {
+  instructionTextContainer: {
     flex: 1,
     paddingTop: 2,
+  },
+  stepImageThumbnail: {
+    width: 120,
+    height: 90,
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  stepImage: {
+    width: "100%",
+    height: "100%",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 60,
+    right: 20,
+    zIndex: 10,
+    padding: 8,
+  },
+  expandedImage: {
+    width: "90%",
+    height: "80%",
   },
 }));

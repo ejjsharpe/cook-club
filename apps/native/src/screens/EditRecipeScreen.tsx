@@ -59,6 +59,12 @@ export default function EditRecipeScreen() {
     return prefill.instructions.map((inst) => inst.instruction);
   };
 
+  // Get instruction images from prefill
+  const getInstructionImages = () => {
+    if (!prefill?.instructions) return [null];
+    return prefill.instructions.map((inst) => inst.imageUrl || null);
+  };
+
   const [title, setTitle] = useState(prefill?.name || "");
   const [author, setAuthor] = useState("");
   const [description, setDescription] = useState(prefill?.description || "");
@@ -71,6 +77,8 @@ export default function EditRecipeScreen() {
   const [servings, setServings] = useState<number>(prefill?.servings || 4);
   const [ingredients, setIngredients] = useState<string[]>(getIngredientText);
   const [method, setMethod] = useState<string[]>(getInstructionsText);
+  const [methodImages, setMethodImages] =
+    useState<(string | null)[]>(getInstructionImages);
   const [images, setImages] = useState<string[]>(prefill?.images || []);
   const [showParsePreview, setShowParsePreview] = useState(false);
   const [parsedIngredients, setParsedIngredients] = useState<
@@ -95,10 +103,33 @@ export default function EditRecipeScreen() {
 
   const addMethod = () => {
     setMethod((prev) => [...prev, ""]);
+    setMethodImages((prev) => [...prev, null]);
   };
 
   const removeMethod = (idx: number) => {
     setMethod((prev) => prev.filter((_, i) => i !== idx));
+    setMethodImages((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const pickStepImage = async (stepIdx: number) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setMethodImages((prev) =>
+        prev.map((img, i) => (i === stepIdx ? result.assets[0].uri : img)),
+      );
+    }
+  };
+
+  const removeStepImage = (stepIdx: number) => {
+    setMethodImages((prev) =>
+      prev.map((img, i) => (i === stepIdx ? null : img)),
+    );
   };
 
   const pickImage = async () => {
@@ -190,7 +221,11 @@ export default function EditRecipeScreen() {
         .map((ing, idx) => ({ index: idx, ingredient: ing.trim() }))
         .filter((ing) => ing.ingredient),
       instructions: method
-        .map((step, idx) => ({ index: idx, instruction: step.trim() }))
+        .map((step, idx) => ({
+          index: idx,
+          instruction: step.trim(),
+          imageUrl: methodImages[idx] || null,
+        }))
         .filter((inst) => inst.instruction),
       images: images.map((url) => ({ url })),
       // Include source URL if imported from web
@@ -369,19 +404,46 @@ export default function EditRecipeScreen() {
             <VSpace size={8} />
             {method.map((step, idx) => {
               return (
-                <View key={idx} style={styles.ingredientRow}>
+                <View key={idx} style={styles.methodStep}>
+                  <View style={styles.methodStepHeader}>
+                    <Text type="bodyFaded">Step {idx + 1}</Text>
+                    {method.length > 1 && (
+                      <TouchableOpacity onPress={() => removeMethod(idx)}>
+                        <Text type="heading" style={styles.removeStepText}>
+                          ×
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <VSpace size={8} />
                   <Input
                     value={step}
                     onChangeText={(v) => updateMethod(idx, v)}
-                    placeholder={`Step ${idx + 1}`}
-                    style={{ flex: 1 }}
+                    placeholder="Describe this step..."
+                    multiline
                   />
-                  {method.length > 1 && (
+                  <VSpace size={8} />
+                  {methodImages[idx] ? (
+                    <View style={styles.stepImageContainer}>
+                      <Image
+                        source={{ uri: methodImages[idx]! }}
+                        style={styles.stepImagePreview}
+                      />
+                      <TouchableOpacity
+                        style={styles.removeStepImageButton}
+                        onPress={() => removeStepImage(idx)}
+                      >
+                        <Text style={styles.removeButtonText}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
                     <TouchableOpacity
-                      onPress={() => removeMethod(idx)}
-                      style={styles.removeButton}
+                      style={styles.addStepImageButton}
+                      onPress={() => pickStepImage(idx)}
                     >
-                      <Text type="heading">×</Text>
+                      <Text type="body" style={styles.addStepImageText}>
+                        + Add step image (optional)
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -654,5 +716,59 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 13,
     textAlign: "center",
     lineHeight: 18,
+  },
+  methodStep: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  methodStepHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  removeStepText: {
+    color: "#ff4444",
+    fontSize: 20,
+  },
+  stepImageContainer: {
+    width: 150,
+    height: 100,
+    borderRadius: 8,
+    overflow: "hidden",
+    position: "relative",
+  },
+  stepImagePreview: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#eee",
+  },
+  removeStepImageButton: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#ff4444",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addStepImageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+  },
+  addStepImageText: {
+    color: "#666",
+    fontSize: 14,
   },
 }));

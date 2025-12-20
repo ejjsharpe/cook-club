@@ -62,6 +62,7 @@ const IngredientRecord = type.or(
 const InstructionRecord = type({
   index: "number",
   instruction: "string",
+  "imageUrl?": "string | null",
 });
 
 export const RecipePostValidator = type({
@@ -287,13 +288,16 @@ export const recipeRouter = router({
             .insert(recipeInstructions)
             .values(
               input.instructions.map((instruction) => ({
-                ...instruction,
+                index: instruction.index,
+                instruction: instruction.instruction,
+                imageUrl: instruction.imageUrl || null,
                 recipeId: recipe.id,
               })),
             )
             .returning({
               index: recipeInstructions.index,
               instruction: recipeInstructions.instruction,
+              imageUrl: recipeInstructions.imageUrl,
             });
 
           // Insert images (required)
@@ -537,6 +541,7 @@ export const recipeRouter = router({
             .select({
               index: recipeInstructions.index,
               instruction: recipeInstructions.instruction,
+              imageUrl: recipeInstructions.imageUrl,
             })
             .from(recipeInstructions)
             .where(eq(recipeInstructions.recipeId, recipeId))

@@ -150,6 +150,7 @@ export const recipeInstructions = pgTable(
       .references(() => recipes.id, { onDelete: "cascade" }),
     index: integer("index").notNull(),
     instruction: text("instruction").notNull(),
+    imageUrl: text("image_url"),
   },
   (table) => [
     index("recipe_instructions_recipe_id_idx").on(table.recipeId),

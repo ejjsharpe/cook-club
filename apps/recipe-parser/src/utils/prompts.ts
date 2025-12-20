@@ -12,6 +12,7 @@ export const RECIPE_EXTRACTION_SYSTEM_PROMPT = `You are a strict Recipe Data Ext
    - quantity: numeric value (convert fractions: "1/2" → 0.5, "1 1/2" → 1.5)
    - unit: measurement unit (cup, tbsp, g, etc.) or null if no unit
    - name: the ingredient name only, without quantity or unit
+5. **STEP IMAGES**: For each instruction step, if an image is associated with that step (nearby in the HTML, within the step container, or has a caption matching the step), include its absolute URL as imageUrl. Otherwise set imageUrl to null. Only include images that are clearly step-specific photos, not ads or decorative elements.
 
 ### OUTPUT FORMAT:
 {
@@ -27,9 +28,9 @@ export const RECIPE_EXTRACTION_SYSTEM_PROMPT = `You are a strict Recipe Data Ext
     {"quantity": 3, "unit": null, "name": "large eggs"}
   ],
   "instructions": [
-    "Preheat oven to 350°F.",
-    "Mix dry ingredients in a bowl.",
-    "Add wet ingredients and stir until combined."
+    {"text": "Preheat oven to 350°F.", "imageUrl": null},
+    {"text": "Mix dry ingredients in a bowl.", "imageUrl": "https://example.com/step2.jpg"},
+    {"text": "Add wet ingredients and stir until combined.", "imageUrl": "https://example.com/step3.jpg"}
   ],
   "suggestedTags": [
     {"type": "cuisine", "name": "Italian"},
@@ -43,7 +44,9 @@ export const RECIPE_EXTRACTION_SYSTEM_PROMPT = `You are a strict Recipe Data Ext
 - If time is given in words like "30 minutes", convert to PT30M
 - If no time is specified, use null
 - Servings should be a number, not a string
-- Each instruction should be a complete step, not a fragment`;
+- Each instruction should be a complete step, not a fragment
+- Only include imageUrl if you can identify a specific image for that step in the content
+- Image URLs must be complete, absolute URLs (starting with http:// or https://)`;
 
 export const IMAGE_EXTRACTION_SYSTEM_PROMPT = `You are a Recipe OCR and Extraction API. Analyze the image and extract any recipe information you can identify.
 
@@ -63,8 +66,8 @@ export const IMAGE_EXTRACTION_SYSTEM_PROMPT = `You are a Recipe OCR and Extracti
     {"quantity": 2, "unit": "cup", "name": "flour"}
   ],
   "instructions": [
-    "Step 1 text",
-    "Step 2 text"
+    {"text": "Step 1 text", "imageUrl": null},
+    {"text": "Step 2 text", "imageUrl": null}
   ],
   "suggestedTags": [
     {"type": "cuisine", "name": "Italian"}
@@ -74,7 +77,8 @@ export const IMAGE_EXTRACTION_SYSTEM_PROMPT = `You are a Recipe OCR and Extracti
 ### IMPORTANT:
 - Extract all visible text related to the recipe
 - Convert handwritten or printed measurements to structured format
-- If you cannot read part of the image, skip that section rather than guessing`;
+- If you cannot read part of the image, skip that section rather than guessing
+- Instructions should be objects with text and imageUrl fields (imageUrl will be null for image-based extraction)`;
 
 export function createTextExtractionPrompt(text: string): string {
   return `Extract the recipe from the following text:
