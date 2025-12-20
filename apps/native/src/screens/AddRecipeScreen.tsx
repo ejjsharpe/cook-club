@@ -1,14 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { View, TouchableOpacity } from 'react-native';
-import { SheetManager } from 'react-native-actions-sheet';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { View, TouchableOpacity } from "react-native";
+import { SheetManager } from "react-native-actions-sheet";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet } from "react-native-unistyles";
 
-import '@/components/ImportRecipeSheet';
+import "@/components/ImportRecipeSheet";
 
-import { VSpace } from '@/components/Space';
-import { Text } from '@/components/Text';
+import { VSpace } from "@/components/Space";
+import { Text } from "@/components/Text";
 
 const OptionCard = ({
   icon,
@@ -37,18 +37,20 @@ const OptionCard = ({
 export const AddRecipeScreen = () => {
   const { navigate } = useNavigation();
 
-  const handleRecipeParsed = (result: ReactNavigation.RootParamList['EditRecipe']['parsedRecipe']) => {
-    navigate('EditRecipe', { parsedRecipe: result });
+  const handleRecipeParsed = (
+    result: ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"],
+  ) => {
+    navigate("EditRecipe", { parsedRecipe: result });
   };
 
   const onPressImport = () => {
-    SheetManager.show('import-recipe-sheet', {
+    SheetManager.show("import-recipe-sheet", {
       payload: { onRecipeParsed: handleRecipeParsed },
     });
   };
 
   const onPressCreate = () => {
-    navigate('EditRecipe', {});
+    navigate("EditRecipe", {});
   };
 
   return (
@@ -93,10 +95,10 @@ const styles = StyleSheet.create((theme) => ({
     padding: 20,
   },
   cardContent: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   cardDescription: {
-    textAlign: 'center',
+    textAlign: "center",
   },
   icon: {
     color: theme.colors.text,

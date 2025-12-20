@@ -1,30 +1,41 @@
-import { TouchableOpacity, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { TouchableOpacity, View } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
-import { Text } from './Text';
+import { Text } from "./Text";
 
 interface Props {
   label: string;
   selected?: boolean;
   onPress?: () => void;
-  size?: 'small' | 'medium';
+  size?: "small" | "medium";
 }
 
-export const TagChip = ({ label, selected = false, onPress, size = 'medium' }: Props) => {
+export const TagChip = ({
+  label,
+  selected = false,
+  onPress,
+  size = "medium",
+}: Props) => {
   const Wrapper = onPress ? TouchableOpacity : View;
 
   return (
     <Wrapper
-      style={[styles.chip, size === 'small' && styles.chipSmall, selected && styles.chipSelected]}
+      style={[
+        styles.chip,
+        size === "small" && styles.chipSmall,
+        selected && styles.chipSelected,
+      ]}
       onPress={onPress}
-      activeOpacity={onPress ? 0.7 : 1}>
+      activeOpacity={onPress ? 0.7 : 1}
+    >
       <Text
         type="bodyFaded"
         style={[
           styles.chipText,
-          size === 'small' && styles.chipTextSmall,
+          size === "small" && styles.chipTextSmall,
           selected && styles.chipTextSelected,
-        ]}>
+        ]}
+      >
         {label}
       </Text>
     </Wrapper>

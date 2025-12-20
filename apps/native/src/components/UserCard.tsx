@@ -1,8 +1,8 @@
-import { View, TouchableOpacity, Image } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { View, TouchableOpacity, Image } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
-import { HSpace } from './Space';
-import { Text } from './Text';
+import { HSpace } from "./Space";
+import { Text } from "./Text";
 
 interface User {
   id: string;
@@ -47,8 +47,8 @@ export const UserCard = ({ user, onPress }: Props) => {
 
 const styles = StyleSheet.create((theme) => ({
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
@@ -69,9 +69,9 @@ const styles = StyleSheet.create((theme) => ({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: theme.colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: theme.colors.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarText: {
     fontSize: 18,

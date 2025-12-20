@@ -1,6 +1,6 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext } from "react";
 
-import { useSessionContext } from './sessionContext';
+import { useSessionContext } from "./sessionContext";
 
 const SignInContext = createContext<boolean>(false);
 
@@ -14,9 +14,17 @@ export function useIsSignedOut() {
   return !isSignedIn;
 }
 
-export const SignedInProvider = ({ children }: { children: React.ReactNode }) => {
+export const SignedInProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
   const session = useSessionContext();
 
   const isSignedIn = !!session;
-  return <SignInContext.Provider value={isSignedIn}>{children}</SignInContext.Provider>;
+  return (
+    <SignInContext.Provider value={isSignedIn}>
+      {children}
+    </SignInContext.Provider>
+  );
 };

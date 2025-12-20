@@ -1,43 +1,46 @@
-import '@/styles/unistyles';
-import { AlbertSans_400Regular, AlbertSans_700Bold } from '@expo-google-fonts/albert-sans';
+import "@/styles/unistyles";
+import {
+  AlbertSans_400Regular,
+  AlbertSans_700Bold,
+} from "@expo-google-fonts/albert-sans";
 import {
   LibreBaskerville_400Regular,
   LibreBaskerville_700Bold,
   LibreBaskerville_400Regular_Italic,
-} from '@expo-google-fonts/libre-baskerville';
-import { DefaultTheme } from '@react-navigation/native';
-import { Asset } from 'expo-asset';
-import { useFonts } from 'expo-font';
-import { Image } from 'expo-image';
-import * as Linking from 'expo-linking';
-import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect, useState } from 'react';
-import { SheetProvider } from 'react-native-actions-sheet';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+} from "@expo-google-fonts/libre-baskerville";
+import { DefaultTheme } from "@react-navigation/native";
+import { Asset } from "expo-asset";
+import { useFonts } from "expo-font";
+import { Image } from "expo-image";
+import * as Linking from "expo-linking";
+import * as SplashScreen from "expo-splash-screen";
+import React, { useEffect, useState } from "react";
+import { SheetProvider } from "react-native-actions-sheet";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import startImage1 from '@/assets/images/start-food-1.jpg';
-import startImage10 from '@/assets/images/start-food-10.jpg';
-import startImage11 from '@/assets/images/start-food-11.jpg';
-import startImage12 from '@/assets/images/start-food-12.jpg';
-import startImage2 from '@/assets/images/start-food-2.jpg';
-import startImage3 from '@/assets/images/start-food-3.jpg';
-import startImage4 from '@/assets/images/start-food-4.jpg';
-import startImage5 from '@/assets/images/start-food-5.jpg';
-import startImage6 from '@/assets/images/start-food-6.jpg';
-import startImage7 from '@/assets/images/start-food-7.jpg';
-import startImage8 from '@/assets/images/start-food-8.jpg';
-import startImage9 from '@/assets/images/start-food-9.jpg';
-import { ReactQueryProvider } from '@/lib/reactQuery';
-import { SessionProvider } from '@/lib/sessionContext';
-import { SignedInProvider } from '@/lib/signedInContext';
-import { TRPCProvider } from '@/lib/trpc';
-import { Navigation } from '@/navigation/RootStack';
+import startImage1 from "@/assets/images/start-food-1.jpg";
+import startImage10 from "@/assets/images/start-food-10.jpg";
+import startImage11 from "@/assets/images/start-food-11.jpg";
+import startImage12 from "@/assets/images/start-food-12.jpg";
+import startImage2 from "@/assets/images/start-food-2.jpg";
+import startImage3 from "@/assets/images/start-food-3.jpg";
+import startImage4 from "@/assets/images/start-food-4.jpg";
+import startImage5 from "@/assets/images/start-food-5.jpg";
+import startImage6 from "@/assets/images/start-food-6.jpg";
+import startImage7 from "@/assets/images/start-food-7.jpg";
+import startImage8 from "@/assets/images/start-food-8.jpg";
+import startImage9 from "@/assets/images/start-food-9.jpg";
+import { ReactQueryProvider } from "@/lib/reactQuery";
+import { SessionProvider } from "@/lib/sessionContext";
+import { SignedInProvider } from "@/lib/signedInContext";
+import { TRPCProvider } from "@/lib/trpc";
+import { Navigation } from "@/navigation/RootStack";
 
 SplashScreen.preventAutoHideAsync();
 
-const prefix = Linking.createURL('/');
+const prefix = Linking.createURL("/");
 const linking = {
   prefixes: [prefix],
 };
@@ -45,7 +48,7 @@ const linking = {
 function cacheImages(images: any[]) {
   return Promise.all([
     images.map((image) => {
-      if (typeof image === 'string') {
+      if (typeof image === "string") {
         Image.prefetch(image);
       } else {
         return Asset.fromModule(image).downloadAsync();
@@ -113,7 +116,7 @@ export default function App() {
                       linking={linking}
                       theme={{
                         ...DefaultTheme,
-                        colors: { ...DefaultTheme.colors, background: '#FFF' },
+                        colors: { ...DefaultTheme.colors, background: "#FFF" },
                       }}
                     />
                   </SheetProvider>

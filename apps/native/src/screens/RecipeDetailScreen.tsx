@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useState, useEffect, useRef } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { useState, useEffect, useRef } from "react";
 import {
   View,
   FlatList,
@@ -10,18 +10,21 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
-} from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+} from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
-import { useRecipeDetail, useLikeRecipe } from '@/api/recipe';
-import { useAddRecipeToShoppingList, useRemoveRecipeFromList } from '@/api/shopping';
-import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
-import { VSpace, HSpace } from '@/components/Space';
-import { Text } from '@/components/Text';
-import { BackButton } from '@/components/buttons/BackButton';
-import { PrimaryButton } from '@/components/buttons/PrimaryButton';
+import { useRecipeDetail, useLikeRecipe } from "@/api/recipe";
+import {
+  useAddRecipeToShoppingList,
+  useRemoveRecipeFromList,
+} from "@/api/shopping";
+import { CollectionSheetManager } from "@/components/CollectionSelectorSheet";
+import { VSpace, HSpace } from "@/components/Space";
+import { Text } from "@/components/Text";
+import { BackButton } from "@/components/buttons/BackButton";
+import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const IMAGE_HEIGHT = 360;
 
 type RecipeDetailScreenParams = {
@@ -30,14 +33,17 @@ type RecipeDetailScreenParams = {
   };
 };
 
-type RecipeDetailScreenRouteProp = RouteProp<RecipeDetailScreenParams, 'RecipeDetail'>;
+type RecipeDetailScreenRouteProp = RouteProp<
+  RecipeDetailScreenParams,
+  "RecipeDetail"
+>;
 
 interface RecipeImage {
   id: number;
   url: string;
 }
 
-type TabType = 'ingredients' | 'method';
+type TabType = "ingredients" | "method";
 
 export const RecipeDetailScreen = () => {
   const route = useRoute<RecipeDetailScreenRouteProp>();
@@ -46,7 +52,7 @@ export const RecipeDetailScreen = () => {
 
   const { data: recipe, isPending, error } = useRecipeDetail({ recipeId });
 
-  const [activeTab, setActiveTab] = useState<TabType>('ingredients');
+  const [activeTab, setActiveTab] = useState<TabType>("ingredients");
   const [servings, setServings] = useState(1);
   const hasInitializedServings = useRef(false);
 
@@ -67,7 +73,7 @@ export const RecipeDetailScreen = () => {
   const handleSaveRecipe = () => {
     if (!recipe) return;
 
-    CollectionSheetManager.show('collection-selector-sheet', {
+    CollectionSheetManager.show("collection-selector-sheet", {
       payload: { recipeId: recipe.id },
     });
   };
@@ -105,12 +111,18 @@ export const RecipeDetailScreen = () => {
       <View style={[styles.screen, styles.centered]}>
         <Text type="bodyFaded">Recipe not found</Text>
         <VSpace size={16} />
-        <PrimaryButton onPress={() => navigation.goBack()}>Go Back</PrimaryButton>
+        <PrimaryButton onPress={() => navigation.goBack()}>
+          Go Back
+        </PrimaryButton>
       </View>
     );
   }
 
-  const formatIngredient = (quantity: string | null, unit: string | null, name: string): string => {
+  const formatIngredient = (
+    quantity: string | null,
+    unit: string | null,
+    name: string,
+  ): string => {
     if (!quantity) {
       return name;
     }
@@ -119,7 +131,7 @@ export const RecipeDetailScreen = () => {
     const formattedQuantity =
       adjustedQuantity % 1 === 0
         ? adjustedQuantity.toString()
-        : adjustedQuantity.toFixed(2).replace(/\.?0+$/, '');
+        : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "");
 
     if (unit) {
       return `${formattedQuantity} ${unit} ${name}`;
@@ -128,7 +140,13 @@ export const RecipeDetailScreen = () => {
     return `${formattedQuantity} ${name}`;
   };
 
-  const renderImage = ({ item, index }: { item: RecipeImage; index: number }) => (
+  const renderImage = ({
+    item,
+    index,
+  }: {
+    item: RecipeImage;
+    index: number;
+  }) => (
     <View style={styles.imageContainer}>
       <Image source={{ uri: item.url }} style={styles.recipeImage} />
     </View>
@@ -139,7 +157,10 @@ export const RecipeDetailScreen = () => {
       <View style={styles.userInfo}>
         <View style={styles.avatar}>
           {recipe.uploadedBy.image ? (
-            <Image source={{ uri: recipe.uploadedBy.image }} style={styles.avatarImage} />
+            <Image
+              source={{ uri: recipe.uploadedBy.image }}
+              style={styles.avatarImage}
+            />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text type="heading" style={styles.avatarText}>
@@ -174,7 +195,8 @@ export const RecipeDetailScreen = () => {
             style={styles.servingsButton}
             onPress={() => {
               setServings(Math.max(1, servings - 1));
-            }}>
+            }}
+          >
             <Text type="heading" style={styles.servingsButtonText}>
               -
             </Text>
@@ -184,7 +206,10 @@ export const RecipeDetailScreen = () => {
               {servings}
             </Text>
           </View>
-          <TouchableOpacity style={styles.servingsButton} onPress={() => setServings(servings + 1)}>
+          <TouchableOpacity
+            style={styles.servingsButton}
+            onPress={() => setServings(servings + 1)}
+          >
             <Text type="heading" style={styles.servingsButtonText}>
               +
             </Text>
@@ -197,23 +222,28 @@ export const RecipeDetailScreen = () => {
         {/* Save button */}
         <TouchableOpacity
           style={[styles.iconButton, isSaved && styles.iconButtonActive]}
-          onPress={handleSaveRecipe}>
+          onPress={handleSaveRecipe}
+        >
           <Ionicons
-            name={isSaved ? 'bookmark' : 'bookmark-outline'}
+            name={isSaved ? "bookmark" : "bookmark-outline"}
             size={24}
-            color={isSaved ? '#fff' : undefined}
+            color={isSaved ? "#fff" : undefined}
             style={styles.iconButtonIcon}
           />
         </TouchableOpacity>
 
         {/* Shopping list button */}
         <TouchableOpacity
-          style={[styles.iconButton, recipe.isInShoppingList && styles.iconButtonActive]}
-          onPress={handleToggleShoppingList}>
+          style={[
+            styles.iconButton,
+            recipe.isInShoppingList && styles.iconButtonActive,
+          ]}
+          onPress={handleToggleShoppingList}
+        >
           <Ionicons
-            name={recipe.isInShoppingList ? 'cart' : 'cart-outline'}
+            name={recipe.isInShoppingList ? "cart" : "cart-outline"}
             size={24}
-            color={recipe.isInShoppingList ? '#fff' : undefined}
+            color={recipe.isInShoppingList ? "#fff" : undefined}
             style={styles.iconButtonIcon}
           />
         </TouchableOpacity>
@@ -221,11 +251,12 @@ export const RecipeDetailScreen = () => {
         {/* Like button */}
         <TouchableOpacity
           style={[styles.iconButton, recipe.isLiked && styles.iconButtonActive]}
-          onPress={handleLikeRecipe}>
+          onPress={handleLikeRecipe}
+        >
           <Ionicons
-            name={recipe.isLiked ? 'heart' : 'heart-outline'}
+            name={recipe.isLiked ? "heart" : "heart-outline"}
             size={24}
-            color={recipe.isLiked ? '#fff' : undefined}
+            color={recipe.isLiked ? "#fff" : undefined}
             style={styles.iconButtonIcon}
           />
         </TouchableOpacity>
@@ -236,20 +267,26 @@ export const RecipeDetailScreen = () => {
   const renderTabs = () => (
     <View style={styles.tabsContainer}>
       <TouchableOpacity
-        style={[styles.tab, activeTab === 'ingredients' && styles.activeTab]}
-        onPress={() => setActiveTab('ingredients')}>
-        <Text type={activeTab === 'ingredients' ? 'highlight' : 'bodyFaded'}>Ingredients</Text>
+        style={[styles.tab, activeTab === "ingredients" && styles.activeTab]}
+        onPress={() => setActiveTab("ingredients")}
+      >
+        <Text type={activeTab === "ingredients" ? "highlight" : "bodyFaded"}>
+          Ingredients
+        </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.tab, activeTab === 'method' && styles.activeTab]}
-        onPress={() => setActiveTab('method')}>
-        <Text type={activeTab === 'method' ? 'highlight' : 'bodyFaded'}>Method</Text>
+        style={[styles.tab, activeTab === "method" && styles.activeTab]}
+        onPress={() => setActiveTab("method")}
+      >
+        <Text type={activeTab === "method" ? "highlight" : "bodyFaded"}>
+          Method
+        </Text>
       </TouchableOpacity>
     </View>
   );
 
   const renderTabContent = () => {
-    if (activeTab === 'ingredients') {
+    if (activeTab === "ingredients") {
       return (
         <View style={styles.tabContent}>
           {recipe.ingredients.map(
@@ -260,7 +297,7 @@ export const RecipeDetailScreen = () => {
                 unit: string | null;
                 name: string;
               },
-              index: number
+              index: number,
             ) => {
               const adjustedQuantity = item.quantity
                 ? parseFloat(item.quantity) * servingMultiplier
@@ -268,7 +305,7 @@ export const RecipeDetailScreen = () => {
               const formattedQuantity = adjustedQuantity
                 ? adjustedQuantity % 1 === 0
                   ? adjustedQuantity.toString()
-                  : adjustedQuantity.toFixed(2).replace(/\.?0+$/, '')
+                  : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "")
                 : null;
 
               return (
@@ -281,16 +318,16 @@ export const RecipeDetailScreen = () => {
                     )}
                     {item.unit && (
                       <Text type="heading" style={styles.ingredientQuantity}>
-                        {formattedQuantity ? ' ' : ''}
+                        {formattedQuantity ? " " : ""}
                         {item.unit}
                       </Text>
                     )}
-                    {(formattedQuantity || item.unit) && ' '}
+                    {(formattedQuantity || item.unit) && " "}
                     {item.name}
                   </Text>
                 </View>
               );
-            }
+            },
           )}
         </View>
       );
@@ -310,7 +347,7 @@ export const RecipeDetailScreen = () => {
                   <Text type="body">{item.instruction}</Text>
                 </View>
               </View>
-            )
+            ),
           )}
         </View>
       );
@@ -336,7 +373,7 @@ export const RecipeDetailScreen = () => {
             />
           )}
           <LinearGradient
-            colors={['rgba(0,0,0,0.0)', 'rgba(0,0,0,1)']}
+            colors={["rgba(0,0,0,0.0)", "rgba(0,0,0,1)"]}
             style={styles.gradient}
             pointerEvents="none"
           />
@@ -391,13 +428,13 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
   },
   imageHeader: {
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   imageCarousel: {
     height: IMAGE_HEIGHT,
   },
   gradient: {
-    position: 'absolute',
+    position: "absolute",
     top: IMAGE_HEIGHT / 2,
     left: 0,
     right: 0,
@@ -406,34 +443,34 @@ const styles = StyleSheet.create((theme) => ({
   imageContainer: {
     width: SCREEN_WIDTH,
     height: IMAGE_HEIGHT,
-    position: 'relative',
+    position: "relative",
   },
   recipeImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     backgroundColor: theme.colors.border,
   },
 
   imageOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
     left: 20,
     right: 20,
   },
   padded: { paddingHorizontal: 20 },
   recipeName: {
-    color: 'white',
+    color: "white",
   },
   timeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   timeText: {
-    color: 'white',
+    color: "white",
     opacity: 0.9,
   },
   backButtonContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
     left: 20,
     zIndex: 10,
@@ -447,8 +484,8 @@ const styles = StyleSheet.create((theme) => ({
     borderBottomColor: theme.colors.border,
   },
   userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   avatar: {
     width: 50,
@@ -463,9 +500,9 @@ const styles = StyleSheet.create((theme) => ({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: theme.colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: theme.colors.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarText: {
     fontSize: 20,
@@ -476,17 +513,17 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 2,
   },
   controlsSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   leftControls: {
     flex: 1,
   },
   rightControls: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   iconButton: {
     width: 44,
@@ -495,8 +532,8 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   iconButtonActive: {
     backgroundColor: theme.colors.primary,
@@ -506,26 +543,26 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.text,
   },
   centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   servingsLabel: {
     fontSize: 14,
   },
   servingsButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: theme.borderRadius.small,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   servingsButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.background,
   },
   servingsButtonText: {
@@ -534,8 +571,8 @@ const styles = StyleSheet.create((theme) => ({
   servingsDisplay: {
     width: 60,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderLeftWidth: 1,
     borderRightWidth: 1,
     borderColor: theme.colors.border,
@@ -545,14 +582,14 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 16,
   },
   tabsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
   tab: {
     flex: 1,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   activeTab: {
     borderBottomWidth: 2,
@@ -564,27 +601,27 @@ const styles = StyleSheet.create((theme) => ({
   ingredientItem: {
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '30',
+    borderBottomColor: theme.colors.border + "30",
   },
   ingredientQuantity: {
     fontFamily: theme.fonts.albertBold,
   },
   instructionItem: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + '30',
+    borderBottomColor: theme.colors.border + "30",
   },
   stepNumber: {
     width: 28,
     height: 28,
     borderRadius: 14,
     backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   stepNumberText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
     fontFamily: theme.fonts.albertBold,
   },

@@ -1,8 +1,14 @@
-import * as React from 'react';
-import { ViewStyle } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import * as React from "react";
+import { ViewStyle } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
-export const GoogleLogo = ({ size = 24, style }: { size?: number; style: ViewStyle }) => (
+export const GoogleLogo = ({
+  size = 24,
+  style,
+}: {
+  size?: number;
+  style: ViewStyle;
+}) => (
   <Svg width={size} height={size} fill="none" viewBox="0 0 40 40" style={style}>
     <Path
       fill="#4285F4"

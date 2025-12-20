@@ -1,39 +1,46 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { View, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
+import {
+  View,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+} from "react-native";
 import ActionSheet, {
   SheetManager,
   registerSheet,
   SheetDefinition,
   SheetProps,
   ScrollView,
-} from 'react-native-actions-sheet';
-import { StyleSheet } from 'react-native-unistyles';
+} from "react-native-actions-sheet";
+import { StyleSheet } from "react-native-unistyles";
 
-import { VSpace } from './Space';
-import { Text } from './Text';
+import { VSpace } from "./Space";
+import { Text } from "./Text";
 import {
   useGetUserCollections,
   useToggleRecipeInCollection,
   useCreateCollection,
-} from '../api/collection';
+} from "../api/collection";
 
 interface CollectionSelectorPayload {
   recipeId: number;
 }
 
 // Extend the Sheets interface for TypeScript
-declare module 'react-native-actions-sheet' {
+declare module "react-native-actions-sheet" {
   interface Sheets {
-    'collection-selector-sheet': SheetDefinition<{
+    "collection-selector-sheet": SheetDefinition<{
       payload: CollectionSelectorPayload;
     }>;
   }
 }
 
-const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>) => {
+const CollectionSelectorSheet = (
+  props: SheetProps<"collection-selector-sheet">,
+) => {
   const { recipeId } = props.payload || {};
-  const [newCollectionName, setNewCollectionName] = useState('');
+  const [newCollectionName, setNewCollectionName] = useState("");
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
 
   const { data: collections, isLoading } = useGetUserCollections({ recipeId });
@@ -54,10 +61,13 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
       });
 
       if (newCollection && recipeId) {
-        await toggleMutation.mutateAsync({ recipeId, collectionId: newCollection.id });
+        await toggleMutation.mutateAsync({
+          recipeId,
+          collectionId: newCollection.id,
+        });
       }
 
-      setNewCollectionName('');
+      setNewCollectionName("");
       setIsCreatingCollection(false);
     } catch (error) {
       // Error handling is done in the mutation
@@ -73,12 +83,15 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
       initialSnapIndex={0}
       gestureEnabled
       enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}>
+      indicatorStyle={styles.indicator}
+    >
       <View>
         {/* Header */}
         <View style={styles.header}>
           <Text type="title2">Save to collection</Text>
-          <TouchableOpacity onPress={() => SheetManager.hide('collection-selector-sheet')}>
+          <TouchableOpacity
+            onPress={() => SheetManager.hide("collection-selector-sheet")}
+          >
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -103,10 +116,15 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
                         key={collection.id}
                         style={styles.collectionRow}
                         onPress={() => handleToggleCollection(collection.id)}
-                        disabled={toggleMutation.isPending}>
+                        disabled={toggleMutation.isPending}
+                      >
                         <View style={styles.collectionInfo}>
                           {collection.isDefault && (
-                            <Ionicons name="bookmark" size={18} style={styles.defaultIcon} />
+                            <Ionicons
+                              name="bookmark"
+                              size={18}
+                              style={styles.defaultIcon}
+                            />
                           )}
                           <Text type="body">{collection.name}</Text>
                           {collection.isDefault && (
@@ -119,9 +137,14 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
                           style={[
                             styles.checkbox,
                             collection.hasRecipe && styles.checkboxSelected,
-                          ]}>
+                          ]}
+                        >
                           {collection.hasRecipe && (
-                            <Ionicons name="checkmark" size={18} style={styles.checkIcon} />
+                            <Ionicons
+                              name="checkmark"
+                              size={18}
+                              style={styles.checkIcon}
+                            />
                           )}
                         </View>
                       </TouchableOpacity>
@@ -131,7 +154,8 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
                 ) : (
                   <>
                     <Text type="bodyFaded" style={styles.emptyText}>
-                      You don't have any collections yet. Create your first one below!
+                      You don't have any collections yet. Create your first one
+                      below!
                     </Text>
                     <VSpace size={24} />
                   </>
@@ -159,19 +183,25 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
                       <TouchableOpacity
                         style={styles.cancelButton}
                         onPress={() => {
-                          setNewCollectionName('');
+                          setNewCollectionName("");
                           setIsCreatingCollection(false);
-                        }}>
+                        }}
+                      >
                         <Text type="body">Cancel</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[
                           styles.saveButton,
-                          (!newCollectionName.trim() || createCollectionMutation.isPending) &&
+                          (!newCollectionName.trim() ||
+                            createCollectionMutation.isPending) &&
                             styles.saveButtonDisabled,
                         ]}
                         onPress={handleCreateCollection}
-                        disabled={!newCollectionName.trim() || createCollectionMutation.isPending}>
+                        disabled={
+                          !newCollectionName.trim() ||
+                          createCollectionMutation.isPending
+                        }
+                      >
                         {createCollectionMutation.isPending ? (
                           <ActivityIndicator size="small" color="#fff" />
                         ) : (
@@ -185,8 +215,13 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
                 ) : (
                   <TouchableOpacity
                     style={styles.createButton}
-                    onPress={() => setIsCreatingCollection(true)}>
-                    <Ionicons name="add-circle-outline" size={24} style={styles.createIcon} />
+                    onPress={() => setIsCreatingCollection(true)}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={24}
+                      style={styles.createIcon}
+                    />
                     <Text type="body" style={styles.createText}>
                       Create new collection
                     </Text>
@@ -201,7 +236,7 @@ const CollectionSelectorSheet = (props: SheetProps<'collection-selector-sheet'>)
   );
 };
 
-registerSheet('collection-selector-sheet', CollectionSelectorSheet);
+registerSheet("collection-selector-sheet", CollectionSelectorSheet);
 
 export { SheetManager as CollectionSheetManager };
 
@@ -210,9 +245,9 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.border,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 16,
@@ -231,16 +266,16 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: 20,
   },
   loadingContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 40,
   },
   sectionTitle: {
     marginBottom: 4,
   },
   collectionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: theme.borderRadius.medium,
@@ -250,8 +285,8 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 8,
   },
   collectionInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
     gap: 8,
   },
@@ -274,8 +309,8 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: 6,
     borderWidth: 2,
     borderColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxSelected: {
     backgroundColor: theme.colors.primary,
@@ -285,12 +320,12 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.buttonText,
   },
   emptyText: {
-    textAlign: 'center',
+    textAlign: "center",
     paddingVertical: 20,
   },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   input: {
     flex: 1,
@@ -304,7 +339,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
   },
   createActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   cancelButton: {
@@ -314,7 +349,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    alignItems: 'center',
+    alignItems: "center",
   },
   saveButton: {
     flex: 1,
@@ -322,7 +357,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: theme.borderRadius.medium,
-    alignItems: 'center',
+    alignItems: "center",
   },
   saveButtonDisabled: {
     opacity: 0.5,
@@ -331,15 +366,15 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.buttonText,
   },
   createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 2,
     borderColor: theme.colors.border,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
   },
   createIcon: {
     color: theme.colors.text,

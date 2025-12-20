@@ -1,11 +1,18 @@
-import { Text as _Text, TextProps } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { Text as _Text, TextProps } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
 interface Props extends TextProps {
-  type?: 'body' | 'bodyFaded' | 'largeTitle' | 'title1' | 'title2' | 'highlight' | 'heading';
+  type?:
+    | "body"
+    | "bodyFaded"
+    | "largeTitle"
+    | "title1"
+    | "title2"
+    | "highlight"
+    | "heading";
 }
 
-export const Text = ({ type = 'body', ...props }: Props) => {
+export const Text = ({ type = "body", ...props }: Props) => {
   styles.useVariants({ type });
   return <_Text {...props} style={[styles.text, props.style]} />;
 };

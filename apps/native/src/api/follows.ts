@@ -1,5 +1,5 @@
-import { useTRPC } from '@repo/trpc/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTRPC } from "@repo/trpc/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export const useFollowing = () => {
   const trpc = useTRPC();
@@ -42,7 +42,7 @@ export const useFollowUser = () => {
   const mutationOptions = trpc.follows.followUser.mutationOptions({
     onSuccess: () => {
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['follows'] });
+      queryClient.invalidateQueries({ queryKey: ["follows"] });
     },
   });
 
@@ -57,7 +57,7 @@ export const useUnfollowUser = () => {
     ...trpc.follows.unfollowUser.mutationOptions(),
     onSuccess: () => {
       // Invalidate all follow-related queries
-      queryClient.invalidateQueries({ queryKey: ['follows'] });
+      queryClient.invalidateQueries({ queryKey: ["follows"] });
     },
   });
 };

@@ -1,18 +1,18 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect } from 'react';
-import { View, TouchableOpacity } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { useState, useEffect } from "react";
+import { View, TouchableOpacity } from "react-native";
 import ActionSheet, {
   SheetManager,
   registerSheet,
   SheetDefinition,
   SheetProps,
   ScrollView,
-} from 'react-native-actions-sheet';
-import { StyleSheet } from 'react-native-unistyles';
+} from "react-native-actions-sheet";
+import { StyleSheet } from "react-native-unistyles";
 
-import { VSpace } from './Space';
-import { TagChip } from './TagChip';
-import { Text } from './Text';
+import { VSpace } from "./Space";
+import { TagChip } from "./TagChip";
+import { Text } from "./Text";
 
 interface Tag {
   id: number;
@@ -30,22 +30,22 @@ interface FilterSheetPayload {
 }
 
 // Extend the Sheets interface for TypeScript
-declare module 'react-native-actions-sheet' {
+declare module "react-native-actions-sheet" {
   interface Sheets {
-    'filter-sheet': SheetDefinition<{
+    "filter-sheet": SheetDefinition<{
       payload: FilterSheetPayload;
     }>;
   }
 }
 
 const TIME_OPTIONS = [
-  { label: '15 min', value: '15' },
-  { label: '30 min', value: '30' },
-  { label: '1 hour', value: '60' },
-  { label: '2+ hours', value: '120' },
+  { label: "15 min", value: "15" },
+  { label: "30 min", value: "30" },
+  { label: "1 hour", value: "60" },
+  { label: "2+ hours", value: "120" },
 ];
 
-const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
+const FilterSheet = (props: SheetProps<"filter-sheet">) => {
   const {
     selectedTagIds: initialSelectedTagIds = [],
     onTagsChange = () => {},
@@ -55,8 +55,12 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
   } = props.payload || {};
 
   // Local state for immediate UI updates
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(initialSelectedTagIds);
-  const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>(initialMaxTotalTime);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>(
+    initialSelectedTagIds,
+  );
+  const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>(
+    initialMaxTotalTime,
+  );
 
   // Sync local state with props when sheet opens
   useEffect(() => {
@@ -84,7 +88,7 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
   const handleApply = () => {
     onTagsChange(selectedTagIds);
     onTimeChange(maxTotalTime);
-    SheetManager.hide('filter-sheet');
+    SheetManager.hide("filter-sheet");
   };
 
   return (
@@ -94,12 +98,13 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
       initialSnapIndex={0}
       gestureEnabled
       enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}>
+      indicatorStyle={styles.indicator}
+    >
       <View>
         {/* Header */}
         <View style={styles.header}>
           <Text type="title2">Filters</Text>
-          <TouchableOpacity onPress={() => SheetManager.hide('filter-sheet')}>
+          <TouchableOpacity onPress={() => SheetManager.hide("filter-sheet")}>
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -164,7 +169,7 @@ const FilterSheet = (props: SheetProps<'filter-sheet'>) => {
   );
 };
 
-registerSheet('filter-sheet', FilterSheet);
+registerSheet("filter-sheet", FilterSheet);
 
 export { SheetManager };
 
@@ -173,9 +178,9 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.border,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 16,
@@ -197,14 +202,14 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 4,
   },
   chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,

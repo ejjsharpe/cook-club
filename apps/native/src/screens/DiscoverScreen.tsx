@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { useState, useCallback, useMemo } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { useState, useCallback, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -8,19 +8,22 @@ import {
   RefreshControl,
   ActivityIndicator,
   ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet } from "react-native-unistyles";
 
-import { useGetUserCollections, useToggleRecipeInCollection } from '@/api/collection';
-import { useSearchAllRecipes, useLikeRecipe, useAllTags } from '@/api/recipe';
-import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
-import { SheetManager } from '@/components/FilterBottomSheet';
-import { FullWidthRecipeCard } from '@/components/FullWidthRecipeCard';
-import { SearchBar } from '@/components/SearchBar';
-import { VSpace } from '@/components/Space';
-import { Text } from '@/components/Text';
-import { useDebounce } from '@/hooks/useDebounce';
+import {
+  useGetUserCollections,
+  useToggleRecipeInCollection,
+} from "@/api/collection";
+import { useSearchAllRecipes, useLikeRecipe, useAllTags } from "@/api/recipe";
+import { CollectionSheetManager } from "@/components/CollectionSelectorSheet";
+import { SheetManager } from "@/components/FilterBottomSheet";
+import { FullWidthRecipeCard } from "@/components/FullWidthRecipeCard";
+import { SearchBar } from "@/components/SearchBar";
+import { VSpace } from "@/components/Space";
+import { Text } from "@/components/Text";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Tag {
   id: number;
@@ -82,7 +85,11 @@ const Header = ({
               placeholder="Search all recipes..."
             />
           </View>
-          <TouchableOpacity style={styles.filterButton} onPress={onFilterPress} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={onFilterPress}
+            activeOpacity={0.7}
+          >
             <Ionicons
               name="options-outline"
               size={24}
@@ -104,7 +111,7 @@ export const DiscoverScreen = () => {
   const navigation = useNavigation();
 
   // State
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>();
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -120,14 +127,23 @@ export const DiscoverScreen = () => {
 
   // Determine if we should fetch recipes
   const shouldFetchRecipes =
-    debouncedSearch.trim() !== '' || selectedTagIds.length > 0 || maxTotalTime !== undefined;
+    debouncedSearch.trim() !== "" ||
+    selectedTagIds.length > 0 ||
+    maxTotalTime !== undefined;
 
-  const { data, isPending, isFetchingNextPage, hasNextPage, fetchNextPage, refetch, isFetching } =
-    useSearchAllRecipes({
-      search: debouncedSearch,
-      tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-      maxTotalTime,
-    });
+  const {
+    data,
+    isPending,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+    isFetching,
+  } = useSearchAllRecipes({
+    search: debouncedSearch,
+    tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+    maxTotalTime,
+  });
 
   // Flatten paginated data
   const recipes: RecommendedRecipe[] = useMemo(() => {
@@ -137,7 +153,7 @@ export const DiscoverScreen = () => {
 
   // Handlers
   const handleRecipePress = (recipeId: number) => {
-    navigation.navigate('RecipeDetail', { recipeId });
+    navigation.navigate("RecipeDetail", { recipeId });
   };
 
   const handleLikePress = (recipeId: number) => {
@@ -145,13 +161,13 @@ export const DiscoverScreen = () => {
   };
 
   const handleSavePress = (recipeId: number) => {
-    CollectionSheetManager.show('collection-selector-sheet', {
+    CollectionSheetManager.show("collection-selector-sheet", {
       payload: { recipeId },
     });
   };
 
   const handleUserPress = (userId: string) => {
-    navigation.navigate('UserProfile', { userId });
+    navigation.navigate("UserProfile", { userId });
   };
 
   const handleLoadMore = useCallback(() => {
@@ -168,7 +184,7 @@ export const DiscoverScreen = () => {
   }, [shouldFetchRecipes, refetch]);
 
   const handleFilterPress = () => {
-    SheetManager.show('filter-sheet', {
+    SheetManager.show("filter-sheet", {
       payload: {
         selectedTagIds,
         onTagsChange: setSelectedTagIds,
@@ -234,7 +250,11 @@ export const DiscoverScreen = () => {
     // Show no results found
     return (
       <View style={styles.emptyState}>
-        <Ionicons name="restaurant-outline" size={64} style={styles.emptyIcon} />
+        <Ionicons
+          name="restaurant-outline"
+          size={64}
+          style={styles.emptyIcon}
+        />
         <VSpace size={16} />
         <Text type="heading">No recipes found</Text>
         <VSpace size={8} />
@@ -259,7 +279,7 @@ export const DiscoverScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView edges={['top']}>
+      <SafeAreaView edges={["top"]}>
         <FlatList
           data={recipes}
           renderItem={renderRecipe}
@@ -302,7 +322,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   searchRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   searchBarWrapper: {
@@ -314,8 +334,8 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.background,
   },
   filterIcon: {
@@ -333,18 +353,18 @@ const styles = StyleSheet.create((theme) => ({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyIcon: {
     color: theme.colors.border,
   },
   emptyText: {
-    textAlign: 'center',
+    textAlign: "center",
   },
   footerLoader: {
     paddingVertical: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
 }));

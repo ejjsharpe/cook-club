@@ -1,29 +1,36 @@
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useState } from 'react';
-import { Platform, ScrollView, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useState } from "react";
+import {
+  Platform,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet } from "react-native-unistyles";
 
-import { useSignInWithEmail, useSignInWithSocial } from '@/api/auth';
-import { Input } from '@/components/Input';
-import { VSpace } from '@/components/Space';
-import { Text } from '@/components/Text';
-import { BackButton } from '@/components/buttons/BackButton';
-import { BaseButton } from '@/components/buttons/BaseButton';
-import { PrimaryButton } from '@/components/buttons/PrimaryButton';
-import { SignInWithAppleButton } from '@/components/buttons/SignInWithAppleButton';
-import { SignInWithGoogleButton } from '@/components/buttons/SignInWithGoogleButton';
+import { useSignInWithEmail, useSignInWithSocial } from "@/api/auth";
+import { Input } from "@/components/Input";
+import { VSpace } from "@/components/Space";
+import { Text } from "@/components/Text";
+import { BackButton } from "@/components/buttons/BackButton";
+import { BaseButton } from "@/components/buttons/BaseButton";
+import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { SignInWithAppleButton } from "@/components/buttons/SignInWithAppleButton";
+import { SignInWithGoogleButton } from "@/components/buttons/SignInWithGoogleButton";
 
 export default function SignUpScreen() {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
   const { mutate: signInWithEmail } = useSignInWithEmail();
   const onPressSignInWithEmail = () => signInWithEmail({ email, password });
 
-  const { navigate } = useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList>>();
-  const onPressSignUp = () => navigate('Sign In');
+  const { navigate } =
+    useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList>>();
+  const onPressSignUp = () => navigate("Sign In");
 
   return (
     <View style={styles.screenContainer}>
@@ -62,7 +69,7 @@ export default function SignUpScreen() {
           or
         </Text>
         <VSpace size={12} />
-        {Platform.OS === 'ios' && <SignInWithAppleButton />}
+        {Platform.OS === "ios" && <SignInWithAppleButton />}
         <VSpace size={12} />
         <SignInWithGoogleButton />
         <VSpace size={32} />
@@ -83,10 +90,10 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 24,
   },
   safeArea: {
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   textAlignCenter: {
-    textAlign: 'center',
+    textAlign: "center",
   },
 }));

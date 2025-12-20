@@ -1,4 +1,4 @@
-import { useToggleRecipeInCollection } from '../api/collection';
+import { useToggleRecipeInCollection } from "../api/collection";
 
 interface Recipe {
   id: number;

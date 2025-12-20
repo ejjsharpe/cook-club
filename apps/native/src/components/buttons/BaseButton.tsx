@@ -1,21 +1,26 @@
-import { Pressable, PressableProps, ViewStyle } from 'react-native';
+import { Pressable, PressableProps, ViewStyle } from "react-native";
 import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface BaseButtonProps {
   children: React.ReactNode;
-  onPress: PressableProps['onPress'];
+  onPress: PressableProps["onPress"];
   disabled?: boolean;
-  style?: PressableProps['style'];
+  style?: PressableProps["style"];
 }
 
-export function BaseButton({ children, onPress, disabled, style }: BaseButtonProps) {
+export function BaseButton({
+  children,
+  onPress,
+  disabled,
+  style,
+}: BaseButtonProps) {
   const sv = useSharedValue(1);
   const animatedStyles = useAnimatedStyle(() => {
     return {
@@ -46,7 +51,8 @@ export function BaseButton({ children, onPress, disabled, style }: BaseButtonPro
       style={[style, animatedStyles]}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      onPress={onPress}>
+      onPress={onPress}
+    >
       {children}
     </AnimatedPressable>
   );

@@ -1,28 +1,34 @@
-import { useNavigation } from '@react-navigation/native';
-import { useState, useMemo } from 'react';
-import { View, FlatList, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+import { LegendList } from "@legendapp/list";
+import { useNavigation } from "@react-navigation/native";
+import { useState, useMemo } from "react";
+import { View, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet } from "react-native-unistyles";
 
-import { useGetUserRecipes } from '@/api/recipe';
-import { Input } from '@/components/Input';
-import { RecipeCard } from '@/components/RecipeCard';
-import { VSpace } from '@/components/Space';
-import { Text } from '@/components/Text';
-import { LegendList } from '@legendapp/list';
+import { useGetUserRecipes } from "@/api/recipe";
+import { Input } from "@/components/Input";
+import { RecipeCard } from "@/components/RecipeCard";
+import { VSpace } from "@/components/Space";
+import { Text } from "@/components/Text";
 
 type Recipe = NonNullable<
-  ReturnType<typeof useGetUserRecipes>['data']
->['pages'][number]['items'][number];
+  ReturnType<typeof useGetUserRecipes>["data"]
+>["pages"][number]["items"][number];
 
 export const MyRecipesScreen = () => {
   const navigation = useNavigation();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } =
-    useGetUserRecipes({
-      search: searchQuery,
-    });
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    error,
+  } = useGetUserRecipes({
+    search: searchQuery,
+  });
 
   const recipes = useMemo(() => {
     return data?.pages.flatMap((page) => page?.items ?? []) ?? [];
@@ -31,7 +37,7 @@ export const MyRecipesScreen = () => {
   const renderRecipe = ({ item }: { item: Recipe }) => (
     <RecipeCard
       recipe={item}
-      onPress={() => navigation.navigate('RecipeDetail', { recipeId: item.id })}
+      onPress={() => navigation.navigate("RecipeDetail", { recipeId: item.id })}
     />
   );
 
@@ -64,7 +70,7 @@ export const MyRecipesScreen = () => {
     return (
       <View style={styles.centered}>
         <Text type="bodyFaded">
-          {searchQuery ? 'No recipes found for your search' : 'No recipes yet'}
+          {searchQuery ? "No recipes found for your search" : "No recipes yet"}
         </Text>
       </View>
     );
@@ -77,39 +83,36 @@ export const MyRecipesScreen = () => {
   };
 
   return (
-
-      <SafeAreaView style={styles.container}>
-        <VSpace size={28} />
-        <View style={styles.header}>
-          <Text type="title2">My Recipes</Text>
-          <VSpace size={20} />
-          <Input
-            placeholder="Search recipes..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-        <VSpace size={16} />
-        <LegendList
-          data={recipes}
-          renderItem={renderRecipe}
-          keyExtractor={(item) => item.id.toString()}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-          ListEmptyComponent={renderEmpty}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.listContent,
-            recipes.length === 0 && styles.emptyListContent,
-          ]}
-          ItemSeparatorComponent={() => <VSpace size={12}/>}
-
+    <SafeAreaView style={styles.container}>
+      <VSpace size={28} />
+      <View style={styles.header}>
+        <Text type="title2">My Recipes</Text>
+        <VSpace size={20} />
+        <Input
+          placeholder="Search recipes..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
         />
-      </SafeAreaView>
-
+      </View>
+      <VSpace size={16} />
+      <LegendList
+        data={recipes}
+        renderItem={renderRecipe}
+        keyExtractor={(item) => item.id.toString()}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={renderEmpty}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.listContent,
+          recipes.length === 0 && styles.emptyListContent,
+        ]}
+        ItemSeparatorComponent={() => <VSpace size={12} />}
+      />
+    </SafeAreaView>
   );
 };
 
@@ -129,12 +132,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   footer: {
     paddingVertical: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
 }));

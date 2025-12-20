@@ -1,7 +1,7 @@
-import { Session } from 'better-auth';
-import { createContext, useContext } from 'react';
+import { Session } from "better-auth";
+import { createContext, useContext } from "react";
 
-import { authClient } from './authClient';
+import { authClient } from "./authClient";
 
 interface User {
   id: string;
@@ -13,14 +13,22 @@ interface User {
   image?: string | null | undefined | undefined;
 }
 
-const SessionContext = createContext<{ user: User; session: Session } | null>(null);
+const SessionContext = createContext<{ user: User; session: Session } | null>(
+  null,
+);
 
 export const useSessionContext = () => useContext(SessionContext);
 
-export const SessionProvider = ({ children }: { children: React.ReactNode }) => {
+export const SessionProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
   const { data, isPending } = authClient.useSession();
 
   if (isPending) return null;
 
-  return <SessionContext.Provider value={data}>{children}</SessionContext.Provider>;
+  return (
+    <SessionContext.Provider value={data}>{children}</SessionContext.Provider>
+  );
 };

@@ -1,11 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { View, TouchableOpacity } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { View, TouchableOpacity } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
-import { VSpace } from './Space';
-import { TagChip } from './TagChip';
-import { Text } from './Text';
+import { VSpace } from "./Space";
+import { TagChip } from "./TagChip";
+import { Text } from "./Text";
 
 interface Tag {
   id: number;
@@ -70,7 +70,11 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
         {/* Cook time */}
         {recipe.totalTime && (
           <View style={styles.cookTimeContainer}>
-            <Ionicons name="time-outline" size={13} style={styles.cookTimeIcon} />
+            <Ionicons
+              name="time-outline"
+              size={13}
+              style={styles.cookTimeIcon}
+            />
             <Text type="bodyFaded" style={styles.cookTime}>
               {recipe.totalTime}
             </Text>
@@ -83,7 +87,9 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
             {visibleTags.map((tag) => (
               <TagChip key={tag.id} label={tag.name} size="small" />
             ))}
-            {remainingTagsCount > 0 && <TagChip label={`+${remainingTagsCount}`} size="small" />}
+            {remainingTagsCount > 0 && (
+              <TagChip label={`+${remainingTagsCount}`} size="small" />
+            )}
           </View>
         )}
       </View>
@@ -93,30 +99,30 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
 
 const styles = StyleSheet.create((theme) => ({
   card: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: theme.borderRadius.medium,
     marginHorizontal: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   thumbnail: {
     width: 100,
     height: 100,
     borderRadius: theme.borderRadius.medium,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   thumbnailImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   thumbnailPlaceholder: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     backgroundColor: theme.colors.border,
   },
   content: {
     flex: 1,
-    height: '100%',
-    justifyContent: 'center',
+    height: "100%",
+    justifyContent: "center",
     padding: 8,
     gap: 8,
     paddingHorizontal: 12,
@@ -125,13 +131,13 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 17,
   },
   tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 6,
   },
   cookTimeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 2,
   },
   cookTimeIcon: {

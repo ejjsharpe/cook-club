@@ -1,4 +1,4 @@
-import type { InfiniteData, QueryClient } from '@tanstack/react-query';
+import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 
 /**
  * Updates the collectionIds for a specific recipe across all query caches
@@ -6,45 +6,49 @@ import type { InfiniteData, QueryClient } from '@tanstack/react-query';
  */
 export function updateRecipeCollections(
   queryClient: QueryClient,
-  trpc: ReturnType<typeof import('@repo/trpc/client').useTRPC>,
+  trpc: ReturnType<typeof import("@repo/trpc/client").useTRPC>,
   recipeId: number,
-  collectionIds: number[]
+  collectionIds: number[],
 ) {
   // Get type-safe filters
-  const recommendedRecipesFilter = trpc.recipe.getRecommendedRecipes.pathFilter();
+  const recommendedRecipesFilter =
+    trpc.recipe.getRecommendedRecipes.pathFilter();
   const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
 
   // 1. Update recommended recipes infinite query
-  queryClient.setQueriesData<InfiniteData<any>>(recommendedRecipesFilter, (old: any) => {
-    if (!old?.pages) return old;
+  queryClient.setQueriesData<InfiniteData<any>>(
+    recommendedRecipesFilter,
+    (old: any) => {
+      if (!old?.pages) return old;
 
-    // Check if any item actually needs updating
-    let hasChanges = false;
-    const newPages = old.pages.map((page: any) => {
-      const newItems = page.items.map((item: any) => {
-        if (item.id === recipeId) {
-          hasChanges = true;
-          return {
-            ...item,
-            collectionIds: [...collectionIds], // Create new array reference
-          };
-        }
-        return item;
+      // Check if any item actually needs updating
+      let hasChanges = false;
+      const newPages = old.pages.map((page: any) => {
+        const newItems = page.items.map((item: any) => {
+          if (item.id === recipeId) {
+            hasChanges = true;
+            return {
+              ...item,
+              collectionIds: [...collectionIds], // Create new array reference
+            };
+          }
+          return item;
+        });
+        return {
+          ...page,
+          items: newItems,
+        };
       });
+
+      // Only return a new object if there were actual changes
+      if (!hasChanges) return old;
+
       return {
-        ...page,
-        items: newItems,
+        ...old,
+        pages: newPages,
       };
-    });
-
-    // Only return a new object if there were actual changes
-    if (!hasChanges) return old;
-
-    return {
-      ...old,
-      pages: newPages,
-    };
-  });
+    },
+  );
 
   // 2. Update recipe detail query
   queryClient.setQueriesData<any>(recipeDetailFilter, (old: any) => {
@@ -62,7 +66,7 @@ export function updateRecipeCollections(
  */
 export function toggleCollectionInArray(
   currentCollectionIds: number[],
-  collectionId: number
+  collectionId: number,
 ): number[] {
   const isInCollection = currentCollectionIds.includes(collectionId);
 

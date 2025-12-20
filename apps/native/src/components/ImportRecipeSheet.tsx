@@ -1,52 +1,60 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
-import { View, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useState } from "react";
+import {
+  View,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import ActionSheet, {
   SheetManager,
   registerSheet,
   SheetDefinition,
   SheetProps,
   ScrollView,
-} from 'react-native-actions-sheet';
-import { StyleSheet } from 'react-native-unistyles';
+} from "react-native-actions-sheet";
+import { StyleSheet } from "react-native-unistyles";
+
+import { Input } from "./Input";
+import { VSpace } from "./Space";
+import { Text } from "./Text";
+import { PrimaryButton } from "./buttons/PrimaryButton";
 
 import {
   useParseRecipeFromUrl,
   useParseRecipeFromText,
   useParseRecipeFromImage,
-} from '@/api/recipe';
-import { imageToBase64, getMimeTypeFromUri } from '@/utils/imageUtils';
+} from "@/api/recipe";
+import { imageToBase64, getMimeTypeFromUri } from "@/utils/imageUtils";
 
-import { PrimaryButton } from './buttons/PrimaryButton';
-import { Input } from './Input';
-import { VSpace } from './Space';
-import { Text } from './Text';
-
-type ImportMode = 'url' | 'text' | 'image';
+type ImportMode = "url" | "text" | "image";
 
 // Use the navigation param type for the result
-type ParsedRecipeResult = NonNullable<ReactNavigation.RootParamList['EditRecipe']['parsedRecipe']>;
+type ParsedRecipeResult = NonNullable<
+  ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"]
+>;
 
 interface ImportRecipeSheetPayload {
   onRecipeParsed: (result: ParsedRecipeResult) => void;
 }
 
-declare module 'react-native-actions-sheet' {
+declare module "react-native-actions-sheet" {
   interface Sheets {
-    'import-recipe-sheet': SheetDefinition<{
+    "import-recipe-sheet": SheetDefinition<{
       payload: ImportRecipeSheetPayload;
     }>;
   }
 }
 
-const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
+const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
   const { onRecipeParsed } = props.payload || {};
 
-  const [mode, setMode] = useState<ImportMode>('url');
-  const [url, setUrl] = useState('');
-  const [text, setText] = useState('');
+  const [mode, setMode] = useState<ImportMode>("url");
+  const [url, setUrl] = useState("");
+  const [text, setText] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -55,12 +63,12 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
   const parseFromImage = useParseRecipeFromImage();
 
   const handleClose = () => {
-    SheetManager.hide('import-recipe-sheet');
+    SheetManager.hide("import-recipe-sheet");
   };
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       quality: 0.8,
     });
@@ -74,9 +82,9 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
     setIsLoading(true);
 
     try {
-      if (mode === 'url') {
+      if (mode === "url") {
         if (!url.trim()) {
-          Alert.alert('Error', 'Please enter a URL');
+          Alert.alert("Error", "Please enter a URL");
           return;
         }
         const result = await fetchFromUrl();
@@ -84,11 +92,14 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
           onRecipeParsed?.(result.data);
           handleClose();
         } else {
-          Alert.alert('Error', 'Failed to parse recipe from URL');
+          Alert.alert("Error", "Failed to parse recipe from URL");
         }
-      } else if (mode === 'text') {
+      } else if (mode === "text") {
         if (!text.trim() || text.length < 50) {
-          Alert.alert('Error', 'Please enter at least 50 characters of recipe text');
+          Alert.alert(
+            "Error",
+            "Please enter at least 50 characters of recipe text",
+          );
           return;
         }
         const result = await fetchFromText();
@@ -96,11 +107,11 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
           onRecipeParsed?.(result.data);
           handleClose();
         } else {
-          Alert.alert('Error', 'Failed to parse recipe from text');
+          Alert.alert("Error", "Failed to parse recipe from text");
         }
-      } else if (mode === 'image') {
+      } else if (mode === "image") {
         if (!imageUri) {
-          Alert.alert('Error', 'Please select an image');
+          Alert.alert("Error", "Please select an image");
           return;
         }
         const base64 = await imageToBase64(imageUri);
@@ -113,12 +124,12 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
           onRecipeParsed?.(result);
           handleClose();
         } else {
-          Alert.alert('Error', 'Failed to parse recipe from image');
+          Alert.alert("Error", "Failed to parse recipe from image");
         }
       }
     } catch (error) {
-      console.error('Import error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      console.error("Import error:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -128,13 +139,16 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
     <TouchableOpacity
       key={m}
       style={[styles.modeButton, mode === m && styles.modeButtonActive]}
-      onPress={() => setMode(m)}>
+      onPress={() => setMode(m)}
+    >
       <Ionicons
         name={icon as keyof typeof Ionicons.glyphMap}
         size={20}
         style={[styles.modeIcon, mode === m && styles.modeIconActive]}
       />
-      <Text style={[styles.modeLabel, mode === m && styles.modeLabelActive]}>{label}</Text>
+      <Text style={[styles.modeLabel, mode === m && styles.modeLabelActive]}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -145,7 +159,8 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
       initialSnapIndex={0}
       gestureEnabled={!isLoading}
       closable={!isLoading}
-      indicatorStyle={styles.indicator}>
+      indicatorStyle={styles.indicator}
+    >
       <View>
         {/* Header */}
         <View style={styles.header}>
@@ -157,14 +172,17 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
 
         {/* Mode Selector */}
         <View style={styles.modeSelector}>
-          {renderModeButton('url', 'globe-outline', 'URL')}
-          {renderModeButton('text', 'document-text-outline', 'Text')}
-          {renderModeButton('image', 'camera-outline', 'Image')}
+          {renderModeButton("url", "globe-outline", "URL")}
+          {renderModeButton("text", "document-text-outline", "Text")}
+          {renderModeButton("image", "camera-outline", "Image")}
         </View>
 
-        <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={styles.scrollView}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.content}>
-            {mode === 'url' && (
+            {mode === "url" && (
               <>
                 <Text type="body" style={styles.description}>
                   Enter the URL of a recipe from any website
@@ -182,7 +200,7 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
               </>
             )}
 
-            {mode === 'text' && (
+            {mode === "text" && (
               <>
                 <Text type="body" style={styles.description}>
                   Paste your recipe text (ingredients, instructions, etc.)
@@ -204,7 +222,7 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
               </>
             )}
 
-            {mode === 'image' && (
+            {mode === "image" && (
               <>
                 <Text type="body" style={styles.description}>
                   Take a photo or select an image of a recipe
@@ -212,11 +230,15 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
                 <VSpace size={16} />
                 {imageUri ? (
                   <View style={styles.imagePreviewContainer}>
-                    <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                    <Image
+                      source={{ uri: imageUri }}
+                      style={styles.imagePreview}
+                    />
                     <TouchableOpacity
                       style={styles.removeImageButton}
                       onPress={() => setImageUri(null)}
-                      disabled={isLoading}>
+                      disabled={isLoading}
+                    >
                       <Ionicons name="close-circle" size={28} color="#fff" />
                     </TouchableOpacity>
                   </View>
@@ -224,8 +246,13 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
                   <TouchableOpacity
                     style={styles.imagePicker}
                     onPress={handlePickImage}
-                    disabled={isLoading}>
-                    <Ionicons name="image-outline" size={48} style={styles.imagePickerIcon} />
+                    disabled={isLoading}
+                  >
+                    <Ionicons
+                      name="image-outline"
+                      size={48}
+                      style={styles.imagePickerIcon}
+                    />
                     <VSpace size={8} />
                     <Text type="bodyFaded">Tap to select an image</Text>
                   </TouchableOpacity>
@@ -236,7 +263,7 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
             <VSpace size={24} />
 
             <PrimaryButton onPress={handleImport} disabled={isLoading}>
-              {isLoading ? 'Processing...' : 'Import Recipe'}
+              {isLoading ? "Processing..." : "Import Recipe"}
             </PrimaryButton>
 
             {isLoading && (
@@ -256,7 +283,7 @@ const ImportRecipeSheet = (props: SheetProps<'import-recipe-sheet'>) => {
   );
 };
 
-registerSheet('import-recipe-sheet', ImportRecipeSheet);
+registerSheet("import-recipe-sheet", ImportRecipeSheet);
 
 export { SheetManager };
 
@@ -265,9 +292,9 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.border,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 16,
@@ -278,7 +305,7 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.text,
   },
   modeSelector: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 12,
@@ -287,9 +314,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   modeButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: theme.borderRadius.medium,
@@ -313,7 +340,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   modeLabelActive: {
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   scrollView: {
     maxHeight: 450,
@@ -323,10 +350,10 @@ const styles = StyleSheet.create((theme) => ({
     paddingTop: 20,
   },
   description: {
-    textAlign: 'center',
+    textAlign: "center",
   },
   textArea: {
-    width: '100%',
+    width: "100%",
     height: 200,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -337,43 +364,43 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 16,
   },
   charCount: {
-    textAlign: 'right',
+    textAlign: "right",
     marginTop: 8,
     fontSize: 12,
   },
   imagePicker: {
-    width: '100%',
+    width: "100%",
     height: 200,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 2,
     borderColor: theme.colors.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
   },
   imagePickerIcon: {
     color: `${theme.colors.text}80`,
   },
   imagePreviewContainer: {
-    position: 'relative',
-    width: '100%',
+    position: "relative",
+    width: "100%",
     height: 250,
     borderRadius: theme.borderRadius.medium,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   imagePreview: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   removeImageButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: "rgba(0,0,0,0.5)",
     borderRadius: 14,
   },
   loadingOverlay: {
     marginTop: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
 }));

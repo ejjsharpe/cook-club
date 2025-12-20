@@ -1,4 +1,4 @@
-import { intervalToDuration, formatDuration } from 'date-fns';
+import { intervalToDuration, formatDuration } from "date-fns";
 
 export interface TimeValue {
   hours: number;
@@ -9,13 +9,17 @@ export interface TimeValue {
  * Parse various duration formats into hours and minutes
  */
 export function parseDuration(duration: string): TimeValue {
-  if (!duration || typeof duration !== 'string') {
+  if (!duration || typeof duration !== "string") {
     return { hours: 0, minutes: 0 };
   }
 
   // Handle simple formats like "10 mins", "1 hour", "30 minutes"
   const simplePatterns = [
-    { pattern: /^(\d+)\s*h(?:ours?)?(?:\s+(\d+)\s*m(?:ins?|inutes?)?)?$/i, hours: 1, minutes: 2 },
+    {
+      pattern: /^(\d+)\s*h(?:ours?)?(?:\s+(\d+)\s*m(?:ins?|inutes?)?)?$/i,
+      hours: 1,
+      minutes: 2,
+    },
     { pattern: /^(\d+)\s*m(?:ins?|inutes?)$/i, hours: 0, minutes: 1 },
     { pattern: /^(\d+)\s+hours?$/i, hours: 1, minutes: 0 },
     { pattern: /^(\d+)\s+minutes?$/i, hours: 0, minutes: 1 },
@@ -24,14 +28,16 @@ export function parseDuration(duration: string): TimeValue {
   for (const { pattern, hours: hIndex, minutes: mIndex } of simplePatterns) {
     const match = duration.match(pattern);
     if (match) {
-      const hours = hIndex > 0 && match[hIndex] ? parseInt(match[hIndex]) || 0 : 0;
-      const minutes = mIndex > 0 && match[mIndex] ? parseInt(match[mIndex]) || 0 : 0;
+      const hours =
+        hIndex > 0 && match[hIndex] ? parseInt(match[hIndex]) || 0 : 0;
+      const minutes =
+        mIndex > 0 && match[mIndex] ? parseInt(match[mIndex]) || 0 : 0;
       return { hours, minutes };
     }
   }
 
   // Handle ISO 8601 duration format (PT10M, PT1H30M, PT2H)
-  if (duration.startsWith('PT')) {
+  if (duration.startsWith("PT")) {
     const iso8601Pattern = /^PT(?:(\d+)H)?(?:(\d+)M)?$/i;
     const match = duration.match(iso8601Pattern);
 
@@ -75,7 +81,7 @@ export function formatTime(time: TimeValue): string {
   const { hours, minutes } = time;
 
   if (hours === 0 && minutes === 0) {
-    return '';
+    return "";
   }
 
   // Create a duration object for date-fns
@@ -83,8 +89,13 @@ export function formatTime(time: TimeValue): string {
 
   // Use date-fns formatDuration with custom format
   return formatDuration(duration, {
-    format: hours > 0 && minutes > 0 ? ['hours', 'minutes'] : hours > 0 ? ['hours'] : ['minutes'],
-    delimiter: ' ',
+    format:
+      hours > 0 && minutes > 0
+        ? ["hours", "minutes"]
+        : hours > 0
+          ? ["hours"]
+          : ["minutes"],
+    delimiter: " ",
   });
 }
 
@@ -95,10 +106,10 @@ export function formatDurationISO(time: TimeValue): string {
   const { hours, minutes } = time;
 
   if (hours === 0 && minutes === 0) {
-    return '';
+    return "";
   }
 
-  let result = 'PT';
+  let result = "PT";
   if (hours > 0) {
     result += `${hours}H`;
   }

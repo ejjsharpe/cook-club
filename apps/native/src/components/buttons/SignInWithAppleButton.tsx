@@ -1,15 +1,15 @@
-import { StyleSheet, UnistylesRuntime } from 'react-native-unistyles';
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { BaseButton } from './BaseButton';
-import { Text } from '../Text';
-import { AppleLogo } from '../svg/AppleLogo';
+import { BaseButton } from "./BaseButton";
+import { Text } from "../Text";
+import { AppleLogo } from "../svg/AppleLogo";
 
-import { useSignInWithSocial } from '@/api/auth';
+import { useSignInWithSocial } from "@/api/auth";
 
 export const SignInWithAppleButton = () => {
   const { colors } = UnistylesRuntime.getTheme();
   const { mutate: signInWithSocial } = useSignInWithSocial();
-  const onPress = () => signInWithSocial({ provider: 'apple' });
+  const onPress = () => signInWithSocial({ provider: "apple" });
 
   return (
     <BaseButton style={styles.container} onPress={onPress}>
@@ -21,18 +21,18 @@ export const SignInWithAppleButton = () => {
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    backgroundColor: 'black',
-    width: '100%',
+    backgroundColor: "black",
+    width: "100%",
     borderRadius: theme.borderRadius.medium,
     paddingVertical: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   text: {
     color: theme.colors.background,
   },
   logo: {
-    position: 'absolute',
+    position: "absolute",
     left: 12,
   },
 }));

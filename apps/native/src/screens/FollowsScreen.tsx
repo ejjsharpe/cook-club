@@ -1,8 +1,8 @@
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import { useState } from 'react';
-import { View, FlatList, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { useState } from "react";
+import { View, FlatList, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet } from "react-native-unistyles";
 
 import {
   useFollowing,
@@ -10,15 +10,15 @@ import {
   useSearchUsers,
   useUserFollowers,
   useUserFollowing,
-} from '@/api/follows';
-import { Input } from '@/components/Input';
-import { VSpace } from '@/components/Space';
-import { Text } from '@/components/Text';
-import { UserCard } from '@/components/UserCard';
-import { UserSearchCard } from '@/components/UserSearchCard';
-import { BackButton } from '@/components/buttons/BackButton';
+} from "@/api/follows";
+import { Input } from "@/components/Input";
+import { VSpace } from "@/components/Space";
+import { Text } from "@/components/Text";
+import { UserCard } from "@/components/UserCard";
+import { UserSearchCard } from "@/components/UserSearchCard";
+import { BackButton } from "@/components/buttons/BackButton";
 
-type TabType = 'following' | 'followers' | 'search';
+type TabType = "following" | "followers" | "search";
 
 interface FollowUser {
   followId: number;
@@ -41,12 +41,12 @@ interface User {
 type FollowsScreenParams = {
   FollowsList: {
     userId: string;
-    activeTab: 'following' | 'followers';
+    activeTab: "following" | "followers";
     userName: string;
   };
 };
 
-type FollowsScreenRouteProp = RouteProp<FollowsScreenParams, 'FollowsList'>;
+type FollowsScreenRouteProp = RouteProp<FollowsScreenParams, "FollowsList">;
 
 export const FollowsScreen = () => {
   const route = useRoute<FollowsScreenRouteProp>();
@@ -54,11 +54,13 @@ export const FollowsScreen = () => {
   const { userId, activeTab: initialTab, userName } = route.params;
 
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Use specific user's data instead of current user's data
-  const { data: userFollowing, isPending: isPendingUserFollowing } = useUserFollowing({ userId });
-  const { data: userFollowers, isPending: isPendingUserFollowers } = useUserFollowers({ userId });
+  const { data: userFollowing, isPending: isPendingUserFollowing } =
+    useUserFollowing({ userId });
+  const { data: userFollowers, isPending: isPendingUserFollowers } =
+    useUserFollowers({ userId });
 
   // Keep search functionality for current user
   const { data: searchResults, isPending: isSearching } = useSearchUsers({
@@ -70,7 +72,7 @@ export const FollowsScreen = () => {
     <UserCard
       user={item.user}
       onPress={() => {
-        navigation.navigate('UserProfile', { userId: item.user.id });
+        navigation.navigate("UserProfile", { userId: item.user.id });
       }}
     />
   );
@@ -79,7 +81,7 @@ export const FollowsScreen = () => {
     <UserSearchCard
       user={item}
       onUserPress={() => {
-        navigation.navigate('UserProfile', { userId: item.id });
+        navigation.navigate("UserProfile", { userId: item.id });
       }}
     />
   );
@@ -88,9 +90,10 @@ export const FollowsScreen = () => {
     const isActive = activeTab === tab;
     return (
       <Text
-        type={isActive ? 'highlight' : 'bodyFaded'}
+        type={isActive ? "highlight" : "bodyFaded"}
         style={[styles.tabText, isActive && styles.activeTab]}
-        onPress={() => setActiveTab(tab)}>
+        onPress={() => setActiveTab(tab)}
+      >
         {title}
         {count !== undefined && ` (${count})`}
       </Text>
@@ -99,7 +102,7 @@ export const FollowsScreen = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'following':
+      case "following":
         if (isPendingUserFollowing) {
           return (
             <View style={styles.centered}>
@@ -111,7 +114,9 @@ export const FollowsScreen = () => {
         if (!userFollowing || userFollowing.length === 0) {
           return (
             <View style={styles.emptyState}>
-              <Text type="bodyFaded">{userName} isn't following anyone yet</Text>
+              <Text type="bodyFaded">
+                {userName} isn't following anyone yet
+              </Text>
             </View>
           );
         }
@@ -125,7 +130,7 @@ export const FollowsScreen = () => {
           />
         );
 
-      case 'followers':
+      case "followers":
         if (isPendingUserFollowers) {
           return (
             <View style={styles.centered}>
@@ -151,7 +156,7 @@ export const FollowsScreen = () => {
           />
         );
 
-      case 'search':
+      case "search":
         return (
           <View>
             <Input
@@ -200,9 +205,9 @@ export const FollowsScreen = () => {
 
           {/* Tabs */}
           <View style={styles.tabs}>
-            {renderTab('following', 'Following', userFollowing?.length)}
-            {renderTab('followers', 'Followers', userFollowers?.length)}
-            {renderTab('search', 'Discover')}
+            {renderTab("following", "Following", userFollowing?.length)}
+            {renderTab("followers", "Followers", userFollowers?.length)}
+            {renderTab("search", "Discover")}
           </View>
         </View>
 
@@ -226,8 +231,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   tabs: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -245,17 +250,17 @@ const styles = StyleSheet.create((theme) => ({
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 40,
   },
   emptySubtext: {
     marginTop: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
 }));

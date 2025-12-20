@@ -1,14 +1,14 @@
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from "react-native-unistyles";
 
-import { BaseButton } from './BaseButton';
-import { Text } from '../Text';
-import { GoogleLogo } from '../svg/GoogleLogo';
+import { BaseButton } from "./BaseButton";
+import { Text } from "../Text";
+import { GoogleLogo } from "../svg/GoogleLogo";
 
-import { useSignInWithSocial } from '@/api/auth';
+import { useSignInWithSocial } from "@/api/auth";
 
 export function SignInWithGoogleButton() {
   const { mutate: signInWithSocial } = useSignInWithSocial();
-  const onPress = () => signInWithSocial({ provider: 'google' });
+  const onPress = () => signInWithSocial({ provider: "google" });
 
   return (
     <BaseButton onPress={onPress} style={styles.container}>
@@ -20,17 +20,17 @@ export function SignInWithGoogleButton() {
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: theme.colors.border,
-    width: '100%',
+    width: "100%",
     borderRadius: theme.borderRadius.medium,
     paddingVertical: 13,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   logo: {
-    position: 'absolute',
+    position: "absolute",
     left: 12,
   },
 }));

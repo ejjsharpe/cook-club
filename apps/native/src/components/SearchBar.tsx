@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { View, TextInput, TouchableOpacity } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { Ionicons } from "@expo/vector-icons";
+import { View, TextInput, TouchableOpacity } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
 interface Props {
   value: string;
@@ -8,7 +8,11 @@ interface Props {
   placeholder?: string;
 }
 
-export const SearchBar = ({ value, onChangeText, placeholder = 'Search recipes...' }: Props) => {
+export const SearchBar = ({
+  value,
+  onChangeText,
+  placeholder = "Search recipes...",
+}: Props) => {
   return (
     <View style={styles.container}>
       <Ionicons name="search" size={20} style={styles.searchIcon} />
@@ -21,7 +25,7 @@ export const SearchBar = ({ value, onChangeText, placeholder = 'Search recipes..
         autoCorrect={false}
       />
       {value.length > 0 && (
-        <TouchableOpacity onPress={() => onChangeText('')}>
+        <TouchableOpacity onPress={() => onChangeText("")}>
           <Ionicons name="close-circle" size={20} style={styles.clearIcon} />
         </TouchableOpacity>
       )}
@@ -31,8 +35,8 @@ export const SearchBar = ({ value, onChangeText, placeholder = 'Search recipes..
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,

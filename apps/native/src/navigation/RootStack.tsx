@@ -1,22 +1,25 @@
-import { createStaticNavigation, StaticParamList } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Outputs } from '@repo/trpc/client';
-import { lazy } from 'react';
+import {
+  createStaticNavigation,
+  StaticParamList,
+} from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { Outputs } from "@repo/trpc/client";
+import { lazy } from "react";
 
-import { TabNavigator } from './TabNavigator';
+import { TabNavigator } from "./TabNavigator";
 
-import { useIsSignedIn, useIsSignedOut } from '@/lib/signedInContext';
-import EditRecipeScreen from '@/screens/EditRecipeScreen';
-import { FollowsScreen } from '@/screens/FollowsScreen';
-import { RecipeDetailScreen } from '@/screens/RecipeDetailScreen';
-import { UserProfileScreen } from '@/screens/UserProfileScreen';
+import { useIsSignedIn, useIsSignedOut } from "@/lib/signedInContext";
+import EditRecipeScreen from "@/screens/EditRecipeScreen";
+import { FollowsScreen } from "@/screens/FollowsScreen";
+import { RecipeDetailScreen } from "@/screens/RecipeDetailScreen";
+import { UserProfileScreen } from "@/screens/UserProfileScreen";
 
 // Type for AI-parsed recipe result
-type ParsedRecipeResult = Outputs['recipe']['parseRecipeFromUrl'];
+type ParsedRecipeResult = Outputs["recipe"]["parseRecipeFromUrl"];
 
-const StartScreen = lazy(() => import('@/screens/StartScreen'));
-const SignUpScreen = lazy(() => import('@/screens/SignUpScreen'));
-const SignInScreen = lazy(() => import('@/screens/SignInScreen'));
+const StartScreen = lazy(() => import("@/screens/StartScreen"));
+const SignUpScreen = lazy(() => import("@/screens/SignUpScreen"));
+const SignInScreen = lazy(() => import("@/screens/SignInScreen"));
 
 type RootStackParamList = StaticParamList<typeof RootStack>;
 
@@ -25,7 +28,11 @@ declare global {
     interface RootParamList extends RootStackParamList {
       EditRecipe: { parsedRecipe?: ParsedRecipeResult };
       UserProfile: { userId: string };
-      FollowsList: { userId: string; activeTab: 'following' | 'followers'; userName: string };
+      FollowsList: {
+        userId: string;
+        activeTab: "following" | "followers";
+        userName: string;
+      };
       RecipeDetail: { recipeId: number };
       [key: string]: undefined;
     }
@@ -57,20 +64,20 @@ const RootStack = createNativeStackNavigator({
       },
       screens: {
         Start: { screen: StartScreen },
-        'Sign In': {
+        "Sign In": {
           screen: SignInScreen,
           options: {
-            presentation: 'formSheet',
-            sheetAllowedDetents: 'fitToContents',
+            presentation: "formSheet",
+            sheetAllowedDetents: "fitToContents",
             sheetGrabberVisible: true,
             sheetCornerRadius: 24,
           },
         },
-        'Sign Up': {
+        "Sign Up": {
           screen: SignUpScreen,
           options: {
-            presentation: 'formSheet',
-            sheetAllowedDetents: 'fitToContents',
+            presentation: "formSheet",
+            sheetAllowedDetents: "fitToContents",
             sheetGrabberVisible: true,
             sheetCornerRadius: 24,
           },

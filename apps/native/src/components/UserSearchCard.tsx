@@ -1,10 +1,10 @@
-import { View, TouchableOpacity, Image } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { View, TouchableOpacity, Image } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
-import { HSpace } from './Space';
-import { Text } from './Text';
+import { HSpace } from "./Space";
+import { Text } from "./Text";
 
-import { useFollowUser } from '@/api/follows';
+import { useFollowUser } from "@/api/follows";
 
 interface User {
   id: string;
@@ -27,7 +27,11 @@ export const UserSearchCard = ({ user, onUserPress }: Props) => {
 
   return (
     <View style={styles.card}>
-      <TouchableOpacity style={styles.userInfo} onPress={onUserPress} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.userInfo}
+        onPress={onUserPress}
+        activeOpacity={0.7}
+      >
         <View style={styles.avatar}>
           {user.image ? (
             <Image source={{ uri: user.image }} style={styles.avatarImage} />
@@ -55,9 +59,10 @@ export const UserSearchCard = ({ user, onUserPress }: Props) => {
       <TouchableOpacity
         style={styles.followButton}
         onPress={handleFollow}
-        disabled={followMutation.isPending}>
+        disabled={followMutation.isPending}
+      >
         <Text style={styles.followText}>
-          {followMutation.isPending ? 'Following...' : 'Follow'}
+          {followMutation.isPending ? "Following..." : "Follow"}
         </Text>
       </TouchableOpacity>
     </View>
@@ -66,8 +71,8 @@ export const UserSearchCard = ({ user, onUserPress }: Props) => {
 
 const styles = StyleSheet.create((theme) => ({
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
@@ -76,8 +81,8 @@ const styles = StyleSheet.create((theme) => ({
     marginVertical: 4,
   },
   userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   avatar: {
@@ -93,9 +98,9 @@ const styles = StyleSheet.create((theme) => ({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: theme.colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: theme.colors.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarText: {
     fontSize: 18,
@@ -115,7 +120,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.primary,
   },
   followText: {
-    color: 'white',
+    color: "white",
     fontFamily: theme.fonts.albertBold,
     fontSize: 14,
   },

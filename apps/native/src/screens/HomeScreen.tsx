@@ -1,19 +1,27 @@
-import { Ionicons } from '@expo/vector-icons';
-import { LegendList } from '@legendapp/list';
-import { useNavigation, useScrollToTop } from '@react-navigation/native';
-import { Image } from 'expo-image';
-import { useState, useCallback, useMemo, useRef, memo } from 'react';
-import { View, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+import { Ionicons } from "@expo/vector-icons";
+import { LegendList } from "@legendapp/list";
+import { useNavigation, useScrollToTop } from "@react-navigation/native";
+import { Image } from "expo-image";
+import { useState, useCallback, useMemo, useRef, memo } from "react";
+import {
+  View,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet } from "react-native-unistyles";
 
-import { useGetUserCollections, useToggleRecipeInCollection } from '@/api/collection';
-import { useRecommendedRecipes, useLikeRecipe } from '@/api/recipe';
-import { useUser } from '@/api/user';
-import { CollectionSheetManager } from '@/components/CollectionSelectorSheet';
-import { FullWidthRecipeCard } from '@/components/FullWidthRecipeCard';
-import { VSpace } from '@/components/Space';
-import { Text } from '@/components/Text';
+import {
+  useGetUserCollections,
+  useToggleRecipeInCollection,
+} from "@/api/collection";
+import { useRecommendedRecipes, useLikeRecipe } from "@/api/recipe";
+import { useUser } from "@/api/user";
+import { CollectionSheetManager } from "@/components/CollectionSelectorSheet";
+import { FullWidthRecipeCard } from "@/components/FullWidthRecipeCard";
+import { VSpace } from "@/components/Space";
+import { Text } from "@/components/Text";
 
 interface Tag {
   id: number;
@@ -66,7 +74,11 @@ const Header = memo(({ userProfile, onAvatarPress }: HeaderProps) => {
   const renderAvatar = () => {
     if (!userProfile) return null;
     return (
-      <TouchableOpacity style={styles.avatar} onPress={onAvatarPress} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.avatar}
+        onPress={onAvatarPress}
+        activeOpacity={0.7}
+      >
         {userProfile.user.image ? (
           <Image
             source={{ uri: userProfile.user.image }}
@@ -146,50 +158,56 @@ export const HomeScreen = () => {
   const likeRecipeMutation = useLikeRecipe();
   const toggleMutation = useToggleRecipeInCollection();
 
-  const { data, isPending, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } =
-    useRecommendedRecipes();
+  const {
+    data,
+    isPending,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useRecommendedRecipes();
 
   // Flatten paginated data
   const recipes: RecommendedRecipe[] = useMemo(
     () => data?.pages.flatMap((page: any) => page?.items ?? []) ?? [],
-    [data]
+    [data],
   );
 
   // Handlers
   const handleAvatarPress = useCallback(() => {
     if (userProfile?.user?.id) {
-      navigation.navigate('UserProfile', { userId: userProfile.user.id });
+      navigation.navigate("UserProfile", { userId: userProfile.user.id });
     }
   }, [userProfile?.user?.id, navigation]);
 
   const handleRecipePress = useCallback(
     (recipeId: number) => {
-      navigation.navigate('RecipeDetail', { recipeId });
+      navigation.navigate("RecipeDetail", { recipeId });
     },
-    [navigation]
+    [navigation],
   );
 
   const handleLikePress = useCallback(
     (recipeId: number) => {
       likeRecipeMutation.mutate({ recipeId });
     },
-    [likeRecipeMutation]
+    [likeRecipeMutation],
   );
 
   const handleSavePress = useCallback(
     (recipeId: number) => {
-        CollectionSheetManager.show('collection-selector-sheet', {
-          payload: { recipeId },
-        });
+      CollectionSheetManager.show("collection-selector-sheet", {
+        payload: { recipeId },
+      });
     },
-    [userCollections?.length, toggleMutation]
+    [userCollections?.length, toggleMutation],
   );
 
   const handleUserPress = useCallback(
     (userId: string) => {
-      navigation.navigate('UserProfile', { userId });
+      navigation.navigate("UserProfile", { userId });
     },
-    [navigation]
+    [navigation],
   );
 
   const handleLoadMore = useCallback(() => {
@@ -214,25 +232,35 @@ export const HomeScreen = () => {
         onUserPress={() => handleUserPress(item.uploadedBy.id)}
       />
     ),
-    [handleRecipePress, handleLikePress, handleSavePress, handleUserPress]
+    [handleRecipePress, handleLikePress, handleSavePress, handleUserPress],
   );
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={["top"]}>
         <LegendList
           ref={listRef}
           data={recipes}
           renderItem={renderRecipe}
           keyExtractor={(item) => item.id.toString()}
           ListHeaderComponent={
-            <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
+            <Header
+              userProfile={userProfile}
+              onAvatarPress={handleAvatarPress}
+            />
           }
           ListEmptyComponent={<Empty isPending={isPending} />}
-          ListFooterComponent={<Footer isFetchingNextPage={isFetchingNextPage} />}
+          ListFooterComponent={
+            <Footer isFetchingNextPage={isFetchingNextPage} />
+          }
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          }
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
         />
@@ -253,9 +281,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   clubText: {
     color: theme.colors.primary,
@@ -273,9 +301,9 @@ const styles = StyleSheet.create((theme) => ({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: theme.colors.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarText: {
     fontSize: 16,
@@ -283,18 +311,18 @@ const styles = StyleSheet.create((theme) => ({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyIcon: {
     color: theme.colors.border,
   },
   emptyText: {
-    textAlign: 'center',
+    textAlign: "center",
   },
   footerLoader: {
     paddingVertical: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
 }));

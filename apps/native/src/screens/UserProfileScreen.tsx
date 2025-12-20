@@ -1,14 +1,20 @@
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import { View, Image, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import {
+  View,
+  Image,
+  ActivityIndicator,
+  Alert,
+  TouchableOpacity,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet } from "react-native-unistyles";
 
-import { useUserProfile, useFollowUser, useUnfollowUser } from '@/api/follows';
-import { useUser } from '@/api/user';
-import { VSpace } from '@/components/Space';
-import { Text } from '@/components/Text';
-import { BackButton } from '@/components/buttons/BackButton';
-import { PrimaryButton } from '@/components/buttons/PrimaryButton';
+import { useUserProfile, useFollowUser, useUnfollowUser } from "@/api/follows";
+import { useUser } from "@/api/user";
+import { VSpace } from "@/components/Space";
+import { Text } from "@/components/Text";
+import { BackButton } from "@/components/buttons/BackButton";
+import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 
 type UserProfileScreenParams = {
   UserProfile: {
@@ -16,7 +22,10 @@ type UserProfileScreenParams = {
   };
 };
 
-type UserProfileScreenRouteProp = RouteProp<UserProfileScreenParams, 'UserProfile'>;
+type UserProfileScreenRouteProp = RouteProp<
+  UserProfileScreenParams,
+  "UserProfile"
+>;
 
 export const UserProfileScreen = () => {
   const route = useRoute<UserProfileScreenRouteProp>();
@@ -35,14 +44,18 @@ export const UserProfileScreen = () => {
   };
 
   const handleUnfollow = () => {
-    Alert.alert('Unfollow User', `Are you sure you want to unfollow ${profile?.user.name}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Unfollow',
-        style: 'destructive',
-        onPress: () => unfollowMutation.mutate({ userId }),
-      },
-    ]);
+    Alert.alert(
+      "Unfollow User",
+      `Are you sure you want to unfollow ${profile?.user.name}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Unfollow",
+          style: "destructive",
+          onPress: () => unfollowMutation.mutate({ userId }),
+        },
+      ],
+    );
   };
 
   const renderActionButton = () => {
@@ -78,8 +91,9 @@ export const UserProfileScreen = () => {
           <PrimaryButton
             onPress={handleUnfollow}
             disabled={isLoading}
-            style={styles.secondaryButton}>
-            {unfollowMutation.isPending ? 'Unfollowing...' : 'Unfollow'}
+            style={styles.secondaryButton}
+          >
+            {unfollowMutation.isPending ? "Unfollowing..." : "Unfollow"}
           </PrimaryButton>
         </View>
       );
@@ -96,7 +110,7 @@ export const UserProfileScreen = () => {
           </>
         )}
         <PrimaryButton onPress={handleFollow} disabled={isLoading}>
-          {followMutation.isPending ? 'Following...' : 'Follow'}
+          {followMutation.isPending ? "Following..." : "Follow"}
         </PrimaryButton>
       </View>
     );
@@ -129,9 +143,9 @@ export const UserProfileScreen = () => {
   }
 
   const formatJoinDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-GB', {
-      year: 'numeric',
-      month: 'long',
+    return new Date(date).toLocaleDateString("en-GB", {
+      year: "numeric",
+      month: "long",
     });
   };
 
@@ -148,7 +162,10 @@ export const UserProfileScreen = () => {
           <View style={styles.profileHeader}>
             <View style={styles.avatar}>
               {profile.user.image ? (
-                <Image source={{ uri: profile.user.image }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: profile.user.image }}
+                  style={styles.avatarImage}
+                />
               ) : (
                 <View style={styles.avatarPlaceholder}>
                   <Text type="largeTitle" style={styles.avatarText}>
@@ -181,13 +198,14 @@ export const UserProfileScreen = () => {
               <TouchableOpacity
                 style={styles.statItem}
                 onPress={() =>
-                  navigation.navigate('FollowsList', {
+                  navigation.navigate("FollowsList", {
                     userId,
-                    activeTab: 'followers',
+                    activeTab: "followers",
                     userName: profile.user.name,
                   })
                 }
-                activeOpacity={0.7}>
+                activeOpacity={0.7}
+              >
                 <Text type="heading" style={styles.statNumber}>
                   {profile.followersCount}
                 </Text>
@@ -198,13 +216,14 @@ export const UserProfileScreen = () => {
               <TouchableOpacity
                 style={styles.statItem}
                 onPress={() =>
-                  navigation.navigate('FollowsList', {
+                  navigation.navigate("FollowsList", {
                     userId,
-                    activeTab: 'following',
+                    activeTab: "following",
                     userName: profile.user.name,
                   })
                 }
-                activeOpacity={0.7}>
+                activeOpacity={0.7}
+              >
                 <Text type="heading" style={styles.statNumber}>
                   {profile.followingCount}
                 </Text>
@@ -253,15 +272,15 @@ const styles = StyleSheet.create((theme) => ({
   },
   content: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   profileHeader: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   avatar: {
     width: 100,
@@ -276,55 +295,55 @@ const styles = StyleSheet.create((theme) => ({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: theme.colors.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: theme.colors.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarText: {
     color: theme.colors.primary,
   },
   name: {
-    textAlign: 'center',
+    textAlign: "center",
   },
   email: {
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 4,
   },
   joinDate: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 14,
   },
   actionSection: {
-    width: '100%',
+    width: "100%",
     maxWidth: 300,
   },
   buttonContainer: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statusText: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 16,
   },
   followsYouText: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 14,
   },
   ownProfileText: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 16,
   },
   secondaryButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 32,
   },
   statItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statNumber: {
     fontSize: 20,
@@ -334,7 +353,7 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 2,
   },
   comingSoonSection: {
-    alignItems: 'center',
+    alignItems: "center",
     opacity: 0.6,
   },
   comingSoon: {

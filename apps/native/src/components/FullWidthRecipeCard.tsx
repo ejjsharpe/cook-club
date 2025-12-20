@@ -1,12 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
-import { formatDistanceToNow } from 'date-fns';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useMemo } from 'react';
-import { View, TouchableOpacity, ScrollView } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { Ionicons } from "@expo/vector-icons";
+import { formatDistanceToNow } from "date-fns";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { memo, useMemo } from "react";
+import { View, TouchableOpacity, ScrollView } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
-import { Text } from './Text';
+import { Text } from "./Text";
 
 interface Tag {
   id: number;
@@ -48,7 +48,7 @@ interface Props {
 const getInitials = (name: string): string => {
   const words = name
     .trim()
-    .split(' ')
+    .split(" ")
     .filter((w) => w.length > 0);
   if (words.length >= 2) {
     const firstWord = words[0];
@@ -63,19 +63,28 @@ const getInitials = (name: string): string => {
 export const FullWidthRecipeCard = memo(
   ({ recipe, onPress, onLikePress, onSavePress, onUserPress }: Props) => {
     const timeAgo = useMemo(
-      () => formatDistanceToNow(new Date(recipe.createdAt), { addSuffix: true }),
-      [recipe.createdAt]
+      () =>
+        formatDistanceToNow(new Date(recipe.createdAt), { addSuffix: true }),
+      [recipe.createdAt],
     );
     const isSaved = recipe.collectionIds.length > 0;
     const userInitials = useMemo(
       () => getInitials(recipe.uploadedBy.name),
-      [recipe.uploadedBy.name]
+      [recipe.uploadedBy.name],
     );
 
     return (
-      <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={onPress}
+        activeOpacity={0.9}
+      >
         {/* User Header */}
-        <TouchableOpacity style={styles.userHeader} onPress={onUserPress} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.userHeader}
+          onPress={onUserPress}
+          activeOpacity={0.7}
+        >
           <View style={styles.avatar}>
             {recipe.uploadedBy.image ? (
               <Image
@@ -112,10 +121,17 @@ export const FullWidthRecipeCard = memo(
             />
           ) : (
             <View style={[styles.coverImage, styles.placeholderImage]}>
-              <Ionicons name="restaurant" size={64} style={styles.placeholderIcon} />
+              <Ionicons
+                name="restaurant"
+                size={64}
+                style={styles.placeholderIcon}
+              />
             </View>
           )}
-          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={styles.gradient} />
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.7)"]}
+            style={styles.gradient}
+          />
           <View style={styles.overlay}>
             <Text type="title2" style={styles.recipeName} numberOfLines={2}>
               {recipe.name}
@@ -124,14 +140,26 @@ export const FullWidthRecipeCard = memo(
               <View style={styles.overlayMetadata}>
                 {recipe.totalTime && (
                   <View style={styles.overlayMetadataItem}>
-                    <Ionicons name="time-outline" size={14} style={styles.overlayMetadataIcon} />
-                    <Text style={styles.overlayMetadataText}>{recipe.totalTime}</Text>
+                    <Ionicons
+                      name="time-outline"
+                      size={14}
+                      style={styles.overlayMetadataIcon}
+                    />
+                    <Text style={styles.overlayMetadataText}>
+                      {recipe.totalTime}
+                    </Text>
                   </View>
                 )}
                 {recipe.servings && (
                   <View style={styles.overlayMetadataItem}>
-                    <Ionicons name="people-outline" size={14} style={styles.overlayMetadataIcon} />
-                    <Text style={styles.overlayMetadataText}>{recipe.servings}</Text>
+                    <Ionicons
+                      name="people-outline"
+                      size={14}
+                      style={styles.overlayMetadataIcon}
+                    />
+                    <Text style={styles.overlayMetadataText}>
+                      {recipe.servings}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -144,23 +172,27 @@ export const FullWidthRecipeCard = memo(
           <TouchableOpacity
             style={styles.interactionButton}
             onPress={onLikePress}
-            activeOpacity={0.7}>
+            activeOpacity={0.7}
+          >
             <Ionicons
-              name={recipe.isLiked ? 'heart' : 'heart-outline'}
+              name={recipe.isLiked ? "heart" : "heart-outline"}
               size={24}
               style={recipe.isLiked ? styles.iconLiked : styles.iconDefault}
             />
             {recipe.likeCount > 0 && (
-              <Text style={styles.interactionButtonText}>{recipe.likeCount}</Text>
+              <Text style={styles.interactionButtonText}>
+                {recipe.likeCount}
+              </Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.interactionButton}
             onPress={onSavePress}
-            activeOpacity={0.7}>
+            activeOpacity={0.7}
+          >
             <Ionicons
-              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              name={isSaved ? "bookmark" : "bookmark-outline"}
               size={24}
               style={isSaved ? styles.iconSaved : styles.iconDefault}
             />
@@ -178,7 +210,7 @@ export const FullWidthRecipeCard = memo(
         </View>
       </TouchableOpacity>
     );
-  }
+  },
 );
 
 const styles = StyleSheet.create((theme) => ({
@@ -186,11 +218,11 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     borderRadius: 0,
     marginVertical: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   userHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
     paddingHorizontal: 16,
     gap: 12,
@@ -199,23 +231,23 @@ const styles = StyleSheet.create((theme) => ({
     width: 40,
     height: 40,
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   avatarImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   avatarPlaceholder: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarInitials: {
     color: theme.colors.buttonText,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   userInfo: {
     flex: 1,
@@ -223,34 +255,34 @@ const styles = StyleSheet.create((theme) => ({
   },
   userName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   uploadTime: {
     fontSize: 12,
   },
   imageContainer: {
-    position: 'relative',
-    width: '100%',
+    position: "relative",
+    width: "100%",
     aspectRatio: 3 / 2,
   },
   coverImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   placeholderImage: {
     backgroundColor: theme.colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   gradient: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: '60%',
+    height: "60%",
   },
   overlay: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
@@ -258,18 +290,18 @@ const styles = StyleSheet.create((theme) => ({
   },
   recipeName: {
     color: theme.colors.buttonText,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   overlayMetadata: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginTop: 8,
   },
   overlayMetadataItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   overlayMetadataIcon: {
@@ -278,7 +310,7 @@ const styles = StyleSheet.create((theme) => ({
   overlayMetadataText: {
     color: theme.colors.buttonText,
     fontSize: 13,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
@@ -286,7 +318,7 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.border,
   },
   interactionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 20,
@@ -294,8 +326,8 @@ const styles = StyleSheet.create((theme) => ({
     borderBottomColor: theme.colors.border,
   },
   interactionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   interactionButtonText: {
@@ -318,14 +350,14 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 12,
   },
   metadata: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 16,
     marginBottom: 12,
   },
   metadataItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   metadataIcon: {

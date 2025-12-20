@@ -1,31 +1,39 @@
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import { useTRPC } from '@repo/trpc/client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Alert, FlatList, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native-unistyles';
+import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { useTRPC } from "@repo/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import React, { useState } from "react";
+import {
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  FlatList,
+  Modal,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet } from "react-native-unistyles";
 
-import { Input } from '@/components/Input';
-import { VSpace } from '@/components/Space';
-import { Text } from '@/components/Text';
-import { TimePicker } from '@/components/TimePicker';
-import { BackButton } from '@/components/buttons/BackButton';
-import { PrimaryButton } from '@/components/buttons/PrimaryButton';
-import { TimeValue, parseDuration, formatDurationISO } from '@/utils/timeUtils';
+import { Input } from "@/components/Input";
+import { VSpace } from "@/components/Space";
+import { Text } from "@/components/Text";
+import { TimePicker } from "@/components/TimePicker";
+import { BackButton } from "@/components/buttons/BackButton";
+import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { TimeValue, parseDuration, formatDurationISO } from "@/utils/timeUtils";
 
 interface ParsedIngredient {
   quantity: number | null;
   unit: string | null;
   name: string;
-  confidence: 'high' | 'medium' | 'low';
+  confidence: "high" | "medium" | "low";
   originalText: string;
 }
 
 export default function EditRecipeScreen() {
-  const route = useRoute<RouteProp<ReactNavigation.RootParamList, 'EditRecipe'>>();
+  const route =
+    useRoute<RouteProp<ReactNavigation.RootParamList, "EditRecipe">>();
   const parsedRecipe = route.params?.parsedRecipe;
   // Extract the recipe data if parsing was successful
   const prefill = parsedRecipe?.success ? parsedRecipe.data : undefined;
@@ -35,40 +43,46 @@ export default function EditRecipeScreen() {
 
   // Convert structured ingredients back to text format for editing
   const getIngredientText = () => {
-    if (!prefill?.ingredients) return [''];
+    if (!prefill?.ingredients) return [""];
     return prefill.ingredients.map((ing) => {
       const parts = [];
       if (ing.quantity) parts.push(ing.quantity.toString());
       if (ing.unit) parts.push(ing.unit);
       parts.push(ing.name);
-      return parts.join(' ');
+      return parts.join(" ");
     });
   };
 
   // Convert structured instructions to text format
   const getInstructionsText = () => {
-    if (!prefill?.instructions) return [''];
+    if (!prefill?.instructions) return [""];
     return prefill.instructions.map((inst) => inst.instruction);
   };
 
-  const [title, setTitle] = useState(prefill?.name || '');
-  const [author, setAuthor] = useState('');
-  const [description, setDescription] = useState(prefill?.description || '');
-  const [prepTime, setPrepTime] = useState<TimeValue>(parseDuration(prefill?.prepTime || ''));
-  const [cookTime, setCookTime] = useState<TimeValue>(parseDuration(prefill?.cookTime || ''));
+  const [title, setTitle] = useState(prefill?.name || "");
+  const [author, setAuthor] = useState("");
+  const [description, setDescription] = useState(prefill?.description || "");
+  const [prepTime, setPrepTime] = useState<TimeValue>(
+    parseDuration(prefill?.prepTime || ""),
+  );
+  const [cookTime, setCookTime] = useState<TimeValue>(
+    parseDuration(prefill?.cookTime || ""),
+  );
   const [servings, setServings] = useState<number>(prefill?.servings || 4);
   const [ingredients, setIngredients] = useState<string[]>(getIngredientText);
   const [method, setMethod] = useState<string[]>(getInstructionsText);
   const [images, setImages] = useState<string[]>(prefill?.images || []);
   const [showParsePreview, setShowParsePreview] = useState(false);
-  const [parsedIngredients, setParsedIngredients] = useState<ParsedIngredient[]>([]);
+  const [parsedIngredients, setParsedIngredients] = useState<
+    ParsedIngredient[]
+  >([]);
 
   const updateIngredient = (idx: number, value: string) => {
     setIngredients((prev) => prev.map((ing, i) => (i === idx ? value : ing)));
   };
 
   const addIngredient = () => {
-    setIngredients((prev) => [...prev, '']);
+    setIngredients((prev) => [...prev, ""]);
   };
 
   const removeIngredient = (idx: number) => {
@@ -80,7 +94,7 @@ export default function EditRecipeScreen() {
   };
 
   const addMethod = () => {
-    setMethod((prev) => [...prev, '']);
+    setMethod((prev) => [...prev, ""]);
   };
 
   const removeMethod = (idx: number) => {
@@ -89,7 +103,7 @@ export default function EditRecipeScreen() {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
@@ -107,7 +121,7 @@ export default function EditRecipeScreen() {
   const saveRecipeMutation = useMutation({
     ...trpc.recipe.postRecipe.mutationOptions(),
     onSuccess: ({ id }) => {
-      navigation.navigate('RecipeDetail', { recipeId: id });
+      navigation.navigate("RecipeDetail", { recipeId: id });
     },
   });
 
@@ -115,7 +129,7 @@ export default function EditRecipeScreen() {
     const validIngredients = ingredients.filter((ing) => ing.trim());
 
     if (validIngredients.length === 0) {
-      Alert.alert('Error', 'Please add at least one ingredient first');
+      Alert.alert("Error", "Please add at least one ingredient first");
       return;
     }
 
@@ -123,39 +137,42 @@ export default function EditRecipeScreen() {
       const parsed = await queryClient.fetchQuery(
         trpc.recipe.parseIngredients.queryOptions({
           ingredients: validIngredients,
-        })
+        }),
       );
 
       if (parsed) {
         setParsedIngredients(parsed);
         setShowParsePreview(true);
       } else {
-        Alert.alert('Error', 'Parsing service unavailable. Please try again later.');
+        Alert.alert(
+          "Error",
+          "Parsing service unavailable. Please try again later.",
+        );
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to parse ingredients. Please try again.');
+      Alert.alert("Error", "Failed to parse ingredients. Please try again.");
     }
   };
 
   const onSave = () => {
     // Validate required fields
     if (!title.trim()) {
-      Alert.alert('Error', 'Please enter a recipe title');
+      Alert.alert("Error", "Please enter a recipe title");
       return;
     }
 
     if (ingredients.filter((ing) => ing.trim()).length === 0) {
-      Alert.alert('Error', 'Please add at least one ingredient');
+      Alert.alert("Error", "Please add at least one ingredient");
       return;
     }
 
     if (method.filter((step) => step.trim()).length === 0) {
-      Alert.alert('Error', 'Please add at least one cooking step');
+      Alert.alert("Error", "Please add at least one cooking step");
       return;
     }
 
     if (images.length === 0) {
-      Alert.alert('Error', 'Please add at least one image');
+      Alert.alert("Error", "Please add at least one image");
       return;
     }
 
@@ -206,7 +223,7 @@ export default function EditRecipeScreen() {
               <View style={styles.padded}>
                 <View style={styles.imageHeader}>
                   <Text type="body" style={styles.photoCount}>
-                    {images.length} photo{images.length !== 1 ? 's' : ''}
+                    {images.length} photo{images.length !== 1 ? "s" : ""}
                   </Text>
                 </View>
               </View>
@@ -221,7 +238,8 @@ export default function EditRecipeScreen() {
                     <Image source={{ uri }} style={styles.image} />
                     <TouchableOpacity
                       style={styles.imageRemoveButton}
-                      onPress={() => removeImage(index)}>
+                      onPress={() => removeImage(index)}
+                    >
                       <Text style={styles.removeButtonText}>×</Text>
                     </TouchableOpacity>
                   </View>
@@ -234,7 +252,10 @@ export default function EditRecipeScreen() {
               </View>
             </>
           ) : (
-            <TouchableOpacity style={styles.imagePlaceholder} onPress={pickImage}>
+            <TouchableOpacity
+              style={styles.imagePlaceholder}
+              onPress={pickImage}
+            >
               <Text type="body" style={styles.placeholderText}>
                 Tap to add photo
               </Text>
@@ -244,11 +265,19 @@ export default function EditRecipeScreen() {
             <VSpace size={16} />
             <Text type="heading">Recipe title</Text>
             <VSpace size={8} />
-            <Input value={title} onChangeText={setTitle} placeholder="Sausage tray bake" />
+            <Input
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Sausage tray bake"
+            />
             <VSpace size={20} />
             <Text type="heading">Author</Text>
             <VSpace size={8} />
-            <Input value={author} onChangeText={setAuthor} placeholder="Your name" />
+            <Input
+              value={author}
+              onChangeText={setAuthor}
+              placeholder="Your name"
+            />
             <VSpace size={20} />
             <Text type="heading">Description</Text>
             <VSpace size={8} />
@@ -284,13 +313,15 @@ export default function EditRecipeScreen() {
               </Text>
               <TouchableOpacity
                 onPress={() => setServings(Math.max(1, servings - 1))}
-                style={styles.servingButton}>
+                style={styles.servingButton}
+              >
                 <Text type="heading">-</Text>
               </TouchableOpacity>
               <Text style={{ marginHorizontal: 8 }}>{servings}</Text>
               <TouchableOpacity
                 onPress={() => setServings(servings + 1)}
-                style={styles.servingButton}>
+                style={styles.servingButton}
+              >
                 <Text type="heading">+</Text>
               </TouchableOpacity>
             </View>
@@ -311,7 +342,8 @@ export default function EditRecipeScreen() {
                   {ingredients.length > 1 && (
                     <TouchableOpacity
                       onPress={() => removeIngredient(idx)}
-                      style={styles.removeButton}>
+                      style={styles.removeButton}
+                    >
                       <Text type="heading">×</Text>
                     </TouchableOpacity>
                   )}
@@ -322,7 +354,10 @@ export default function EditRecipeScreen() {
               <Text type="highlight">+ Add ingredient</Text>
             </TouchableOpacity>
             {ingredients.filter((ing) => ing.trim()).length > 0 && (
-              <TouchableOpacity onPress={handlePreviewParsing} style={styles.previewButton}>
+              <TouchableOpacity
+                onPress={handlePreviewParsing}
+                style={styles.previewButton}
+              >
                 <Text type="body" style={styles.previewButtonText}>
                   👁️ Preview how ingredients will be parsed
                 </Text>
@@ -342,7 +377,10 @@ export default function EditRecipeScreen() {
                     style={{ flex: 1 }}
                   />
                   {method.length > 1 && (
-                    <TouchableOpacity onPress={() => removeMethod(idx)} style={styles.removeButton}>
+                    <TouchableOpacity
+                      onPress={() => removeMethod(idx)}
+                      style={styles.removeButton}
+                    >
                       <Text type="heading">×</Text>
                     </TouchableOpacity>
                   )}
@@ -353,8 +391,11 @@ export default function EditRecipeScreen() {
               <Text type="highlight">+ Add step</Text>
             </TouchableOpacity>
             <VSpace size={32} />
-            <PrimaryButton onPress={onSave} disabled={saveRecipeMutation.isPending}>
-              {saveRecipeMutation.isPending ? 'Saving...' : 'Save recipe'}
+            <PrimaryButton
+              onPress={onSave}
+              disabled={saveRecipeMutation.isPending}
+            >
+              {saveRecipeMutation.isPending ? "Saving..." : "Save recipe"}
             </PrimaryButton>
             <VSpace size={32} />
           </View>
@@ -366,7 +407,8 @@ export default function EditRecipeScreen() {
         visible={showParsePreview}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowParsePreview(false)}>
+        onRequestClose={() => setShowParsePreview(false)}
+      >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text type="title2">Parsed Ingredients</Text>
@@ -376,8 +418,8 @@ export default function EditRecipeScreen() {
           </View>
           <VSpace size={16} />
           <Text type="body" style={styles.modalDescription}>
-            Here's how your ingredients will be stored. Check that quantities and units are parsed
-            correctly:
+            Here's how your ingredients will be stored. Check that quantities
+            and units are parsed correctly:
           </Text>
           <VSpace size={16} />
           <ScrollView style={styles.modalScroll}>
@@ -390,22 +432,25 @@ export default function EditRecipeScreen() {
                   <View
                     style={[
                       styles.confidenceBadge,
-                      parsed.confidence === 'high' && styles.confidenceHigh,
-                      parsed.confidence === 'medium' && styles.confidenceMedium,
-                      parsed.confidence === 'low' && styles.confidenceLow,
-                    ]}>
-                    <Text style={styles.confidenceText}>{parsed.confidence}</Text>
+                      parsed.confidence === "high" && styles.confidenceHigh,
+                      parsed.confidence === "medium" && styles.confidenceMedium,
+                      parsed.confidence === "low" && styles.confidenceLow,
+                    ]}
+                  >
+                    <Text style={styles.confidenceText}>
+                      {parsed.confidence}
+                    </Text>
                   </View>
                 </View>
                 <VSpace size={8} />
                 <View style={styles.parsedFields}>
                   <View style={styles.parsedField}>
                     <Text type="bodyFaded">Quantity:</Text>
-                    <Text type="body">{parsed.quantity ?? 'none'}</Text>
+                    <Text type="body">{parsed.quantity ?? "none"}</Text>
                   </View>
                   <View style={styles.parsedField}>
                     <Text type="bodyFaded">Unit:</Text>
-                    <Text type="body">{parsed.unit || 'none'}</Text>
+                    <Text type="body">{parsed.unit || "none"}</Text>
                   </View>
                   <View style={styles.parsedField}>
                     <Text type="bodyFaded">Ingredient:</Text>
@@ -418,8 +463,8 @@ export default function EditRecipeScreen() {
           </ScrollView>
           <View style={styles.modalFooter}>
             <Text type="bodyFaded" style={styles.modalFooterText}>
-              If parsing looks incorrect, edit your ingredient text and preview again. The recipe
-              will be saved with these parsed values.
+              If parsing looks incorrect, edit your ingredient text and preview
+              again. The recipe will be saved with these parsed values.
             </Text>
           </View>
         </SafeAreaView>
@@ -431,15 +476,15 @@ export default function EditRecipeScreen() {
 const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   padded: {
     paddingHorizontal: 20,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerSpacer: {
     width: 24, // Same width as back button for centering
@@ -451,7 +496,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: 4,
   },
   photoCount: {
-    color: '#666',
+    color: "#666",
     fontSize: 14,
   },
   imageList: {
@@ -460,59 +505,59 @@ const styles = StyleSheet.create((theme) => ({
   },
   imageContainer: {
     marginRight: 12,
-    position: 'relative',
+    position: "relative",
   },
   image: {
     width: 180,
     height: 180,
     borderRadius: 12,
-    backgroundColor: '#eee',
+    backgroundColor: "#eee",
   },
   imageRemoveButton: {
-    position: 'absolute',
+    position: "absolute",
     top: -8,
     right: -8,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#ff4444',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#ff4444",
+    alignItems: "center",
+    justifyContent: "center",
   },
   removeButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     lineHeight: 20,
   },
   imagePlaceholder: {
-    width: '100%',
+    width: "100%",
     height: 220,
-    backgroundColor: '#eee',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#eee",
+    alignItems: "center",
+    justifyContent: "center",
   },
   placeholderText: {
-    color: '#666',
+    color: "#666",
   },
   scrollContent: {
     paddingBottom: 40,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   servingButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: theme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   ingredientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
   },
   removeButton: {
@@ -527,8 +572,8 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 12,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: theme.colors.border + '30',
-    alignItems: 'center',
+    backgroundColor: theme.colors.border + "30",
+    alignItems: "center",
   },
   previewButtonText: {
     color: theme.colors.text,
@@ -537,16 +582,16 @@ const styles = StyleSheet.create((theme) => ({
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 20,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   modalDescription: {
-    color: '#666',
+    color: "#666",
     lineHeight: 20,
   },
   modalScroll: {
@@ -554,21 +599,21 @@ const styles = StyleSheet.create((theme) => ({
   },
   parsedItem: {
     padding: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 8,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   parsedItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   originalText: {
     flex: 1,
-    fontStyle: 'italic',
-    color: '#666',
+    fontStyle: "italic",
+    color: "#666",
     fontSize: 13,
   },
   confidenceBadge: {
@@ -578,36 +623,36 @@ const styles = StyleSheet.create((theme) => ({
     marginLeft: 8,
   },
   confidenceHigh: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
   },
   confidenceMedium: {
-    backgroundColor: '#FF9800',
+    backgroundColor: "#FF9800",
   },
   confidenceLow: {
-    backgroundColor: '#F44336',
+    backgroundColor: "#F44336",
   },
   confidenceText: {
-    color: 'white',
+    color: "white",
     fontSize: 11,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
+    fontWeight: "bold",
+    textTransform: "uppercase",
   },
   parsedFields: {
     gap: 6,
   },
   parsedField: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   modalFooter: {
     padding: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 8,
     marginTop: 8,
   },
   modalFooterText: {
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 18,
   },
 }));

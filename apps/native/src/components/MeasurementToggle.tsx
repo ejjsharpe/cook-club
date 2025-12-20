@@ -1,19 +1,25 @@
-import React from 'react';
-import { View, TouchableOpacity } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import React from "react";
+import { View, TouchableOpacity } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
-import { Text } from './Text';
+import { Text } from "./Text";
 
-import { MeasurementSystem, getMeasurementDisplayName } from '@/lib/measurementPreferences';
+import {
+  MeasurementSystem,
+  getMeasurementDisplayName,
+} from "@/lib/measurementPreferences";
 
 interface MeasurementToggleProps {
   value: MeasurementSystem;
   onValueChange: (system: MeasurementSystem) => void;
 }
 
-const options: MeasurementSystem[] = ['auto', 'metric', 'imperial'];
+const options: MeasurementSystem[] = ["auto", "metric", "imperial"];
 
-export function MeasurementToggle({ value, onValueChange }: MeasurementToggleProps) {
+export function MeasurementToggle({
+  value,
+  onValueChange,
+}: MeasurementToggleProps) {
   return (
     <View style={styles.container}>
       <Text type="heading" style={styles.label}>
@@ -23,11 +29,19 @@ export function MeasurementToggle({ value, onValueChange }: MeasurementTogglePro
         {options.map((option) => (
           <TouchableOpacity
             key={option}
-            style={[styles.toggleButton, value === option && styles.toggleButtonActive]}
-            onPress={() => onValueChange(option)}>
+            style={[
+              styles.toggleButton,
+              value === option && styles.toggleButtonActive,
+            ]}
+            onPress={() => onValueChange(option)}
+          >
             <Text
               type="body"
-              style={[styles.toggleText, value === option && styles.toggleTextActive]}>
+              style={[
+                styles.toggleText,
+                value === option && styles.toggleTextActive,
+              ]}
+            >
               {getMeasurementDisplayName(option)}
             </Text>
           </TouchableOpacity>
@@ -45,7 +59,7 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 8,
   },
   toggleContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 8,
     backgroundColor: theme.colors.border,
     padding: 2,
@@ -55,17 +69,17 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: "center",
   },
   toggleButtonActive: {
     backgroundColor: theme.colors.primary,
   },
   toggleText: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
   },
   toggleTextActive: {
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
   },
 }));

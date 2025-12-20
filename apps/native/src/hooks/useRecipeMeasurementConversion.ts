@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 import {
   getMeasurementPreference,
   setMeasurementPreference,
   MeasurementSystem,
-} from '@/lib/measurementPreferences';
+} from "@/lib/measurementPreferences";
 import {
   detectSystemFromIngredients,
   convertIngredientText,
   convertMethodText,
-} from '@/utils/measurementUtils';
+} from "@/utils/measurementUtils";
 
 export interface UseRecipeMeasurementConversionProps {
   ingredients: string[];
@@ -21,9 +21,11 @@ export function useRecipeMeasurementConversion({
   method,
 }: UseRecipeMeasurementConversionProps) {
   const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>(
-    getMeasurementPreference() || 'auto'
+    getMeasurementPreference() || "auto",
   );
-  const [convertedIngredients, setConvertedIngredients] = useState<string[]>([]);
+  const [convertedIngredients, setConvertedIngredients] = useState<string[]>(
+    [],
+  );
   const [convertedMethod, setConvertedMethod] = useState<string[]>([]);
 
   // Update converted ingredients when measurement system or ingredients change
@@ -40,8 +42,11 @@ export function useRecipeMeasurementConversion({
     }
   }, [measurementSystem, method]);
 
-  const updateConvertedIngredients = (ingredientList: string[], system: MeasurementSystem) => {
-    if (system === 'auto') {
+  const updateConvertedIngredients = (
+    ingredientList: string[],
+    system: MeasurementSystem,
+  ) => {
+    if (system === "auto") {
       setConvertedIngredients(ingredientList);
       return;
     }
@@ -54,8 +59,11 @@ export function useRecipeMeasurementConversion({
     setConvertedIngredients(converted);
   };
 
-  const updateConvertedMethod = (methodList: string[], system: MeasurementSystem) => {
-    if (system === 'auto') {
+  const updateConvertedMethod = (
+    methodList: string[],
+    system: MeasurementSystem,
+  ) => {
+    if (system === "auto") {
       setConvertedMethod(methodList);
       return;
     }
@@ -74,11 +82,11 @@ export function useRecipeMeasurementConversion({
   };
 
   const getDisplayIngredients = () => {
-    return measurementSystem === 'auto' ? ingredients : convertedIngredients;
+    return measurementSystem === "auto" ? ingredients : convertedIngredients;
   };
 
   const getDisplayMethod = () => {
-    return measurementSystem === 'auto' ? method : convertedMethod;
+    return measurementSystem === "auto" ? method : convertedMethod;
   };
 
   const getDetectedSystem = () => {

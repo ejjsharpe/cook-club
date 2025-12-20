@@ -1,6 +1,6 @@
-import { useTRPC } from '@repo/trpc/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Alert } from 'react-native';
+import { useTRPC } from "@repo/trpc/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Alert } from "react-native";
 
 // Get user's shopping list
 export const useGetShoppingList = () => {
@@ -15,53 +15,61 @@ export const useAddRecipeToShoppingList = () => {
 
   type RecipeDetailOutput = any; // Type will be inferred from tRPC
 
-  const mutationOptions = trpc.shopping.addRecipeToShoppingList.mutationOptions({
-    onMutate: async (variables) => {
-      const { recipeId } = variables;
+  const mutationOptions = trpc.shopping.addRecipeToShoppingList.mutationOptions(
+    {
+      onMutate: async (variables) => {
+        const { recipeId } = variables;
 
-      // Get query filters
-      const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
-      const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
+        // Get query filters
+        const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
+        const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
 
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries(recipeDetailFilter);
-      await queryClient.cancelQueries(shoppingListFilter);
+        // Cancel outgoing refetches
+        await queryClient.cancelQueries(recipeDetailFilter);
+        await queryClient.cancelQueries(shoppingListFilter);
 
-      // Snapshot previous values
-      const recipeDetailQueryKey = trpc.recipe.getRecipeDetail.queryKey({ recipeId });
-      const previousRecipeDetail =
-        queryClient.getQueryData<RecipeDetailOutput>(recipeDetailQueryKey);
-
-      // Optimistically update recipe detail to show it's in shopping list
-      if (previousRecipeDetail) {
-        queryClient.setQueryData(recipeDetailQueryKey, {
-          ...previousRecipeDetail,
-          isInShoppingList: true,
+        // Snapshot previous values
+        const recipeDetailQueryKey = trpc.recipe.getRecipeDetail.queryKey({
+          recipeId,
         });
-      }
+        const previousRecipeDetail =
+          queryClient.getQueryData<RecipeDetailOutput>(recipeDetailQueryKey);
 
-      return { previousRecipeDetail, recipeDetailQueryKey };
-    },
-    onSuccess: () => {
-      // Invalidate shopping list query to refresh
-      const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
-      queryClient.invalidateQueries(shoppingListFilter);
-    },
-    onError: (error, variables, context) => {
-      // Rollback on error
-      if (context?.previousRecipeDetail && context?.recipeDetailQueryKey) {
-        queryClient.setQueryData(context.recipeDetailQueryKey, context.previousRecipeDetail);
-      }
+        // Optimistically update recipe detail to show it's in shopping list
+        if (previousRecipeDetail) {
+          queryClient.setQueryData(recipeDetailQueryKey, {
+            ...previousRecipeDetail,
+            isInShoppingList: true,
+          });
+        }
 
-      const message = error.message || 'Failed to add recipe to shopping list';
-      Alert.alert('Error', message);
+        return { previousRecipeDetail, recipeDetailQueryKey };
+      },
+      onSuccess: () => {
+        // Invalidate shopping list query to refresh
+        const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
+        queryClient.invalidateQueries(shoppingListFilter);
+      },
+      onError: (error, variables, context) => {
+        // Rollback on error
+        if (context?.previousRecipeDetail && context?.recipeDetailQueryKey) {
+          queryClient.setQueryData(
+            context.recipeDetailQueryKey,
+            context.previousRecipeDetail,
+          );
+        }
+
+        const message =
+          error.message || "Failed to add recipe to shopping list";
+        Alert.alert("Error", message);
+      },
+      onSettled: () => {
+        // Invalidate to ensure sync with server
+        const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
+        queryClient.invalidateQueries(recipeDetailFilter);
+      },
     },
-    onSettled: () => {
-      // Invalidate to ensure sync with server
-      const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
-      queryClient.invalidateQueries(recipeDetailFilter);
-    },
-  });
+  );
 
   return useMutation(mutationOptions);
 };
@@ -89,7 +97,7 @@ export const useToggleItemChecked = () => {
         return {
           ...old,
           items: old.items.map((item: any) =>
-            item.id === itemId ? { ...item, isChecked: !item.isChecked } : item
+            item.id === itemId ? { ...item, isChecked: !item.isChecked } : item,
           ),
         };
       });
@@ -99,7 +107,10 @@ export const useToggleItemChecked = () => {
     onError: (_err, _variables, context) => {
       // Rollback on error
       if (context?.previous && context?.shoppingListQueryKey) {
-        queryClient.setQueryData(context.shoppingListQueryKey, context.previous);
+        queryClient.setQueryData(
+          context.shoppingListQueryKey,
+          context.previous,
+        );
       }
     },
     onSettled: () => {
@@ -123,7 +134,7 @@ export const useRemoveItem = () => {
       queryClient.invalidateQueries(shoppingListFilter);
     },
     onError: () => {
-      Alert.alert('Error', 'Failed to remove item');
+      Alert.alert("Error", "Failed to remove item");
     },
   });
 
@@ -141,7 +152,7 @@ export const useClearCheckedItems = () => {
       queryClient.invalidateQueries(shoppingListFilter);
     },
     onError: () => {
-      Alert.alert('Error', 'Failed to clear checked items');
+      Alert.alert("Error", "Failed to clear checked items");
     },
   });
 
@@ -168,7 +179,9 @@ export const useRemoveRecipeFromList = () => {
       await queryClient.cancelQueries(shoppingListFilter);
 
       // Snapshot previous values
-      const recipeDetailQueryKey = trpc.recipe.getRecipeDetail.queryKey({ recipeId });
+      const recipeDetailQueryKey = trpc.recipe.getRecipeDetail.queryKey({
+        recipeId,
+      });
       const previousRecipeDetail =
         queryClient.getQueryData<RecipeDetailOutput>(recipeDetailQueryKey);
 
@@ -189,10 +202,13 @@ export const useRemoveRecipeFromList = () => {
     onError: (error, variables, context) => {
       // Rollback on error
       if (context?.previousRecipeDetail && context?.recipeDetailQueryKey) {
-        queryClient.setQueryData(context.recipeDetailQueryKey, context.previousRecipeDetail);
+        queryClient.setQueryData(
+          context.recipeDetailQueryKey,
+          context.previousRecipeDetail,
+        );
       }
 
-      Alert.alert('Error', 'Failed to remove recipe from list');
+      Alert.alert("Error", "Failed to remove recipe from list");
     },
     onSettled: () => {
       // Invalidate to ensure sync with server
@@ -215,7 +231,7 @@ export const useAddManualItem = () => {
       queryClient.invalidateQueries(shoppingListFilter);
     },
     onError: () => {
-      Alert.alert('Error', 'Failed to add item');
+      Alert.alert("Error", "Failed to add item");
     },
   });
 

@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { TextInput, TextInputProps, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { useState } from "react";
+import { TextInput, TextInputProps, View } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
-import { Text } from './Text';
+import { Text } from "./Text";
 
 interface Props extends TextInputProps {
   label?: string;
@@ -26,17 +26,17 @@ export const Input = ({ label, style, ...props }: Props) => {
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    width: '100%',
+    width: "100%",
   },
   label: { marginBottom: 8, marginLeft: 4 },
   input: {
-    width: '100%',
+    width: "100%",
     paddingHorizontal: 12,
     paddingVertical: 10.5,
     borderRadius: theme.borderRadius.medium,
     borderColor: theme.colors.border,
     borderWidth: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     fontFamily: theme.fonts.albertRegular,
     fontSize: 17,
   },

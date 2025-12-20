@@ -1,6 +1,6 @@
-import * as React from 'react';
-import { View, ViewStyle } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import * as React from "react";
+import { View, ViewStyle } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 export const AppleLogo = ({
   size = 40,
@@ -12,7 +12,14 @@ export const AppleLogo = ({
   style: ViewStyle;
 }) => (
   <View
-    style={{ width: size, height: size, ...style, alignItems: 'center', justifyContent: 'center' }}>
+    style={{
+      width: size,
+      height: size,
+      ...style,
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
     <Svg viewBox="0 0 33 40" width={size * 0.825} height={size} fill="none">
       <Path
         fill={color}

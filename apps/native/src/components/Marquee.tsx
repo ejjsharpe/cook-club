@@ -1,8 +1,8 @@
-import * as React from 'react';
-import type { LayoutRectangle, ViewStyle } from 'react-native';
-import { StyleSheet, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import type { SharedValue } from 'react-native-reanimated';
+import * as React from "react";
+import type { LayoutRectangle, ViewStyle } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import type { SharedValue } from "react-native-reanimated";
 import Animated, {
   runOnJS,
   useAnimatedReaction,
@@ -11,9 +11,9 @@ import Animated, {
   useFrameCallback,
   useSharedValue,
   withDecay,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
-type MarqueeDirection = 'horizontal' | 'vertical';
+type MarqueeDirection = "horizontal" | "vertical";
 export type MarqueeProps = React.PropsWithChildren<{
   speed?: number;
   offset?: number;
@@ -49,23 +49,25 @@ const AnimatedChild = ({
   offset?: number;
 }>) => {
   const stylez = useAnimatedStyle(() => {
-    if (direction === 'vertical') {
+    if (direction === "vertical") {
       return {
-        position: 'absolute',
+        position: "absolute",
         top: (index - 1) * (textMeasurement.value.height + spacing),
         transform: [
           {
-            translateY: -(anim.value % (textMeasurement.value.height + spacing)) + offset,
+            translateY:
+              -(anim.value % (textMeasurement.value.height + spacing)) + offset,
           },
         ],
       };
     }
     return {
-      position: 'absolute',
+      position: "absolute",
       left: (index - 1) * (textMeasurement.value.width + spacing),
       transform: [
         {
-          translateX: -(anim.value % (textMeasurement.value.width + spacing)) + offset,
+          translateX:
+            -(anim.value % (textMeasurement.value.width + spacing)) + offset,
         },
       ],
     };
@@ -87,11 +89,11 @@ export const Marquee = React.memo(
         style,
         reverse,
         frameRate,
-        direction = 'horizontal',
+        direction = "horizontal",
         position,
         withGesture = true,
       },
-      ref
+      ref,
     ) => {
       const parentMeasurement = useSharedValue<LayoutRectangle>({
         width: 0,
@@ -113,7 +115,9 @@ export const Marquee = React.memo(
       const frameCallback = useFrameCallback((frameInfo) => {
         if (frameInfo.timeSincePreviousFrame === null) return;
 
-        const frameDelta = frameRateMs ? frameInfo.timeSincePreviousFrame / frameRateMs : 1;
+        const frameDelta = frameRateMs
+          ? frameInfo.timeSincePreviousFrame / frameRateMs
+          : 1;
 
         if (reverse) {
           anim.value -= speed * frameDelta;
@@ -140,9 +144,9 @@ export const Marquee = React.memo(
           }
           return (
             Math.round(
-              direction === 'horizontal'
+              direction === "horizontal"
                 ? parentMeasurement.value.width / textMeasurement.value.width
-                : parentMeasurement.value.height / textMeasurement.value.height
+                : parentMeasurement.value.height / textMeasurement.value.height,
             ) + 1
           );
         },
@@ -157,7 +161,7 @@ export const Marquee = React.memo(
           // of the screen without any noticible glitch
           runOnJS(setCloneTimes)(v + 2);
         },
-        [direction]
+        [direction],
       );
 
       // Pan Gestures
@@ -180,19 +184,21 @@ export const Marquee = React.memo(
           runOnJS(stop)();
         })
         .onChange((e) => {
-          anim.value += -(direction === 'horizontal' ? e.changeX : e.changeY);
+          anim.value += -(direction === "horizontal" ? e.changeX : e.changeY);
         })
         .onFinalize((e) => {
           anim.value = withDecay(
             {
-              velocity: -(direction === 'horizontal' ? e.velocityX : e.velocityY),
+              velocity: -(direction === "horizontal"
+                ? e.velocityX
+                : e.velocityY),
               velocityFactor: 0.5,
             },
             (finished) => {
               if (finished) {
                 runOnJS(start)();
               }
-            }
+            },
           );
         });
 
@@ -203,17 +209,20 @@ export const Marquee = React.memo(
           onLayout={(ev) => {
             parentMeasurement.value = ev.nativeEvent.layout;
           }}
-          pointerEvents="box-none">
+          pointerEvents="box-none"
+        >
           <GestureDetector gesture={pan}>
             <Animated.View style={styles.row} pointerEvents="box-none">
               <Animated.ScrollView
-                horizontal={direction === 'horizontal'}
+                horizontal={direction === "horizontal"}
                 style={styles.hidden}
-                pointerEvents="box-none">
+                pointerEvents="box-none"
+              >
                 <View
                   onLayout={(ev) => {
                     textMeasurement.value = ev.nativeEvent.layout;
-                  }}>
+                  }}
+                >
                   {children}
                 </View>
               </Animated.ScrollView>
@@ -227,7 +236,8 @@ export const Marquee = React.memo(
                       textMeasurement={textMeasurement}
                       spacing={spacing}
                       direction={direction}
-                      offset={offset}>
+                      offset={offset}
+                    >
                       {children}
                     </AnimatedChild>
                   );
@@ -236,11 +246,11 @@ export const Marquee = React.memo(
           </GestureDetector>
         </Animated.View>
       );
-    }
-  )
+    },
+  ),
 );
 
 const styles = StyleSheet.create({
   hidden: { opacity: 0, zIndex: -9999 },
-  row: { flexDirection: 'row' },
+  row: { flexDirection: "row" },
 });
