@@ -124,7 +124,7 @@ export async function parseRecipeFromImage(
   }
 
   // Use type assertion as the model name may not be in the types yet
-  const response = await (ai as any).run(VISION_MODEL, {
+  const response = await ai.run(VISION_MODEL, {
     messages: [
       { role: "system", content: IMAGE_EXTRACTION_SYSTEM_PROMPT },
       {
@@ -141,10 +141,7 @@ export async function parseRecipeFromImage(
     max_tokens: 4096,
   });
 
-  const responseText =
-    typeof response === "string"
-      ? response
-      : (response?.response ?? response?.generated_text ?? "");
+  const responseText = response.response;
 
   if (!responseText) {
     throw new Error("Invalid AI response format");
