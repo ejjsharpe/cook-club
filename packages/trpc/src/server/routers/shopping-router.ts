@@ -9,112 +9,15 @@ import {
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { router, authedProcedure } from "../trpc";
-import type { Context } from "../context";
+
 import {
+  getOrCreateShoppingList,
+  insertShoppingListItem,
+  formatQuantity,
   parseIngredient,
   normalizeIngredientName,
-} from "../../utils/ingredientParser";
-import { normalizeUnit } from "../../utils/unitNormalizer";
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-type DbClient = Context["db"];
-type TransactionClient = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
-
-// ─── Database Helper Functions ───────────────────────────────────────────────
-
-/**
- * Get or create a shopping list for a user
- * Ensures type safety by always returning a defined shopping list
- */
-async function getOrCreateShoppingList(db: DbClient, userId: string) {
-  const existingList = await db
-    .select()
-    .from(shoppingLists)
-    .where(eq(shoppingLists.userId, userId))
-    .then((rows) => rows[0]);
-
-  if (existingList) {
-    return existingList;
-  }
-
-  const newList = await db
-    .insert(shoppingLists)
-    .values({
-      userId,
-      name: "Shopping List",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .returning();
-
-  return newList[0]!;
-}
-
-/**
- * Insert a shopping list item for a specific recipe
- * NEW MODEL: Creates ONE row per recipe-ingredient combination
- * No aggregation at insert time - aggregation happens at query time
- */
-async function insertShoppingListItem(
-  db: DbClient | TransactionClient,
-  params: {
-    shoppingListId: number;
-    ingredientName: string;
-    quantity: number | null;
-    unit: string | null;
-    displayName: string;
-    sourceRecipeId?: number;
-    sourceRecipeName?: string;
-  }
-) {
-  const {
-    shoppingListId,
-    ingredientName,
-    quantity,
-    unit,
-    displayName,
-    sourceRecipeId,
-    sourceRecipeName,
-  } = params;
-
-  const normalizedName = normalizeIngredientName(ingredientName);
-  const normalizedUnit = normalizeUnit(unit); // Normalize units for better aggregation
-
-  // Insert new item - one row per recipe
-  const [newItem] = await db
-    .insert(shoppingListItems)
-    .values({
-      shoppingListId,
-      ingredientName: normalizedName,
-      displayName,
-      quantity: quantity?.toString() || null,
-      unit: normalizedUnit,
-      isChecked: false,
-      sourceRecipeId: sourceRecipeId || null,
-      sourceRecipeName: sourceRecipeName || null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .returning();
-
-  return newItem!;
-}
-
-// ─── Ingredient Formatting Helper Functions ─────────────────────────────────
-
-/**
- * Format quantity for display
- */
-function formatQuantity(quantity: number | null): string {
-  if (!quantity) return "";
-
-  // Format quantity with up to 2 decimal places, removing trailing zeros
-  return quantity % 1 === 0
-    ? quantity.toString()
-    : quantity.toFixed(2).replace(/\.?0+$/, "");
-}
+} from "../services/shopping";
+import { router, authedProcedure } from "../trpc";
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
@@ -142,12 +45,12 @@ export const shoppingRouter = router({
           unit: string | null;
           totalQuantity: number;
           isChecked: boolean;
-          items: Array<{
+          items: {
             id: number;
             quantity: number | null;
             sourceRecipeId: number | null;
             sourceRecipeName: string | null;
-          }>;
+          }[];
         }
       >();
 
@@ -165,7 +68,7 @@ export const shoppingRouter = router({
             items: [
               {
                 id: item.id,
-                quantity: quantity,
+                quantity,
                 sourceRecipeId: item.sourceRecipeId,
                 sourceRecipeName: item.sourceRecipeName,
               },
@@ -176,7 +79,7 @@ export const shoppingRouter = router({
           existing.totalQuantity += quantity;
           existing.items.push({
             id: item.id,
-            quantity: quantity,
+            quantity,
             sourceRecipeId: item.sourceRecipeId,
             sourceRecipeName: item.sourceRecipeName,
           });
@@ -245,7 +148,7 @@ export const shoppingRouter = router({
       type({
         recipeId: "number",
         "servings?": "number", // Optional: scale recipe to this many servings
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { recipeId, servings } = input;
@@ -260,8 +163,8 @@ export const shoppingRouter = router({
           .where(
             and(
               eq(shoppingListRecipes.shoppingListId, shoppingList.id),
-              eq(shoppingListRecipes.recipeId, recipeId)
-            )
+              eq(shoppingListRecipes.recipeId, recipeId),
+            ),
           )
           .then((rows) => rows[0]);
 
@@ -362,7 +265,7 @@ export const shoppingRouter = router({
     .input(
       type({
         itemId: "number",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { itemId } = input;
@@ -377,13 +280,13 @@ export const shoppingRouter = router({
           .from(shoppingListItems)
           .innerJoin(
             shoppingLists,
-            eq(shoppingListItems.shoppingListId, shoppingLists.id)
+            eq(shoppingListItems.shoppingListId, shoppingLists.id),
           )
           .where(
             and(
               eq(shoppingListItems.id, itemId),
-              eq(shoppingLists.userId, ctx.user.id)
-            )
+              eq(shoppingLists.userId, ctx.user.id),
+            ),
           )
           .then((rows) => rows[0]);
 
@@ -423,7 +326,7 @@ export const shoppingRouter = router({
     .input(
       type({
         itemId: "number",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { itemId } = input;
@@ -438,13 +341,13 @@ export const shoppingRouter = router({
           .from(shoppingListItems)
           .innerJoin(
             shoppingLists,
-            eq(shoppingListItems.shoppingListId, shoppingLists.id)
+            eq(shoppingListItems.shoppingListId, shoppingLists.id),
           )
           .where(
             and(
               eq(shoppingListItems.id, itemId),
-              eq(shoppingLists.userId, ctx.user.id)
-            )
+              eq(shoppingLists.userId, ctx.user.id),
+            ),
           )
           .then((rows) => rows[0]);
 
@@ -469,8 +372,8 @@ export const shoppingRouter = router({
               .where(
                 and(
                   eq(shoppingListItems.shoppingListId, item.listId),
-                  eq(shoppingListItems.sourceRecipeId, item.sourceRecipeId)
-                )
+                  eq(shoppingListItems.sourceRecipeId, item.sourceRecipeId),
+                ),
               )
               .limit(1);
 
@@ -481,8 +384,8 @@ export const shoppingRouter = router({
                 .where(
                   and(
                     eq(shoppingListRecipes.shoppingListId, item.listId),
-                    eq(shoppingListRecipes.recipeId, item.sourceRecipeId)
-                  )
+                    eq(shoppingListRecipes.recipeId, item.sourceRecipeId),
+                  ),
                 );
             }
           }
@@ -527,8 +430,8 @@ export const shoppingRouter = router({
           .where(
             and(
               eq(shoppingListItems.shoppingListId, shoppingList.id),
-              eq(shoppingListItems.isChecked, true)
-            )
+              eq(shoppingListItems.isChecked, true),
+            ),
           );
 
         // Collect unique recipe IDs from checked items
@@ -536,7 +439,7 @@ export const shoppingRouter = router({
           ...new Set(
             checkedItems
               .map((item) => item.sourceRecipeId)
-              .filter((id): id is number => id !== null)
+              .filter((id): id is number => id !== null),
           ),
         ];
 
@@ -546,8 +449,8 @@ export const shoppingRouter = router({
           .where(
             and(
               eq(shoppingListItems.shoppingListId, shoppingList.id),
-              eq(shoppingListItems.isChecked, true)
-            )
+              eq(shoppingListItems.isChecked, true),
+            ),
           );
 
         // For each recipe, check if any items remain
@@ -558,8 +461,8 @@ export const shoppingRouter = router({
             .where(
               and(
                 eq(shoppingListItems.shoppingListId, shoppingList.id),
-                eq(shoppingListItems.sourceRecipeId, recipeId)
-              )
+                eq(shoppingListItems.sourceRecipeId, recipeId),
+              ),
             )
             .limit(1);
 
@@ -570,8 +473,8 @@ export const shoppingRouter = router({
               .where(
                 and(
                   eq(shoppingListRecipes.shoppingListId, shoppingList.id),
-                  eq(shoppingListRecipes.recipeId, recipeId)
-                )
+                  eq(shoppingListRecipes.recipeId, recipeId),
+                ),
               );
           }
         }
@@ -595,7 +498,7 @@ export const shoppingRouter = router({
     .input(
       type({
         recipeId: "number",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { recipeId } = input;
@@ -619,8 +522,8 @@ export const shoppingRouter = router({
             .where(
               and(
                 eq(shoppingListRecipes.shoppingListId, shoppingList.id),
-                eq(shoppingListRecipes.recipeId, recipeId)
-              )
+                eq(shoppingListRecipes.recipeId, recipeId),
+              ),
             );
 
           // Delete all items from this recipe
@@ -630,8 +533,8 @@ export const shoppingRouter = router({
             .where(
               and(
                 eq(shoppingListItems.shoppingListId, shoppingList.id),
-                eq(shoppingListItems.sourceRecipeId, recipeId)
-              )
+                eq(shoppingListItems.sourceRecipeId, recipeId),
+              ),
             );
         });
 
@@ -652,7 +555,7 @@ export const shoppingRouter = router({
     .input(
       type({
         ingredientText: "string",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { ingredientText } = input;
@@ -710,7 +613,7 @@ export const shoppingRouter = router({
         unit: "string | null",
         newQuantity: "number",
         displayName: "string",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { ingredientName, unit, newQuantity, displayName } = input;
@@ -729,8 +632,8 @@ export const shoppingRouter = router({
                 eq(shoppingListItems.ingredientName, normalizedName),
                 unit
                   ? eq(shoppingListItems.unit, unit)
-                  : sql`${shoppingListItems.unit} IS NULL`
-              )
+                  : sql`${shoppingListItems.unit} IS NULL`,
+              ),
             );
 
           // Create a new MANUAL item (no sourceRecipeId) with the user's quantity

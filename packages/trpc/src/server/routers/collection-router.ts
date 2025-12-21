@@ -1,8 +1,9 @@
-import { collections, recipeCollections, recipes } from "@repo/db/schemas";
+import { collections, recipeCollections } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
+import { toggleRecipeInCollection as toggleRecipeInCollectionService } from "../services/collection";
 import { router, authedProcedure } from "../trpc";
 
 export const collectionRouter = router({
@@ -10,7 +11,7 @@ export const collectionRouter = router({
     .input(
       type({
         "recipeId?": "number",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { recipeId } = input;
@@ -36,7 +37,7 @@ export const collectionRouter = router({
             .where(eq(recipeCollections.recipeId, recipeId));
 
           const collectionIdsWithRecipe = new Set(
-            recipeInCollections.map((rc) => rc.collectionId)
+            recipeInCollections.map((rc) => rc.collectionId),
           );
 
           return userCollections.map((collection) => ({
@@ -62,7 +63,7 @@ export const collectionRouter = router({
     .input(
       type({
         name: "string",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { name } = input;
@@ -72,7 +73,8 @@ export const collectionRouter = router({
         if (name.trim().toLowerCase() === "saved recipes") {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: 'The name "Saved Recipes" is reserved for your default collection',
+            message:
+              'The name "Saved Recipes" is reserved for your default collection',
           });
         }
 
@@ -112,135 +114,15 @@ export const collectionRouter = router({
       type({
         recipeId: "number",
         "collectionId?": "number",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { recipeId } = input;
-      let { collectionId } = input;
-
       try {
-        // Verify recipe exists
-        const recipe = await ctx.db
-          .select({ id: recipes.id })
-          .from(recipes)
-          .where(eq(recipes.id, recipeId))
-          .then((rows) => rows[0]);
-
-        if (!recipe) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Recipe not found",
-          });
-        }
-
-        // If no collectionId provided, use default collection (or create one)
-        if (!collectionId) {
-          const existingDefaultCollection = await ctx.db
-            .select({ id: collections.id })
-            .from(collections)
-            .where(
-              and(eq(collections.userId, ctx.user.id), eq(collections.isDefault, true))
-            )
-            .then((rows) => rows[0]);
-
-          if (existingDefaultCollection) {
-            collectionId = existingDefaultCollection.id;
-          } else {
-            // Create default "Saved Recipes" collection
-            const [newDefaultCollection] = await ctx.db
-              .insert(collections)
-              .values({
-                userId: ctx.user.id,
-                name: "Saved Recipes",
-                isDefault: true,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              })
-              .returning();
-            collectionId = newDefaultCollection!.id;
-          }
-        }
-
-        // Verify collection exists and belongs to user
-        const collection = await ctx.db
-          .select({ id: collections.id, name: collections.name })
-          .from(collections)
-          .where(
-            and(
-              eq(collections.id, collectionId),
-              eq(collections.userId, ctx.user.id)
-            )
-          )
-          .then((rows) => rows[0]);
-
-        if (!collection) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Collection not found",
-          });
-        }
-
-        // Check if recipe is already in collection
-        const existing = await ctx.db
-          .select()
-          .from(recipeCollections)
-          .where(
-            and(
-              eq(recipeCollections.recipeId, recipeId),
-              eq(recipeCollections.collectionId, collectionId)
-            )
-          )
-          .then((rows) => rows[0]);
-
-        if (existing) {
-          // Remove from collection
-          await ctx.db
-            .delete(recipeCollections)
-            .where(
-              and(
-                eq(recipeCollections.recipeId, recipeId),
-                eq(recipeCollections.collectionId, collectionId)
-              )
-            );
-        } else {
-          // Add to collection
-          await ctx.db.insert(recipeCollections).values({
-            recipeId,
-            collectionId,
-            createdAt: new Date(),
-          });
-        }
-
-        // Get all collections this recipe is in
-        const allRecipeCollections = await ctx.db
-          .select({ collectionId: recipeCollections.collectionId })
-          .from(recipeCollections)
-          .where(eq(recipeCollections.recipeId, recipeId));
-
-        const collectionIds = allRecipeCollections.map((rc) => rc.collectionId);
-
-        // Get all user's collections with hasRecipe flag
-        const userCollections = await ctx.db
-          .select({
-            id: collections.id,
-            name: collections.name,
-            isDefault: collections.isDefault,
-          })
-          .from(collections)
-          .where(eq(collections.userId, ctx.user.id))
-          .orderBy(desc(collections.isDefault), collections.createdAt);
-
-        const collectionsWithStatus = userCollections.map((col) => ({
-          ...col,
-          hasRecipe: collectionIds.includes(col.id),
-        }));
-
-        return {
-          success: true,
-          inCollection: collectionIds.includes(collectionId),
-          collectionIds,
-          collections: collectionsWithStatus,
-        };
+        return await toggleRecipeInCollectionService(ctx.db, {
+          userId: ctx.user.id,
+          recipeId: input.recipeId,
+          collectionId: input.collectionId,
+        });
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         console.error("Error toggling recipe in collection:", err);

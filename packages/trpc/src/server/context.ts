@@ -6,7 +6,7 @@ import type { Env } from "../../../../apps/server/src/types";
 
 export async function createContext(
   opts: FetchCreateContextFnOptions,
-  env: Env
+  env: Env,
 ) {
   const { req, resHeaders } = opts;
   const db = getDb(env);

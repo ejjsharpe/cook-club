@@ -3,6 +3,11 @@ import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, and, or, ne, like } from "drizzle-orm";
 
+import {
+  followUser as followUserService,
+  unfollowUser as unfollowUserService,
+  getFollowList,
+} from "../services/follows";
 import { router, authedProcedure } from "../trpc";
 
 export const followsRouter = router({
@@ -11,64 +16,11 @@ export const followsRouter = router({
     .input(
       type({
         userId: "string",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { userId } = input;
-
-      if (userId === ctx.user.id) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Cannot follow yourself",
-        });
-      }
-
       try {
-        // Check if already following
-        const existingFollow = await ctx.db
-          .select()
-          .from(follows)
-          .where(
-            and(
-              eq(follows.followerId, ctx.user.id),
-              eq(follows.followingId, userId)
-            )
-          )
-          .then((rows) => rows[0]);
-
-        if (existingFollow) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Already following this user",
-          });
-        }
-
-        // Check if target user exists
-        const targetUser = await ctx.db
-          .select({ id: user.id })
-          .from(user)
-          .where(eq(user.id, userId))
-          .then((rows) => rows[0]);
-
-        if (!targetUser) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "User not found",
-          });
-        }
-
-        // Create follow relationship
-        const follow = await ctx.db
-          .insert(follows)
-          .values({
-            followerId: ctx.user.id,
-            followingId: userId,
-            createdAt: new Date(),
-          })
-          .returning()
-          .then((rows) => rows[0]);
-
-        return follow;
+        return await followUserService(ctx.db, ctx.user.id, input.userId);
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         throw new TRPCError({
@@ -83,33 +35,11 @@ export const followsRouter = router({
     .input(
       type({
         userId: "string",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { userId } = input;
-
       try {
-        const follow = await ctx.db
-          .select()
-          .from(follows)
-          .where(
-            and(
-              eq(follows.followerId, ctx.user.id),
-              eq(follows.followingId, userId)
-            )
-          )
-          .then((rows) => rows[0]);
-
-        if (!follow) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Not following this user",
-          });
-        }
-
-        await ctx.db.delete(follows).where(eq(follows.id, follow.id));
-
-        return { success: true };
+        return await unfollowUserService(ctx.db, ctx.user.id, input.userId);
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         throw new TRPCError({
@@ -122,25 +52,10 @@ export const followsRouter = router({
   // Get users I'm following
   getFollowing: authedProcedure.query(async ({ ctx }) => {
     try {
-      const followingList = await ctx.db
-        .select({
-          follow: follows,
-          user: user,
-        })
-        .from(follows)
-        .innerJoin(user, eq(follows.followingId, user.id))
-        .where(eq(follows.followerId, ctx.user.id));
-
-      return followingList.map((item) => ({
-        followId: item.follow.id,
-        user: {
-          id: item.user.id,
-          name: item.user.name,
-          email: item.user.email,
-          image: item.user.image,
-        },
-        followedAt: item.follow.createdAt,
-      }));
+      return await getFollowList(ctx.db, {
+        userId: ctx.user.id,
+        type: "following",
+      });
     } catch (err) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
@@ -152,25 +67,10 @@ export const followsRouter = router({
   // Get my followers
   getFollowers: authedProcedure.query(async ({ ctx }) => {
     try {
-      const followersList = await ctx.db
-        .select({
-          follow: follows,
-          user: user,
-        })
-        .from(follows)
-        .innerJoin(user, eq(follows.followerId, user.id))
-        .where(eq(follows.followingId, ctx.user.id));
-
-      return followersList.map((item) => ({
-        followId: item.follow.id,
-        user: {
-          id: item.user.id,
-          name: item.user.name,
-          email: item.user.email,
-          image: item.user.image,
-        },
-        followedAt: item.follow.createdAt,
-      }));
+      return await getFollowList(ctx.db, {
+        userId: ctx.user.id,
+        type: "followers",
+      });
     } catch (err) {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
