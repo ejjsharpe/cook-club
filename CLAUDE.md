@@ -8,7 +8,7 @@ Cook Club is a social recipe sharing mobile application built as an Nx monorepo.
 
 - **React Native mobile app** (Expo 54) for iOS/Android
 - **Cloudflare Workers backend** (Hono + tRPC)
-- **Shared packages** for database, tRPC, and recipe scraping
+- **Shared packages** for database and tRPC
 - **Package manager**: Bun 1.2.3
 - **Monorepo tool**: Nx 22.1.1
 
@@ -71,7 +71,6 @@ apps/
 packages/
   db/             # Drizzle ORM schemas and database client
   trpc/           # tRPC routers, context, and client utilities
-  recipe-scraper/ # Web scraping for recipe structured data
 tooling/
   typescript/     # Shared TypeScript config
   eslint/         # Shared ESLint config
@@ -172,8 +171,8 @@ All schemas use cascading deletes (`onDelete: 'cascade'`) and strategic indexes 
 
 ### API Patterns
 
-**Recipe Scraping**:
-The `recipe.scrapeRecipe` endpoint uses `@repo/recipe-scraper` to extract structured data from recipe URLs. It parses JSON-LD and Schema.org microdata.
+**Recipe Parsing**:
+The `apps/recipe-parser` Cloudflare Worker handles recipe extraction from URLs. It first attempts to parse JSON-LD and Schema.org microdata from the HTML, falling back to AI-based extraction when structured data is unavailable.
 
 **Pagination**:
 Uses cursor-based pagination for infinite scroll. Key queries:
@@ -252,16 +251,6 @@ Server requires these environment variables (set in Wrangler secrets or `.dev.va
 - `FB_CLIENT_ID`, `FB_CLIENT_SECRET`: Facebook OAuth
 - `BETTER_AUTH_SECRET`: Auth session secret
 - `BETTER_AUTH_URL`: Backend URL for auth callbacks
-
-### Recipe Scraper
-
-The `@repo/recipe-scraper` package (`packages/recipe-scraper/`) extracts recipe data from URLs by:
-
-1. Fetching HTML with rotating user agents (iOS/Android)
-2. Parsing JSON-LD and Schema.org microdata
-3. Normalizing to a `ScrapedRecipe` format
-
-Main function: `scrapeRecipe(url)` returns structured recipe data (name, ingredients, instructions, images, times, nutrition).
 
 ### Type Safety
 

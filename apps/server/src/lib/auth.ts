@@ -14,6 +14,7 @@ export function getAuth(env: Env) {
     }),
     plugins: [expo({ disableOriginOverride: true })],
     trustedOrigins: ["cookclub://"],
+    advanced: { disableOriginCheck: true },
     emailAndPassword: {
       enabled: true,
     },

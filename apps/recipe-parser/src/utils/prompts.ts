@@ -12,7 +12,7 @@ export const RECIPE_EXTRACTION_SYSTEM_PROMPT = `You are a strict Recipe Data Ext
    - quantity: numeric value (convert fractions: "1/2" → 0.5, "1 1/2" → 1.5)
    - unit: measurement unit (cup, tbsp, g, etc.) or null if no unit
    - name: the ingredient name only, without quantity or unit
-5. **STEP IMAGES**: For each instruction step, if an image is associated with that step (nearby in the HTML, within the step container, or has a caption matching the step), include its absolute URL as imageUrl. Otherwise set imageUrl to null. Only include images that are clearly step-specific photos, not ads or decorative elements.
+5. **STEP IMAGES**: At the end of the content, you may see a "[STEP IMAGES]" section listing step numbers and image URLs. Use these to populate the imageUrl field for the matching instruction step. If no image is listed for a step, set imageUrl to null.
 
 ### OUTPUT FORMAT:
 {
@@ -45,8 +45,7 @@ export const RECIPE_EXTRACTION_SYSTEM_PROMPT = `You are a strict Recipe Data Ext
 - If no time is specified, use null
 - Servings should be a number, not a string
 - Each instruction should be a complete step, not a fragment
-- Only include imageUrl if you can identify a specific image for that step in the content
-- Image URLs must be complete, absolute URLs (starting with http:// or https://)`;
+- For imageUrl: copy the URL exactly from the [STEP IMAGES] section if one exists for that step number`;
 
 export const IMAGE_EXTRACTION_SYSTEM_PROMPT = `You are a Recipe OCR and Extraction API. Analyze the image and extract any recipe information you can identify.
 

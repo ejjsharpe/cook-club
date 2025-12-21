@@ -16,6 +16,7 @@ export const useParseRecipeFromUrl = ({ url }: { url: string }) => {
   return useQuery({
     ...trpc.recipe.parseRecipeFromUrl.queryOptions({ url }),
     enabled: false, // Manual fetch
+    retry: false,
   });
 };
 
@@ -26,6 +27,7 @@ export const useParseRecipeFromText = ({ text }: { text: string }) => {
   return useQuery({
     ...trpc.recipe.parseRecipeFromText.queryOptions({ text }),
     enabled: false, // Manual fetch
+    retry: false,
   });
 };
 
@@ -33,7 +35,9 @@ export const useParseRecipeFromText = ({ text }: { text: string }) => {
 export const useParseRecipeFromImage = () => {
   const trpc = useTRPC();
 
-  return useMutation(trpc.recipe.parseRecipeFromImage.mutationOptions());
+  return useMutation(
+    trpc.recipe.parseRecipeFromImage.mutationOptions({ retry: false }),
+  );
 };
 
 interface UseGetUserRecipesParams {

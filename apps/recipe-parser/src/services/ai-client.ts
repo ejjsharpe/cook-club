@@ -8,7 +8,7 @@ import {
 } from "../utils/prompts";
 
 // Cloudflare Workers AI models
-const TEXT_MODEL = "@cf/meta/llama-3.1-8b-instruct" as const;
+const TEXT_MODEL = "@cf/openai/gpt-oss-20b" as const;
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct" as const;
 
 export interface AiRecipeResult {
@@ -94,23 +94,16 @@ export async function parseRecipeFromHtml(
   ai: Env["AI"],
   cleanedHtml: string,
 ): Promise<AiRecipeResult> {
-  // Use type assertion as the model name may not be in the types yet
   const response = await (ai as any).run(TEXT_MODEL, {
-    messages: [
-      { role: "system", content: RECIPE_EXTRACTION_SYSTEM_PROMPT },
-      { role: "user", content: createHtmlExtractionPrompt(cleanedHtml) },
-    ],
-    max_tokens: 4096,
+    instructions: RECIPE_EXTRACTION_SYSTEM_PROMPT,
+    input: createHtmlExtractionPrompt(cleanedHtml),
   });
 
-  const responseText =
-    typeof response === "string"
-      ? response
-      : (response?.response ?? response?.generated_text ?? "");
+  const responseContent = response.output.find(
+    (item: { type: string }) => item.type === "message",
+  );
 
-  if (!responseText) {
-    throw new Error("Invalid AI response format");
-  }
+  const responseText = responseContent.content[0].text as string;
 
   return parseAiResponse(responseText);
 }

@@ -9,6 +9,7 @@ import {
   extractStepImageContext,
 } from "../utils/html-cleaner";
 import { fetchHtml } from "../utils/html-fetcher";
+import { extractStructuredRecipe } from "../utils/structured-data";
 import { normalizeUnit } from "../utils/unit-normalizer";
 
 /**
@@ -77,7 +78,7 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
   try {
     html = await fetchHtml(url);
   } catch (error) {
-    console.error(error);
+    console.error("Fetch error:", error);
     return {
       success: false,
       error: {
@@ -87,6 +88,34 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
     };
   }
 
+  // Try structured data extraction first (JSON-LD, microdata)
+  try {
+    const structuredRecipe = extractStructuredRecipe(html, url);
+
+    if (structuredRecipe) {
+      const validation = ParsedRecipeSchema(structuredRecipe);
+
+      if (!(validation instanceof Error)) {
+        await cacheRecipe(env.RECIPE_CACHE, url, structuredRecipe);
+
+        return {
+          success: true,
+          data: structuredRecipe,
+          metadata: {
+            source: "url",
+            parseMethod: "structured_data",
+            confidence: "high",
+            cached: false,
+          },
+        };
+      }
+    }
+  } catch (error) {
+    console.error("Structured data extraction error:", error);
+    // Fall through to AI parsing
+  }
+
+  // Fall back to AI parsing
   try {
     const cleanedContent = cleanHtml(html);
 
@@ -115,6 +144,7 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
     const validation = ParsedRecipeSchema(recipe);
 
     if (validation instanceof Error) {
+      console.log("validation error");
       return {
         success: false,
         error: {
@@ -137,6 +167,7 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
       },
     };
   } catch (error) {
+    console.log(error);
     return {
       success: false,
       error: {

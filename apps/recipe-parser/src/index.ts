@@ -65,6 +65,7 @@ export class RecipeParser extends WorkerEntrypoint<Env> {
           };
       }
     } catch (error) {
+      console.error(error);
       return {
         success: false,
         error: {

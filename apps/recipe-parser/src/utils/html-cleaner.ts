@@ -236,7 +236,7 @@ export function extractStepImageContext(
       $(container)
         .find("li, .step, [class*='step']")
         .each((stepIdx, stepEl) => {
-          const stepText = $(stepEl).text().trim().slice(0, 100);
+          const stepText = $(stepEl).text().trim();
           if (!stepText) return;
 
           // Find images within this step element
@@ -245,9 +245,7 @@ export function extractStepImageContext(
             .each((_, img) => {
               const src = extractImageSrc($(img));
               if (src) {
-                stepImageHints.push(
-                  `Step ${stepIdx + 1} ("${stepText.slice(0, 50)}..."): ${src}`,
-                );
+                stepImageHints.push(`Step ${stepIdx + 1}: ${src}`);
               }
             });
 
@@ -258,14 +256,15 @@ export function extractStepImageContext(
             nextEl.is("img") ||
             nextEl.hasClass("image")
           ) {
-            nextEl.find("img").addBack("img").each((_, img) => {
-              const src = extractImageSrc($(img));
-              if (src) {
-                stepImageHints.push(
-                  `Step ${stepIdx + 1} ("${stepText.slice(0, 50)}..."): ${src}`,
-                );
-              }
-            });
+            nextEl
+              .find("img")
+              .addBack("img")
+              .each((_, img) => {
+                const src = extractImageSrc($(img));
+                if (src) {
+                  stepImageHints.push(`Step ${stepIdx + 1}: ${src}`);
+                }
+              });
           }
         });
     });
@@ -274,7 +273,7 @@ export function extractStepImageContext(
     return "";
   }
 
-  return `\n\n[STEP IMAGES FOUND IN HTML]:\n${stepImageHints.join("\n")}`;
+  return `\n\n[STEP IMAGES - match these URLs to the corresponding instruction step above]:\n${stepImageHints.join("\n")}`;
 }
 
 /**

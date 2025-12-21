@@ -5,10 +5,12 @@
  */
 
 const USER_AGENTS = [
-  "Mozilla/5.0 (iPhone17,2; CPU iPhone OS 18_3_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
-  "Mozilla/5.0 (iPhone16,2; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
-  "Mozilla/5.0 (Linux; Android 14; Pixel 9 Pro Build/AD1A.240418.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Mobile Safari/537.36",
-  "Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36",
+  // Desktop browsers (more likely to succeed with some sites)
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  // Mobile browsers
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
 ];
 
 export function getRandomUserAgent(): string {
@@ -16,21 +18,42 @@ export function getRandomUserAgent(): string {
 }
 
 /**
- * Fetch HTML content from a URL with a random mobile user agent
+ * Fetch HTML content from a URL with retry logic
  */
-export async function fetchHtml(url: string): Promise<string> {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": getRandomUserAgent(),
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    },
-  });
+export async function fetchHtml(url: string, retries = 2): Promise<string> {
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch URL: ${response.status} ${response.statusText}`,
-    );
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": USER_AGENTS[attempt % USER_AGENTS.length]!,
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        redirect: "follow",
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch URL: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      return response.text();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`Fetch attempt ${attempt + 1} failed:`, lastError.message);
+
+      // Wait before retrying (exponential backoff)
+      if (attempt < retries) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.pow(2, attempt) * 500),
+        );
+      }
+    }
   }
 
-  return response.text();
+  throw lastError || new Error("Failed to fetch URL after retries");
 }
