@@ -2,9 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { useNavigation } from "@react-navigation/native";
 import { UserCollectionWithMetadata } from "@repo/trpc/client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { View, ActivityIndicator, Alert, TouchableOpacity } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import Animated from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -15,15 +16,13 @@ import {
 } from "@/api/collection";
 import { useGetUserRecipes } from "@/api/recipe";
 import { CollectionCard } from "@/components/CollectionCard";
-import { Input } from "@/components/Input";
-import {
-  MyRecipesToggle,
-  type MyRecipesTab,
-} from "@/components/MyRecipesToggle";
 import { RecipeCard } from "@/components/RecipeCard";
+import { SearchBar } from "@/components/SearchBar";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import { UnderlineTabBar, type TabOption } from "@/components/UnderlineTabBar";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { useTabSlideAnimation } from "@/hooks/useTabSlideAnimation";
 
 type Recipe = NonNullable<
   ReturnType<typeof useGetUserRecipes>["data"]
@@ -31,10 +30,27 @@ type Recipe = NonNullable<
 
 type Collection = UserCollectionWithMetadata;
 
+type MyRecipesTab = "recipes" | "collections";
+
+const tabOptions: TabOption<MyRecipesTab>[] = [
+  { value: "recipes", label: "Recipes" },
+  { value: "collections", label: "Collections" },
+];
+
 export const MyRecipesScreen = () => {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<MyRecipesTab>("recipes");
   const [searchQuery, setSearchQuery] = useState("");
+  const { animatedStyle: tabContentStyle, triggerSlide } =
+    useTabSlideAnimation();
+
+  const handleTabChange = useCallback(
+    (tab: MyRecipesTab, direction: number) => {
+      triggerSlide(direction);
+      setActiveTab(tab);
+    },
+    [triggerSlide],
+  );
 
   // Fetch recipes
   const {
@@ -241,7 +257,7 @@ export const MyRecipesScreen = () => {
       <View style={styles.header}>
         <Text type="title2">My Recipes</Text>
         <VSpace size={20} />
-        <Input
+        <SearchBar
           placeholder={
             activeTab === "recipes"
               ? "Search recipes..."
@@ -249,41 +265,45 @@ export const MyRecipesScreen = () => {
           }
           value={searchQuery}
           onChangeText={setSearchQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
         />
         <VSpace size={16} />
-        <MyRecipesToggle value={activeTab} onValueChange={setActiveTab} />
+        <UnderlineTabBar
+          options={tabOptions}
+          value={activeTab}
+          onValueChange={handleTabChange}
+        />
       </View>
       <VSpace size={16} />
-      {activeTab === "collections" && (
-        <>
-          <View style={styles.createButtonContainer}>
-            <PrimaryButton
-              onPress={handleCreateCollection}
-              disabled={createCollectionMutation.isPending}
-            >
-              Create Collection
-            </PrimaryButton>
-          </View>
-          <VSpace size={12} />
-        </>
-      )}
-      <LegendList
-        data={listData}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id.toString()}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={renderEmpty}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.listContent,
-          listData.length === 0 && styles.emptyListContent,
-        ]}
-        ItemSeparatorComponent={() => <VSpace size={12} />}
-      />
+      <Animated.View style={[styles.listWrapper, tabContentStyle]}>
+        {activeTab === "collections" && (
+          <>
+            <View style={styles.createButtonContainer}>
+              <PrimaryButton
+                onPress={handleCreateCollection}
+                disabled={createCollectionMutation.isPending}
+              >
+                Create Collection
+              </PrimaryButton>
+            </View>
+            <VSpace size={12} />
+          </>
+        )}
+        <LegendList
+          data={listData}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id.toString()}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={renderFooter}
+          ListEmptyComponent={renderEmpty}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.listContent,
+            listData.length === 0 && styles.emptyListContent,
+          ]}
+          ItemSeparatorComponent={() => <VSpace size={12} />}
+        />
+      </Animated.View>
     </SafeAreaView>
   );
 };
@@ -294,6 +314,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   header: {
     paddingHorizontal: 20,
+  },
+  listWrapper: {
+    flex: 1,
   },
   createButtonContainer: {
     paddingHorizontal: 20,

@@ -47,14 +47,12 @@ import { SheetManager } from "@/components/FilterBottomSheet";
 import { FullWidthRecipeCard } from "@/components/FullWidthRecipeCard";
 import { RecipeCarousel } from "@/components/RecipeCarousel";
 import { SearchBar } from "@/components/SearchBar";
-import {
-  SearchTypeToggle,
-  type SearchType,
-} from "@/components/SearchTypeToggle";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import { UnderlineTabBar, type TabOption } from "@/components/UnderlineTabBar";
 import { UserSearchCard } from "@/components/UserSearchCard";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useTabSlideAnimation } from "@/hooks/useTabSlideAnimation";
 
 interface Tag {
   id: number;
@@ -161,6 +159,15 @@ const Header = memo(({ userProfile, onAvatarPress }: HeaderProps) => {
 
 // ─── Search Empty State ───────────────────────────────────────────────────────
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+type SearchType = "recipes" | "collections" | "users";
+
+const searchTabOptions: TabOption<SearchType>[] = [
+  { value: "recipes", label: "Recipes" },
+  { value: "collections", label: "Collections" },
+  { value: "users", label: "Users" },
+];
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 const HORIZONTAL_PADDING = 20;
 const BACK_BUTTON_WIDTH = 40;
@@ -209,6 +216,10 @@ export const HomeScreen = () => {
 
   // Filter button visibility (0 = hidden, 1 = visible) - animated separately for tab changes
   const filterButtonProgress = useSharedValue(1);
+
+  // Tab slide animation from hook
+  const { animatedStyle: tabContentStyle, triggerSlide } =
+    useTabSlideAnimation();
 
   // Target Y position for search mode (safe area top + padding)
   const searchModeY = insets.top + 20;
@@ -382,13 +393,17 @@ export const HomeScreen = () => {
     setSearchQuery("");
   }, []);
 
-  const handleTabChange = useCallback((tab: SearchType) => {
-    setActiveTab(tab);
-    if (tab !== "recipes") {
-      setSelectedTagIds([]);
-      setMaxTotalTime(undefined);
-    }
-  }, []);
+  const handleTabChange = useCallback(
+    (tab: SearchType, direction: number) => {
+      triggerSlide(direction);
+      setActiveTab(tab);
+      if (tab !== "recipes") {
+        setSelectedTagIds([]);
+        setMaxTotalTime(undefined);
+      }
+    },
+    [triggerSlide],
+  );
 
   const handleFilterPress = useCallback(() => {
     SheetManager.show("filter-sheet", {
@@ -785,7 +800,8 @@ export const HomeScreen = () => {
           {/* Spacer for the floating search bar row */}
           <VSpace size={20 + SEARCH_BAR_HEIGHT + 12} />
           <View style={styles.searchContainer}>
-            <SearchTypeToggle
+            <UnderlineTabBar
+              options={searchTabOptions}
               value={activeTab}
               onValueChange={handleTabChange}
             />
@@ -794,27 +810,29 @@ export const HomeScreen = () => {
         </SafeAreaView>
 
         {/* Scrollable search results */}
-        <FlatList
-          ref={searchListRef}
-          data={searchData}
-          renderItem={searchRenderItem as any}
-          keyExtractor={searchKeyExtractor}
-          ListHeaderComponent={SearchListHeader}
-          ListEmptyComponent={renderSearchEmpty}
-          ListFooterComponent={renderSearchFooter}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing && isSearchActive}
-              onRefresh={handleRefresh}
-              enabled={canRefresh}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-          style={styles.searchResultsList}
-          contentContainerStyle={styles.searchResultsContent}
-        />
+        <Animated.View style={[styles.searchResultsList, tabContentStyle]}>
+          <FlatList
+            ref={searchListRef}
+            data={searchData}
+            renderItem={searchRenderItem as any}
+            keyExtractor={searchKeyExtractor}
+            ListHeaderComponent={SearchListHeader}
+            ListEmptyComponent={renderSearchEmpty}
+            ListFooterComponent={renderSearchFooter}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing && isSearchActive}
+                onRefresh={handleRefresh}
+                enabled={canRefresh}
+              />
+            }
+            showsVerticalScrollIndicator={false}
+            style={styles.flatListFlex}
+            contentContainerStyle={styles.searchResultsContent}
+          />
+        </Animated.View>
       </Animated.View>
 
       {/* Floating Search Bar (appears during transition and in search mode) */}
@@ -879,6 +897,9 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
   },
   searchResultsList: {
+    flex: 1,
+  },
+  flatListFlex: {
     flex: 1,
   },
   searchResultsContent: {

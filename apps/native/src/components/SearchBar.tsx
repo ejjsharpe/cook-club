@@ -59,16 +59,14 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 10.5,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   searchIcon: {
-    marginRight: 8,
-    color: theme.colors.text,
+    marginRight: 10,
+    color: "#999",
   },
   input: {
     flex: 1,
@@ -77,6 +75,6 @@ const styles = StyleSheet.create((theme) => ({
     fontFamily: theme.fonts.albertRegular,
   },
   clearIcon: {
-    color: theme.colors.text,
+    color: "#999",
   },
 }));

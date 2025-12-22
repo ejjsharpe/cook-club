@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Share,
 } from "react-native";
+import Animated from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -18,15 +19,13 @@ import { useUserProfile, useFollowUser, useUnfollowUser } from "@/api/follows";
 import { useGetUserRecipesById } from "@/api/recipe";
 import { useUser } from "@/api/user";
 import { CollectionCard } from "@/components/CollectionCard";
-import {
-  MyRecipesToggle,
-  type MyRecipesTab,
-} from "@/components/MyRecipesToggle";
 import { RecipeCard } from "@/components/RecipeCard";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import { UnderlineTabBar, type TabOption } from "@/components/UnderlineTabBar";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { useTabSlideAnimation } from "@/hooks/useTabSlideAnimation";
 
 type UserProfileScreenParams = {
   UserProfile: {
@@ -47,12 +46,29 @@ type Collection = NonNullable<
   ReturnType<typeof useGetUserCollectionsById>["data"]
 >[number];
 
+type ProfileTab = "recipes" | "collections";
+
+const tabOptions: TabOption<ProfileTab>[] = [
+  { value: "recipes", label: "Recipes" },
+  { value: "collections", label: "Collections" },
+];
+
 export const UserProfileScreen = () => {
   const route = useRoute<UserProfileScreenRouteProp>();
   const navigation = useNavigation();
   const { userId } = route.params;
 
-  const [activeTab, setActiveTab] = useState<MyRecipesTab>("recipes");
+  const [activeTab, setActiveTab] = useState<ProfileTab>("recipes");
+  const { animatedStyle: tabContentStyle, triggerSlide } =
+    useTabSlideAnimation();
+
+  const handleTabChange = useCallback(
+    (tab: ProfileTab, direction: number) => {
+      triggerSlide(direction);
+      setActiveTab(tab);
+    },
+    [triggerSlide],
+  );
 
   const { data: currentUser } = useUser();
   const { data: profile, isLoading, error } = useUserProfile({ userId });
@@ -391,9 +407,11 @@ export const UserProfileScreen = () => {
       <VSpace size={24} />
 
       {/* Tab Switcher */}
-      <View style={styles.toggleContainer}>
-        <MyRecipesToggle value={activeTab} onValueChange={setActiveTab} />
-      </View>
+      <UnderlineTabBar
+        options={tabOptions}
+        value={activeTab}
+        onValueChange={handleTabChange}
+      />
 
       <VSpace size={16} />
     </View>
@@ -410,10 +428,18 @@ export const UserProfileScreen = () => {
 
         <LegendList
           data={listData as any[]}
-          renderItem={renderItem as any}
+          renderItem={({ item }: any) => (
+            <Animated.View style={tabContentStyle}>
+              {renderItem({ item })}
+            </Animated.View>
+          )}
           keyExtractor={(item: any) => item.id.toString()}
           ListHeaderComponent={renderHeader}
-          ListEmptyComponent={renderEmpty}
+          ListEmptyComponent={() => (
+            <Animated.View style={tabContentStyle}>
+              {renderEmpty()}
+            </Animated.View>
+          )}
           ListFooterComponent={renderFooter}
           onEndReached={
             activeTab === "recipes" ? handleLoadMoreRecipes : undefined
@@ -538,9 +564,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   followsYouText: {
     fontSize: 14,
-  },
-  toggleContainer: {
-    width: "100%",
   },
   listContent: {
     paddingBottom: 20,

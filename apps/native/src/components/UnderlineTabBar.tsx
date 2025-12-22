@@ -10,33 +10,33 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
-export type SearchType = "recipes" | "collections" | "users";
-
-interface SearchTypeToggleProps {
-  value: SearchType;
-  onValueChange: (type: SearchType) => void;
+export interface TabOption<T extends string> {
+  value: T;
+  label: string;
 }
 
-const options: { value: SearchType; label: string }[] = [
-  { value: "recipes", label: "Recipes" },
-  { value: "collections", label: "Collections" },
-  { value: "users", label: "Users" },
-];
+interface UnderlineTabBarProps<T extends string> {
+  options: TabOption<T>[];
+  value: T;
+  onValueChange: (value: T, direction: number) => void;
+}
 
 const animationConfig = {
   duration: 250,
   easing: Easing.bezier(0.4, 0, 0.2, 1),
 };
 
-export function SearchTypeToggle({
+export function UnderlineTabBar<T extends string>({
+  options,
   value,
   onValueChange,
-}: SearchTypeToggleProps) {
+}: UnderlineTabBarProps<T>) {
   // Store the position and width of each tab
   const tabPositions = useRef<{ x: number; width: number }[]>([]);
   const underlineX = useSharedValue(0);
   const underlineWidth = useSharedValue(0);
   const isInitialized = useRef(false);
+  const currentIndex = useRef(0);
 
   const activeIndex = options.findIndex((opt) => opt.value === value);
 
@@ -48,17 +48,23 @@ export function SearchTypeToggle({
     if (index === activeIndex && !isInitialized.current) {
       underlineX.value = x;
       underlineWidth.value = width;
+      currentIndex.current = index;
       isInitialized.current = true;
     }
   };
 
-  const handlePress = (type: SearchType, index: number) => {
+  const handlePress = (optionValue: T, index: number) => {
     const position = tabPositions.current[index];
     if (position) {
       underlineX.value = withTiming(position.x, animationConfig);
       underlineWidth.value = withTiming(position.width, animationConfig);
     }
-    onValueChange(type);
+
+    // Calculate direction: 1 = moving right, -1 = moving left
+    const direction = index > currentIndex.current ? 1 : -1;
+    currentIndex.current = index;
+
+    onValueChange(optionValue, direction);
   };
 
   const underlineStyle = useAnimatedStyle(() => ({
