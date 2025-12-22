@@ -93,6 +93,12 @@ export const MyRecipesScreen = () => {
     />
   );
 
+  const RecipeSeparator = () => (
+    <View style={styles.separatorContainer}>
+      <View style={styles.separator} />
+    </View>
+  );
+
   const handleDeleteCollection = (collection: Collection) => {
     if (collection.isDefault) {
       Alert.alert(
@@ -297,11 +303,12 @@ export const MyRecipesScreen = () => {
           ListFooterComponent={renderFooter}
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.listContent,
-            listData.length === 0 && styles.emptyListContent,
-          ]}
-          ItemSeparatorComponent={() => <VSpace size={12} />}
+          contentContainerStyle={[styles.listContent]}
+          ItemSeparatorComponent={
+            activeTab === "recipes"
+              ? RecipeSeparator
+              : () => <VSpace size={12} />
+          }
         />
       </Animated.View>
     </SafeAreaView>
@@ -323,10 +330,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   listContent: {
     flex: 1,
-    paddingBottom: 20,
-  },
-  emptyListContent: {
-    flex: 1,
   },
   centered: {
     flex: 1,
@@ -347,5 +350,13 @@ const styles = StyleSheet.create((theme) => ({
     marginVertical: 4,
     marginRight: 20,
     borderRadius: theme.borderRadius.medium,
+  },
+  separatorContainer: {
+    paddingVertical: 8,
+    paddingHorizontal: 28,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: theme.colors.border,
   },
 }));

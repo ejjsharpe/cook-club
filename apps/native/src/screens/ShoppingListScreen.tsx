@@ -27,6 +27,7 @@ import {
   useRemoveRecipeFromList,
   useAddManualItem,
 } from "@/api/shopping";
+import { FLOATING_TAB_BAR_HEIGHT } from "@/components/FloatingTabBar";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 
@@ -303,8 +304,14 @@ export const ShoppingListScreen = () => {
       </SafeAreaView>
       {/* Bottom Input - sticks to keyboard */}
       <KeyboardStickyView
-        style={styles.inputSection}
-        offset={{ closed: 48, opened: insets.bottom + 96 }}
+        style={[
+          styles.inputSection,
+          { paddingBottom: FLOATING_TAB_BAR_HEIGHT + insets.bottom },
+        ]}
+        offset={{
+          closed: 0,
+          opened: FLOATING_TAB_BAR_HEIGHT + insets.bottom - 12,
+        }}
       >
         <TextInput
           style={styles.input}
@@ -414,7 +421,6 @@ const styles = StyleSheet.create((theme) => ({
     borderTopColor: theme.colors.border,
     backgroundColor: theme.colors.background,
     gap: 8,
-    paddingBottom: 60,
   },
   input: {
     flex: 1,

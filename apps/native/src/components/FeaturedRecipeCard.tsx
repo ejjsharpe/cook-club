@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { memo } from "react";
-import { View, TouchableOpacity, ScrollView } from "react-native";
+import { View, TouchableOpacity } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -83,31 +83,24 @@ export const FeaturedRecipeCard = memo(({ recipe, onPress }: Props) => {
           style={styles.gradient}
         />
         <View style={styles.overlay}>
-          {displayTags.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.tagsContainer}
-              contentContainerStyle={styles.tagsContent}
-            >
-              {displayTags.map((tag) => (
-                <View key={tag.id} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag.name}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          )}
-          <VSpace size={8} />
-          <Text type="title1" style={styles.title} numberOfLines={2}>
+          <Text type="heading" style={styles.title} numberOfLines={2}>
             {recipe.name}
           </Text>
+          {displayTags.length > 0 && (
+            <>
+              <VSpace size={4} />
+              <Text style={styles.tags} numberOfLines={1}>
+                {displayTags.map((tag) => tag.name).join(" · ")}
+              </Text>
+            </>
+          )}
           {recipe.totalTime && (
             <>
-              <VSpace size={8} />
+              <VSpace size={4} />
               <View style={styles.timeContainer}>
                 <Ionicons
                   name="time-outline"
-                  size={16}
+                  size={14}
                   style={styles.timeIcon}
                 />
                 <HSpace size={4} />
@@ -158,25 +151,16 @@ const styles = StyleSheet.create((theme) => ({
     bottom: 0,
     padding: 16,
   },
-  tagsContainer: {
-    flexGrow: 0,
-  },
-  tagsContent: {
-    gap: 8,
-  },
-  tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 12,
-  },
-  tagText: {
-    color: theme.colors.buttonText,
-    fontSize: 12,
-    fontWeight: "500",
-  },
   title: {
     color: theme.colors.buttonText,
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  tags: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
+    fontFamily: theme.fonts.albertRegular,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -186,11 +170,15 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
   },
   timeIcon: {
-    color: theme.colors.buttonText,
+    color: "rgba(255,255,255,0.8)",
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   timeText: {
-    color: theme.colors.buttonText,
+    color: "rgba(255,255,255,0.8)",
     fontSize: 14,
+    fontFamily: theme.fonts.albertRegular,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,

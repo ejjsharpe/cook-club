@@ -22,15 +22,16 @@ const OptionCard = ({
   onPress: () => void;
 }) => (
   <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <View style={styles.iconContainer}>
+      <Ionicons name={icon} size={24} style={styles.icon} />
+    </View>
     <View style={styles.cardContent}>
-      <Ionicons name={icon} size={32} style={styles.icon} />
-      <VSpace size={12} />
       <Text type="heading">{title}</Text>
-      <VSpace size={4} />
       <Text type="bodyFaded" style={styles.cardDescription}>
         {description}
       </Text>
     </View>
+    <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
   </TouchableOpacity>
 );
 
@@ -88,19 +89,36 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   card: {
-    backgroundColor: theme.colors.background,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor:
+      theme.colors.background === "#FFFFFF"
+        ? "rgba(0,0,0,0.04)"
+        : "rgba(255,255,255,0.06)",
     borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: 20,
+    padding: 16,
+    gap: 14,
   },
-  cardContent: {
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary + "15",
+    justifyContent: "center",
     alignItems: "center",
   },
-  cardDescription: {
-    textAlign: "center",
-  },
   icon: {
-    color: theme.colors.text,
+    color: theme.colors.primary,
+  },
+  cardContent: {
+    flex: 1,
+    gap: 2,
+  },
+  cardDescription: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  chevron: {
+    color: theme.colors.border,
   },
 }));

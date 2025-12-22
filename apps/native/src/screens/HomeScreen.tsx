@@ -456,7 +456,7 @@ export const HomeScreen = () => {
       <>
         <VSpace size={20} />
         <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
-        <VSpace size={16} />
+        <VSpace size={20} />
         <Pressable
           ref={searchBarRef}
           style={[
@@ -473,19 +473,23 @@ export const HomeScreen = () => {
             />
           </View>
         </Pressable>
-        <VSpace size={24} />
+        <VSpace size={28} />
         {featuredRecipe && (
           <>
+            <Text type="heading" style={styles.sectionTitle}>
+              Today's featured recipe
+            </Text>
+            <VSpace size={12} />
             <FeaturedRecipeCard
               recipe={featuredRecipe}
               onPress={() => handleRecipePress(featuredRecipe.id)}
             />
-            <VSpace size={24} />
+            <VSpace size={28} />
           </>
         )}
         {popularRecipes.length > 0 && (
           <RecipeCarousel
-            title="Popular this week"
+            title="Trending"
             recipes={popularRecipes}
             onRecipePress={handleRecipePress}
           />
@@ -863,6 +867,9 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.primary,
   },
   sectionHeader: {
+    paddingHorizontal: 20,
+  },
+  sectionTitle: {
     paddingHorizontal: 20,
   },
   userCardWrapper: {

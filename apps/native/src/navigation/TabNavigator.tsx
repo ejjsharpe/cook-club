@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
+import { FloatingTabBar } from "@/components/FloatingTabBar";
 import { AddRecipeScreen } from "@/screens/AddRecipeScreen";
 import { HomeScreen } from "@/screens/HomeScreen";
 import { MyRecipesScreen } from "@/screens/MyRecipesScreen";
@@ -11,55 +11,15 @@ const Tab = createBottomTabNavigator();
 export const TabNavigator = () => {
   return (
     <Tab.Navigator
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: "black",
         headerShown: false,
       }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarIcon(props) {
-            return (
-              <Ionicons name="home" color={props.color} size={props.size} />
-            );
-          },
-        }}
-      />
-      <Tab.Screen
-        name="Add recipe"
-        component={AddRecipeScreen}
-        options={{
-          tabBarIcon(props) {
-            return (
-              <Ionicons name="add" color={props.color} size={props.size} />
-            );
-          },
-        }}
-      />
-      <Tab.Screen
-        name="My Recipes"
-        component={MyRecipesScreen}
-        options={{
-          tabBarIcon(props) {
-            return (
-              <Ionicons name="book" color={props.color} size={props.size} />
-            );
-          },
-        }}
-      />
-      <Tab.Screen
-        name="Shopping List"
-        component={ShoppingListScreen}
-        options={{
-          tabBarIcon(props) {
-            return (
-              <Ionicons name="list" color={props.color} size={props.size} />
-            );
-          },
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Add recipe" component={AddRecipeScreen} />
+      <Tab.Screen name="My Recipes" component={MyRecipesScreen} />
+      <Tab.Screen name="Shopping List" component={ShoppingListScreen} />
     </Tab.Navigator>
   );
 };
