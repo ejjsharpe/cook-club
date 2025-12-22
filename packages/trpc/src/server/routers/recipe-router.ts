@@ -37,6 +37,7 @@ import { normalizeUnit } from "../../utils/unitNormalizer";
 import { router, authedProcedure } from "../trpc";
 import {
   queryRecipeList,
+  queryPopularRecipesThisWeek,
   validateTags,
   createRecipe,
   getRecipeDetail,
@@ -550,6 +551,28 @@ export const recipeRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to search recipes",
+        });
+      }
+    }),
+
+  getPopularThisWeek: authedProcedure
+    .input(
+      type({
+        limit: "number = 10",
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        return await queryPopularRecipesThisWeek(
+          ctx.db,
+          ctx.user.id,
+          input.limit,
+        );
+      } catch (err) {
+        console.error("Error fetching popular recipes:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch popular recipes",
         });
       }
     }),

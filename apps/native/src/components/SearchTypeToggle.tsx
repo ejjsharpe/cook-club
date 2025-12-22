@@ -1,4 +1,11 @@
-import { View, TouchableOpacity } from "react-native";
+import { useRef } from "react";
+import { View, TouchableOpacity, LayoutChangeEvent } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
@@ -16,26 +23,68 @@ const options: { value: SearchType; label: string }[] = [
   { value: "users", label: "Users" },
 ];
 
+const animationConfig = {
+  duration: 250,
+  easing: Easing.bezier(0.4, 0, 0.2, 1),
+};
+
 export function SearchTypeToggle({
   value,
   onValueChange,
 }: SearchTypeToggleProps) {
+  // Store the position and width of each tab
+  const tabPositions = useRef<{ x: number; width: number }[]>([]);
+  const underlineX = useSharedValue(0);
+  const underlineWidth = useSharedValue(0);
+  const isInitialized = useRef(false);
+
+  const activeIndex = options.findIndex((opt) => opt.value === value);
+
+  const handleTabLayout = (index: number, event: LayoutChangeEvent) => {
+    const { x, width } = event.nativeEvent.layout;
+    tabPositions.current[index] = { x, width };
+
+    // Set initial position without animation when the active tab is laid out
+    if (index === activeIndex && !isInitialized.current) {
+      underlineX.value = x;
+      underlineWidth.value = width;
+      isInitialized.current = true;
+    }
+  };
+
+  const handlePress = (type: SearchType, index: number) => {
+    const position = tabPositions.current[index];
+    if (position) {
+      underlineX.value = withTiming(position.x, animationConfig);
+      underlineWidth.value = withTiming(position.width, animationConfig);
+    }
+    onValueChange(type);
+  };
+
+  const underlineStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: underlineX.value }],
+    width: underlineWidth.value,
+  }));
+
   return (
     <View style={styles.container}>
-      {options.map((option) => (
+      {options.map((option, index) => (
         <TouchableOpacity
           key={option.value}
-          style={[styles.button, value === option.value && styles.buttonActive]}
-          onPress={() => onValueChange(option.value)}
+          style={styles.tab}
+          onPress={() => handlePress(option.value, index)}
+          onLayout={(e) => handleTabLayout(index, e)}
+          activeOpacity={0.7}
         >
           <Text
-            type="body"
+            type="heading"
             style={[styles.text, value === option.value && styles.textActive]}
           >
             {option.label}
           </Text>
         </TouchableOpacity>
       ))}
+      <Animated.View style={[styles.underline, underlineStyle]} />
     </View>
   );
 }
@@ -43,26 +92,25 @@ export function SearchTypeToggle({
 const styles = StyleSheet.create((theme) => ({
   container: {
     flexDirection: "row",
-    borderRadius: 8,
-    backgroundColor: theme.colors.border,
-    padding: 2,
+    position: "relative",
+    gap: 24,
   },
-  button: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignItems: "center",
-  },
-  buttonActive: {
-    backgroundColor: theme.colors.primary,
+  tab: {
+    paddingBottom: 8,
   },
   text: {
-    fontSize: 13,
-    color: "#666",
+    fontSize: 16,
+    color: theme.colors.text,
+    opacity: 0.4,
   },
   textActive: {
-    color: "#fff",
-    fontWeight: "600",
+    opacity: 1,
+  },
+  underline: {
+    position: "absolute",
+    bottom: 0,
+    height: 2,
+    backgroundColor: theme.colors.text,
+    borderRadius: 1,
   },
 }));

@@ -80,17 +80,6 @@ interface HeaderProps {
   onFilterPress: () => void;
 }
 
-const getSearchPlaceholder = (tab: SearchType): string => {
-  switch (tab) {
-    case "recipes":
-      return "Search all recipes...";
-    case "collections":
-      return "Search collections...";
-    case "users":
-      return "Search users...";
-  }
-};
-
 const Header = ({
   searchQuery,
   setSearchQuery,
@@ -110,11 +99,7 @@ const Header = ({
         <VSpace size={16} />
         <View style={styles.searchRow}>
           <View style={styles.searchBarWrapper}>
-            <SearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={getSearchPlaceholder(activeTab)}
-            />
+            <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
           </View>
           {showFilterButton && (
             <TouchableOpacity

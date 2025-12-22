@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
 import { AddRecipeScreen } from "@/screens/AddRecipeScreen";
-import { DiscoverScreen } from "@/screens/DiscoverScreen";
 import { HomeScreen } from "@/screens/HomeScreen";
 import { MyRecipesScreen } from "@/screens/MyRecipesScreen";
 import { ShoppingListScreen } from "@/screens/ShoppingListScreen";
@@ -24,17 +23,6 @@ export const TabNavigator = () => {
           tabBarIcon(props) {
             return (
               <Ionicons name="home" color={props.color} size={props.size} />
-            );
-          },
-        }}
-      />
-      <Tab.Screen
-        name="Discover"
-        component={DiscoverScreen}
-        options={{
-          tabBarIcon(props) {
-            return (
-              <Ionicons name="search" color={props.color} size={props.size} />
             );
           },
         }}

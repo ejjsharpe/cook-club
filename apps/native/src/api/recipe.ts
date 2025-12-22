@@ -310,3 +310,19 @@ export const useGetUserRecipesById = ({
 
   return useInfiniteQuery(infiniteQueryOptions);
 };
+
+// Get popular recipes from this week (based on recent likes/saves)
+interface UsePopularThisWeekParams {
+  limit?: number;
+}
+
+export const usePopularThisWeek = ({
+  limit = 10,
+}: UsePopularThisWeekParams = {}) => {
+  const trpc = useTRPC();
+
+  return useQuery({
+    ...trpc.recipe.getPopularThisWeek.queryOptions({ limit }),
+    staleTime: 1000 * 60 * 5, // 5 minutes - refreshes reasonably often
+  });
+};
