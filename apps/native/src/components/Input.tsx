@@ -31,16 +31,15 @@ const styles = StyleSheet.create((theme) => ({
   label: { marginBottom: 8, marginLeft: 4 },
   input: {
     width: "100%",
-    paddingHorizontal: 12,
-    paddingVertical: 10.5,
-    borderRadius: theme.borderRadius.medium,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: "#f5f5f5",
     justifyContent: "center",
     fontFamily: theme.fonts.albertRegular,
-    fontSize: 17,
+    fontSize: 16,
   },
   focused: {
-    borderColor: `${theme.colors.text}80`,
+    backgroundColor: "#efefef",
   },
 }));

@@ -31,13 +31,14 @@ export function PrimaryButton({
 const styles = StyleSheet.create((theme) => ({
   container: {
     width: "100%",
-    borderRadius: theme.borderRadius.medium,
-    paddingVertical: 14,
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: "center",
     backgroundColor: theme.colors.primary,
   },
   text: {
-    fontSize: 17,
+    fontSize: 16,
     color: theme.colors.buttonText,
   },
 }));

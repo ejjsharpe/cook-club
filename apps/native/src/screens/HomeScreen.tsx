@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
+import type { Outputs } from "@repo/trpc/client";
 import { Image } from "expo-image";
 import { useState, useCallback, useMemo, useRef, memo, useEffect } from "react";
 import {
@@ -18,7 +19,6 @@ import Animated, {
   withTiming,
   interpolate,
   Easing,
-  runOnJS,
 } from "react-native-reanimated";
 import {
   SafeAreaView,
@@ -26,11 +26,7 @@ import {
 } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import {
-  useGetUserCollections,
-  useToggleRecipeInCollection,
-  useSearchPublicCollections,
-} from "@/api/collection";
+import { useSearchPublicCollections } from "@/api/collection";
 import { useSearchUsers } from "@/api/follows";
 import {
   useRecommendedRecipes,
@@ -47,6 +43,7 @@ import { SheetManager } from "@/components/FilterBottomSheet";
 import { FullWidthRecipeCard } from "@/components/FullWidthRecipeCard";
 import { RecipeCarousel } from "@/components/RecipeCarousel";
 import { SearchBar } from "@/components/SearchBar";
+import { SearchEmptyState } from "@/components/SearchEmptyState";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { UnderlineTabBar, type TabOption } from "@/components/UnderlineTabBar";
@@ -54,59 +51,12 @@ import { UserSearchCard } from "@/components/UserSearchCard";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useTabSlideAnimation } from "@/hooks/useTabSlideAnimation";
 
-interface Tag {
-  id: number;
-  name: string;
-  type: string;
-  count?: number;
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  image?: string | null;
-}
-
-interface RecommendedRecipe {
-  id: number;
-  name: string;
-  description?: string | null;
-  totalTime?: string | null;
-  servings?: number | null;
-  saveCount: number;
-  likeCount: number;
-  collectionIds: number[];
-  isLiked: boolean;
-  coverImage?: string | null;
-  tags: Tag[];
-  uploadedBy: User;
-  createdAt: string;
-}
-
-interface CollectionResult {
-  id: number;
-  name: string;
-  recipeCount: number;
-  owner: {
-    id: string;
-    name: string;
-    image: string | null;
-  };
-  createdAt: Date;
-}
-
-interface UserProfile {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    image?: string | null;
-    createdAt: string;
-    updatedAt: string;
-    emailVerified: boolean;
-  };
-}
+type RecipePage = Outputs["recipe"]["searchAllRecipes"];
+type RecommendedRecipe = RecipePage["items"][number];
+type CollectionPage = Outputs["collection"]["searchPublicCollections"];
+type CollectionResult = CollectionPage["items"][number];
+type User = Outputs["follows"]["searchUsers"][number];
+type UserProfile = Outputs["user"]["getUser"];
 
 // ─── Header Component ─────────────────────────────────────────────────────────
 
@@ -193,19 +143,6 @@ export const HomeScreen = () => {
   const [activeTab, setActiveTab] = useState<SearchType>("recipes");
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>();
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  // Track keyboard height for empty state centering
-  useKeyboardHandler({
-    onMove: (e) => {
-      "worklet";
-      runOnJS(setKeyboardHeight)(e.height);
-    },
-    onEnd: (e) => {
-      "worklet";
-      runOnJS(setKeyboardHeight)(e.height);
-    },
-  });
 
   // Track the search bar's Y position relative to the screen
   const searchBarY = useSharedValue(0);
@@ -217,6 +154,20 @@ export const HomeScreen = () => {
   // Filter button visibility (0 = hidden, 1 = visible) - animated separately for tab changes
   const filterButtonProgress = useSharedValue(1);
 
+  // Keyboard height as animated value for empty state centering
+  const keyboardHeight = useSharedValue(0);
+
+  useKeyboardHandler({
+    onMove: (e) => {
+      "worklet";
+      keyboardHeight.value = e.height;
+    },
+    onEnd: (e) => {
+      "worklet";
+      keyboardHeight.value = e.height;
+    },
+  });
+
   // Tab slide animation from hook
   const { animatedStyle: tabContentStyle, triggerSlide } =
     useTabSlideAnimation();
@@ -224,10 +175,13 @@ export const HomeScreen = () => {
   // Target Y position for search mode (safe area top + padding)
   const searchModeY = insets.top + 20;
 
-  const animationConfig = {
-    duration: 300,
-    easing: Easing.bezier(0.4, 0, 0.2, 1),
-  };
+  const animationConfig = useMemo(
+    () => ({
+      duration: 300,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (isSearchActive) {
@@ -242,7 +196,7 @@ export const HomeScreen = () => {
       }, animationConfig.duration);
       return () => clearTimeout(timeout);
     }
-  }, [isSearchActive]);
+  }, [isSearchActive, animationConfig, searchProgress]);
 
   // Animate filter button when tab changes
   useEffect(() => {
@@ -250,18 +204,16 @@ export const HomeScreen = () => {
       activeTab === "recipes" ? 1 : 0,
       animationConfig,
     );
-  }, [activeTab]);
+  }, [activeTab, animationConfig, filterButtonProgress]);
 
   // Debounce search query
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // ─── API Hooks ────────────────────────────────────────────────────────────────
   const { data: userProfile } = useUser();
-  const { data: userCollections = [] } = useGetUserCollections();
   const { data: allTags = [] } = useAllTags();
   const { data: popularRecipes = [] } = usePopularThisWeek();
   const likeRecipeMutation = useLikeRecipe();
-  const toggleMutation = useToggleRecipeInCollection();
 
   // Recommended recipes (for featured card)
   const { data: recommendedData, refetch: recommendedRefetch } =
@@ -325,15 +277,19 @@ export const HomeScreen = () => {
     [recommendedData],
   );
 
-  const searchRecipes: RecommendedRecipe[] = useMemo(() => {
+  const searchRecipes = useMemo(() => {
     if (!shouldFetchRecipes) return [];
-    return recipeData?.pages.flatMap((page: any) => page?.items ?? []) ?? [];
+    return (
+      recipeData?.pages.flatMap((page: RecipePage) => page?.items ?? []) ?? []
+    );
   }, [recipeData, shouldFetchRecipes]);
 
-  const collections: CollectionResult[] = useMemo(() => {
+  const collections = useMemo(() => {
     if (!shouldFetchCollections) return [];
     return (
-      collectionData?.pages.flatMap((page: any) => page?.items ?? []) ?? []
+      collectionData?.pages.flatMap(
+        (page: CollectionPage) => page?.items ?? [],
+      ) ?? []
     );
   }, [collectionData, shouldFetchCollections]);
 
@@ -363,14 +319,11 @@ export const HomeScreen = () => {
     [likeRecipeMutation],
   );
 
-  const handleSavePress = useCallback(
-    (recipeId: number) => {
-      CollectionSheetManager.show("collection-selector-sheet", {
-        payload: { recipeId },
-      });
-    },
-    [userCollections?.length, toggleMutation],
-  );
+  const handleSavePress = useCallback((recipeId: number) => {
+    CollectionSheetManager.show("collection-selector-sheet", {
+      payload: { recipeId },
+    });
+  }, []);
 
   const handleUserPress = useCallback(
     (userId: string) => {
@@ -498,46 +451,57 @@ export const HomeScreen = () => {
   );
 
   // ─── Browse Mode Header ───────────────────────────────────────────────────────
-  const BrowseListHeader = (
-    <>
-      <VSpace size={20} />
-      <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
-      <VSpace size={16} />
-      <Pressable
-        ref={searchBarRef}
-        style={[
-          styles.searchContainer,
-          showFloatingSearch && styles.searchBarHidden,
-        ]}
-        onPress={handleSearchFocus}
-      >
-        <View pointerEvents="none">
-          <SearchBar
-            value=""
-            onChangeText={() => {}}
-            placeholder="Search recipes, collections, users..."
+  const BrowseListHeader = useMemo(
+    () => (
+      <>
+        <VSpace size={20} />
+        <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
+        <VSpace size={16} />
+        <Pressable
+          ref={searchBarRef}
+          style={[
+            styles.searchContainer,
+            showFloatingSearch && styles.searchBarHidden,
+          ]}
+          onPress={handleSearchFocus}
+        >
+          <View pointerEvents="none">
+            <SearchBar
+              value=""
+              onChangeText={() => {}}
+              placeholder="Search recipes, collections, users..."
+            />
+          </View>
+        </Pressable>
+        <VSpace size={24} />
+        {featuredRecipe && (
+          <>
+            <FeaturedRecipeCard
+              recipe={featuredRecipe}
+              onPress={() => handleRecipePress(featuredRecipe.id)}
+            />
+            <VSpace size={24} />
+          </>
+        )}
+        {popularRecipes.length > 0 && (
+          <RecipeCarousel
+            title="Popular this week"
+            recipes={popularRecipes}
+            onRecipePress={handleRecipePress}
           />
-        </View>
-      </Pressable>
-      <VSpace size={24} />
-      {featuredRecipe && (
-        <>
-          <FeaturedRecipeCard
-            recipe={featuredRecipe}
-            onPress={() => handleRecipePress(featuredRecipe.id)}
-          />
-          <VSpace size={24} />
-        </>
-      )}
-      {popularRecipes.length > 0 && (
-        <RecipeCarousel
-          title="Popular this week"
-          recipes={popularRecipes}
-          onRecipePress={handleRecipePress}
-        />
-      )}
-      <VSpace size={24} />
-    </>
+        )}
+        <VSpace size={24} />
+      </>
+    ),
+    [
+      userProfile,
+      handleAvatarPress,
+      showFloatingSearch,
+      handleSearchFocus,
+      featuredRecipe,
+      handleRecipePress,
+      popularRecipes,
+    ],
   );
 
   // ─── Search Mode Header ───────────────────────────────────────────────────────
@@ -546,108 +510,28 @@ export const HomeScreen = () => {
   const SearchListHeader = useMemo(() => <VSpace size={16} />, []);
 
   // ─── Search Empty State ───────────────────────────────────────────────────────
-  const renderSearchEmpty = () => {
-    const isFetching =
-      (activeTab === "recipes" && (recipesPending || recipesFetching)) ||
-      (activeTab === "collections" &&
-        (collectionsPending || collectionsFetching)) ||
-      (activeTab === "users" && (usersPending || usersFetching));
+  const isFetching =
+    (activeTab === "recipes" && (recipesPending || recipesFetching)) ||
+    (activeTab === "collections" &&
+      (collectionsPending || collectionsFetching)) ||
+    (activeTab === "users" && (usersPending || usersFetching));
 
-    const shouldFetch =
-      (activeTab === "recipes" && shouldFetchRecipes) ||
-      (activeTab === "collections" && shouldFetchCollections) ||
-      (activeTab === "users" && shouldFetchUsers);
+  const shouldFetch =
+    (activeTab === "recipes" && shouldFetchRecipes) ||
+    (activeTab === "collections" && shouldFetchCollections) ||
+    (activeTab === "users" && shouldFetchUsers);
 
-    // Calculate padding to center content between keyboard and scrollable area top
-    // The fixed header includes: safe area top + 20px padding + search bar height + 12px gap + tabs height (~40px) + 16px bottom padding
-    const fixedHeaderHeight = insets.top + SEARCH_BAR_HEIGHT;
-    const keyboardPadding = keyboardHeight > 0 ? keyboardHeight / 2 : 0;
-    const emptyStateStyle = {
-      paddingBottom: keyboardPadding + fixedHeaderHeight,
-    };
+  const fixedHeaderHeight = insets.top + SEARCH_BAR_HEIGHT;
 
-    if (isFetching && shouldFetch) {
-      const loadingText =
-        activeTab === "recipes"
-          ? "Searching recipes..."
-          : activeTab === "collections"
-            ? "Searching collections..."
-            : "Searching users...";
-
-      return (
-        <View style={[styles.emptyState, emptyStateStyle]}>
-          <ActivityIndicator size="large" />
-          <VSpace size={16} />
-          <Text type="bodyFaded">{loadingText}</Text>
-        </View>
-      );
-    }
-
-    if (!shouldFetch) {
-      let icon: "search-outline" | "albums-outline" | "people-outline" =
-        "search-outline";
-      let title = "Start searching";
-      let subtitle = "";
-
-      if (activeTab === "recipes") {
-        icon = "search-outline";
-        title = "Start searching";
-        subtitle =
-          "Enter a search term or select a cuisine/category to discover recipes";
-      } else if (activeTab === "collections") {
-        icon = "albums-outline";
-        title = "Search collections";
-        subtitle = "Find recipe collections from other users";
-      } else {
-        icon = "people-outline";
-        title = "Search users";
-        subtitle = "Find other cooks to follow";
-      }
-
-      return (
-        <View style={[styles.emptyState, emptyStateStyle]}>
-          <Ionicons name={icon} size={64} style={styles.emptyIcon} />
-          <VSpace size={16} />
-          <Text type="heading">{title}</Text>
-          <VSpace size={8} />
-          <Text type="bodyFaded" style={styles.emptyText}>
-            {subtitle}
-          </Text>
-        </View>
-      );
-    }
-
-    let icon: "restaurant-outline" | "albums-outline" | "people-outline" =
-      "restaurant-outline";
-    let title = "No results found";
-    let subtitle = "Try a different search term";
-
-    if (activeTab === "recipes") {
-      icon = "restaurant-outline";
-      title = "No recipes found";
-      subtitle = "Try adjusting your filters or search query";
-    } else if (activeTab === "collections") {
-      icon = "albums-outline";
-      title = "No collections found";
-      subtitle = "Try a different search term";
-    } else {
-      icon = "people-outline";
-      title = "No users found";
-      subtitle = "Try a different search term";
-    }
-
-    return (
-      <View style={[styles.emptyState, emptyStateStyle]}>
-        <Ionicons name={icon} size={64} style={styles.emptyIcon} />
-        <VSpace size={16} />
-        <Text type="heading">{title}</Text>
-        <VSpace size={8} />
-        <Text type="bodyFaded" style={styles.emptyText}>
-          {subtitle}
-        </Text>
-      </View>
-    );
-  };
+  const renderSearchEmpty = () => (
+    <SearchEmptyState
+      activeTab={activeTab}
+      isFetching={isFetching}
+      shouldFetch={shouldFetch}
+      keyboardHeight={keyboardHeight}
+      fixedHeaderHeight={fixedHeaderHeight}
+    />
+  );
 
   // ─── Search Footer ────────────────────────────────────────────────────────────
   const renderSearchFooter = () => {
@@ -680,17 +564,14 @@ export const HomeScreen = () => {
         ? renderCollection
         : renderUser;
 
-  const searchKeyExtractor = (item: any) =>
-    activeTab === "recipes"
+  const searchKeyExtractor = (
+    item: RecommendedRecipe | CollectionResult | User,
+  ) =>
+    "uploadedBy" in item
       ? item.id.toString()
-      : activeTab === "collections"
+      : "owner" in item
         ? `collection-${item.id}`
         : item.id;
-
-  const canRefresh =
-    (activeTab === "recipes" && shouldFetchRecipes) ||
-    (activeTab === "collections" && shouldFetchCollections) ||
-    (activeTab === "users" && shouldFetchUsers);
 
   // ─── Animation Styles ─────────────────────────────────────────────────────────
   // Use showFloatingSearch to control visibility so the animation plays out fully
@@ -814,6 +695,7 @@ export const HomeScreen = () => {
           <FlatList
             ref={searchListRef}
             data={searchData}
+            // Type assertion needed: data and renderItem change types based on activeTab
             renderItem={searchRenderItem as any}
             keyExtractor={searchKeyExtractor}
             ListHeaderComponent={SearchListHeader}
@@ -825,7 +707,7 @@ export const HomeScreen = () => {
               <RefreshControl
                 refreshing={isRefreshing && isSearchActive}
                 onRefresh={handleRefresh}
-                enabled={canRefresh}
+                enabled={shouldFetch}
               />
             }
             showsVerticalScrollIndicator={false}
@@ -985,18 +867,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   userCardWrapper: {
     paddingHorizontal: 20,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    alignItems: "center",
-  },
-  emptyIcon: {
-    color: theme.colors.border,
-  },
-  emptyText: {
-    textAlign: "center",
   },
   footerLoader: {
     paddingVertical: 20,
