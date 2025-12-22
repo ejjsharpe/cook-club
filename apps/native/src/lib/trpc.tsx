@@ -10,7 +10,7 @@ export const TRPCProvider = ({ children }: { children: React.ReactNode }) => {
   const queryClient = useQueryClient();
 
   const trpcClient = createTRPCClient({
-    apiUrl: "http://localhost:8787/api/trpc",
+    apiUrl: "http://192.168.0.87:8787/api/trpc",
     cookie: authClient.getCookie(),
   });
 

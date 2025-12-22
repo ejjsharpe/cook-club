@@ -13,6 +13,7 @@
     "test:all": "vitest run && vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
+    "@cloudflare/puppeteer": "^1.0.4",
     "arktype": "^2.1.20",
     "cheerio": "^1.1.0"
   },

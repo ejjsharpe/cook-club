@@ -8,7 +8,9 @@ import { useSignInWithSocial } from "@/api/auth";
 
 export function SignInWithGoogleButton() {
   const { mutate: signInWithSocial } = useSignInWithSocial();
-  const onPress = () => signInWithSocial({ provider: "google" });
+  const onPress = () => {
+    signInWithSocial({ provider: "google" });
+  };
 
   return (
     <BaseButton onPress={onPress} style={styles.container}>

@@ -1,5 +1,6 @@
 export interface Env {
   AI: Ai;
+  BROWSER: Fetcher;
   RECIPE_CACHE: KVNamespace;
 }
 

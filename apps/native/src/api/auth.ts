@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 
 import { authClient } from "@/lib/authClient";
 
@@ -25,6 +25,7 @@ export const useSignUpWithEmail = () => {
 
 export const useSignInWithSocial = () => {
   return useMutation({
+    onError: (e) => console.log(e),
     mutationFn: ({ provider }: { provider: "google" | "facebook" | "apple" }) =>
       authClient.signIn.social({ provider, callbackURL: "/" }),
   });

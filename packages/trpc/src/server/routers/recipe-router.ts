@@ -34,7 +34,6 @@ import {
   parseIngredients,
 } from "../../utils/ingredientParser";
 import { normalizeUnit } from "../../utils/unitNormalizer";
-import { router, authedProcedure } from "../trpc";
 import {
   queryRecipeList,
   queryPopularRecipesThisWeek,
@@ -43,6 +42,7 @@ import {
   getRecipeDetail,
   toggleRecipeLike,
 } from "../services/recipe";
+import { router, authedProcedure } from "../trpc";
 
 const ImageRecord = type({
   url: "string.url",
@@ -100,6 +100,7 @@ export const recipeRouter = router({
     .input(UrlValidator)
     .query(async ({ ctx, input }) => {
       try {
+        console.log(input.url);
         const result = await ctx.env.RECIPE_PARSER.parse({
           type: "url",
           data: input.url,

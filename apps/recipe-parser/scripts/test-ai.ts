@@ -6,7 +6,7 @@
  * 2. In another terminal: bun run scripts/test-ai.ts
  */
 
-const BASE_URL = "http://localhost:8787";
+const BASE_URL = "http://192.168.0.87:8787";
 
 // ============================================
 // TEST URL - Replace with your recipe URL

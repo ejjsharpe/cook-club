@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useSignInWithEmail, useSignInWithSocial } from "@/api/auth";
+import { useSignUpWithEmail, useSignInWithSocial } from "@/api/auth";
 import { Input } from "@/components/Input";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -25,8 +25,9 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const { mutate: signInWithEmail } = useSignInWithEmail();
-  const onPressSignInWithEmail = () => signInWithEmail({ email, password });
+  const { mutate: signUpWithEmail } = useSignUpWithEmail();
+  const onPressSignUpWithEmail = () =>
+    signUpWithEmail({ email, password, name });
 
   const { navigate } =
     useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList>>();
@@ -63,7 +64,7 @@ export default function SignUpScreen() {
           placeholder="••••••••••••"
         />
         <VSpace size={12} />
-        <PrimaryButton onPress={onPressSignInWithEmail}>Sign up</PrimaryButton>
+        <PrimaryButton onPress={onPressSignUpWithEmail}>Sign up</PrimaryButton>
         <VSpace size={12} />
         <Text type="bodyFaded" style={styles.textAlignCenter}>
           or

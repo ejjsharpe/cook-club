@@ -12,6 +12,9 @@
   "ai": {
     "binding": "AI"
   },
+  "browser": {
+    "binding": "BROWSER"
+  },
   "kv_namespaces": [
     {
       "binding": "RECIPE_CACHE",

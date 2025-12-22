@@ -13,6 +13,7 @@ import { Asset } from "expo-asset";
 import { useFonts } from "expo-font";
 import { Image } from "expo-image";
 import * as Linking from "expo-linking";
+import { ShareIntentProvider } from "expo-share-intent";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { SheetProvider } from "react-native-actions-sheet";
@@ -32,6 +33,7 @@ import startImage6 from "@/assets/images/start-food-6.jpg";
 import startImage7 from "@/assets/images/start-food-7.jpg";
 import startImage8 from "@/assets/images/start-food-8.jpg";
 import startImage9 from "@/assets/images/start-food-9.jpg";
+import { ShareIntentStorageHandler } from "@/components/ShareIntentStorageHandler";
 import { ReactQueryProvider } from "@/lib/reactQuery";
 import { SessionProvider } from "@/lib/sessionContext";
 import { SignedInProvider } from "@/lib/signedInContext";
@@ -105,26 +107,32 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <KeyboardProvider>
-        <ReactQueryProvider>
-          <SessionProvider>
-            <TRPCProvider>
-              <SignedInProvider>
-                <GestureHandlerRootView>
-                  <SheetProvider>
-                    <Navigation
-                      onReady={onNavigationReady}
-                      linking={linking}
-                      theme={{
-                        ...DefaultTheme,
-                        colors: { ...DefaultTheme.colors, background: "#FFF" },
-                      }}
-                    />
-                  </SheetProvider>
-                </GestureHandlerRootView>
-              </SignedInProvider>
-            </TRPCProvider>
-          </SessionProvider>
-        </ReactQueryProvider>
+        <ShareIntentProvider>
+          <ReactQueryProvider>
+            <SessionProvider>
+              <TRPCProvider>
+                <SignedInProvider>
+                  <ShareIntentStorageHandler />
+                  <GestureHandlerRootView>
+                    <SheetProvider>
+                      <Navigation
+                        onReady={onNavigationReady}
+                        linking={linking}
+                        theme={{
+                          ...DefaultTheme,
+                          colors: {
+                            ...DefaultTheme.colors,
+                            background: "#FFF",
+                          },
+                        }}
+                      />
+                    </SheetProvider>
+                  </GestureHandlerRootView>
+                </SignedInProvider>
+              </TRPCProvider>
+            </SessionProvider>
+          </ReactQueryProvider>
+        </ShareIntentProvider>
       </KeyboardProvider>
     </SafeAreaProvider>
   );

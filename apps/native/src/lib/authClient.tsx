@@ -4,7 +4,7 @@ import { createAuthClient } from "better-auth/react";
 import { storage } from "./mmkv";
 
 export const authClient = createAuthClient({
-  baseURL: "http://localhost:8787",
+  baseURL: "http://192.168.0.87:8787",
   plugins: [
     expoClient({
       scheme: "cookclub",

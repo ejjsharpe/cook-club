@@ -4,6 +4,11 @@ import type { Env, ParseResult } from "../types";
 import { parseRecipeFromHtml, type AiRecipeResult } from "./ai-client";
 import { cacheRecipe } from "./cache";
 import {
+  requiresBrowserRendering,
+  extractInstagramContent,
+  fetchHtmlWithBrowser,
+} from "../utils/browser-fetcher";
+import {
   cleanHtml,
   extractImageUrls,
   extractStepImageContext,
@@ -53,7 +58,7 @@ function aiResultToRecipe(
  *
  * Strategy:
  * 1. Check cache
- * 2. Fetch HTML
+ * 2. Fetch HTML (using browser rendering for JS-heavy sites)
  * 3. Try structured data extraction (JSON-LD, microdata)
  * 4. Fall back to AI parsing if needed
  * 5. Cache successful result
@@ -73,10 +78,23 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
   //   };
   // }
 
-  // Fetch HTML
+  // Check if this URL requires browser rendering (Instagram, TikTok, etc.)
+  const needsBrowser = requiresBrowserRendering(url);
+
+  // Handle Instagram URLs specially
+  if (needsBrowser && url.includes("instagram.com")) {
+    return parseInstagramUrl(env, url);
+  }
+
+  // Fetch HTML (use browser for JS-heavy sites, regular fetch otherwise)
   let html: string;
   try {
-    html = await fetchHtml(url);
+    if (needsBrowser) {
+      console.log("Using browser rendering for:", url);
+      html = await fetchHtmlWithBrowser(env.BROWSER, url);
+    } else {
+      html = await fetchHtml(url);
+    }
   } catch (error) {
     console.error("Fetch error:", error);
     return {
@@ -117,6 +135,7 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
 
   // Fall back to AI parsing
   try {
+    console.log({ html });
     const cleanedContent = cleanHtml(html);
 
     if (cleanedContent.length < 100) {
@@ -173,6 +192,94 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
       error: {
         code: "AI_PARSE_FAILED",
         message: error instanceof Error ? error.message : "AI parsing failed",
+      },
+    };
+  }
+}
+
+/**
+ * Parse a recipe from an Instagram URL
+ *
+ * Instagram requires special handling:
+ * 1. Use browser rendering to get the page content
+ * 2. Extract caption and images from the rendered page
+ * 3. Use AI to parse recipe from the caption text
+ */
+async function parseInstagramUrl(env: Env, url: string): Promise<ParseResult> {
+  try {
+    console.log("Parsing Instagram URL with browser rendering:", url);
+
+    const { html, caption, images } = await extractInstagramContent(
+      env.BROWSER,
+      url,
+    );
+
+    // If we couldn't extract a caption, try falling back to cleaning the HTML
+    let contentForAi = caption;
+
+    if (!contentForAi || contentForAi.length < 50) {
+      // Try to get content from the rendered HTML
+      const cleanedContent = cleanHtml(html);
+      if (cleanedContent.length >= 100) {
+        contentForAi = cleanedContent;
+      }
+    }
+
+    if (!contentForAi || contentForAi.length < 50) {
+      return {
+        success: false,
+        error: {
+          code: "NO_CONTENT",
+          message:
+            "Could not extract recipe content from Instagram. The post may not contain a recipe or may require login to view.",
+        },
+      };
+    }
+
+    console.log("Extracted Instagram content:", {
+      captionLength: contentForAi.length,
+      imageCount: images.length,
+    });
+
+    // Use AI to parse the recipe from the caption
+    const aiResult = await parseRecipeFromHtml(env.AI, contentForAi);
+    const recipe = aiResultToRecipe(aiResult, url, images);
+
+    const validation = ParsedRecipeSchema(recipe);
+
+    if (validation instanceof Error) {
+      console.log("Validation error for Instagram recipe");
+      return {
+        success: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "Could not parse a valid recipe from the Instagram content",
+        },
+      };
+    }
+
+    await cacheRecipe(env.RECIPE_CACHE, url, recipe);
+
+    return {
+      success: true,
+      data: recipe,
+      metadata: {
+        source: "url",
+        parseMethod: "ai_only",
+        confidence: "medium",
+        cached: false,
+      },
+    };
+  } catch (error) {
+    console.error("Instagram parsing error:", error);
+    return {
+      success: false,
+      error: {
+        code: "INSTAGRAM_PARSE_FAILED",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to parse Instagram content",
       },
     };
   }
