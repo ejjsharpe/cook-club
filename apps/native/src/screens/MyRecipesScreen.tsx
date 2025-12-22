@@ -1,38 +1,74 @@
+import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { useNavigation } from "@react-navigation/native";
+import { UserCollectionWithMetadata } from "@repo/trpc/client";
 import { useState, useMemo } from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Alert, TouchableOpacity } from "react-native";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
+import {
+  useGetUserCollectionsWithMetadata,
+  useCreateCollection,
+  useDeleteCollection,
+} from "@/api/collection";
 import { useGetUserRecipes } from "@/api/recipe";
+import { CollectionCard } from "@/components/CollectionCard";
 import { Input } from "@/components/Input";
+import {
+  MyRecipesToggle,
+  type MyRecipesTab,
+} from "@/components/MyRecipesToggle";
 import { RecipeCard } from "@/components/RecipeCard";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 
 type Recipe = NonNullable<
   ReturnType<typeof useGetUserRecipes>["data"]
 >["pages"][number]["items"][number];
 
+type Collection = UserCollectionWithMetadata;
+
 export const MyRecipesScreen = () => {
   const navigation = useNavigation();
+  const [activeTab, setActiveTab] = useState<MyRecipesTab>("recipes");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Fetch recipes
   const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    error,
+    data: recipesData,
+    fetchNextPage: fetchNextRecipes,
+    hasNextPage: hasMoreRecipes,
+    isFetchingNextPage: isFetchingNextRecipes,
+    isLoading: isLoadingRecipes,
+    error: recipesError,
   } = useGetUserRecipes({
     search: searchQuery,
   });
 
+  // Fetch collections
+  const {
+    data: collectionsData,
+    isLoading: isLoadingCollections,
+    error: collectionsError,
+    refetch: refetchCollections,
+  } = useGetUserCollectionsWithMetadata({
+    search: searchQuery,
+  });
+
+  // Mutations
+  const createCollectionMutation = useCreateCollection();
+  const deleteCollectionMutation = useDeleteCollection();
+
   const recipes = useMemo(() => {
-    return data?.pages.flatMap((page) => page?.items ?? []) ?? [];
-  }, [data]);
+    return recipesData?.pages.flatMap((page) => page?.items ?? []) ?? [];
+  }, [recipesData]);
+
+  const collections = useMemo(() => {
+    return collectionsData ?? [];
+  }, [collectionsData]);
 
   const renderRecipe = ({ item }: { item: Recipe }) => (
     <RecipeCard
@@ -41,16 +77,110 @@ export const MyRecipesScreen = () => {
     />
   );
 
-  const renderFooter = () => {
-    if (!isFetchingNextPage) return null;
+  const handleDeleteCollection = (collection: Collection) => {
+    if (collection.isDefault) {
+      Alert.alert(
+        "Cannot Delete",
+        "Your default collection cannot be deleted.",
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Delete Collection",
+      `Are you sure you want to delete "${collection.name}"? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            deleteCollectionMutation.mutate({ collectionId: collection.id });
+          },
+        },
+      ],
+    );
+  };
+
+  const renderRightActions = (collection: Collection) => {
+    // Don't allow swiping on default collection
+    if (collection.isDefault) return null;
+
     return (
-      <View style={styles.footer}>
-        <ActivityIndicator />
-      </View>
+      <TouchableOpacity
+        style={styles.deleteAction}
+        onPress={() => handleDeleteCollection(collection)}
+      >
+        <Ionicons name="trash" size={24} color="#fff" />
+      </TouchableOpacity>
+    );
+  };
+
+  const renderCollection = ({ item }: { item: Collection }) => {
+    const collection = item;
+    const collectionCard = (
+      <CollectionCard
+        collection={collection}
+        onPress={() =>
+          navigation.navigate("CollectionDetail", {
+            collectionId: collection.id,
+          })
+        }
+        onOwnerPress={() => {}} // Current user, no action needed
+      />
+    );
+
+    // Wrap with Swipeable if not default collection
+    if (!collection.isDefault) {
+      return (
+        <Swipeable renderRightActions={() => renderRightActions(collection)}>
+          {collectionCard}
+        </Swipeable>
+      );
+    }
+
+    return collectionCard;
+  };
+
+  const renderFooter = () => {
+    if (activeTab === "recipes" && !isFetchingNextRecipes) return null;
+    if (activeTab === "recipes") {
+      return (
+        <View style={styles.footer}>
+          <ActivityIndicator />
+        </View>
+      );
+    }
+    return null;
+  };
+
+  const handleCreateCollection = () => {
+    Alert.prompt(
+      "New Collection",
+      "Enter a name for your collection",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Create",
+          onPress: (collectionName?: string) => {
+            const trimmedName = collectionName?.trim();
+            if (!trimmedName) {
+              Alert.alert("Error", "Collection name cannot be empty");
+              return;
+            }
+            createCollectionMutation.mutate({ name: trimmedName });
+          },
+        },
+      ],
+      "plain-text",
     );
   };
 
   const renderEmpty = () => {
+    const isLoading =
+      activeTab === "recipes" ? isLoadingRecipes : isLoadingCollections;
+    const error = activeTab === "recipes" ? recipesError : collectionsError;
+
     if (isLoading) {
       return (
         <View style={styles.centered}>
@@ -62,25 +192,48 @@ export const MyRecipesScreen = () => {
     if (error) {
       return (
         <View style={styles.centered}>
-          <Text type="bodyFaded">Failed to load recipes</Text>
+          <Text type="bodyFaded">
+            {activeTab === "recipes"
+              ? "Failed to load recipes"
+              : "Failed to load collections"}
+          </Text>
         </View>
       );
     }
 
+    if (activeTab === "recipes") {
+      return (
+        <View style={styles.centered}>
+          <Text type="bodyFaded">
+            {searchQuery
+              ? "No recipes found for your search"
+              : "No recipes yet"}
+          </Text>
+        </View>
+      );
+    }
+
+    // Collections empty state
     return (
       <View style={styles.centered}>
         <Text type="bodyFaded">
-          {searchQuery ? "No recipes found for your search" : "No recipes yet"}
+          {searchQuery
+            ? "No collections found for your search"
+            : "No collections yet"}
         </Text>
       </View>
     );
   };
 
   const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
+    if (activeTab === "recipes" && hasMoreRecipes && !isFetchingNextRecipes) {
+      fetchNextRecipes();
     }
   };
+
+  const listData: any[] = activeTab === "recipes" ? recipes : collections;
+  const renderItem: any =
+    activeTab === "recipes" ? renderRecipe : renderCollection;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -89,17 +242,36 @@ export const MyRecipesScreen = () => {
         <Text type="title2">My Recipes</Text>
         <VSpace size={20} />
         <Input
-          placeholder="Search recipes..."
+          placeholder={
+            activeTab === "recipes"
+              ? "Search recipes..."
+              : "Search collections..."
+          }
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCapitalize="none"
           autoCorrect={false}
         />
+        <VSpace size={16} />
+        <MyRecipesToggle value={activeTab} onValueChange={setActiveTab} />
       </View>
       <VSpace size={16} />
+      {activeTab === "collections" && (
+        <>
+          <View style={styles.createButtonContainer}>
+            <PrimaryButton
+              onPress={handleCreateCollection}
+              disabled={createCollectionMutation.isPending}
+            >
+              Create Collection
+            </PrimaryButton>
+          </View>
+          <VSpace size={12} />
+        </>
+      )}
       <LegendList
-        data={recipes}
-        renderItem={renderRecipe}
+        data={listData}
+        renderItem={renderItem}
         keyExtractor={(item) => item.id.toString()}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
@@ -108,7 +280,7 @@ export const MyRecipesScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.listContent,
-          recipes.length === 0 && styles.emptyListContent,
+          listData.length === 0 && styles.emptyListContent,
         ]}
         ItemSeparatorComponent={() => <VSpace size={12} />}
       />
@@ -121,6 +293,9 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
   },
   header: {
+    paddingHorizontal: 20,
+  },
+  createButtonContainer: {
     paddingHorizontal: 20,
   },
   listContent: {
@@ -139,5 +314,15 @@ const styles = StyleSheet.create((theme) => ({
   footer: {
     paddingVertical: 20,
     alignItems: "center",
+  },
+  deleteAction: {
+    backgroundColor: "#ff3b30",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 80,
+    height: "100%",
+    marginVertical: 4,
+    marginRight: 20,
+    borderRadius: theme.borderRadius.medium,
   },
 }));

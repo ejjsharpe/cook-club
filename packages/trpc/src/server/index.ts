@@ -9,6 +9,9 @@ import { router } from "./trpc";
 export { createContext };
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
+// Re-export service types for use in frontend
+export type { UserCollectionWithMetadata } from "./services/collection";
+
 export const appRouter = router({
   user: userRouter,
   recipe: recipeRouter,

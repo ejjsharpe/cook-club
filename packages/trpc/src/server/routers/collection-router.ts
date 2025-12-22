@@ -3,7 +3,13 @@ import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, desc } from "drizzle-orm";
 
-import { toggleRecipeInCollection as toggleRecipeInCollectionService } from "../services/collection";
+import {
+  toggleRecipeInCollection as toggleRecipeInCollectionService,
+  searchPublicCollections as searchPublicCollectionsService,
+  getUserCollectionsWithMetadata as getUserCollectionsWithMetadataService,
+  getCollectionDetail as getCollectionDetailService,
+  deleteCollection as deleteCollectionService,
+} from "../services/collection";
 import { router, authedProcedure } from "../trpc";
 
 export const collectionRouter = router({
@@ -11,10 +17,20 @@ export const collectionRouter = router({
     .input(
       type({
         "recipeId?": "number",
+        "includeMetadata?": "boolean",
+        "search?": "string",
       }),
     )
     .query(async ({ ctx, input }) => {
-      const { recipeId } = input;
+      const { recipeId, includeMetadata, search } = input;
+
+      // If includeMetadata is requested AND no recipeId, return with metadata
+      if (includeMetadata && recipeId === undefined) {
+        return await getUserCollectionsWithMetadataService(ctx.db, {
+          userId: ctx.user.id,
+          ...(search && { search }),
+        });
+      }
 
       try {
         // Get all user's collections (default collection first)
@@ -129,6 +145,110 @@ export const collectionRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to toggle recipe in collection",
+        });
+      }
+    }),
+
+  searchPublicCollections: authedProcedure
+    .input(
+      type({
+        query: "string",
+        "limit?": "number",
+        "cursor?": "number",
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const { query, limit = 20, cursor } = input;
+
+      if (query.length < 2) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Search query must be at least 2 characters",
+        });
+      }
+
+      try {
+        return await searchPublicCollectionsService(ctx.db, {
+          query,
+          limit,
+          ...(cursor !== undefined && { cursor }),
+        });
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error searching collections:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to search collections",
+        });
+      }
+    }),
+
+  getCollectionDetail: authedProcedure
+    .input(
+      type({
+        collectionId: "number",
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        return await getCollectionDetailService(ctx.db, {
+          userId: ctx.user.id,
+          collectionId: input.collectionId,
+        });
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error fetching collection detail:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch collection detail",
+        });
+      }
+    }),
+
+  deleteCollection: authedProcedure
+    .input(
+      type({
+        collectionId: "number",
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await deleteCollectionService(ctx.db, {
+          userId: ctx.user.id,
+          collectionId: input.collectionId,
+        });
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error deleting collection:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete collection",
+        });
+      }
+    }),
+
+  // Get collections for a specific user (with metadata)
+  getUserCollectionsById: authedProcedure
+    .input(
+      type({
+        userId: "string",
+        "search?": "string",
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const { userId, search } = input;
+
+      try {
+        return await getUserCollectionsWithMetadataService(ctx.db, {
+          userId,
+          ...(search && { search }),
+        });
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error fetching user collections:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch user collections",
         });
       }
     }),

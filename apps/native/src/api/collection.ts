@@ -1,5 +1,10 @@
 import { useTRPC } from "@repo/trpc/client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
 import type { inferOutput } from "@trpc/tanstack-react-query";
 import { Alert } from "react-native";
 
@@ -203,4 +208,104 @@ export const useToggleRecipeInCollection = () => {
     });
 
   return useMutation(mutationOptions);
+};
+
+// Search public collections
+interface UseSearchPublicCollectionsParams {
+  query: string;
+  limit?: number;
+}
+
+export const useSearchPublicCollections = ({
+  query,
+  limit = 20,
+}: UseSearchPublicCollectionsParams) => {
+  const trpc = useTRPC();
+
+  return useInfiniteQuery({
+    ...trpc.collection.searchPublicCollections.infiniteQueryOptions(
+      { query, limit },
+      {
+        getNextPageParam: (lastPage) => lastPage?.nextCursor ?? undefined,
+      },
+    ),
+    enabled: query.length >= 2,
+    staleTime: 0,
+  });
+};
+
+// Get user's collections with metadata (recipe count, owner info)
+interface UseGetUserCollectionsWithMetadataParams {
+  search?: string;
+}
+
+export const useGetUserCollectionsWithMetadata = ({
+  search = "",
+}: UseGetUserCollectionsWithMetadataParams = {}) => {
+  const trpc = useTRPC();
+
+  return useQuery(
+    trpc.collection.getUserCollections.queryOptions({
+      includeMetadata: true,
+      search: search.trim() || undefined,
+    }),
+  );
+};
+
+// Get collection detail with recipes
+interface UseGetCollectionDetailParams {
+  collectionId: number;
+}
+
+export const useGetCollectionDetail = ({
+  collectionId,
+}: UseGetCollectionDetailParams) => {
+  const trpc = useTRPC();
+
+  return useQuery(
+    trpc.collection.getCollectionDetail.queryOptions({ collectionId }),
+  );
+};
+
+// Delete a collection
+export const useDeleteCollection = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions = trpc.collection.deleteCollection.mutationOptions({
+    onSuccess: () => {
+      // Invalidate collections list to remove the deleted collection
+      const collectionsFilter = trpc.collection.getUserCollections.pathFilter();
+      queryClient.invalidateQueries(collectionsFilter);
+
+      // Also invalidate user recipes in case they were affected
+      const userRecipesFilter = trpc.recipe.getUserRecipes.pathFilter();
+      queryClient.invalidateQueries(userRecipesFilter);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to delete collection. Please try again.");
+    },
+  });
+
+  return useMutation(mutationOptions);
+};
+
+// Get collections for a specific user (with metadata)
+interface UseGetUserCollectionsByIdParams {
+  userId: string;
+  search?: string;
+}
+
+export const useGetUserCollectionsById = ({
+  userId,
+  search = "",
+}: UseGetUserCollectionsByIdParams) => {
+  const trpc = useTRPC();
+
+  return useQuery(
+    trpc.collection.getUserCollectionsById.queryOptions({
+      userId,
+      search: search.trim() || undefined,
+    }),
+  );
 };

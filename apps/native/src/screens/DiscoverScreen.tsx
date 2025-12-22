@@ -7,22 +7,25 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import {
-  useGetUserCollections,
-  useToggleRecipeInCollection,
-} from "@/api/collection";
+import { useSearchPublicCollections } from "@/api/collection";
+import { useSearchUsers } from "@/api/follows";
 import { useSearchAllRecipes, useLikeRecipe, useAllTags } from "@/api/recipe";
+import { CollectionCard } from "@/components/CollectionCard";
 import { CollectionSheetManager } from "@/components/CollectionSelectorSheet";
 import { SheetManager } from "@/components/FilterBottomSheet";
 import { FullWidthRecipeCard } from "@/components/FullWidthRecipeCard";
 import { SearchBar } from "@/components/SearchBar";
+import {
+  SearchTypeToggle,
+  type SearchType,
+} from "@/components/SearchTypeToggle";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import { UserSearchCard } from "@/components/UserSearchCard";
 import { useDebounce } from "@/hooks/useDebounce";
 
 interface Tag {
@@ -55,22 +58,50 @@ interface RecommendedRecipe {
   createdAt: string;
 }
 
+interface CollectionResult {
+  id: number;
+  name: string;
+  recipeCount: number;
+  owner: {
+    id: string;
+    name: string;
+    image: string | null;
+  };
+  createdAt: Date;
+}
+
 interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  activeTab: SearchType;
+  onTabChange: (tab: SearchType) => void;
   selectedTagIds: number[];
   maxTotalTime: string | undefined;
   onFilterPress: () => void;
-  onTagPress: (tagId: number) => void;
 }
+
+const getSearchPlaceholder = (tab: SearchType): string => {
+  switch (tab) {
+    case "recipes":
+      return "Search all recipes...";
+    case "collections":
+      return "Search collections...";
+    case "users":
+      return "Search users...";
+  }
+};
 
 const Header = ({
   searchQuery,
   setSearchQuery,
+  activeTab,
+  onTabChange,
   selectedTagIds,
   maxTotalTime,
   onFilterPress,
 }: HeaderProps) => {
+  const showFilterButton = activeTab === "recipes";
+
   return (
     <>
       <VSpace size={20} />
@@ -82,25 +113,29 @@ const Header = ({
             <SearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search all recipes..."
+              placeholder={getSearchPlaceholder(activeTab)}
             />
           </View>
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={onFilterPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name="options-outline"
-              size={24}
-              style={
-                selectedTagIds.length > 0 || maxTotalTime
-                  ? styles.filterIconActive
-                  : styles.filterIcon
-              }
-            />
-          </TouchableOpacity>
+          {showFilterButton && (
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={onFilterPress}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="options-outline"
+                size={24}
+                style={
+                  selectedTagIds.length > 0 || maxTotalTime
+                    ? styles.filterIconActive
+                    : styles.filterIcon
+                }
+              />
+            </TouchableOpacity>
+          )}
         </View>
+        <VSpace size={12} />
+        <SearchTypeToggle value={activeTab} onValueChange={onTabChange} />
       </View>
       <VSpace size={16} />
     </>
@@ -112,6 +147,7 @@ export const DiscoverScreen = () => {
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<SearchType>("recipes");
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>();
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -121,35 +157,75 @@ export const DiscoverScreen = () => {
 
   // API hooks
   const { data: allTags = [] } = useAllTags();
-  const { data: userCollections = [] } = useGetUserCollections();
   const likeRecipeMutation = useLikeRecipe();
-  const toggleMutation = useToggleRecipeInCollection();
 
-  // Determine if we should fetch recipes
+  // Determine if we should fetch for each tab
   const shouldFetchRecipes =
-    debouncedSearch.trim() !== "" ||
-    selectedTagIds.length > 0 ||
-    maxTotalTime !== undefined;
+    activeTab === "recipes" &&
+    (debouncedSearch.trim() !== "" ||
+      selectedTagIds.length > 0 ||
+      maxTotalTime !== undefined);
 
+  const shouldFetchCollections =
+    activeTab === "collections" && debouncedSearch.length >= 2;
+
+  const shouldFetchUsers = activeTab === "users" && debouncedSearch.length >= 2;
+
+  // Recipe search
   const {
-    data,
-    isPending,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    refetch,
-    isFetching,
+    data: recipeData,
+    isPending: recipesPending,
+    isFetchingNextPage: recipesFetchingNext,
+    hasNextPage: recipesHasNext,
+    fetchNextPage: recipesFetchNext,
+    refetch: recipesRefetch,
+    isFetching: recipesFetching,
   } = useSearchAllRecipes({
     search: debouncedSearch,
     tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
     maxTotalTime,
   });
 
+  // Collection search
+  const {
+    data: collectionData,
+    isPending: collectionsPending,
+    isFetchingNextPage: collectionsFetchingNext,
+    hasNextPage: collectionsHasNext,
+    fetchNextPage: collectionsFetchNext,
+    refetch: collectionsRefetch,
+    isFetching: collectionsFetching,
+  } = useSearchPublicCollections({
+    query: debouncedSearch,
+  });
+
+  // User search
+  const {
+    data: usersData,
+    isPending: usersPending,
+    refetch: usersRefetch,
+    isFetching: usersFetching,
+  } = useSearchUsers({
+    query: debouncedSearch,
+  });
+
   // Flatten paginated data
   const recipes: RecommendedRecipe[] = useMemo(() => {
     if (!shouldFetchRecipes) return [];
-    return data?.pages.flatMap((page: any) => page?.items ?? []) ?? [];
-  }, [data, shouldFetchRecipes]);
+    return recipeData?.pages.flatMap((page: any) => page?.items ?? []) ?? [];
+  }, [recipeData, shouldFetchRecipes]);
+
+  const collections: CollectionResult[] = useMemo(() => {
+    if (!shouldFetchCollections) return [];
+    return (
+      collectionData?.pages.flatMap((page: any) => page?.items ?? []) ?? []
+    );
+  }, [collectionData, shouldFetchCollections]);
+
+  const users: User[] = useMemo(() => {
+    if (!shouldFetchUsers) return [];
+    return usersData ?? [];
+  }, [usersData, shouldFetchUsers]);
 
   // Handlers
   const handleRecipePress = (recipeId: number) => {
@@ -170,18 +246,61 @@ export const DiscoverScreen = () => {
     navigation.navigate("UserProfile", { userId });
   };
 
-  const handleLoadMore = useCallback(() => {
-    if (shouldFetchRecipes && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
+  const handleTabChange = (tab: SearchType) => {
+    setActiveTab(tab);
+    // Clear recipe-specific filters when switching away from recipes
+    if (tab !== "recipes") {
+      setSelectedTagIds([]);
+      setMaxTotalTime(undefined);
     }
-  }, [shouldFetchRecipes, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  };
+
+  const handleLoadMore = useCallback(() => {
+    if (activeTab === "recipes") {
+      if (shouldFetchRecipes && recipesHasNext && !recipesFetchingNext) {
+        recipesFetchNext();
+      }
+    } else if (activeTab === "collections") {
+      if (
+        shouldFetchCollections &&
+        collectionsHasNext &&
+        !collectionsFetchingNext
+      ) {
+        collectionsFetchNext();
+      }
+    }
+    // Users don't have pagination in the current API
+  }, [
+    activeTab,
+    shouldFetchRecipes,
+    recipesHasNext,
+    recipesFetchingNext,
+    recipesFetchNext,
+    shouldFetchCollections,
+    collectionsHasNext,
+    collectionsFetchingNext,
+    collectionsFetchNext,
+  ]);
 
   const handleRefresh = useCallback(async () => {
-    if (!shouldFetchRecipes) return;
     setIsRefreshing(true);
-    await refetch();
+    if (activeTab === "recipes" && shouldFetchRecipes) {
+      await recipesRefetch();
+    } else if (activeTab === "collections" && shouldFetchCollections) {
+      await collectionsRefetch();
+    } else if (activeTab === "users" && shouldFetchUsers) {
+      await usersRefetch();
+    }
     setIsRefreshing(false);
-  }, [shouldFetchRecipes, refetch]);
+  }, [
+    activeTab,
+    shouldFetchRecipes,
+    recipesRefetch,
+    shouldFetchCollections,
+    collectionsRefetch,
+    shouldFetchUsers,
+    usersRefetch,
+  ]);
 
   const handleFilterPress = () => {
     SheetManager.show("filter-sheet", {
@@ -192,18 +311,6 @@ export const DiscoverScreen = () => {
         onTimeChange: setMaxTotalTime,
         allTags,
       },
-    });
-  };
-
-  const handleTagPress = (tagId: number) => {
-    setSelectedTagIds((prev) => {
-      if (prev.includes(tagId)) {
-        // Remove tag if already selected
-        return prev.filter((id) => id !== tagId);
-      } else {
-        // Add tag to selection
-        return [...prev, tagId];
-      }
     });
   };
 
@@ -218,29 +325,84 @@ export const DiscoverScreen = () => {
     />
   );
 
+  const renderCollection = ({ item }: { item: CollectionResult }) => (
+    <CollectionCard
+      collection={item}
+      onPress={() => handleUserPress(item.owner.id)}
+      onOwnerPress={() => handleUserPress(item.owner.id)}
+    />
+  );
+
+  const renderUser = ({ item }: { item: User }) => (
+    <View style={styles.userCardWrapper}>
+      <UserSearchCard
+        user={item}
+        onUserPress={() => handleUserPress(item.id)}
+      />
+    </View>
+  );
+
   const renderEmpty = () => {
+    const isFetching =
+      (activeTab === "recipes" && (recipesPending || recipesFetching)) ||
+      (activeTab === "collections" &&
+        (collectionsPending || collectionsFetching)) ||
+      (activeTab === "users" && (usersPending || usersFetching));
+
+    const shouldFetch =
+      (activeTab === "recipes" && shouldFetchRecipes) ||
+      (activeTab === "collections" && shouldFetchCollections) ||
+      (activeTab === "users" && shouldFetchUsers);
+
     // Show loading state
-    if (isPending || isFetching) {
+    if (isFetching && shouldFetch) {
+      const loadingText =
+        activeTab === "recipes"
+          ? "Searching recipes..."
+          : activeTab === "collections"
+            ? "Searching collections..."
+            : "Searching users...";
+
       return (
         <View style={styles.emptyState}>
           <ActivityIndicator size="large" />
           <VSpace size={16} />
-          <Text type="bodyFaded">Searching recipes...</Text>
+          <Text type="bodyFaded">{loadingText}</Text>
           <VSpace size={80} />
         </View>
       );
     }
 
-    // Show prompt to search when no filters/search applied
-    if (!shouldFetchRecipes) {
+    // Show prompt to search when no query
+    if (!shouldFetch) {
+      let icon: "search-outline" | "albums-outline" | "people-outline" =
+        "search-outline";
+      let title = "Start searching";
+      let subtitle = "";
+
+      if (activeTab === "recipes") {
+        icon = "search-outline";
+        title = "Start searching";
+        subtitle =
+          "Enter a search term or select a cuisine/category to discover recipes";
+      } else if (activeTab === "collections") {
+        icon = "albums-outline";
+        title = "Search collections";
+        subtitle = "Find recipe collections from other users";
+      } else {
+        icon = "people-outline";
+        title = "Search users";
+        subtitle = "Find other cooks to follow";
+      }
+
       return (
         <View style={styles.emptyState}>
-          <Ionicons name="search-outline" size={64} style={styles.emptyIcon} />
+          <Ionicons name={icon} size={64} style={styles.emptyIcon} />
           <VSpace size={16} />
-          <Text type="heading">Start searching</Text>
+          <Text type="heading">{title}</Text>
           <VSpace size={8} />
           <Text type="bodyFaded" style={styles.emptyText}>
-            Enter a search term or select a cuisine/category to discover recipes
+            {subtitle}
           </Text>
           <VSpace size={80} />
         </View>
@@ -248,18 +410,33 @@ export const DiscoverScreen = () => {
     }
 
     // Show no results found
+    let icon: "restaurant-outline" | "albums-outline" | "people-outline" =
+      "restaurant-outline";
+    let title = "No results found";
+    let subtitle = "Try a different search term";
+
+    if (activeTab === "recipes") {
+      icon = "restaurant-outline";
+      title = "No recipes found";
+      subtitle = "Try adjusting your filters or search query";
+    } else if (activeTab === "collections") {
+      icon = "albums-outline";
+      title = "No collections found";
+      subtitle = "Try a different search term";
+    } else {
+      icon = "people-outline";
+      title = "No users found";
+      subtitle = "Try a different search term";
+    }
+
     return (
       <View style={styles.emptyState}>
-        <Ionicons
-          name="restaurant-outline"
-          size={64}
-          style={styles.emptyIcon}
-        />
+        <Ionicons name={icon} size={64} style={styles.emptyIcon} />
         <VSpace size={16} />
-        <Text type="heading">No recipes found</Text>
+        <Text type="heading">{title}</Text>
         <VSpace size={8} />
         <Text type="bodyFaded" style={styles.emptyText}>
-          Try adjusting your filters or search query
+          {subtitle}
         </Text>
         <VSpace size={80} />
       </View>
@@ -267,7 +444,11 @@ export const DiscoverScreen = () => {
   };
 
   const renderFooter = () => {
-    if (!isFetchingNextPage) return null;
+    const isFetchingNext =
+      (activeTab === "recipes" && recipesFetchingNext) ||
+      (activeTab === "collections" && collectionsFetchingNext);
+
+    if (!isFetchingNext) return null;
 
     return (
       <View style={styles.footerLoader}>
@@ -277,21 +458,49 @@ export const DiscoverScreen = () => {
     );
   };
 
+  // Determine data and render function based on active tab
+  const listData =
+    activeTab === "recipes"
+      ? recipes
+      : activeTab === "collections"
+        ? collections
+        : users;
+
+  const renderItem =
+    activeTab === "recipes"
+      ? renderRecipe
+      : activeTab === "collections"
+        ? renderCollection
+        : renderUser;
+
+  const keyExtractor = (item: any) =>
+    activeTab === "recipes"
+      ? item.id.toString()
+      : activeTab === "collections"
+        ? `collection-${item.id}`
+        : item.id;
+
+  const canRefresh =
+    (activeTab === "recipes" && shouldFetchRecipes) ||
+    (activeTab === "collections" && shouldFetchCollections) ||
+    (activeTab === "users" && shouldFetchUsers);
+
   return (
     <View style={styles.screen}>
       <SafeAreaView edges={["top"]}>
         <FlatList
-          data={recipes}
-          renderItem={renderRecipe}
-          keyExtractor={(item) => item.id.toString()}
+          data={listData}
+          renderItem={renderItem as any}
+          keyExtractor={keyExtractor}
           ListHeaderComponent={
             <Header
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
               selectedTagIds={selectedTagIds}
               maxTotalTime={maxTotalTime}
               onFilterPress={handleFilterPress}
-              onTagPress={handleTagPress}
             />
           }
           ListEmptyComponent={renderEmpty}
@@ -302,7 +511,7 @@ export const DiscoverScreen = () => {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              enabled={shouldFetchRecipes}
+              enabled={canRefresh}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -344,12 +553,8 @@ const styles = StyleSheet.create((theme) => ({
   filterIconActive: {
     color: theme.colors.primary,
   },
-  shortcutTitle: {
-    fontSize: 16,
-  },
-  shortcutList: {
-    gap: 8,
-    paddingRight: 20,
+  userCardWrapper: {
+    paddingHorizontal: 20,
   },
   emptyState: {
     flex: 1,

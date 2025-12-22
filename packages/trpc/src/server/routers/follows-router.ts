@@ -1,7 +1,7 @@
-import { follows, user } from "@repo/db/schemas";
+import { follows, user, recipes } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, and, or, ne, like } from "drizzle-orm";
+import { eq, and, or, ne, like, count } from "drizzle-orm";
 
 import {
   followUser as followUserService,
@@ -178,8 +178,8 @@ export const followsRouter = router({
           )
           .then((rows) => rows[0]);
 
-        // Get follower/following counts
-        const [followersCount, followingCount] = await Promise.all([
+        // Get follower/following counts and recipe count
+        const [followersCount, followingCount, recipeCount] = await Promise.all([
           ctx.db
             .select({ count: follows.id })
             .from(follows)
@@ -188,6 +188,11 @@ export const followsRouter = router({
             .select({ count: follows.id })
             .from(follows)
             .where(eq(follows.followerId, userId)),
+          ctx.db
+            .select({ count: count(recipes.id) })
+            .from(recipes)
+            .where(eq(recipes.uploadedBy, userId))
+            .then((rows) => rows[0]?.count ?? 0),
         ]);
 
         return {
@@ -196,6 +201,7 @@ export const followsRouter = router({
           followsMe: !!followsMe,
           followersCount: followersCount.length,
           followingCount: followingCount.length,
+          recipeCount: Number(recipeCount),
         };
       } catch (err) {
         if (err instanceof TRPCError) throw err;

@@ -1,16 +1,28 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LegendList } from "@legendapp/list";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { useState, useMemo, useCallback } from "react";
 import {
   View,
   Image,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
+import { useGetUserCollectionsById } from "@/api/collection";
 import { useUserProfile, useFollowUser, useUnfollowUser } from "@/api/follows";
+import { useGetUserRecipesById } from "@/api/recipe";
 import { useUser } from "@/api/user";
+import { CollectionCard } from "@/components/CollectionCard";
+import {
+  MyRecipesToggle,
+  type MyRecipesTab,
+} from "@/components/MyRecipesToggle";
+import { RecipeCard } from "@/components/RecipeCard";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
@@ -27,17 +39,47 @@ type UserProfileScreenRouteProp = RouteProp<
   "UserProfile"
 >;
 
+type Recipe = NonNullable<
+  ReturnType<typeof useGetUserRecipesById>["data"]
+>["pages"][number]["items"][number];
+
+type Collection = NonNullable<
+  ReturnType<typeof useGetUserCollectionsById>["data"]
+>[number];
+
 export const UserProfileScreen = () => {
   const route = useRoute<UserProfileScreenRouteProp>();
   const navigation = useNavigation();
   const { userId } = route.params;
+
+  const [activeTab, setActiveTab] = useState<MyRecipesTab>("recipes");
 
   const { data: currentUser } = useUser();
   const { data: profile, isLoading, error } = useUserProfile({ userId });
   const followMutation = useFollowUser();
   const unfollowMutation = useUnfollowUser();
 
+  // Fetch recipes and collections
+  const {
+    data: recipesData,
+    fetchNextPage: fetchNextRecipes,
+    hasNextPage: hasMoreRecipes,
+    isFetchingNextPage: isFetchingNextRecipes,
+    isLoading: isLoadingRecipes,
+  } = useGetUserRecipesById({ userId });
+
+  const { data: collectionsData, isLoading: isLoadingCollections } =
+    useGetUserCollectionsById({ userId });
+
   const isOwnProfile = currentUser?.user?.id === userId;
+
+  const recipes = useMemo(() => {
+    return recipesData?.pages.flatMap((page) => page?.items ?? []) ?? [];
+  }, [recipesData]);
+
+  const collections = useMemo(() => {
+    return collectionsData ?? [];
+  }, [collectionsData]);
 
   const handleFollow = () => {
     followMutation.mutate({ userId });
@@ -58,62 +100,94 @@ export const UserProfileScreen = () => {
     );
   };
 
-  const renderActionButton = () => {
-    if (!profile) return null;
+  const handleShareProfile = async () => {
+    if (!profile) return;
 
-    if (isOwnProfile) {
-      return (
-        <View style={styles.buttonContainer}>
-          <Text type="bodyFaded" style={styles.ownProfileText}>
-            This is your profile
-          </Text>
-        </View>
-      );
+    try {
+      await Share.share({
+        message: `Check out ${profile.user.name}'s profile on Cook Club!`,
+        url: `cookclub://profile/${userId}`,
+      });
+    } catch {
+      // User cancelled or share failed - silent failure
     }
+  };
 
-    const isLoading = followMutation.isPending || unfollowMutation.isPending;
+  const handleEditProfile = () => {
+    navigation.navigate("EditProfile");
+  };
 
-    if (profile.isFollowing) {
+  const handleLoadMoreRecipes = useCallback(() => {
+    if (hasMoreRecipes && !isFetchingNextRecipes) {
+      fetchNextRecipes();
+    }
+  }, [hasMoreRecipes, isFetchingNextRecipes, fetchNextRecipes]);
+
+  const renderRecipe = useCallback(
+    ({ item }: { item: Recipe }) => (
+      <RecipeCard
+        recipe={{
+          ...item,
+          addedAt: item.createdAt.toString(),
+        }}
+        onPress={() =>
+          navigation.navigate("RecipeDetail", { recipeId: item.id })
+        }
+      />
+    ),
+    [navigation],
+  );
+
+  const renderCollection = useCallback(
+    ({ item }: { item: Collection }) => (
+      <CollectionCard
+        collection={item}
+        onPress={() =>
+          navigation.navigate("CollectionDetail", { collectionId: item.id })
+        }
+        onOwnerPress={() => {}} // Already on profile, no action
+      />
+    ),
+    [navigation],
+  );
+
+  const renderEmpty = () => {
+    const isLoadingContent =
+      activeTab === "recipes" ? isLoadingRecipes : isLoadingCollections;
+
+    if (isLoadingContent) {
       return (
-        <View style={styles.buttonContainer}>
-          <Text type="highlight" style={styles.statusText}>
-            ✓ Following
-          </Text>
-          {profile.followsMe && (
-            <>
-              <VSpace size={4} />
-              <Text type="bodyFaded" style={styles.followsYouText}>
-                Follows you
-              </Text>
-            </>
-          )}
-          <VSpace size={12} />
-          <PrimaryButton
-            onPress={handleUnfollow}
-            disabled={isLoading}
-            style={styles.secondaryButton}
-          >
-            {unfollowMutation.isPending ? "Unfollowing..." : "Unfollow"}
-          </PrimaryButton>
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" />
         </View>
       );
     }
 
     return (
-      <View style={styles.buttonContainer}>
-        {profile.followsMe && (
-          <>
-            <Text type="bodyFaded" style={styles.statusText}>
-              Follows you
-            </Text>
-            <VSpace size={12} />
-          </>
-        )}
-        <PrimaryButton onPress={handleFollow} disabled={isLoading}>
-          {followMutation.isPending ? "Following..." : "Follow"}
-        </PrimaryButton>
+      <View style={styles.emptyContainer}>
+        <Text type="bodyFaded">
+          {activeTab === "recipes" ? "No recipes yet" : "No collections yet"}
+        </Text>
       </View>
     );
+  };
+
+  const renderFooter = () => {
+    if (activeTab === "recipes" && isFetchingNextRecipes) {
+      return (
+        <View style={styles.footer}>
+          <ActivityIndicator />
+        </View>
+      );
+    }
+    return null;
+  };
+
+  const formatJoinDate = (date: string) => {
+    return new Date(date).toLocaleDateString("en-GB", {
+      year: "numeric",
+      month: "long",
+    });
   };
 
   if (isLoading) {
@@ -142,12 +216,191 @@ export const UserProfileScreen = () => {
     );
   }
 
-  const formatJoinDate = (date: string) => {
-    return new Date(date).toLocaleDateString("en-GB", {
-      year: "numeric",
-      month: "long",
-    });
-  };
+  const isMutationLoading =
+    followMutation.isPending || unfollowMutation.isPending;
+
+  const renderHeader = () => (
+    <View style={styles.headerContent}>
+      {/* Profile Header */}
+      <View style={styles.profileHeader}>
+        <View style={styles.avatar}>
+          {profile.user.image ? (
+            <Image
+              source={{ uri: profile.user.image }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text type="largeTitle" style={styles.avatarText}>
+                {profile.user.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <VSpace size={16} />
+
+        <Text type="title1" style={styles.name}>
+          {profile.user.name}
+        </Text>
+
+        <Text type="bodyFaded" style={styles.email}>
+          {profile.user.email}
+        </Text>
+
+        <VSpace size={8} />
+
+        <Text type="bodyFaded" style={styles.joinDate}>
+          Joined {formatJoinDate(profile.user.createdAt)}
+        </Text>
+
+        <VSpace size={16} />
+
+        {/* Stats */}
+        <View style={styles.statsContainer}>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={() =>
+              navigation.navigate("FollowsList", {
+                userId,
+                activeTab: "followers",
+                userName: profile.user.name,
+              })
+            }
+            activeOpacity={0.7}
+          >
+            <Text type="heading" style={styles.statNumber}>
+              {profile.followersCount}
+            </Text>
+            <Text type="bodyFaded" style={styles.statLabel}>
+              Followers
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.statItem}
+            onPress={() =>
+              navigation.navigate("FollowsList", {
+                userId,
+                activeTab: "following",
+                userName: profile.user.name,
+              })
+            }
+            activeOpacity={0.7}
+          >
+            <Text type="heading" style={styles.statNumber}>
+              {profile.followingCount}
+            </Text>
+            <Text type="bodyFaded" style={styles.statLabel}>
+              Following
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.statItem}>
+            <Text type="heading" style={styles.statNumber}>
+              {profile.recipeCount}
+            </Text>
+            <Text type="bodyFaded" style={styles.statLabel}>
+              Recipes
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <VSpace size={24} />
+
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        {isOwnProfile ? (
+          <>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleEditProfile}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="pencil-outline"
+                size={18}
+                style={styles.buttonIcon}
+              />
+              <Text style={styles.secondaryButtonText}>Edit Profile</Text>
+            </TouchableOpacity>
+            <View style={styles.buttonSpacer} />
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleShareProfile}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="share-outline"
+                size={18}
+                style={styles.buttonIcon}
+              />
+              <Text style={styles.secondaryButtonText}>Share</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            {profile.isFollowing ? (
+              <TouchableOpacity
+                style={[styles.secondaryButton, styles.followingButton]}
+                onPress={handleUnfollow}
+                disabled={isMutationLoading}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="checkmark"
+                  size={18}
+                  style={styles.followingIcon}
+                />
+                <Text style={styles.followingButtonText}>Following</Text>
+              </TouchableOpacity>
+            ) : (
+              <PrimaryButton
+                onPress={handleFollow}
+                disabled={isMutationLoading}
+                style={styles.followButton}
+              >
+                Follow
+              </PrimaryButton>
+            )}
+            <View style={styles.buttonSpacer} />
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleShareProfile}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="share-outline"
+                size={18}
+                style={styles.buttonIcon}
+              />
+              <Text style={styles.secondaryButtonText}>Share</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+
+      {profile.followsMe && !isOwnProfile && (
+        <>
+          <VSpace size={8} />
+          <Text type="bodyFaded" style={styles.followsYouText}>
+            Follows you
+          </Text>
+        </>
+      )}
+
+      <VSpace size={24} />
+
+      {/* Tab Switcher */}
+      <View style={styles.toggleContainer}>
+        <MyRecipesToggle value={activeTab} onValueChange={setActiveTab} />
+      </View>
+
+      <VSpace size={16} />
+    </View>
+  );
+
+  const listData = activeTab === "recipes" ? recipes : collections;
+  const renderItem = activeTab === "recipes" ? renderRecipe : renderCollection;
 
   return (
     <View style={styles.screen}>
@@ -155,107 +408,21 @@ export const UserProfileScreen = () => {
         <VSpace size={8} />
         <BackButton />
 
-        <View style={styles.content}>
-          <VSpace size={32} />
-
-          {/* Profile Header */}
-          <View style={styles.profileHeader}>
-            <View style={styles.avatar}>
-              {profile.user.image ? (
-                <Image
-                  source={{ uri: profile.user.image }}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text type="largeTitle" style={styles.avatarText}>
-                    {profile.user.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <VSpace size={16} />
-
-            <Text type="title1" style={styles.name}>
-              {profile.user.name}
-            </Text>
-
-            <Text type="bodyFaded" style={styles.email}>
-              {profile.user.email}
-            </Text>
-
-            <VSpace size={8} />
-
-            <Text type="bodyFaded" style={styles.joinDate}>
-              Joined {formatJoinDate(profile.user.createdAt)}
-            </Text>
-
-            <VSpace size={12} />
-
-            {/* Follower Stats */}
-            <View style={styles.statsContainer}>
-              <TouchableOpacity
-                style={styles.statItem}
-                onPress={() =>
-                  navigation.navigate("FollowsList", {
-                    userId,
-                    activeTab: "followers",
-                    userName: profile.user.name,
-                  })
-                }
-                activeOpacity={0.7}
-              >
-                <Text type="heading" style={styles.statNumber}>
-                  {profile.followersCount}
-                </Text>
-                <Text type="bodyFaded" style={styles.statLabel}>
-                  Followers
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.statItem}
-                onPress={() =>
-                  navigation.navigate("FollowsList", {
-                    userId,
-                    activeTab: "following",
-                    userName: profile.user.name,
-                  })
-                }
-                activeOpacity={0.7}
-              >
-                <Text type="heading" style={styles.statNumber}>
-                  {profile.followingCount}
-                </Text>
-                <Text type="bodyFaded" style={styles.statLabel}>
-                  Following
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <VSpace size={40} />
-
-          {/* Action Button */}
-          <View style={styles.actionSection}>{renderActionButton()}</View>
-
-          {/* TODO: Add user's recipes, cooking stats, etc. */}
-          <VSpace size={40} />
-
-          <View style={styles.comingSoonSection}>
-            <Text type="heading">Coming Soon</Text>
-            <VSpace size={8} />
-            <Text type="bodyFaded" style={styles.comingSoon}>
-              • View {profile.user.name}'s recipes
-            </Text>
-            <Text type="bodyFaded" style={styles.comingSoon}>
-              • Cooking activity and stats
-            </Text>
-            <Text type="bodyFaded" style={styles.comingSoon}>
-              • Recipe collections
-            </Text>
-          </View>
-        </View>
+        <LegendList
+          data={listData as any[]}
+          renderItem={renderItem as any}
+          keyExtractor={(item: any) => item.id.toString()}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={
+            activeTab === "recipes" ? handleLoadMoreRecipes : undefined
+          }
+          onEndReachedThreshold={0.5}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <VSpace size={12} />}
+        />
       </SafeAreaView>
     </View>
   );
@@ -270,14 +437,14 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     paddingHorizontal: 20,
   },
-  content: {
-    flex: 1,
-    alignItems: "center",
-  },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  headerContent: {
+    alignItems: "center",
+    paddingTop: 24,
   },
   profileHeader: {
     alignItems: "center",
@@ -313,30 +480,6 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: "center",
     fontSize: 14,
   },
-  actionSection: {
-    width: "100%",
-    maxWidth: 300,
-  },
-  buttonContainer: {
-    alignItems: "center",
-  },
-  statusText: {
-    textAlign: "center",
-    fontSize: 16,
-  },
-  followsYouText: {
-    textAlign: "center",
-    fontSize: 14,
-  },
-  ownProfileText: {
-    textAlign: "center",
-    fontSize: 16,
-  },
-  secondaryButton: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -352,12 +495,62 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 14,
     marginTop: 2,
   },
-  comingSoonSection: {
-    alignItems: "center",
-    opacity: 0.6,
+  actionButtons: {
+    flexDirection: "row",
+    width: "100%",
   },
-  comingSoon: {
+  secondaryButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 6,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: theme.colors.text,
+  },
+  buttonIcon: {
+    color: theme.colors.text,
+  },
+  buttonSpacer: {
+    width: 12,
+  },
+  followButton: {
+    flex: 1,
+  },
+  followingButton: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary + "10",
+  },
+  followingButtonText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: theme.colors.primary,
+  },
+  followingIcon: {
+    color: theme.colors.primary,
+  },
+  followsYouText: {
     fontSize: 14,
-    marginVertical: 2,
+  },
+  toggleContainer: {
+    width: "100%",
+  },
+  listContent: {
+    paddingBottom: 20,
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  footer: {
+    paddingVertical: 20,
+    alignItems: "center",
   },
 }));

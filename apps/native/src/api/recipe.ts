@@ -287,3 +287,26 @@ export const useAllTags = ({ type }: UseAllTagsParams = {}) => {
     staleTime: 1000 * 60 * 60, // 1 hour - tags change very rarely
   });
 };
+
+// Get recipes uploaded by a specific user
+interface UseGetUserRecipesByIdParams {
+  userId: string;
+  search?: string;
+  limit?: number;
+}
+
+export const useGetUserRecipesById = ({
+  userId,
+  search,
+  limit = 20,
+}: UseGetUserRecipesByIdParams) => {
+  const trpc = useTRPC();
+
+  const infiniteQueryOptions =
+    trpc.recipe.getUserRecipesById.infiniteQueryOptions(
+      { userId, search, limit },
+      { getNextPageParam: (lastPage) => lastPage?.nextCursor },
+    );
+
+  return useInfiniteQuery(infiniteQueryOptions);
+};

@@ -119,9 +119,10 @@ export default function EditRecipeScreen() {
       quality: 0.8,
     });
 
-    if (!result.canceled && result.assets[0]) {
+    const pickedAsset = result.assets?.[0];
+    if (!result.canceled && pickedAsset) {
       setMethodImages((prev) =>
-        prev.map((img, i) => (i === stepIdx ? result.assets[0].uri : img)),
+        prev.map((img, i) => (i === stepIdx ? pickedAsset.uri : img)),
       );
     }
   };

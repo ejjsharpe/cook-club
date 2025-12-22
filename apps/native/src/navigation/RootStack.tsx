@@ -9,6 +9,8 @@ import { lazy } from "react";
 import { TabNavigator } from "./TabNavigator";
 
 import { useIsSignedIn, useIsSignedOut } from "@/lib/signedInContext";
+import { CollectionDetailScreen } from "@/screens/CollectionDetailScreen";
+import { EditProfileScreen } from "@/screens/EditProfileScreen";
 import EditRecipeScreen from "@/screens/EditRecipeScreen";
 import { FollowsScreen } from "@/screens/FollowsScreen";
 import { RecipeDetailScreen } from "@/screens/RecipeDetailScreen";
@@ -34,6 +36,7 @@ declare global {
         userName: string;
       };
       RecipeDetail: { recipeId: number };
+      CollectionDetail: { collectionId: number };
       [key: string]: undefined;
     }
   }
@@ -52,9 +55,11 @@ const RootStack = createNativeStackNavigator({
       screens: {
         Tabs: TabNavigator,
         EditRecipe: { screen: EditRecipeScreen },
+        EditProfile: { screen: EditProfileScreen },
         UserProfile: { screen: UserProfileScreen },
         FollowsList: { screen: FollowsScreen },
         RecipeDetail: { screen: RecipeDetailScreen },
+        CollectionDetail: { screen: CollectionDetailScreen },
       },
     },
     SignedOut: {

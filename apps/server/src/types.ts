@@ -26,6 +26,7 @@ interface ParsedRecipe {
   instructions: {
     index: number;
     instruction: string;
+    imageUrl?: string | null;
   }[];
   images?: string[];
   suggestedTags?: {

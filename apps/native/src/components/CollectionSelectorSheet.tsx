@@ -111,44 +111,50 @@ const CollectionSelectorSheet = (
                       Your collections
                     </Text>
                     <VSpace size={12} />
-                    {collections.map((collection) => (
-                      <TouchableOpacity
-                        key={collection.id}
-                        style={styles.collectionRow}
-                        onPress={() => handleToggleCollection(collection.id)}
-                        disabled={toggleMutation.isPending}
-                      >
-                        <View style={styles.collectionInfo}>
-                          {collection.isDefault && (
-                            <Ionicons
-                              name="bookmark"
-                              size={18}
-                              style={styles.defaultIcon}
-                            />
-                          )}
-                          <Text type="body">{collection.name}</Text>
-                          {collection.isDefault && (
-                            <View style={styles.defaultBadge}>
-                              <Text style={styles.defaultText}>Default</Text>
-                            </View>
-                          )}
-                        </View>
-                        <View
-                          style={[
-                            styles.checkbox,
-                            collection.hasRecipe && styles.checkboxSelected,
-                          ]}
+                    {collections.map((collection) => {
+                      const hasRecipe =
+                        "hasRecipe" in collection
+                          ? collection.hasRecipe
+                          : false;
+                      return (
+                        <TouchableOpacity
+                          key={collection.id}
+                          style={styles.collectionRow}
+                          onPress={() => handleToggleCollection(collection.id)}
+                          disabled={toggleMutation.isPending}
                         >
-                          {collection.hasRecipe && (
-                            <Ionicons
-                              name="checkmark"
-                              size={18}
-                              style={styles.checkIcon}
-                            />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    ))}
+                          <View style={styles.collectionInfo}>
+                            {collection.isDefault && (
+                              <Ionicons
+                                name="bookmark"
+                                size={18}
+                                style={styles.defaultIcon}
+                              />
+                            )}
+                            <Text type="body">{collection.name}</Text>
+                            {collection.isDefault && (
+                              <View style={styles.defaultBadge}>
+                                <Text style={styles.defaultText}>Default</Text>
+                              </View>
+                            )}
+                          </View>
+                          <View
+                            style={[
+                              styles.checkbox,
+                              hasRecipe && styles.checkboxSelected,
+                            ]}
+                          >
+                            {hasRecipe && (
+                              <Ionicons
+                                name="checkmark"
+                                size={18}
+                                style={styles.checkIcon}
+                              />
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
                     <VSpace size={24} />
                   </>
                 ) : (

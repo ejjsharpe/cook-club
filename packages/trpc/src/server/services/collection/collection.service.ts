@@ -1,6 +1,12 @@
-import { collections, recipeCollections, recipes } from "@repo/db/schemas";
+import {
+  collections,
+  recipeCollections,
+  recipes,
+  recipeImages,
+  user,
+} from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, ilike, sql, gt, inArray } from "drizzle-orm";
 
 import type { DbClient } from "../types";
 
@@ -148,5 +154,316 @@ export async function toggleRecipeInCollection(
     inCollection: collectionIds.includes(collectionId),
     collectionIds,
     collections: collectionsWithStatus,
+  };
+}
+
+// ─── User Collections With Metadata ─────────────────────────────────────────
+
+export interface UserCollectionWithMetadata {
+  id: number;
+  name: string;
+  isDefault: boolean;
+  recipeCount: number;
+  owner: {
+    id: string;
+    name: string;
+    image: string | null;
+  };
+  createdAt: Date;
+}
+
+/**
+ * Get user's collections with recipe count and owner metadata
+ */
+export async function getUserCollectionsWithMetadata(
+  db: DbClient,
+  params: {
+    userId: string;
+    search?: string;
+  },
+): Promise<UserCollectionWithMetadata[]> {
+  const { userId, search } = params;
+
+  // Build the recipe count subquery
+  const recipeCountSubquery = db
+    .select({
+      collectionId: recipeCollections.collectionId,
+      count: sql<number>`count(*)`.as("recipe_count"),
+    })
+    .from(recipeCollections)
+    .groupBy(recipeCollections.collectionId)
+    .as("recipe_counts");
+
+  // Build the main query
+  const results = await db
+    .select({
+      id: collections.id,
+      name: collections.name,
+      isDefault: collections.isDefault,
+      createdAt: collections.createdAt,
+      recipeCount: sql<number>`coalesce(${recipeCountSubquery.count}, 0)`,
+      ownerId: user.id,
+      ownerName: user.name,
+      ownerImage: user.image,
+    })
+    .from(collections)
+    .innerJoin(user, eq(collections.userId, user.id))
+    .leftJoin(
+      recipeCountSubquery,
+      eq(collections.id, recipeCountSubquery.collectionId),
+    )
+    .where(
+      and(
+        eq(collections.userId, userId),
+        search ? ilike(collections.name, `%${search}%`) : undefined,
+      ),
+    )
+    .orderBy(desc(collections.isDefault), collections.createdAt);
+
+  return results.map((row) => ({
+    id: row.id,
+    name: row.name,
+    isDefault: row.isDefault,
+    recipeCount: Number(row.recipeCount),
+    owner: {
+      id: row.ownerId,
+      name: row.ownerName,
+      image: row.ownerImage,
+    },
+    createdAt: row.createdAt,
+  }));
+}
+
+// ─── Public Collection Search ─────────────────────────────────────────────────
+
+export interface CollectionSearchResult {
+  id: number;
+  name: string;
+  recipeCount: number;
+  owner: {
+    id: string;
+    name: string;
+    image: string | null;
+  };
+  createdAt: Date;
+}
+
+export interface SearchPublicCollectionsResult {
+  items: CollectionSearchResult[];
+  nextCursor: number | null;
+}
+
+/**
+ * Search all public collections by name
+ */
+// ─── Collection Detail ──────────────────────────────────────────────────────
+
+export interface CollectionDetailResult {
+  id: number;
+  name: string;
+  isDefault: boolean;
+  recipeCount: number;
+  createdAt: Date;
+  recipes: {
+    id: number;
+    name: string;
+    cookTime: string | null;
+    servings: number | null;
+    sourceUrl: string | null;
+    images: { id: number; url: string }[];
+    createdAt: Date;
+  }[];
+}
+
+/**
+ * Get collection detail with all recipes
+ */
+export async function getCollectionDetail(
+  db: DbClient,
+  params: {
+    userId: string;
+    collectionId: number;
+  },
+): Promise<CollectionDetailResult> {
+  const { userId, collectionId } = params;
+
+  // Verify collection exists and belongs to user
+  const collection = await db
+    .select({
+      id: collections.id,
+      name: collections.name,
+      isDefault: collections.isDefault,
+      createdAt: collections.createdAt,
+    })
+    .from(collections)
+    .where(
+      and(eq(collections.id, collectionId), eq(collections.userId, userId)),
+    )
+    .then((rows) => rows[0]);
+
+  if (!collection) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Collection not found",
+    });
+  }
+
+  // Get all recipes in the collection
+  const recipesInCollection = await db
+    .select({
+      id: recipes.id,
+      name: recipes.name,
+      cookTime: recipes.cookTime,
+      servings: recipes.servings,
+      sourceUrl: recipes.sourceUrl,
+      createdAt: recipes.createdAt,
+    })
+    .from(recipeCollections)
+    .innerJoin(recipes, eq(recipeCollections.recipeId, recipes.id))
+    .where(eq(recipeCollections.collectionId, collectionId))
+    .orderBy(desc(recipeCollections.createdAt));
+
+  // Get images for all recipes in this collection
+  const recipeIds = recipesInCollection.map((r) => r.id);
+  let allRecipeImages: { id: number; recipeId: number; url: string }[] = [];
+
+  if (recipeIds.length > 0) {
+    allRecipeImages = await db
+      .select()
+      .from(recipeImages)
+      .where(inArray(recipeImages.recipeId, recipeIds));
+  }
+
+  // Map recipes with their images
+  const recipesWithImages = recipesInCollection.map((recipe) => ({
+    ...recipe,
+    images: allRecipeImages
+      .filter((img) => img.recipeId === recipe.id)
+      .map((img) => ({ id: img.id, url: img.url })),
+  }));
+
+  return {
+    id: collection.id,
+    name: collection.name,
+    isDefault: collection.isDefault,
+    recipeCount: recipesInCollection.length,
+    createdAt: collection.createdAt,
+    recipes: recipesWithImages,
+  };
+}
+
+// ─── Delete Collection ────────────────────────────────────────────────────────
+
+/**
+ * Delete a collection
+ */
+export async function deleteCollection(
+  db: DbClient,
+  params: {
+    userId: string;
+    collectionId: number;
+  },
+): Promise<{ success: boolean }> {
+  const { userId, collectionId } = params;
+
+  // Verify collection exists and belongs to user
+  const collection = await db
+    .select({
+      id: collections.id,
+      isDefault: collections.isDefault,
+    })
+    .from(collections)
+    .where(
+      and(eq(collections.id, collectionId), eq(collections.userId, userId)),
+    )
+    .then((rows) => rows[0]);
+
+  if (!collection) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Collection not found",
+    });
+  }
+
+  // Prevent deleting default collection
+  if (collection.isDefault) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Cannot delete your default collection",
+    });
+  }
+
+  // Delete collection (cascade will handle recipeCollections)
+  await db.delete(collections).where(eq(collections.id, collectionId));
+
+  return { success: true };
+}
+
+// ─── Public Collection Search ─────────────────────────────────────────────────
+
+export async function searchPublicCollections(
+  db: DbClient,
+  params: {
+    query: string;
+    limit?: number;
+    cursor?: number;
+  },
+): Promise<SearchPublicCollectionsResult> {
+  const { query, limit = 20, cursor } = params;
+
+  // Build the recipe count subquery
+  const recipeCountSubquery = db
+    .select({
+      collectionId: recipeCollections.collectionId,
+      count: sql<number>`count(*)`.as("recipe_count"),
+    })
+    .from(recipeCollections)
+    .groupBy(recipeCollections.collectionId)
+    .as("recipe_counts");
+
+  // Build the main query
+  const results = await db
+    .select({
+      id: collections.id,
+      name: collections.name,
+      createdAt: collections.createdAt,
+      recipeCount: sql<number>`coalesce(${recipeCountSubquery.count}, 0)`,
+      ownerId: user.id,
+      ownerName: user.name,
+      ownerImage: user.image,
+    })
+    .from(collections)
+    .innerJoin(user, eq(collections.userId, user.id))
+    .leftJoin(
+      recipeCountSubquery,
+      eq(collections.id, recipeCountSubquery.collectionId),
+    )
+    .where(
+      and(
+        ilike(collections.name, `%${query}%`),
+        cursor ? gt(collections.id, cursor) : undefined,
+      ),
+    )
+    .orderBy(collections.id)
+    .limit(limit + 1);
+
+  // Determine if there are more results
+  const hasMore = results.length > limit;
+  const items = hasMore ? results.slice(0, limit) : results;
+  const nextCursor = hasMore ? items[items.length - 1]?.id ?? null : null;
+
+  return {
+    items: items.map((row) => ({
+      id: row.id,
+      name: row.name,
+      recipeCount: Number(row.recipeCount),
+      owner: {
+        id: row.ownerId,
+        name: row.ownerName,
+        image: row.ownerImage,
+      },
+      createdAt: row.createdAt,
+    })),
+    nextCursor,
   };
 }
