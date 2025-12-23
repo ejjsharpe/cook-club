@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { memo } from "react";
-import { View, TouchableOpacity } from "react-native";
+import { View, TouchableOpacity, Dimensions } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -36,8 +36,9 @@ interface Props {
 const AnimatedTouchableOpacity =
   Animated.createAnimatedComponent(TouchableOpacity);
 
-const CARD_WIDTH = 148;
-const IMAGE_SIZE = 148;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CARD_WIDTH = Math.round(SCREEN_WIDTH * 0.4);
+const IMAGE_SIZE = CARD_WIDTH;
 
 export const CarouselCard = memo(({ recipe, onPress, index = 0 }: Props) => {
   const scale = useSharedValue(1);
@@ -85,29 +86,27 @@ export const CarouselCard = memo(({ recipe, onPress, index = 0 }: Props) => {
           )}
         </View>
         <VSpace size={8} />
-        <Text type="heading" style={styles.title} numberOfLines={2}>
+        <Text type="heading" numberOfLines={2}>
           {recipe.name}
         </Text>
-        {displayTags.length > 0 && (
+        {recipe.totalTime && (
+          <>
+            <VSpace size={4} />
+            <View style={styles.timeContainer}>
+              <Ionicons name="time-outline" size={15} style={styles.timeIcon} />
+              <HSpace size={4} />
+              <Text type="caption">{recipe.totalTime}</Text>
+            </View>
+          </>
+        )}
+        {/* {displayTags.length > 0 && (
           <>
             <VSpace size={4} />
             <Text type="bodyFaded" style={styles.tags} numberOfLines={1}>
               {displayTags.map((tag) => tag.name).join(" · ")}
             </Text>
           </>
-        )}
-        {recipe.totalTime && (
-          <>
-            <VSpace size={4} />
-            <View style={styles.timeContainer}>
-              <Ionicons name="time-outline" size={12} style={styles.timeIcon} />
-              <HSpace size={4} />
-              <Text type="bodyFaded" style={styles.timeText}>
-                {recipe.totalTime}
-              </Text>
-            </View>
-          </>
-        )}
+        )} */}
       </AnimatedTouchableOpacity>
     </Animated.View>
   );
@@ -137,22 +136,11 @@ const styles = StyleSheet.create((theme) => ({
   placeholderIcon: {
     color: theme.colors.border,
   },
-  title: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  tags: {
-    fontSize: 12,
-  },
   timeContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
   timeIcon: {
-    color: theme.colors.text,
-    opacity: 0.5,
-  },
-  timeText: {
-    fontSize: 12,
+    color: theme.colors.primary,
   },
 }));

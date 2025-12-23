@@ -36,7 +36,7 @@ export const RecipeCarousel = memo(
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text type="heading">{title}</Text>
+          <Text type="title3">{title}</Text>
           {onSeeAllPress && (
             <TouchableOpacity onPress={onSeeAllPress} activeOpacity={0.7}>
               <Text type="highlight" style={styles.seeAll}>

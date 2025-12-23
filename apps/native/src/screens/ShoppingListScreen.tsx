@@ -28,6 +28,7 @@ import {
   useAddManualItem,
 } from "@/api/shopping";
 import { FLOATING_TAB_BAR_HEIGHT } from "@/components/FloatingTabBar";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 
@@ -250,25 +251,23 @@ export const ShoppingListScreen = () => {
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <VSpace size={28} />
-
-        {/* Header */}
-        <View style={styles.header}>
-          <Text type="title2">Shopping List</Text>
+        <ScreenHeader title="Shopping List" style={styles.header}>
           {checkedCount > 0 && (
-            <TouchableOpacity
-              onPress={handleClearChecked}
-              style={styles.clearButton}
-              disabled={clearMutation.isPending}
-            >
-              <Text type="body" style={styles.clearButtonText}>
-                Clear ({checkedCount})
-              </Text>
-            </TouchableOpacity>
+            <>
+              <VSpace size={16} />
+              <TouchableOpacity
+                onPress={handleClearChecked}
+                style={styles.clearButton}
+                disabled={clearMutation.isPending}
+              >
+                <Text type="body" style={styles.clearButtonText}>
+                  Clear ({checkedCount})
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
-        </View>
-
-        <VSpace size={16} />
+          <VSpace size={16} />
+        </ScreenHeader>
 
         {/* Recipe Chips */}
         {recipes.length > 0 && (
@@ -355,9 +354,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   header: {
     paddingHorizontal: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
   },
   clearButton: {
     paddingHorizontal: 16,

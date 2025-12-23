@@ -7,6 +7,7 @@ import { StyleSheet } from "react-native-unistyles";
 
 import "@/components/ImportRecipeSheet";
 
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 
@@ -57,9 +58,9 @@ export const AddRecipeScreen = () => {
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
-        <VSpace size={28} />
-        <Text type="title2">Add a recipe</Text>
-        <VSpace size={28} />
+        <ScreenHeader title="Add a recipe">
+          <VSpace size={28} />
+        </ScreenHeader>
 
         <OptionCard
           icon="download-outline"

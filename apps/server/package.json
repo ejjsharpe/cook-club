@@ -2,6 +2,7 @@
   "name": "cook-club-server",
   "scripts": {
     "dev": "wrangler dev",
+    "dev:lan": "wrangler dev --ip 192.168.0.87",
     "deploy": "wrangler deploy --minify"
   },
   "dependencies": {

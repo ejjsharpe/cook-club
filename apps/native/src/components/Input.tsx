@@ -33,7 +33,7 @@ const styles = StyleSheet.create((theme) => ({
     width: "100%",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 999,
+    borderRadius: theme.borderRadius.extraLarge,
     backgroundColor: "#f5f5f5",
     justifyContent: "center",
     fontFamily: theme.fonts.albertRegular,

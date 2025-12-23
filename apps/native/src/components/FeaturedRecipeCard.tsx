@@ -83,17 +83,17 @@ export const FeaturedRecipeCard = memo(({ recipe, onPress }: Props) => {
           style={styles.gradient}
         />
         <View style={styles.overlay}>
-          <Text type="heading" style={styles.title} numberOfLines={2}>
+          <Text type="title2" style={styles.title} numberOfLines={2}>
             {recipe.name}
           </Text>
-          {displayTags.length > 0 && (
+          {/* {displayTags.length > 0 && (
             <>
               <VSpace size={4} />
               <Text style={styles.tags} numberOfLines={1}>
                 {displayTags.map((tag) => tag.name).join(" · ")}
               </Text>
             </>
-          )}
+          )} */}
           {recipe.totalTime && (
             <>
               <VSpace size={4} />
@@ -117,13 +117,13 @@ export const FeaturedRecipeCard = memo(({ recipe, onPress }: Props) => {
 const styles = StyleSheet.create((theme) => ({
   card: {
     marginHorizontal: 20,
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.large,
     overflow: "hidden",
   },
   imageContainer: {
     position: "relative",
     width: "100%",
-    aspectRatio: 4 / 3,
+    aspectRatio: 4 / 2.5,
   },
   image: {
     width: "100%",
@@ -153,9 +153,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   title: {
     color: theme.colors.buttonText,
-    textShadowColor: "rgba(0, 0, 0, 0.75)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   tags: {
     color: "rgba(255,255,255,0.8)",
@@ -178,9 +175,6 @@ const styles = StyleSheet.create((theme) => ({
   timeText: {
     color: "rgba(255,255,255,0.8)",
     fontSize: 14,
-    fontFamily: theme.fonts.albertRegular,
-    textShadowColor: "rgba(0, 0, 0, 0.75)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    fontFamily: theme.fonts.albertMedium,
   },
 }));

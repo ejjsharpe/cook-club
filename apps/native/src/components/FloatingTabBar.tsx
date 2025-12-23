@@ -91,13 +91,14 @@ const SlidingIndicator = ({
   tabCount,
   tabBarWidth,
 }: SlidingIndicatorProps) => {
-  const translateX = useSharedValue(0);
+  const tabWidth = tabBarWidth / tabCount;
+  const indicatorOffset = (tabWidth - TAB_ITEM_SIZE) / 2;
+  const initialX = activeIndex * tabWidth + indicatorOffset;
+
+  const translateX = useSharedValue(initialX);
   const scaleX = useSharedValue(1);
   const scaleY = useSharedValue(1);
   const prevIndex = useRef(activeIndex);
-
-  const tabWidth = tabBarWidth / tabCount;
-  const indicatorOffset = (tabWidth - TAB_ITEM_SIZE) / 2;
 
   useEffect(() => {
     const targetX = activeIndex * tabWidth + indicatorOffset;

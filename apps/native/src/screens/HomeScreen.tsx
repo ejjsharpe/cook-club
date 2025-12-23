@@ -95,9 +95,9 @@ const Header = memo(({ userProfile, onAvatarPress }: HeaderProps) => {
   return (
     <View style={styles.headerContainer}>
       <View style={styles.headerRow}>
-        <Text type="title2">
+        <Text type="title1">
           cook
-          <Text type="title2" style={styles.clubText}>
+          <Text type="title1" style={styles.clubText}>
             club
           </Text>
         </Text>
@@ -454,7 +454,7 @@ export const HomeScreen = () => {
   const BrowseListHeader = useMemo(
     () => (
       <>
-        <VSpace size={20} />
+        <VSpace size={28} />
         <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
         <VSpace size={20} />
         <Pressable
@@ -476,7 +476,7 @@ export const HomeScreen = () => {
         <VSpace size={28} />
         {featuredRecipe && (
           <>
-            <Text type="heading" style={styles.sectionTitle}>
+            <Text type="title3" style={styles.sectionTitle}>
               Today's featured recipe
             </Text>
             <VSpace size={12} />
@@ -853,7 +853,7 @@ const styles = StyleSheet.create((theme) => ({
   filterButton: {
     width: 44,
     height: 44,
-    borderRadius: theme.borderRadius.medium,
+    borderRadius: theme.borderRadius.full,
     borderWidth: 1,
     borderColor: theme.colors.border,
     justifyContent: "center",

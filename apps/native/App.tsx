@@ -1,6 +1,8 @@
 import "@/styles/unistyles";
 import {
   AlbertSans_400Regular,
+  AlbertSans_500Medium,
+  AlbertSans_600SemiBold,
   AlbertSans_700Bold,
 } from "@expo-google-fonts/albert-sans";
 import {
@@ -62,6 +64,8 @@ function cacheImages(images: any[]) {
 export default function App() {
   const [isFontsLoaded, isFontsError] = useFonts({
     AlbertSans_400Regular,
+    AlbertSans_500Medium,
+    AlbertSans_600SemiBold,
     AlbertSans_700Bold,
     LibreBaskerville_400Regular,
     LibreBaskerville_700Bold,

@@ -17,6 +17,7 @@ import {
 import { useGetUserRecipes } from "@/api/recipe";
 import { CollectionCard } from "@/components/CollectionCard";
 import { RecipeCard } from "@/components/RecipeCard";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { SearchBar } from "@/components/SearchBar";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -259,9 +260,7 @@ export const MyRecipesScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <VSpace size={28} />
-      <View style={styles.header}>
-        <Text type="title2">My Recipes</Text>
+      <ScreenHeader title="My Recipes" style={styles.header}>
         <VSpace size={20} />
         <SearchBar
           placeholder={
@@ -278,7 +277,7 @@ export const MyRecipesScreen = () => {
           value={activeTab}
           onValueChange={handleTabChange}
         />
-      </View>
+      </ScreenHeader>
       <VSpace size={16} />
       <Animated.View style={[styles.listWrapper, tabContentStyle]}>
         {activeTab === "collections" && (
