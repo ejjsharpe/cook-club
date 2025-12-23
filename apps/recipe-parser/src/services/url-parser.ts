@@ -15,6 +15,7 @@ import {
 } from "../utils/html-cleaner";
 import { fetchHtml } from "../utils/html-fetcher";
 import { extractStructuredRecipe } from "../utils/structured-data";
+import { extractTikTokContent } from "../utils/tiktok-fetcher";
 import { normalizeUnit } from "../utils/unit-normalizer";
 
 /**
@@ -84,6 +85,11 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
   // Handle Instagram URLs specially
   if (needsBrowser && url.includes("instagram.com")) {
     return parseInstagramUrl(env, url);
+  }
+
+  // Handle TikTok URLs specially
+  if (needsBrowser && url.includes("tiktok.com")) {
+    return parseTikTokUrl(env, url);
   }
 
   // Fetch HTML (use browser for JS-heavy sites, regular fetch otherwise)
@@ -275,6 +281,62 @@ async function parseInstagramUrl(env: Env, url: string): Promise<ParseResult> {
           error instanceof Error
             ? error.message
             : "Failed to parse Instagram content",
+      },
+    };
+  }
+}
+
+async function parseTikTokUrl(env: Env, url: string): Promise<ParseResult> {
+  try {
+    const result = await extractTikTokContent(url);
+
+    if (!result.caption || result.caption.length < 50) {
+      return {
+        success: false,
+        error: {
+          code: "NO_CONTENT",
+          message:
+            "Could not extract recipe content from TikTok. The video may not contain a recipe or the description may be too short.",
+        },
+      };
+    }
+
+    const aiResult = await parseRecipeFromHtml(env.AI, result.caption);
+    const recipe = aiResultToRecipe(aiResult, url, result.images);
+
+    const validation = ParsedRecipeSchema(recipe);
+
+    if (validation instanceof Error) {
+      return {
+        success: false,
+        error: {
+          code: "VALIDATION_FAILED",
+          message: "Could not parse a valid recipe from the TikTok content",
+        },
+      };
+    }
+
+    await cacheRecipe(env.RECIPE_CACHE, url, recipe);
+
+    return {
+      success: true,
+      data: recipe,
+      metadata: {
+        source: "url",
+        parseMethod: "ai_only",
+        confidence: "medium",
+        cached: false,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: {
+        code: "TIKTOK_PARSE_FAILED",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to parse TikTok content",
       },
     };
   }
