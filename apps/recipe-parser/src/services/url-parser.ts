@@ -200,26 +200,21 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
 /**
  * Parse a recipe from an Instagram URL
  *
- * Instagram requires special handling:
- * 1. Use browser rendering to get the page content
- * 2. Extract caption and images from the rendered page
- * 3. Use AI to parse recipe from the caption text
+ * Instagram requires browser rendering because all content is loaded via JavaScript.
+ * We use desktop user agent because Instagram shows full captions on desktop view.
  */
 async function parseInstagramUrl(env: Env, url: string): Promise<ParseResult> {
   try {
-    console.log("Parsing Instagram URL with browser rendering:", url);
+    console.log("Parsing Instagram URL:", url);
 
-    const { html, caption, images } = await extractInstagramContent(
-      env.BROWSER,
-      url,
-    );
+    // Instagram requires browser rendering - content is loaded via JavaScript
+    const result = await extractInstagramContent(env.BROWSER, url);
+    let contentForAi = result.caption;
+    const images = result.images;
 
-    // If we couldn't extract a caption, try falling back to cleaning the HTML
-    let contentForAi = caption;
-
+    // If browser didn't get a caption, try cleaning the HTML
     if (!contentForAi || contentForAi.length < 50) {
-      // Try to get content from the rendered HTML
-      const cleanedContent = cleanHtml(html);
+      const cleanedContent = cleanHtml(result.html);
       if (cleanedContent.length >= 100) {
         contentForAi = cleanedContent;
       }

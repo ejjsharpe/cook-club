@@ -27,13 +27,6 @@ export function requiresBrowserRendering(url: string): boolean {
 }
 
 /**
- * Sleep helper for waiting
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
  * Fetch fully-rendered HTML using headless browser
  *
  * This is more expensive than a simple fetch, so only use for sites
@@ -61,22 +54,17 @@ export async function fetchHtmlWithBrowser(
       hasTouch: true,
     });
 
-    // Navigate to the page with a timeout
+    // Use domcontentloaded for faster loading - we don't need all resources
     await page.goto(url, {
-      waitUntil: "networkidle0",
-      timeout: 30000,
+      waitUntil: "domcontentloaded",
+      timeout: 15000,
     });
 
-    // Wait a bit for any dynamic content to load
-    await sleep(2000);
-
-    // Try to dismiss any login popups or modals that might block content
+    // Try to dismiss any login popups or modals (no extra sleep)
     try {
-      // Instagram-specific: close login modal if present
       const closeButton = await page.$('[aria-label="Close"]');
       if (closeButton) {
         await closeButton.click();
-        await sleep(500);
       }
     } catch {
       // Ignore errors from popup dismissal
@@ -92,9 +80,9 @@ export async function fetchHtmlWithBrowser(
 }
 
 /**
- * Extract text content from Instagram page
+ * Extract recipe content from Instagram page
  *
- * Instagram has specific DOM structure for captions and descriptions
+ * Uses desktop view where Instagram shows full captions in og:title meta tag.
  */
 export async function extractInstagramContent(
   browser: Fetcher,
@@ -105,86 +93,62 @@ export async function extractInstagramContent(
   try {
     const page = await instance.newPage();
 
+    // Use desktop user agent - Instagram shows full captions on desktop view
     await page.setUserAgent(
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     );
 
     await page.setViewport({
-      width: 390,
-      height: 844,
-      isMobile: true,
-      hasTouch: true,
+      width: 1280,
+      height: 800,
+      isMobile: false,
+      hasTouch: false,
     });
 
     await page.goto(url, {
-      waitUntil: "networkidle0",
-      timeout: 30000,
+      waitUntil: "domcontentloaded",
+      timeout: 15000,
     });
 
-    await sleep(3000);
-
-    // Try to dismiss login modal
+    // Wait briefly for meta tags to be populated by JavaScript
     try {
-      const closeButton = await page.$('[aria-label="Close"]');
-      if (closeButton) {
-        await closeButton.click();
-        await sleep(500);
-      }
+      await page.waitForSelector('meta[property="og:title"]', {
+        timeout: 3000,
+      });
     } catch {
-      // Ignore
+      // Continue anyway - we'll check what's available
     }
 
-    // Extract caption text using page.evaluate
-    // Note: page.evaluate runs in browser context where document is available
-    // We use Function constructor to avoid TypeScript complaining about browser globals
+    // Extract caption from og:title (contains full caption on desktop)
+    // Fall back to og:description if needed
     const caption = await page.evaluate(`
       (function() {
-        // First try meta tags
+        const ogTitle = document.querySelector('meta[property="og:title"]');
+        if (ogTitle && ogTitle.content && ogTitle.content.length > 100) {
+          return ogTitle.content;
+        }
+
         const ogDesc = document.querySelector('meta[property="og:description"]');
         if (ogDesc && ogDesc.content) {
           return ogDesc.content;
-        }
-
-        const desc = document.querySelector('meta[name="description"]');
-        if (desc && desc.content) {
-          return desc.content;
-        }
-
-        // Try to find the main caption in the page
-        const article = document.querySelector("article");
-        if (article) {
-          // Get all text spans that might contain the caption
-          const spans = article.querySelectorAll("span");
-          let longestText = "";
-          spans.forEach(function(span) {
-            const text = span.textContent || "";
-            if (text.length > longestText.length && text.length > 50) {
-              longestText = text;
-            }
-          });
-          if (longestText) {
-            return longestText;
-          }
         }
 
         return null;
       })()
     `);
 
-    // Extract image URLs
+    // Extract main post image (first high-quality image, skip profile pics)
     const images = (await page.evaluate(`
       (function() {
         const imgUrls = [];
         const seen = new Set();
 
-        // Get all images
         document.querySelectorAll("img").forEach(function(img) {
           const src = img.src;
           if (
             src &&
             !seen.has(src) &&
-            !src.includes("profile") &&
-            !src.includes("avatar") &&
+            !src.includes("s150x150") &&
             (src.includes("cdninstagram") || src.includes("fbcdn"))
           ) {
             seen.add(src);
@@ -192,7 +156,7 @@ export async function extractInstagramContent(
           }
         });
 
-        // Also check for video poster images
+        // Check for video poster images
         document.querySelectorAll("video").forEach(function(video) {
           const poster = video.poster;
           if (poster && !seen.has(poster)) {
