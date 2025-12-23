@@ -1,9 +1,16 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 
 import { parseImage } from "./services/image-parser";
+import { processChat } from "./services/recipe-generator";
 import { parseText } from "./services/text-parser";
 import { parseUrl } from "./services/url-parser";
-import type { Env, ParseInput, ParseResponse } from "./types";
+import type {
+  Env,
+  ParseInput,
+  ParseResponse,
+  ChatInput,
+  ChatResponse,
+} from "./types";
 
 export type { ParsedRecipe, Ingredient, Instruction, Tag } from "./schema";
 export type {
@@ -12,6 +19,10 @@ export type {
   ParseResult,
   ParseError,
   ParseMetadata,
+  ChatInput,
+  ChatResponse,
+  ChatMessage,
+  RecipeConversationState,
 } from "./types";
 
 /**
@@ -77,6 +88,26 @@ export class RecipeParser extends WorkerEntrypoint<Env> {
         },
       };
     }
+  }
+
+  /**
+   * Process a chat message for AI recipe generation
+   *
+   * @param input - The chat input containing messages and conversation state
+   * @returns ChatResponse - AI message, recipe, or error
+   *
+   * @example
+   * const result = await env.RECIPE_PARSER.chat({
+   *   messages: [{ role: "user", content: "I have chicken and rice" }],
+   *   conversationState: { ingredients: null, cuisinePreference: null, willingToShop: null, maxCookingTime: null }
+   * });
+   */
+  async chat(input: ChatInput): Promise<ChatResponse> {
+    return await processChat(
+      this.env.AI,
+      input.messages,
+      input.conversationState,
+    );
   }
 }
 

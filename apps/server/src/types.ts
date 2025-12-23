@@ -56,8 +56,45 @@ type ParseResponse =
       };
     };
 
+// Chat types for AI recipe generation
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface RecipeConversationState {
+  ingredients: string[] | null;
+  cuisinePreference: string | null;
+  willingToShop: boolean | null;
+  maxCookingTime: string | null;
+}
+
+interface ChatInput {
+  messages: ChatMessage[];
+  conversationState: RecipeConversationState;
+}
+
+type ChatResponse =
+  | {
+      type: "message";
+      message: string;
+      suggestedReplies?: string[];
+      updatedState: RecipeConversationState;
+      isComplete: false;
+    }
+  | {
+      type: "recipe";
+      recipe: ParsedRecipe;
+      isComplete: true;
+    }
+  | {
+      type: "error";
+      error: { code: string; message: string };
+    };
+
 export interface RecipeParserService {
   parse(input: ParseInput): Promise<ParseResponse>;
+  chat(input: ChatInput): Promise<ChatResponse>;
 }
 
 export interface Env {

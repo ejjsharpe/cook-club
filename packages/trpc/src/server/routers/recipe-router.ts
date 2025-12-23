@@ -94,6 +94,24 @@ const UrlValidator = type({ url: "string.url" });
 
 const MimeTypeValidator = type("'image/jpeg' | 'image/png' | 'image/webp'");
 
+// Chat types for AI recipe generation
+const ChatMessageValidator = type({
+  role: "'user' | 'assistant'",
+  content: "string",
+});
+
+const ConversationStateValidator = type({
+  ingredients: "string[] | null",
+  cuisinePreference: "string | null",
+  willingToShop: "boolean | null",
+  maxCookingTime: "string | null",
+});
+
+const ChatInputValidator = type({
+  messages: ChatMessageValidator.array(),
+  conversationState: ConversationStateValidator,
+});
+
 export const recipeRouter = router({
   // Parse recipe from URL using AI
   parseRecipeFromUrl: authedProcedure
@@ -164,6 +182,28 @@ export const recipeRouter = router({
 
       return result;
     }),
+
+  // Generate recipe via AI chat conversation
+  generateRecipeChat: authedProcedure
+    .input(ChatInputValidator)
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.env.RECIPE_PARSER.chat({
+        messages: input.messages,
+        conversationState: input.conversationState,
+      });
+
+      console.log({ result });
+
+      if (result.type === "error") {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.error.message,
+        });
+      }
+
+      return result;
+    }),
+
   postRecipe: authedProcedure
     .input(RecipePostValidator)
     .mutation(async ({ input, ctx }) => {

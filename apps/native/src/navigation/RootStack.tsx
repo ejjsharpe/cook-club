@@ -13,6 +13,7 @@ import { CollectionDetailScreen } from "@/screens/CollectionDetailScreen";
 import { EditProfileScreen } from "@/screens/EditProfileScreen";
 import EditRecipeScreen from "@/screens/EditRecipeScreen";
 import { FollowsScreen } from "@/screens/FollowsScreen";
+import GenerateRecipeScreen from "@/screens/GenerateRecipeScreen";
 import { RecipeDetailScreen } from "@/screens/RecipeDetailScreen";
 import { UserProfileScreen } from "@/screens/UserProfileScreen";
 
@@ -29,6 +30,7 @@ declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {
       EditRecipe: { parsedRecipe?: ParsedRecipeResult };
+      GenerateRecipe: Record<string, never>;
       UserProfile: { userId: string };
       FollowsList: {
         userId: string;
@@ -55,6 +57,7 @@ const RootStack = createNativeStackNavigator({
       screens: {
         Tabs: TabNavigator,
         EditRecipe: { screen: EditRecipeScreen },
+        GenerateRecipe: { screen: GenerateRecipeScreen },
         EditProfile: { screen: EditProfileScreen },
         UserProfile: { screen: UserProfileScreen },
         FollowsList: { screen: FollowsScreen },

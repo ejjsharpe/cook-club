@@ -55,6 +55,10 @@ export const AddRecipeScreen = () => {
     navigate("EditRecipe", {});
   };
 
+  const onPressGenerate = () => {
+    navigate("GenerateRecipe", {});
+  };
+
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
@@ -76,6 +80,15 @@ export const AddRecipeScreen = () => {
           title="Create from scratch"
           description="Start with a blank canvas and build your own unique recipe"
           onPress={onPressCreate}
+        />
+
+        <VSpace size={12} />
+
+        <OptionCard
+          icon="sparkles-outline"
+          title="Generate with AI"
+          description="Tell me what you have, and I'll create a recipe just for you"
+          onPress={onPressGenerate}
         />
       </SafeAreaView>
     </View>

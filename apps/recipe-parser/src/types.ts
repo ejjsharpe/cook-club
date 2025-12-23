@@ -37,3 +37,39 @@ export type ParseResult =
 // Alias for backwards compatibility
 export type ParseResponse = ParseResult;
 export type ParseError = Extract<ParseResult, { success: false }>;
+
+// Chat types for AI recipe generation
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface RecipeConversationState {
+  ingredients: string[] | null;
+  cuisinePreference: string | null;
+  willingToShop: boolean | null;
+  maxCookingTime: string | null;
+}
+
+export interface ChatInput {
+  messages: ChatMessage[];
+  conversationState: RecipeConversationState;
+}
+
+export type ChatResponse =
+  | {
+      type: "message";
+      message: string;
+      suggestedReplies?: string[];
+      updatedState: RecipeConversationState;
+      isComplete: false;
+    }
+  | {
+      type: "recipe";
+      recipe: import("./schema").ParsedRecipe;
+      isComplete: true;
+    }
+  | {
+      type: "error";
+      error: { code: string; message: string };
+    };
