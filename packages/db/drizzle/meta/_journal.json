@@ -15,6 +15,13 @@
       "when": 1766265208410,
       "tag": "0001_boring_jigsaw",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766532160108,
+      "tag": "0002_wise_madelyne_pryor",
+      "breakpoints": true
     }
   ]
 }

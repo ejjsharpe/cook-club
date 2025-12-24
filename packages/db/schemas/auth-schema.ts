@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -8,6 +8,19 @@ export const user = pgTable("user", {
   image: text("image"),
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
+
+  // Profile fields
+  bio: text("bio"),
+
+  // Preference arrays (store tag IDs)
+  cuisineLikes: integer("cuisine_likes").array(),
+  cuisineDislikes: integer("cuisine_dislikes").array(),
+  ingredientLikes: integer("ingredient_likes").array(),
+  ingredientDislikes: integer("ingredient_dislikes").array(),
+  dietaryRequirements: integer("dietary_requirements").array(),
+
+  // Onboarding tracking
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
 });
 
 export const session = pgTable("session", {

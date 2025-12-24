@@ -8,7 +8,11 @@ import { lazy } from "react";
 
 import { TabNavigator } from "./TabNavigator";
 
-import { useIsSignedIn, useIsSignedOut } from "@/lib/signedInContext";
+import {
+  useIsSignedIn,
+  useIsSignedOut,
+  useNeedsOnboarding,
+} from "@/lib/signedInContext";
 import { CollectionDetailScreen } from "@/screens/CollectionDetailScreen";
 import { EditProfileScreen } from "@/screens/EditProfileScreen";
 import EditRecipeScreen from "@/screens/EditRecipeScreen";
@@ -23,6 +27,7 @@ type ParsedRecipeResult = Outputs["recipe"]["parseRecipeFromUrl"];
 const StartScreen = lazy(() => import("@/screens/StartScreen"));
 const SignUpScreen = lazy(() => import("@/screens/SignUpScreen"));
 const SignInScreen = lazy(() => import("@/screens/SignInScreen"));
+const OnboardingScreen = lazy(() => import("@/screens/OnboardingScreen"));
 
 type RootStackParamList = StaticParamList<typeof RootStack>;
 
@@ -49,6 +54,16 @@ const RootStack = createNativeStackNavigator({
     // Common screens
   },
   groups: {
+    Onboarding: {
+      if: useNeedsOnboarding,
+      screenOptions: {
+        headerShown: false,
+        gestureEnabled: false, // Prevent swiping back
+      },
+      screens: {
+        Onboarding: { screen: OnboardingScreen },
+      },
+    },
     SignedIn: {
       if: useIsSignedIn,
       screenOptions: {
@@ -65,6 +80,7 @@ const RootStack = createNativeStackNavigator({
         CollectionDetail: { screen: CollectionDetailScreen },
       },
     },
+
     SignedOut: {
       if: useIsSignedOut,
       screenOptions: {

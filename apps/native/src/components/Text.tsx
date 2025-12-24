@@ -49,7 +49,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 28,
           color: theme.colors.text,
           fontFamily: theme.fonts.baskervilleBold,
-          letterSpacing: -1,
+          letterSpacing: -1.5,
         },
         title2: {
           fontSize: 22,

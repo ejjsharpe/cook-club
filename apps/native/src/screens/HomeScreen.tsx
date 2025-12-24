@@ -55,28 +55,28 @@ type RecipePage = Outputs["recipe"]["searchAllRecipes"];
 type RecommendedRecipe = RecipePage["items"][number];
 type CollectionPage = Outputs["collection"]["searchPublicCollections"];
 type CollectionResult = CollectionPage["items"][number];
-type User = Outputs["follows"]["searchUsers"][number];
-type UserProfile = Outputs["user"]["getUser"];
+type SearchUser = Outputs["follows"]["searchUsers"][number];
+type CurrentUser = Outputs["user"]["getUser"]["user"];
 
 // ─── Header Component ─────────────────────────────────────────────────────────
 
 interface HeaderProps {
-  userProfile: UserProfile | undefined;
+  user: CurrentUser | undefined;
   onAvatarPress: () => void;
 }
 
-const Header = memo(({ userProfile, onAvatarPress }: HeaderProps) => {
+const Header = memo(({ user, onAvatarPress }: HeaderProps) => {
   const renderAvatar = () => {
-    if (!userProfile) return null;
+    if (!user) return null;
     return (
       <TouchableOpacity
         style={styles.avatar}
         onPress={onAvatarPress}
         activeOpacity={0.7}
       >
-        {userProfile.user.image ? (
+        {user.image ? (
           <Image
-            source={{ uri: userProfile.user.image }}
+            source={{ uri: user.image }}
             style={styles.avatarImage}
             cachePolicy="memory-disk"
             transition={100}
@@ -84,7 +84,7 @@ const Header = memo(({ userProfile, onAvatarPress }: HeaderProps) => {
         ) : (
           <View style={styles.avatarPlaceholder}>
             <Text type="heading" style={styles.avatarText}>
-              {userProfile.user.name.charAt(0).toUpperCase()}
+              {user.name.charAt(0).toUpperCase()}
             </Text>
           </View>
         )}
@@ -210,7 +210,8 @@ export const HomeScreen = () => {
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // ─── API Hooks ────────────────────────────────────────────────────────────────
-  const { data: userProfile } = useUser();
+  const { data: userData } = useUser();
+  const user = userData?.user;
   const { data: allTags = [] } = useAllTags();
   const { data: popularRecipes = [] } = usePopularThisWeek();
   const likeRecipeMutation = useLikeRecipe();
@@ -293,17 +294,17 @@ export const HomeScreen = () => {
     );
   }, [collectionData, shouldFetchCollections]);
 
-  const users: User[] = useMemo(() => {
+  const users: SearchUser[] = useMemo(() => {
     if (!shouldFetchUsers) return [];
     return usersData ?? [];
   }, [usersData, shouldFetchUsers]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
   const handleAvatarPress = useCallback(() => {
-    if (userProfile?.user?.id) {
-      navigation.navigate("UserProfile", { userId: userProfile.user.id });
+    if (user?.id) {
+      navigation.navigate("UserProfile", { userId: user.id });
     }
-  }, [userProfile?.user?.id, navigation]);
+  }, [user?.id, navigation]);
 
   const handleRecipePress = useCallback(
     (recipeId: number) => {
@@ -441,7 +442,7 @@ export const HomeScreen = () => {
     />
   );
 
-  const renderUser = ({ item }: { item: User }) => (
+  const renderUser = ({ item }: { item: SearchUser }) => (
     <View style={styles.userCardWrapper}>
       <UserSearchCard
         user={item}
@@ -455,7 +456,7 @@ export const HomeScreen = () => {
     () => (
       <>
         <VSpace size={28} />
-        <Header userProfile={userProfile} onAvatarPress={handleAvatarPress} />
+        <Header user={user} onAvatarPress={handleAvatarPress} />
         <VSpace size={20} />
         <Pressable
           ref={searchBarRef}
@@ -498,7 +499,7 @@ export const HomeScreen = () => {
       </>
     ),
     [
-      userProfile,
+      user,
       handleAvatarPress,
       showFloatingSearch,
       handleSearchFocus,
@@ -569,7 +570,7 @@ export const HomeScreen = () => {
         : renderUser;
 
   const searchKeyExtractor = (
-    item: RecommendedRecipe | CollectionResult | User,
+    item: RecommendedRecipe | CollectionResult | SearchUser,
   ) =>
     "uploadedBy" in item
       ? item.id.toString()

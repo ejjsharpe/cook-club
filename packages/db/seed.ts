@@ -156,6 +156,63 @@ async function seedTags(db: ReturnType<typeof drizzle>) {
     "Baking",
   ];
 
+  const dietaryRequirements = [
+    "Vegetarian",
+    "Vegan",
+    "Pescatarian",
+    "Gluten-Free",
+    "Dairy-Free",
+    "Nut-Free",
+    "Egg-Free",
+    "Soy-Free",
+    "Halal",
+    "Kosher",
+    "Keto",
+    "Paleo",
+    "Low-Carb",
+  ];
+
+  const ingredients = [
+    // Proteins
+    "Chicken",
+    "Beef",
+    "Pork",
+    "Lamb",
+    "Fish",
+    "Shellfish",
+    "Tofu",
+    "Turkey",
+    "Duck",
+    "Bacon",
+    "Sausage",
+    // Allergens & common dislikes
+    "Eggs",
+    "Dairy",
+    "Nuts",
+    "Peanuts",
+    "Soy",
+    "Wheat",
+    "Gluten",
+    "Mushrooms",
+    "Onions",
+    "Garlic",
+    "Cilantro",
+    "Olives",
+    "Anchovies",
+    "Blue Cheese",
+    "Spicy Food",
+    "Seafood",
+    "Tomatoes",
+    "Bell Peppers",
+    "Avocado",
+    "Coconut",
+    "Celery",
+    "Eggplant",
+    "Beets",
+    "Liver",
+    "Oysters",
+  ];
+
   const cuisineTags = await db
     .insert(schema.tags)
     .values(cuisines.map((name) => ({ name, type: "cuisine" })))
@@ -166,11 +223,21 @@ async function seedTags(db: ReturnType<typeof drizzle>) {
     .values(categories.map((name) => ({ name, type: "category" })))
     .returning();
 
+  const dietaryTags = await db
+    .insert(schema.tags)
+    .values(dietaryRequirements.map((name) => ({ name, type: "dietary" })))
+    .returning();
+
+  const ingredientTags = await db
+    .insert(schema.tags)
+    .values(ingredients.map((name) => ({ name, type: "ingredient" })))
+    .returning();
+
   console.log(
-    `✅ Seeded ${cuisineTags.length} cuisines and ${categoryTags.length} categories`
+    `✅ Seeded ${cuisineTags.length} cuisines, ${categoryTags.length} categories, ${dietaryTags.length} dietary, ${ingredientTags.length} ingredients`
   );
 
-  return { cuisineTags, categoryTags };
+  return { cuisineTags, categoryTags, dietaryTags, ingredientTags };
 }
 
 async function seedUsers(db: ReturnType<typeof drizzle>) {
@@ -422,8 +489,8 @@ async function main() {
     }
 
     // Seed data
-    const { cuisineTags, categoryTags } = await seedTags(db);
-    const allTags = [...cuisineTags, ...categoryTags];
+    const { cuisineTags, categoryTags, dietaryTags, ingredientTags } = await seedTags(db);
+    const allTags = [...cuisineTags, ...categoryTags, ...dietaryTags, ...ingredientTags];
     console.log("");
 
     const users = await seedUsers(db);
