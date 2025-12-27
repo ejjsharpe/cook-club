@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -141,21 +141,21 @@ const SlidingIndicator = ({
 
 export const FloatingTabBar = ({ state, navigation }: BottomTabBarProps) => {
   const insets = useSafeAreaInsets();
-  const tabBarWidth = useSharedValue(0);
+  const [tabBarWidth, setTabBarWidth] = useState(0);
 
   return (
     <View style={[styles.container, { bottom: Math.max(insets.bottom, 16) }]}>
       <View
         style={styles.tabBar}
         onLayout={(e) => {
-          tabBarWidth.value = e.nativeEvent.layout.width;
+          setTabBarWidth(e.nativeEvent.layout.width);
         }}
       >
-        {tabBarWidth.value > 0 && (
+        {tabBarWidth > 0 && (
           <SlidingIndicator
             activeIndex={state.index}
             tabCount={state.routes.length}
-            tabBarWidth={tabBarWidth.value}
+            tabBarWidth={tabBarWidth}
           />
         )}
         {state.routes.map((route, index) => {
