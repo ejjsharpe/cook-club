@@ -1,8 +1,7 @@
 {
   "name": "cook-club-server",
   "scripts": {
-    "dev": "wrangler dev",
-    "dev:lan": "wrangler dev --ip 192.168.0.87",
+    "dev": "wait-on tcp:8788 && wrangler dev --ip 0.0.0.0",
     "deploy": "wrangler deploy --minify"
   },
   "dependencies": {
@@ -16,6 +15,7 @@
     "@types/node": "^24.0.14",
     "eslint-config-universe": "15.0.3",
     "typescript": "^5.8.3",
+    "wait-on": "^9.0.3",
     "wrangler": "^4.50.0"
   },
   "eslintConfig": {

@@ -103,7 +103,7 @@ export default function App() {
     if (isFontsReady && isNavigationReady && isImagesReady) {
       SplashScreen.hideAsync();
     }
-  }, [isFontsReady, isNavigationReady]);
+  }, [isFontsReady, isNavigationReady, isImagesReady]);
 
   const onNavigationReady = () => setIsNavigationReady(true);
 
