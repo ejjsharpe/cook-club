@@ -256,7 +256,7 @@ export interface CollectionDetailResult {
   recipes: {
     id: number;
     name: string;
-    cookTime: string | null;
+    cookTime: number | null; // minutes
     servings: number | null;
     sourceUrl: string | null;
     images: { id: number; url: string }[];

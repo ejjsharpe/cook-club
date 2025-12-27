@@ -28,6 +28,7 @@ import { VSpace, HSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { formatMinutes } from "@/utils/timeUtils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const IMAGE_HEIGHT = 360;
@@ -517,14 +518,14 @@ export const RecipeDetailScreen = () => {
             <View style={styles.timeInfo}>
               {recipe.prepTime && (
                 <Text type="body" style={styles.timeText}>
-                  Prep: {recipe.prepTime}
+                  Prep: {formatMinutes(recipe.prepTime)}
                 </Text>
               )}
               {recipe.cookTime && (
                 <>
                   <HSpace size={16} />
                   <Text type="body" style={styles.timeText}>
-                    Cook: {recipe.cookTime}
+                    Cook: {formatMinutes(recipe.cookTime)}
                   </Text>
                 </>
               )}

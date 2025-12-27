@@ -50,6 +50,13 @@
       "when": 1766857191317,
       "tag": "0006_new_steel_serpent",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1766873453546,
+      "tag": "0007_worried_ulik",
+      "breakpoints": true
     }
   ]
 }

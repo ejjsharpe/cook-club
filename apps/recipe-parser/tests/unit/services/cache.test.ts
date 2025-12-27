@@ -26,9 +26,9 @@ function createMockKv() {
 const mockRecipe: ParsedRecipe = {
   name: "Test Recipe",
   description: "A test",
-  prepTime: "PT10M",
-  cookTime: "PT20M",
-  totalTime: "PT30M",
+  prepTime: 10, // minutes
+  cookTime: 20, // minutes
+  totalTime: 30, // minutes
   servings: 4,
   sourceUrl: "https://example.com/recipe",
   ingredients: [{ index: 0, quantity: 2, unit: "cup", name: "flour" }],

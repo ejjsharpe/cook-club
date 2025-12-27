@@ -7,12 +7,16 @@ import { VSpace } from "./Space";
 import { Text } from "./Text";
 import { PrimaryButton } from "./buttons/PrimaryButton";
 
-import { TimeValue, formatTime } from "@/utils/timeUtils";
+import {
+  formatMinutes,
+  fromTotalMinutes,
+  getTotalMinutes,
+} from "@/utils/timeUtils";
 
 interface TimePickerProps {
   label: string;
-  value: TimeValue;
-  onValueChange: (time: TimeValue) => void;
+  value: number | null; // minutes
+  onValueChange: (minutes: number | null) => void;
   placeholder?: string;
 }
 
@@ -23,26 +27,38 @@ export function TimePicker({
   placeholder = "Tap to set",
 }: TimePickerProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const [tempHours, setTempHours] = useState(value.hours);
-  const [tempMinutes, setTempMinutes] = useState(value.minutes);
+  const timeValue = value ? fromTotalMinutes(value) : { hours: 0, minutes: 0 };
+  const [tempHours, setTempHours] = useState(timeValue.hours);
+  const [tempMinutes, setTempMinutes] = useState(timeValue.minutes);
 
-  const displayText = formatTime(value) || placeholder;
+  const displayText = formatMinutes(value) || placeholder;
 
   const handleOpen = () => {
-    setTempHours(value.hours);
-    setTempMinutes(value.minutes);
+    const tv = value ? fromTotalMinutes(value) : { hours: 0, minutes: 0 };
+    setTempHours(tv.hours);
+    setTempMinutes(tv.minutes);
     setIsVisible(true);
   };
 
   const handleConfirm = () => {
-    onValueChange({ hours: tempHours, minutes: tempMinutes });
+    const totalMinutes = getTotalMinutes({
+      hours: tempHours,
+      minutes: tempMinutes,
+    });
+    onValueChange(totalMinutes > 0 ? totalMinutes : null);
     setIsVisible(false);
   };
 
   const handleCancel = () => {
-    setTempHours(value.hours);
-    setTempMinutes(value.minutes);
+    const tv = value ? fromTotalMinutes(value) : { hours: 0, minutes: 0 };
+    setTempHours(tv.hours);
+    setTempMinutes(tv.minutes);
     setIsVisible(false);
+  };
+
+  const handleClear = () => {
+    setTempHours(0);
+    setTempMinutes(0);
   };
 
   // Generate hour options (0-23)
@@ -50,6 +66,11 @@ export function TimePicker({
 
   // Generate minute options (0, 5, 10, 15, ..., 55)
   const minuteOptions = Array.from({ length: 12 }, (_, i) => i * 5);
+
+  const previewMinutes = getTotalMinutes({
+    hours: tempHours,
+    minutes: tempMinutes,
+  });
 
   return (
     <View style={styles.container}>
@@ -59,10 +80,7 @@ export function TimePicker({
       <TouchableOpacity style={styles.picker} onPress={handleOpen}>
         <Text
           type="body"
-          style={[
-            styles.pickerText,
-            !formatTime(value) && styles.placeholderText,
-          ]}
+          style={[styles.pickerText, !value && styles.placeholderText]}
         >
           {displayText}
         </Text>
@@ -163,21 +181,14 @@ export function TimePicker({
               Preview:
             </Text>
             <Text type="title2" style={styles.previewText}>
-              {formatTime({ hours: tempHours, minutes: tempMinutes }) ||
-                "No time set"}
+              {formatMinutes(previewMinutes) || "No time set"}
             </Text>
           </View>
 
           <VSpace size={20} />
 
           <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={() => {
-                setTempHours(0);
-                setTempMinutes(0);
-              }}
-            >
+            <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
               <Text type="body" style={styles.clearButtonText}>
                 Clear
               </Text>

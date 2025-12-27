@@ -21,7 +21,6 @@ import { Text } from "@/components/Text";
 import { TimePicker } from "@/components/TimePicker";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
-import { TimeValue, parseDuration, formatDurationISO } from "@/utils/timeUtils";
 
 interface ParsedIngredient {
   quantity: number | null;
@@ -68,11 +67,11 @@ export default function EditRecipeScreen() {
   const [title, setTitle] = useState(prefill?.name || "");
   const [author, setAuthor] = useState("");
   const [description, setDescription] = useState(prefill?.description || "");
-  const [prepTime, setPrepTime] = useState<TimeValue>(
-    parseDuration(prefill?.prepTime || ""),
+  const [prepTime, setPrepTime] = useState<number | null>(
+    prefill?.prepTime ?? null,
   );
-  const [cookTime, setCookTime] = useState<TimeValue>(
-    parseDuration(prefill?.cookTime || ""),
+  const [cookTime, setCookTime] = useState<number | null>(
+    prefill?.cookTime ?? null,
   );
   const [servings, setServings] = useState<number>(prefill?.servings || 4);
   const [ingredients, setIngredients] = useState<string[]>(getIngredientText);
@@ -215,8 +214,8 @@ export default function EditRecipeScreen() {
     const recipeData = {
       name: title.trim(),
       description: description.trim() || undefined,
-      prepTime: formatDurationISO(prepTime) || undefined,
-      cookTime: formatDurationISO(cookTime) || undefined,
+      prepTime: prepTime ?? undefined,
+      cookTime: cookTime ?? undefined,
       servings,
       ingredients: ingredients
         .map((ing, idx) => ({ index: idx, ingredient: ing.trim() }))

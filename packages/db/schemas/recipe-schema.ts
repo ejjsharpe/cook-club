@@ -20,9 +20,9 @@ export const recipes = pgTable(
     name: text("name").notNull(),
     uploadedBy: text("uploaded_by").notNull(),
     description: text("description"),
-    prepTime: text("prep_time"),
-    cookTime: text("cook_time"),
-    totalTime: text("total_time"),
+    prepTime: integer("prep_time"), // minutes
+    cookTime: integer("cook_time"), // minutes
+    totalTime: integer("total_time"), // minutes
     servings: integer("servings"),
     nutrition: text("nutrition"),
     createdAt: timestamp("created_at").notNull(),

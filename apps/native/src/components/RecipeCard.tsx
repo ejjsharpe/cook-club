@@ -7,6 +7,8 @@ import { VSpace } from "./Space";
 import { TagChip } from "./TagChip";
 import { Text } from "./Text";
 
+import { formatMinutes } from "@/utils/timeUtils";
+
 interface Tag {
   id: number;
   name: string;
@@ -23,9 +25,9 @@ interface Recipe {
   id: number;
   name: string;
   description?: string | null;
-  prepTime?: string | null;
-  cookTime?: string | null;
-  totalTime?: string | null;
+  prepTime?: number | null;
+  cookTime?: number | null;
+  totalTime?: number | null;
   servings?: number | null;
   category?: string | null;
   cuisine?: string | null;
@@ -75,7 +77,7 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
               style={styles.cookTimeIcon}
             />
             <Text type="bodyFaded" style={styles.cookTime}>
-              {recipe.totalTime}
+              {formatMinutes(recipe.totalTime)}
             </Text>
           </View>
         )}

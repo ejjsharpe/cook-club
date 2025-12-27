@@ -40,16 +40,20 @@ export const useParseRecipeFromImage = () => {
 interface UseGetUserRecipesParams {
   search?: string;
   limit?: number;
+  tagIds?: number[];
+  maxTotalTime?: number;
 }
 
 export const useGetUserRecipes = ({
   search,
   limit = 20,
+  tagIds,
+  maxTotalTime,
 }: UseGetUserRecipesParams) => {
   const trpc = useTRPC();
 
   const infiniteQueryOptions = trpc.recipe.getUserRecipes.infiniteQueryOptions(
-    { search, limit },
+    { search, limit, tagIds, maxTotalTime },
     { getNextPageParam: (lastPage) => lastPage?.nextCursor },
   );
 

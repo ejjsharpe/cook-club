@@ -30,9 +30,9 @@ interface ConversationAiResponse {
 interface GeneratedRecipeAiResponse {
   name: string;
   description: string | null;
-  prepTime: string | null;
-  cookTime: string | null;
-  totalTime: string | null;
+  prepTime: number | null; // minutes
+  cookTime: number | null; // minutes
+  totalTime: number | null; // minutes
   servings: number;
   ingredients: {
     quantity: number | null;

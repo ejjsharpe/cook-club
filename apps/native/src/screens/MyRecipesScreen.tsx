@@ -5,17 +5,23 @@ import { UserCollectionWithMetadata } from "@repo/trpc/client";
 import { useState, useMemo, useCallback } from "react";
 import { View, ActivityIndicator, Alert, TouchableOpacity } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
-import Animated from "react-native-reanimated";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
   useGetUserCollectionsWithMetadata,
   useCreateCollection,
   useDeleteCollection,
 } from "@/api/collection";
-import { useGetUserRecipes } from "@/api/recipe";
+import { useGetUserRecipes, useAllTags } from "@/api/recipe";
 import { CollectionCard } from "@/components/CollectionCard";
+import { SheetManager } from "@/components/FilterBottomSheet";
 import { RecipeCard } from "@/components/RecipeCard";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SearchBar } from "@/components/SearchBar";
@@ -38,20 +44,63 @@ const tabOptions: TabOption<MyRecipesTab>[] = [
   { value: "collections", label: "Collections" },
 ];
 
+const animationConfig = {
+  duration: 250,
+  easing: Easing.bezier(0.4, 0, 0.2, 1),
+};
+
 export const MyRecipesScreen = () => {
   const navigation = useNavigation();
+  const theme = UnistylesRuntime.getTheme();
+
   const [activeTab, setActiveTab] = useState<MyRecipesTab>("recipes");
   const [searchQuery, setSearchQuery] = useState("");
   const { animatedStyle: tabContentStyle, triggerSlide } =
     useTabSlideAnimation();
 
+  // Filter state
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>();
+  const { data: allTags } = useAllTags();
+
+  // Filter button animation
+  const filterButtonProgress = useSharedValue(1); // 1 = visible, 0 = hidden
+
+  const filterButtonStyle = useAnimatedStyle(() => ({
+    opacity: filterButtonProgress.value,
+    transform: [{ scale: 0.8 + 0.2 * filterButtonProgress.value }],
+    width: 46 * filterButtonProgress.value,
+    marginLeft: 12 * filterButtonProgress.value,
+  }));
+
   const handleTabChange = useCallback(
     (tab: MyRecipesTab, direction: number) => {
       triggerSlide(direction);
       setActiveTab(tab);
+
+      // Animate filter button visibility
+      filterButtonProgress.value = withTiming(
+        tab === "recipes" ? 1 : 0,
+        animationConfig,
+      );
     },
-    [triggerSlide],
+    [triggerSlide, filterButtonProgress],
   );
+
+  const handleOpenFilters = useCallback(() => {
+    SheetManager.show("filter-sheet", {
+      payload: {
+        selectedTagIds,
+        onTagsChange: setSelectedTagIds,
+        maxTotalTime,
+        onTimeChange: setMaxTotalTime,
+        allTags: allTags ?? [],
+      },
+    });
+  }, [selectedTagIds, maxTotalTime, allTags]);
+
+  const hasActiveFilters =
+    selectedTagIds.length > 0 || maxTotalTime !== undefined;
 
   // Fetch recipes
   const {
@@ -63,6 +112,8 @@ export const MyRecipesScreen = () => {
     error: recipesError,
   } = useGetUserRecipes({
     search: searchQuery,
+    tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
+    maxTotalTime: maxTotalTime ? parseInt(maxTotalTime, 10) : undefined,
   });
 
   // Fetch collections
@@ -262,15 +313,35 @@ export const MyRecipesScreen = () => {
     <SafeAreaView style={styles.container}>
       <ScreenHeader title="My Recipes" style={styles.header}>
         <VSpace size={20} />
-        <SearchBar
-          placeholder={
-            activeTab === "recipes"
-              ? "Search recipes..."
-              : "Search collections..."
-          }
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+        <View style={styles.searchRow}>
+          <View style={styles.searchBarWrapper}>
+            <SearchBar
+              placeholder={
+                activeTab === "recipes"
+                  ? "Search recipes..."
+                  : "Search collections..."
+              }
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+          <Animated.View
+            style={[styles.filterButtonWrapper, filterButtonStyle]}
+            pointerEvents={activeTab === "recipes" ? "auto" : "none"}
+          >
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={handleOpenFilters}
+            >
+              <Ionicons
+                name="options-outline"
+                size={22}
+                color={theme.colors.text}
+              />
+              {hasActiveFilters && <View style={styles.filterBadge} />}
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
         <VSpace size={16} />
         <UnderlineTabBar
           options={tabOptions}
@@ -320,6 +391,33 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   header: {
     paddingHorizontal: 20,
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  searchBarWrapper: {
+    flex: 1,
+  },
+  filterButtonWrapper: {
+    overflow: "hidden",
+  },
+  filterButton: {
+    backgroundColor: "#f5f5f5",
+    borderRadius: theme.borderRadius.full,
+    width: 46,
+    height: 46,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primary,
   },
   listWrapper: {
     flex: 1,

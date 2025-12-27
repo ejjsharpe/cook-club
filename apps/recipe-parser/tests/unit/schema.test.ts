@@ -118,9 +118,9 @@ describe("ParsedRecipeSchema", () => {
   const validRecipe = {
     name: "Chocolate Cake",
     description: "A delicious cake",
-    prepTime: "PT15M",
-    cookTime: "PT30M",
-    totalTime: "PT45M",
+    prepTime: 15, // minutes
+    cookTime: 30, // minutes
+    totalTime: 45, // minutes
     servings: 8,
     sourceUrl: "https://example.com/recipe",
     ingredients: [

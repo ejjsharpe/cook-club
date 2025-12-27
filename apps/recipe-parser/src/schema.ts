@@ -25,9 +25,9 @@ export const SourceTypeSchema = type(
 export const ParsedRecipeSchema = type({
   name: "string",
   "description?": "string | null",
-  "prepTime?": "string | null",
-  "cookTime?": "string | null",
-  "totalTime?": "string | null",
+  "prepTime?": "number | null", // minutes
+  "cookTime?": "number | null", // minutes
+  "totalTime?": "number | null", // minutes
   "servings?": "number | null",
   "sourceUrl?": "string | null",
   "sourceType?": SourceTypeSchema,

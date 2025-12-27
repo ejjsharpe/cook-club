@@ -14,9 +14,9 @@ const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct" as const;
 export interface AiRecipeResult {
   name: string;
   description: string | null;
-  prepTime: string | null;
-  cookTime: string | null;
-  totalTime: string | null;
+  prepTime: number | null; // minutes
+  cookTime: number | null; // minutes
+  totalTime: number | null; // minutes
   servings: number | null;
   ingredients: {
     quantity: number | null;

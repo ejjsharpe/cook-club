@@ -80,9 +80,9 @@ Think like a real chef - pick 2-4 KEY ingredients that work well together and bu
 {
   "name": "Creative Recipe Name",
   "description": "Enticing 1-2 sentence description",
-  "prepTime": "PT15M",
-  "cookTime": "PT30M",
-  "totalTime": "PT45M",
+  "prepTime": 15,
+  "cookTime": 30,
+  "totalTime": 45,
   "servings": 4,
   "ingredients": [
     {"quantity": 2, "unit": "cup", "name": "rice"},
@@ -99,7 +99,7 @@ Think like a real chef - pick 2-4 KEY ingredients that work well together and bu
 }
 
 ### TIME FORMAT:
-- Use ISO 8601 duration: PT15M = 15 minutes, PT1H = 1 hour, PT1H30M = 90 minutes
+- Use numbers representing total minutes: 15 = 15 minutes, 60 = 1 hour, 90 = 1.5 hours
 
 ### IMPORTANT:
 - Quality over quantity - fewer well-chosen ingredients beat more random ones

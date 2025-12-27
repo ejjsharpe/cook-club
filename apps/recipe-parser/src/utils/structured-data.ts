@@ -3,6 +3,29 @@ import * as cheerio from "cheerio";
 import type { ParsedRecipe, Ingredient, Instruction, Tag } from "../schema";
 import { normalizeUnit } from "./unit-normalizer";
 
+/**
+ * Parse ISO 8601 duration string (e.g., "PT30M", "PT1H30M") to minutes
+ * Returns null if the duration string is invalid or missing
+ */
+function parseIsoDurationToMinutes(
+  duration: string | null | undefined,
+): number | null {
+  if (!duration) return null;
+
+  // Match ISO 8601 duration pattern: PT[nH][nM][nS]
+  const match = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i);
+  if (!match) return null;
+
+  const hours = parseInt(match[1] || "0", 10);
+  const minutes = parseInt(match[2] || "0", 10);
+  const seconds = parseInt(match[3] || "0", 10);
+
+  // Convert to total minutes (rounding up seconds)
+  const totalMinutes = hours * 60 + minutes + Math.ceil(seconds / 60);
+
+  return totalMinutes > 0 ? totalMinutes : null;
+}
+
 type OneOrMany<T> = T | T[];
 
 /**
@@ -464,9 +487,9 @@ function toParsedRecipe(
   return {
     name: raw.name || "",
     description: raw.description || null,
-    prepTime: raw.prepTime || null,
-    cookTime: raw.cookTime || null,
-    totalTime: raw.totalTime || null,
+    prepTime: parseIsoDurationToMinutes(raw.prepTime),
+    cookTime: parseIsoDurationToMinutes(raw.cookTime),
+    totalTime: parseIsoDurationToMinutes(raw.totalTime),
     servings: extractServingsFromYield(raw.recipeYield),
     sourceUrl,
     sourceType: "url" as const,

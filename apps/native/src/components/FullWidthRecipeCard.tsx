@@ -8,6 +8,8 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
+import { formatMinutes } from "@/utils/timeUtils";
+
 interface Tag {
   id: number;
   name: string;
@@ -25,7 +27,7 @@ interface Recipe {
   id: number;
   name: string;
   description?: string | null;
-  totalTime?: string | null;
+  totalTime?: number | null;
   servings?: number | null;
   saveCount: number;
   collectionIds: number[];
@@ -143,7 +145,7 @@ export const FullWidthRecipeCard = memo(
                       style={styles.overlayMetadataIcon}
                     />
                     <Text style={styles.overlayMetadataText}>
-                      {recipe.totalTime}
+                      {formatMinutes(recipe.totalTime)}
                     </Text>
                   </View>
                 )}

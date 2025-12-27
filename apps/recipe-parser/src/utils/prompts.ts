@@ -18,9 +18,9 @@ export const RECIPE_EXTRACTION_SYSTEM_PROMPT = `You are a strict Recipe Data Ext
 {
   "name": "Recipe Name",
   "description": "Brief description or null",
-  "prepTime": "PT15M or null",
-  "cookTime": "PT30M or null",
-  "totalTime": "PT45M or null",
+  "prepTime": 15,
+  "cookTime": 30,
+  "totalTime": 45,
   "servings": 4,
   "ingredients": [
     {"quantity": 2, "unit": "cup", "name": "flour"},
@@ -40,8 +40,8 @@ export const RECIPE_EXTRACTION_SYSTEM_PROMPT = `You are a strict Recipe Data Ext
 }
 
 ### IMPORTANT:
-- Time values should be ISO 8601 duration format (PT15M = 15 minutes, PT1H = 1 hour, PT1H30M = 1.5 hours)
-- If time is given in words like "30 minutes", convert to PT30M
+- Time values should be numbers representing total minutes (e.g., 15 for 15 minutes, 90 for 1.5 hours)
+- If time is given as "30 minutes", use 30. If "1 hour 30 minutes", use 90.
 - If no time is specified, use null
 - Servings should be a number, not a string
 - Each instruction should be a complete step, not a fragment
@@ -58,8 +58,8 @@ export const IMAGE_EXTRACTION_SYSTEM_PROMPT = `You are a Recipe OCR and Extracti
 {
   "name": "Recipe Name",
   "description": "Brief description or null",
-  "prepTime": "PT15M or null",
-  "cookTime": "PT30M or null",
+  "prepTime": 15,
+  "cookTime": 30,
   "servings": 4,
   "ingredients": [
     {"quantity": 2, "unit": "cup", "name": "flour"}
@@ -74,6 +74,7 @@ export const IMAGE_EXTRACTION_SYSTEM_PROMPT = `You are a Recipe OCR and Extracti
 }
 
 ### IMPORTANT:
+- Time values should be numbers representing total minutes (e.g., 15 for 15 minutes, 90 for 1.5 hours)
 - Extract all visible text related to the recipe
 - Convert handwritten or printed measurements to structured format
 - If you cannot read part of the image, skip that section rather than guessing

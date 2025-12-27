@@ -89,9 +89,9 @@ export const RecipePostValidator = type({
   "cuisines?": "string[]",
 
   "description?": "string",
-  "prepTime?": "string",
-  "cookTime?": "string",
-  "totalTime?": "string",
+  "prepTime?": "number", // minutes
+  "cookTime?": "number", // minutes
+  "totalTime?": "number", // minutes
   servings: "number > 0",
 });
 
@@ -245,7 +245,7 @@ export const recipeRouter = router({
             ctx.db,
             ctx.env,
             activityEvent.id,
-            ctx.user.id
+            ctx.user.id,
           ).catch((err) => {
             console.error("Error propagating activity to followers:", err);
           });
@@ -267,12 +267,29 @@ export const recipeRouter = router({
         limit: "number = 20",
         cursor: "number?",
         search: "string?",
+        tagIds: "number[]?",
+        maxTotalTime: "number?", // in minutes
       }),
     )
     .query(async ({ ctx, input }) => {
-      const { limit, cursor, search } = input;
+      const { limit, cursor, search, tagIds, maxTotalTime } = input;
 
       try {
+        // If filtering by tags, first get the recipe IDs that have any of the selected tags
+        let recipeIdsWithTags: number[] | undefined;
+        if (tagIds && tagIds.length > 0) {
+          const recipesWithTags = await ctx.db
+            .selectDistinct({ recipeId: recipeTags.recipeId })
+            .from(recipeTags)
+            .where(inArray(recipeTags.tagId, tagIds));
+          recipeIdsWithTags = recipesWithTags.map((r) => r.recipeId);
+
+          // If no recipes match the tags, return empty result
+          if (recipeIdsWithTags.length === 0) {
+            return { items: [], nextCursor: undefined };
+          }
+        }
+
         // Query recipes owned by the current user (uploadedBy = currentUser)
         const userRecipesList = await ctx.db
           .select({
@@ -293,6 +310,9 @@ export const recipeRouter = router({
               eq(recipes.uploadedBy, ctx.user.id),
               cursor ? lt(recipes.createdAt, new Date(cursor)) : undefined,
               search ? ilike(recipes.name, `%${search}%`) : undefined,
+              recipeIdsWithTags
+                ? inArray(recipes.id, recipeIdsWithTags)
+                : undefined,
             ),
           )
           .groupBy(recipes.id, user.id, user.name, user.email, user.image)
@@ -328,12 +348,20 @@ export const recipeRouter = router({
           {} as Record<number, (typeof tags.$inferSelect)[]>,
         );
 
-        const items = userRecipesList.map((item) => ({
+        let items = userRecipesList.map((item) => ({
           ...item.recipe,
           coverImage: item.firstImage,
           uploadedBy: item.uploader,
           tags: tagsByRecipe[item.recipe.id] || [],
         }));
+
+        // Filter by maxTotalTime if specified
+        if (maxTotalTime !== undefined) {
+          items = items.filter((item) => {
+            if (!item.totalTime) return false;
+            return item.totalTime <= maxTotalTime;
+          });
+        }
 
         let nextCursor: number | undefined = undefined;
         if (items.length > limit) {

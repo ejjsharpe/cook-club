@@ -51,9 +51,9 @@ export interface CreateRecipeInput {
   categories?: string[];
   cuisines?: string[];
   description?: string;
-  prepTime?: string;
-  cookTime?: string;
-  totalTime?: string;
+  prepTime?: number; // minutes
+  cookTime?: number; // minutes
+  totalTime?: number; // minutes
   servings: number;
 }
 
