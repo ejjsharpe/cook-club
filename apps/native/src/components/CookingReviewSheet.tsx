@@ -113,13 +113,13 @@ const CookingReviewSheet = (props: SheetProps<"cooking-review-sheet">) => {
   return (
     <ActionSheet
       id={props.sheetId}
-      snapPoints={[85]}
+      snapPoints={[100]}
       initialSnapIndex={0}
       gestureEnabled
       enableGesturesInScrollView={false}
       indicatorStyle={styles.indicator}
     >
-      <View style={styles.container}>
+      <View>
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -258,9 +258,6 @@ export { SheetManager as CookingReviewSheetManager };
 const styles = StyleSheet.create((theme) => ({
   indicator: {
     backgroundColor: theme.colors.border,
-  },
-  container: {
-    flex: 1,
   },
   header: {
     flexDirection: "row",

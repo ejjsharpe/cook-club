@@ -29,9 +29,9 @@ export function parseDuration(duration: string): TimeValue {
     const match = duration.match(pattern);
     if (match) {
       const hours =
-        hIndex > 0 && match[hIndex] ? parseInt(match[hIndex]) || 0 : 0;
+        hIndex > 0 && match[hIndex] ? parseInt(match[hIndex], 10) || 0 : 0;
       const minutes =
-        mIndex > 0 && match[mIndex] ? parseInt(match[mIndex]) || 0 : 0;
+        mIndex > 0 && match[mIndex] ? parseInt(match[mIndex], 10) || 0 : 0;
       return { hours, minutes };
     }
   }
@@ -42,8 +42,8 @@ export function parseDuration(duration: string): TimeValue {
     const match = duration.match(iso8601Pattern);
 
     if (match) {
-      const hours = match[1] ? parseInt(match[1]) || 0 : 0;
-      const minutes = match[2] ? parseInt(match[2]) || 0 : 0;
+      const hours = match[1] ? parseInt(match[1], 10) || 0 : 0;
+      const minutes = match[2] ? parseInt(match[2], 10) || 0 : 0;
       return { hours, minutes };
     }
   }

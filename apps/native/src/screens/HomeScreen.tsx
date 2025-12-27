@@ -213,12 +213,6 @@ export const HomeScreen = () => {
     [navigation],
   );
 
-  const handleSavePress = useCallback((recipeId: number) => {
-    CollectionSheetManager.show("collection-selector-sheet", {
-      payload: { recipeId },
-    });
-  }, []);
-
   const handleUserPress = useCallback(
     (userId: string) => {
       navigation.navigate("UserProfile", { userId });

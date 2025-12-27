@@ -55,7 +55,7 @@ export const activityRouter = router({
           items: result.items,
           nextCursor: result.nextCursor,
         };
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch activity feed",
@@ -237,7 +237,7 @@ export const activityRouter = router({
           items: reviewsWithImages,
           nextCursor: hasMore && lastItem ? lastItem.review.id : null,
         };
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch recipe reviews",
@@ -272,7 +272,7 @@ export const activityRouter = router({
           averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
           reviewCount: reviews.length,
         };
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch recipe rating",
@@ -285,7 +285,7 @@ export const activityRouter = router({
     try {
       const itemCount = await hydrateFeed(ctx.db, ctx.env, ctx.user.id);
       return { success: true, itemCount };
-    } catch (err) {
+    } catch {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to hydrate feed",

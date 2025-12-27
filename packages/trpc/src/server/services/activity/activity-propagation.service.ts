@@ -31,7 +31,7 @@ function extractDomain(url: string | null): string | null {
  */
 export async function buildFeedItem(
   db: DbType,
-  activityEventId: number
+  activityEventId: number,
 ): Promise<FeedItem | null> {
   // Fetch the activity event with related data
   const activity = await db
@@ -141,7 +141,13 @@ export async function buildFeedItem(
     }
   }
 
-  const sourceType = (recipeData?.sourceType ?? "manual") as "url" | "image" | "text" | "ai" | "manual" | "user";
+  const sourceType = (recipeData?.sourceType ?? "manual") as
+    | "url"
+    | "image"
+    | "text"
+    | "ai"
+    | "manual"
+    | "user";
   const isExternalRecipe = !!recipeData?.sourceUrl;
   const sourceDomain = extractDomain(recipeData?.sourceUrl ?? null);
   // Users can view full recipe for text, ai, and manual sources (not url-scraped)
@@ -171,13 +177,13 @@ export async function buildFeedItem(
 }
 
 /**
- * Propagate an activity to all followers of the user.
+ * Propagate an activity to all followers of the user and to the user's own feed.
  */
 export async function propagateActivityToFollowers(
   db: DbType,
   env: Env,
   activityEventId: number,
-  userId: string
+  userId: string,
 ): Promise<void> {
   // Build the feed item
   const feedItem = await buildFeedItem(db, activityEventId);
@@ -189,18 +195,20 @@ export async function propagateActivityToFollowers(
     .from(follows)
     .where(eq(follows.followingId, userId));
 
-  // Fan out to each follower's Feed DO
+  // Fan out to each follower's Feed DO and to the user's own feed
+  const targetUserIds = [userId, ...followers.map((f) => f.followerId)];
+
   await Promise.all(
-    followers.map(async (follower) => {
-      const feedDO = env.USER_FEED.get(
-        env.USER_FEED.idFromName(follower.followerId)
+    targetUserIds.map(async (targetUserId) => {
+      const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(targetUserId));
+      await feedDO.fetch(
+        new Request("http://do/addFeedItem", {
+          method: "POST",
+          body: JSON.stringify(feedItem),
+          headers: { "Content-Type": "application/json" },
+        }),
       );
-      await feedDO.fetch(new Request("http://do/addFeedItem", {
-        method: "POST",
-        body: JSON.stringify(feedItem),
-        headers: { "Content-Type": "application/json" },
-      }));
-    })
+    }),
   );
 }
 
@@ -212,7 +220,7 @@ export async function backfillFeedFromUser(
   env: Env,
   currentUserId: string,
   followedUserId: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<void> {
   // Get recent activities from the followed user
   const recentActivities = await db
@@ -234,11 +242,13 @@ export async function backfillFeedFromUser(
   if (feedItems.length > 0) {
     // Add to the current user's feed
     const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(currentUserId));
-    await feedDO.fetch(new Request("http://do/addFeedItems", {
-      method: "POST",
-      body: JSON.stringify(feedItems),
-      headers: { "Content-Type": "application/json" },
-    }));
+    await feedDO.fetch(
+      new Request("http://do/addFeedItems", {
+        method: "POST",
+        body: JSON.stringify(feedItems),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
   }
 }
 
@@ -248,25 +258,27 @@ export async function backfillFeedFromUser(
 export async function removeUserFromFeed(
   env: Env,
   currentUserId: string,
-  unfollowedUserId: string
+  unfollowedUserId: string,
 ): Promise<void> {
   const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(currentUserId));
-  await feedDO.fetch(new Request("http://do/removeItemsFromUser", {
-    method: "POST",
-    body: JSON.stringify({ userId: unfollowedUserId }),
-    headers: { "Content-Type": "application/json" },
-  }));
+  await feedDO.fetch(
+    new Request("http://do/removeItemsFromUser", {
+      method: "POST",
+      body: JSON.stringify({ userId: unfollowedUserId }),
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
 }
 
 /**
- * Hydrate a user's feed from scratch based on who they follow.
+ * Hydrate a user's feed from scratch based on who they follow and their own activities.
  * Useful for development/seeding or when DO state is lost.
  */
 export async function hydrateFeed(
   db: DbType,
   env: Env,
   userId: string,
-  limitPerUser: number = 10
+  limitPerUser: number = 10,
 ): Promise<number> {
   // Get all users this person follows
   const following = await db
@@ -274,18 +286,17 @@ export async function hydrateFeed(
     .from(follows)
     .where(eq(follows.followerId, userId));
 
-  if (following.length === 0) {
-    return 0;
-  }
+  // Include the user's own activities plus followed users' activities
+  const userIdsToFetch = [userId, ...following.map((f) => f.followingId)];
 
-  // Collect all feed items from followed users
+  // Collect all feed items from the user and followed users
   const allFeedItems: FeedItem[] = [];
 
-  for (const { followingId } of following) {
+  for (const targetUserId of userIdsToFetch) {
     const recentActivities = await db
       .select({ id: activityEvents.id })
       .from(activityEvents)
-      .where(eq(activityEvents.userId, followingId))
+      .where(eq(activityEvents.userId, targetUserId))
       .orderBy(desc(activityEvents.createdAt))
       .limit(limitPerUser);
 
@@ -300,11 +311,13 @@ export async function hydrateFeed(
   if (allFeedItems.length > 0) {
     // Add all items to the user's feed DO
     const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(userId));
-    await feedDO.fetch(new Request("http://do/addFeedItems", {
-      method: "POST",
-      body: JSON.stringify(allFeedItems),
-      headers: { "Content-Type": "application/json" },
-    }));
+    await feedDO.fetch(
+      new Request("http://do/addFeedItems", {
+        method: "POST",
+        body: JSON.stringify(allFeedItems),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
   }
 
   return allFeedItems.length;

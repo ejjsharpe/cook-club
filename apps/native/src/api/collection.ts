@@ -1,9 +1,5 @@
 import { useTRPC } from "@repo/trpc/client";
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { inferOutput } from "@trpc/tanstack-react-query";
 import { Alert } from "react-native";
 
