@@ -4,6 +4,10 @@ import { type } from "arktype";
 import { eq, and, or, ne, like, count } from "drizzle-orm";
 
 import {
+  backfillFeedFromUser,
+  removeUserFromFeed,
+} from "../services/activity/activity-propagation.service";
+import {
   followUser as followUserService,
   unfollowUser as unfollowUserService,
   getFollowList,
@@ -20,7 +24,20 @@ export const followsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        return await followUserService(ctx.db, ctx.user.id, input.userId);
+        const result = await followUserService(ctx.db, ctx.user.id, input.userId);
+
+        // Backfill feed with recent activities from the followed user
+        backfillFeedFromUser(
+          ctx.db,
+          ctx.env,
+          ctx.user.id,
+          input.userId,
+          10
+        ).catch((err) => {
+          console.error("Error backfilling feed:", err);
+        });
+
+        return result;
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         throw new TRPCError({
@@ -39,7 +56,14 @@ export const followsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        return await unfollowUserService(ctx.db, ctx.user.id, input.userId);
+        const result = await unfollowUserService(ctx.db, ctx.user.id, input.userId);
+
+        // Remove unfollowed user's items from feed
+        removeUserFromFeed(ctx.env, ctx.user.id, input.userId).catch((err) => {
+          console.error("Error removing user from feed:", err);
+        });
+
+        return result;
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         throw new TRPCError({

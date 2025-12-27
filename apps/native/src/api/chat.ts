@@ -16,6 +16,6 @@ export const useGenerateRecipeChat = () => {
 
 // Helper type for the chat input
 export interface ChatInput {
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  messages: { role: "user" | "assistant"; content: string }[];
   conversationState: ConversationState;
 }

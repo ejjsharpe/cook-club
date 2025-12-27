@@ -32,6 +32,7 @@ function aiResultToRecipe(ai: AiRecipeResult): ParsedRecipe {
     totalTime: ai.totalTime,
     servings: ai.servings,
     sourceUrl: null,
+    sourceType: "image" as const,
     ingredients,
     instructions,
     images: [],

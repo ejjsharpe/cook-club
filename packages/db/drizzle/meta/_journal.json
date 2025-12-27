@@ -22,6 +22,34 @@
       "when": 1766532160108,
       "tag": "0002_wise_madelyne_pryor",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1766830853877,
+      "tag": "0003_gifted_wallop",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1766851382386,
+      "tag": "0004_material_bill_hollister",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1766855028452,
+      "tag": "0005_sloppy_tomorrow_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1766857191317,
+      "tag": "0006_new_steel_serpent",
+      "breakpoints": true
     }
   ]
 }

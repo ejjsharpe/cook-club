@@ -5,7 +5,6 @@ import { eq, desc } from "drizzle-orm";
 
 import {
   toggleRecipeInCollection as toggleRecipeInCollectionService,
-  searchPublicCollections as searchPublicCollectionsService,
   getUserCollectionsWithMetadata as getUserCollectionsWithMetadataService,
   getCollectionDetail as getCollectionDetailService,
   deleteCollection as deleteCollectionService,
@@ -145,40 +144,6 @@ export const collectionRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to toggle recipe in collection",
-        });
-      }
-    }),
-
-  searchPublicCollections: authedProcedure
-    .input(
-      type({
-        query: "string",
-        "limit?": "number",
-        "cursor?": "number",
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const { query, limit = 20, cursor } = input;
-
-      if (query.length < 2) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Search query must be at least 2 characters",
-        });
-      }
-
-      try {
-        return await searchPublicCollectionsService(ctx.db, {
-          query,
-          limit,
-          ...(cursor !== undefined && { cursor }),
-        });
-      } catch (err) {
-        if (err instanceof TRPCError) throw err;
-        console.error("Error searching collections:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to search collections",
         });
       }
     }),

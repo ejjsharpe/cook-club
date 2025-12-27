@@ -1,10 +1,11 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
+import { eq } from "drizzle-orm";
 import * as schema from "./schemas";
 import { users as userData } from "./data/users";
 import { recipes as recipeData } from "./data/recipes";
 import * as readline from "readline";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "better-auth/crypto";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -15,12 +16,8 @@ function question(query: string): Promise<string> {
   return new Promise((resolve) => rl.question(query, resolve));
 }
 
-// Hash password using bcrypt (Better Auth compatible)
-async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
-}
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
-// Generate random date within the last N days
 function randomDate(daysAgo: number): Date {
   const now = new Date();
   const past = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
@@ -29,7 +26,24 @@ function randomDate(daysAgo: number): Date {
   return new Date(randomTime);
 }
 
-// Parse ingredient text to extract structured data
+function shuffle<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+  }
+  return shuffled;
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomChoice<T>(array: T[]): T {
+  return array[Math.floor(Math.random() * array.length)]!;
+}
+
+// Parse ingredient text to extract quantity, unit, and name
 interface ParsedIngredient {
   quantity: string | null;
   unit: string | null;
@@ -41,11 +55,8 @@ function parseIngredient(ingredientText: string): ParsedIngredient {
     return { quantity: null, unit: null, name: ingredientText || "" };
   }
 
-  // Regex matches: [quantity] [unit] [ingredient name]
-  // Examples: "2 cups flour", "1/2 tsp salt", "2 1/4 cups flour", "3 large carrots"
-  // Matches whole numbers, fractions, decimals, and mixed fractions (e.g., "2 1/4")
   const match = ingredientText.match(
-    /^(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.?\d+)\s*([a-zA-Z\s]*?)\s+(.+)$/
+    /^(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.?\d+)\s*([a-zA-Z]*)\s+(.+)$/
   );
 
   if (match) {
@@ -53,53 +64,49 @@ function parseIngredient(ingredientText: string): ParsedIngredient {
     const unit = match[2]?.trim() || null;
     const name = match[3]?.trim() || ingredientText;
 
-    // Convert fractions and mixed fractions to decimals
-    // e.g., "1/2" -> "0.5", "2 1/4" -> "2.25"
     let quantity: string | null = null;
     if (quantityStr) {
       if (quantityStr.includes("/")) {
-        // Check if it's a mixed fraction (e.g., "2 1/4")
         if (quantityStr.includes(" ")) {
           const [whole, fraction] = quantityStr.split(" ");
           if (whole && fraction) {
             const [numerator, denominator] = fraction.split("/");
-            const wholeNum = parseFloat(whole);
-            const fractionNum = parseFloat(numerator!) / parseFloat(denominator!);
-            quantity = (wholeNum + fractionNum).toString();
+            if (numerator && denominator) {
+              quantity = String(
+                parseInt(whole) +
+                  parseInt(numerator) / parseInt(denominator)
+              );
+            }
           }
         } else {
-          // Simple fraction (e.g., "1/2")
           const [numerator, denominator] = quantityStr.split("/");
-          quantity = (parseFloat(numerator!) / parseFloat(denominator!)).toString();
+          if (numerator && denominator) {
+            quantity = String(parseInt(numerator) / parseInt(denominator));
+          }
         }
       } else {
-        quantity = parseFloat(quantityStr).toString();
+        quantity = quantityStr;
       }
     }
 
     return { quantity, unit, name };
   }
 
-  // If no match, treat entire text as ingredient name
-  return { quantity: null, unit: null, name: ingredientText.trim() };
+  return { quantity: null, unit: null, name: ingredientText };
 }
 
-// Shuffle array
-function shuffle<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
-  }
-  return shuffled;
-}
+// ─── Database Operations ──────────────────────────────────────────────────────
 
-async function clearDatabase(db: ReturnType<typeof drizzle>) {
+type DbClient = ReturnType<typeof drizzle>;
+
+async function clearDatabase(db: DbClient) {
   console.log("🗑️  Clearing existing data...");
 
-  // Delete in order to respect foreign key constraints
+  // Delete in order respecting foreign keys
+  await db.delete(schema.cookingReviewImages);
+  await db.delete(schema.cookingReviews);
+  await db.delete(schema.activityEvents);
   await db.delete(schema.follows);
-  await db.delete(schema.userLikes);
   await db.delete(schema.recipeCollections);
   await db.delete(schema.collections);
   await db.delete(schema.recipeTags);
@@ -108,11 +115,6 @@ async function clearDatabase(db: ReturnType<typeof drizzle>) {
   await db.delete(schema.recipeImages);
   await db.delete(schema.recipes);
   await db.delete(schema.tags);
-  // Shopping list tables
-  await db.delete(schema.shoppingListItems);
-  await db.delete(schema.shoppingListRecipes);
-  await db.delete(schema.shoppingLists);
-  // Auth tables
   await db.delete(schema.verification);
   await db.delete(schema.session);
   await db.delete(schema.account);
@@ -121,254 +123,176 @@ async function clearDatabase(db: ReturnType<typeof drizzle>) {
   console.log("✅ Database cleared");
 }
 
-async function seedTags(db: ReturnType<typeof drizzle>) {
+async function seedTags(db: DbClient) {
   console.log("🏷️  Seeding tags...");
 
-  const cuisines = [
-    "Italian",
-    "Mexican",
-    "Chinese",
-    "Japanese",
-    "Thai",
-    "Indian",
-    "French",
-    "American",
-    "Mediterranean",
-    "Korean",
-    "Vietnamese",
-    "Greek",
-    "Spanish",
-    "Middle Eastern",
+  const cuisineNames = [
+    "Italian", "Mexican", "Chinese", "Japanese", "Thai", "Indian",
+    "French", "American", "Mediterranean", "Korean", "Vietnamese",
+    "Greek", "Spanish", "Middle Eastern",
   ];
 
-  const categories = [
-    "Breakfast",
-    "Lunch",
-    "Dinner",
-    "Dessert",
-    "Snack",
-    "Appetizer",
-    "Main Course",
-    "Side Dish",
-    "Salad",
-    "Soup",
-    "Beverage",
-    "Baking",
+  const categoryNames = [
+    "Breakfast", "Lunch", "Dinner", "Dessert", "Snack", "Appetizer",
+    "Main Course", "Side Dish", "Salad", "Soup", "Beverage", "Baking",
   ];
 
-  const dietaryRequirements = [
-    "Vegetarian",
-    "Vegan",
-    "Pescatarian",
-    "Gluten-Free",
-    "Dairy-Free",
-    "Nut-Free",
-    "Egg-Free",
-    "Soy-Free",
-    "Halal",
-    "Kosher",
-    "Keto",
-    "Paleo",
-    "Low-Carb",
-  ];
-
-  const ingredients = [
-    // Proteins
-    "Chicken",
-    "Beef",
-    "Pork",
-    "Lamb",
-    "Fish",
-    "Shellfish",
-    "Tofu",
-    "Turkey",
-    "Duck",
-    "Bacon",
-    "Sausage",
-    // Allergens & common dislikes
-    "Eggs",
-    "Dairy",
-    "Nuts",
-    "Peanuts",
-    "Soy",
-    "Wheat",
-    "Gluten",
-    "Mushrooms",
-    "Onions",
-    "Garlic",
-    "Cilantro",
-    "Olives",
-    "Anchovies",
-    "Blue Cheese",
-    "Spicy Food",
-    "Seafood",
-    "Tomatoes",
-    "Bell Peppers",
-    "Avocado",
-    "Coconut",
-    "Celery",
-    "Eggplant",
-    "Beets",
-    "Liver",
-    "Oysters",
+  const dietaryNames = [
+    "Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free", "Nut-Free",
+    "Keto", "Paleo", "Low-Carb",
   ];
 
   const cuisineTags = await db
     .insert(schema.tags)
-    .values(cuisines.map((name) => ({ name, type: "cuisine" })))
+    .values(cuisineNames.map((name) => ({ type: "cuisine", name })))
     .returning();
 
   const categoryTags = await db
     .insert(schema.tags)
-    .values(categories.map((name) => ({ name, type: "category" })))
+    .values(categoryNames.map((name) => ({ type: "category", name })))
     .returning();
 
   const dietaryTags = await db
     .insert(schema.tags)
-    .values(dietaryRequirements.map((name) => ({ name, type: "dietary" })))
-    .returning();
-
-  const ingredientTags = await db
-    .insert(schema.tags)
-    .values(ingredients.map((name) => ({ name, type: "ingredient" })))
+    .values(dietaryNames.map((name) => ({ type: "dietary", name })))
     .returning();
 
   console.log(
-    `✅ Seeded ${cuisineTags.length} cuisines, ${categoryTags.length} categories, ${dietaryTags.length} dietary, ${ingredientTags.length} ingredients`
+    `✅ Seeded ${cuisineTags.length} cuisines, ${categoryTags.length} categories, ${dietaryTags.length} dietary`
   );
 
-  return { cuisineTags, categoryTags, dietaryTags, ingredientTags };
+  return { cuisineTags, categoryTags, dietaryTags };
 }
 
-async function seedUsers(db: ReturnType<typeof drizzle>) {
+async function seedUsers(db: DbClient) {
   console.log("👥 Seeding users...");
 
-  const hashedUsers = await Promise.all(
-    userData.map(async (user) => ({
-      ...user,
-      password: await hashPassword(user.password),
-      createdAt: randomDate(90),
-      updatedAt: new Date(),
-      emailVerified: true,
-    }))
-  );
+  const users: (typeof schema.user.$inferSelect)[] = [];
 
-  const insertedUsers = await db
-    .insert(schema.user)
-    .values(hashedUsers)
-    .returning();
+  for (const u of userData) {
+    const createdAt = randomDate(90);
+    const hashedPassword = await hashPassword(u.password);
 
-  console.log(`✅ Seeded ${insertedUsers.length} users`);
+    const [user] = await db
+      .insert(schema.user)
+      .values({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        emailVerified: true,
+        image: u.image,
+        createdAt,
+        updatedAt: createdAt,
+        onboardingCompleted: true,
+      })
+      .returning();
 
-  return insertedUsers;
+    if (user) {
+      await db.insert(schema.account).values({
+        id: `account_${u.id}`,
+        accountId: u.id,
+        providerId: "credential",
+        userId: u.id,
+        password: hashedPassword,
+        createdAt,
+        updatedAt: createdAt,
+      });
+
+      users.push(user);
+    }
+  }
+
+  console.log(`✅ Seeded ${users.length} users`);
+  return users;
 }
 
 async function seedRecipes(
-  db: ReturnType<typeof drizzle>,
+  db: DbClient,
   users: (typeof schema.user.$inferSelect)[],
   allTags: (typeof schema.tags.$inferSelect)[]
 ) {
   console.log("🍳 Seeding recipes...");
 
-  let recipeCount = 0;
-  const allRecipes: (typeof schema.recipes.$inferSelect)[] = [];
+  const recipes: (typeof schema.recipes.$inferSelect)[] = [];
+  const shuffledUsers = shuffle(users);
+  let userIndex = 0;
 
-  // Distribute recipes among users
-  for (let i = 0; i < users.length; i++) {
-    const user = users[i]!;
-    const recipesPerUser = 5 + Math.floor(Math.random() * 3); // 5-7 recipes per user
+  for (const r of recipeData) {
+    const user = shuffledUsers[userIndex % shuffledUsers.length]!;
+    userIndex++;
 
-    for (
-      let j = 0;
-      j < recipesPerUser && recipeCount < recipeData.length;
-      j++
-    ) {
-      const recipeInfo = recipeData[recipeCount]!;
-      const createdAt = randomDate(60);
+    const createdAt = randomDate(60);
 
-      // Insert recipe
-      const [insertedRecipe] = await db
-        .insert(schema.recipes)
-        .values({
-          name: recipeInfo.name,
-          description: recipeInfo.description,
-          prepTime: recipeInfo.prepTime,
-          cookTime: recipeInfo.cookTime,
-          totalTime: recipeInfo.totalTime,
-          servings: recipeInfo.servings,
-          uploadedBy: user.id,
-          sourceUrl: recipeInfo.sourceUrl,
-          createdAt,
-          updatedAt: createdAt,
-        })
-        .returning();
+    // Create the recipe
+    const [recipe] = await db
+      .insert(schema.recipes)
+      .values({
+        name: r.name,
+        description: r.description,
+        prepTime: r.prepTime,
+        cookTime: r.cookTime,
+        totalTime: r.totalTime,
+        servings: r.servings,
+        uploadedBy: user.id,
+        sourceUrl: r.sourceUrl || null,
+        sourceType: r.sourceUrl ? "url" : "manual",
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .returning();
 
-      allRecipes.push(insertedRecipe!);
+    if (!recipe) continue;
+    recipes.push(recipe);
 
-      // Insert ingredients with structured data
-      await db.insert(schema.recipeIngredients).values(
-        recipeInfo.ingredients.map((ingredient: string, idx: number) => {
-          const parsed = parseIngredient(ingredient);
-          return {
-            recipeId: insertedRecipe!.id,
-            index: idx,
-            quantity: parsed.quantity,
-            unit: parsed.unit,
-            name: parsed.name,
-          };
-        })
-      );
+    // Add image
+    await db.insert(schema.recipeImages).values({
+      recipeId: recipe.id,
+      url: r.imageUrl,
+    });
 
-      // Insert instructions
-      await db.insert(schema.recipeInstructions).values(
-        recipeInfo.instructions.map((instruction: string, idx: number) => ({
-          recipeId: insertedRecipe!.id,
-          index: idx,
-          instruction,
-        }))
-      );
-
-      // Insert image
-      await db.insert(schema.recipeImages).values({
-        recipeId: insertedRecipe!.id,
-        url: recipeInfo.imageUrl,
+    // Add ingredients
+    for (let i = 0; i < r.ingredients.length; i++) {
+      const parsed = parseIngredient(r.ingredients[i]!);
+      await db.insert(schema.recipeIngredients).values({
+        recipeId: recipe.id,
+        index: i,
+        quantity: parsed.quantity,
+        unit: parsed.unit,
+        name: parsed.name,
       });
+    }
 
-      // Link tags
-      const cuisineTagIds = allTags
-        .filter(
-          (t) => t.type === "cuisine" && recipeInfo.cuisines.includes(t.name)
-        )
-        .map((t) => t.id);
+    // Add instructions
+    for (let i = 0; i < r.instructions.length; i++) {
+      await db.insert(schema.recipeInstructions).values({
+        recipeId: recipe.id,
+        index: i,
+        instruction: r.instructions[i]!,
+      });
+    }
 
-      const categoryTagIds = allTags
-        .filter(
-          (t) => t.type === "category" && recipeInfo.categories.includes(t.name)
-        )
-        .map((t) => t.id);
+    // Add tags
+    const cuisineTagsToAdd = allTags.filter(
+      (t) => t.type === "cuisine" && r.cuisines.includes(t.name)
+    );
+    const categoryTagsToAdd = allTags.filter(
+      (t) => t.type === "category" && r.categories.includes(t.name)
+    );
 
-      const tagIds = [...cuisineTagIds, ...categoryTagIds];
-
-      if (tagIds.length > 0) {
-        await db.insert(schema.recipeTags).values(
-          tagIds.map((tagId) => ({
-            recipeId: insertedRecipe!.id,
-            tagId,
-          }))
-        );
-      }
-
-      recipeCount++;
+    for (const tag of [...cuisineTagsToAdd, ...categoryTagsToAdd]) {
+      await db.insert(schema.recipeTags).values({
+        recipeId: recipe.id,
+        tagId: tag.id,
+      });
     }
   }
 
-  console.log(`✅ Seeded ${recipeCount} recipes`);
-
-  return allRecipes;
+  console.log(`✅ Seeded ${recipes.length} recipes`);
+  return recipes;
 }
 
 async function seedCollections(
-  db: ReturnType<typeof drizzle>,
+  db: DbClient,
   users: (typeof schema.user.$inferSelect)[]
 ) {
   console.log("📚 Seeding collections...");
@@ -387,67 +311,20 @@ async function seedCollections(
     .returning();
 
   console.log(`✅ Seeded ${collections.length} default collections`);
-
   return collections;
 }
 
-async function seedEngagement(
-  db: ReturnType<typeof drizzle>,
-  users: (typeof schema.user.$inferSelect)[],
-  recipes: (typeof schema.recipes.$inferSelect)[],
-  collections: (typeof schema.collections.$inferSelect)[]
+async function seedFollows(
+  db: DbClient,
+  users: (typeof schema.user.$inferSelect)[]
 ) {
-  console.log("❤️  Seeding engagement data...");
+  console.log("👥 Seeding follow relationships...");
 
-  let likesCount = 0;
-  let savesCount = 0;
   let followsCount = 0;
 
-  // Each user likes some random recipes (not their own)
-  for (const user of users) {
-    const otherRecipes = recipes.filter((r) => r.uploadedBy !== user.id);
-    const shuffledRecipes = shuffle(otherRecipes);
-    const recipesToLike = shuffledRecipes.slice(
-      0,
-      8 + Math.floor(Math.random() * 7)
-    ); // 8-14 likes per user
-
-    for (const recipe of recipesToLike) {
-      await db.insert(schema.userLikes).values({
-        userId: user.id,
-        recipeId: recipe.id,
-        createdAt: randomDate(30),
-      });
-      likesCount++;
-    }
-
-    // Each user saves some recipes to their collection
-    const recipesToSave = shuffledRecipes.slice(
-      0,
-      5 + Math.floor(Math.random() * 5)
-    ); // 5-9 saves per user
-    const userCollection = collections.find((c) => c.userId === user.id);
-
-    if (userCollection) {
-      for (const recipe of recipesToSave) {
-        await db.insert(schema.recipeCollections).values({
-          recipeId: recipe.id,
-          collectionId: userCollection.id,
-          createdAt: randomDate(45),
-        });
-        savesCount++;
-      }
-    }
-  }
-
-  // Create some follow relationships
   for (const user of users) {
     const otherUsers = users.filter((u) => u.id !== user.id);
-    const shuffledUsers = shuffle(otherUsers);
-    const usersToFollow = shuffledUsers.slice(
-      0,
-      3 + Math.floor(Math.random() * 4)
-    ); // 3-6 follows per user
+    const usersToFollow = shuffle(otherUsers).slice(0, randomInt(2, 5));
 
     for (const userToFollow of usersToFollow) {
       await db.insert(schema.follows).values({
@@ -459,10 +336,201 @@ async function seedEngagement(
     }
   }
 
+  console.log(`✅ Seeded ${followsCount} follow relationships`);
+}
+
+async function seedImportedRecipes(
+  db: DbClient,
+  users: (typeof schema.user.$inferSelect)[],
+  originalRecipes: (typeof schema.recipes.$inferSelect)[],
+  collections: (typeof schema.collections.$inferSelect)[]
+) {
+  console.log("📥 Seeding imported recipes...");
+
+  const importedRecipes: (typeof schema.recipes.$inferSelect)[] = [];
+
+  for (const user of users) {
+    // Get recipes from other users
+    const otherRecipes = originalRecipes.filter((r) => r.uploadedBy !== user.id);
+    const recipesToImport = shuffle(otherRecipes).slice(0, randomInt(2, 4));
+    const userCollection = collections.find((c) => c.userId === user.id);
+
+    for (const sourceRecipe of recipesToImport) {
+      const importedAt = randomDate(30);
+
+      // Create imported recipe copy
+      const [importedRecipe] = await db
+        .insert(schema.recipes)
+        .values({
+          name: sourceRecipe.name,
+          description: sourceRecipe.description,
+          prepTime: sourceRecipe.prepTime,
+          cookTime: sourceRecipe.cookTime,
+          totalTime: sourceRecipe.totalTime,
+          servings: sourceRecipe.servings,
+          nutrition: sourceRecipe.nutrition,
+          sourceUrl: null,
+          sourceType: "user",
+          originalRecipeId: sourceRecipe.id,
+          originalUploaderId: sourceRecipe.uploadedBy,
+          uploadedBy: user.id,
+          createdAt: importedAt,
+          updatedAt: importedAt,
+        })
+        .returning();
+
+      if (!importedRecipe) continue;
+      importedRecipes.push(importedRecipe);
+
+      // Copy images
+      const sourceImages = await db
+        .select()
+        .from(schema.recipeImages)
+        .where(eq(schema.recipeImages.recipeId, sourceRecipe.id));
+
+      for (const img of sourceImages) {
+        await db.insert(schema.recipeImages).values({
+          recipeId: importedRecipe.id,
+          url: img.url,
+        });
+      }
+
+      // Copy ingredients
+      const sourceIngredients = await db
+        .select()
+        .from(schema.recipeIngredients)
+        .where(eq(schema.recipeIngredients.recipeId, sourceRecipe.id));
+
+      for (const ing of sourceIngredients) {
+        await db.insert(schema.recipeIngredients).values({
+          recipeId: importedRecipe.id,
+          index: ing.index,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          name: ing.name,
+        });
+      }
+
+      // Copy instructions
+      const sourceInstructions = await db
+        .select()
+        .from(schema.recipeInstructions)
+        .where(eq(schema.recipeInstructions.recipeId, sourceRecipe.id));
+
+      for (const inst of sourceInstructions) {
+        await db.insert(schema.recipeInstructions).values({
+          recipeId: importedRecipe.id,
+          index: inst.index,
+          instruction: inst.instruction,
+          imageUrl: inst.imageUrl,
+        });
+      }
+
+      // Copy tags
+      const sourceTags = await db
+        .select()
+        .from(schema.recipeTags)
+        .where(eq(schema.recipeTags.recipeId, sourceRecipe.id));
+
+      for (const tag of sourceTags) {
+        await db.insert(schema.recipeTags).values({
+          recipeId: importedRecipe.id,
+          tagId: tag.tagId,
+        });
+      }
+
+      // Add to user's default collection
+      if (userCollection) {
+        await db.insert(schema.recipeCollections).values({
+          recipeId: importedRecipe.id,
+          collectionId: userCollection.id,
+          createdAt: importedAt,
+        });
+      }
+    }
+  }
+
+  console.log(`✅ Seeded ${importedRecipes.length} imported recipes`);
+  return importedRecipes;
+}
+
+async function seedActivityFeed(
+  db: DbClient,
+  users: (typeof schema.user.$inferSelect)[],
+  allRecipes: (typeof schema.recipes.$inferSelect)[]
+) {
+  console.log("📰 Seeding activity feed...");
+
+  let importEventCount = 0;
+  let reviewCount = 0;
+
+  // Create activity events for all recipe imports
+  for (const recipe of allRecipes) {
+    await db.insert(schema.activityEvents).values({
+      userId: recipe.uploadedBy,
+      type: "recipe_import",
+      recipeId: recipe.id,
+      createdAt: recipe.createdAt,
+    });
+    importEventCount++;
+  }
+
+  // Sample review texts
+  const reviewTexts = [
+    "Made this for dinner tonight and it was delicious!",
+    "Super easy to follow and turned out great.",
+    "This has become a weeknight staple. So quick and tasty!",
+    "The flavors were incredible. Restaurant quality at home!",
+    "Kids approved! That's the ultimate test.",
+    "Perfect comfort food.",
+    "Made this for a dinner party and got so many compliments.",
+    "Finally found a recipe that works every time!",
+    null, // Some reviews are rating-only
+  ];
+
+  // Create cooking reviews
+  for (const user of users) {
+    // Each user reviews 1-3 recipes they own
+    const userRecipes = allRecipes.filter((r) => r.uploadedBy === user.id);
+    const recipesToReview = shuffle(userRecipes).slice(0, randomInt(1, 3));
+
+    for (const recipe of recipesToReview) {
+      const reviewCreatedAt = randomDate(20);
+      const rating = randomInt(3, 5);
+      const reviewText = randomChoice(reviewTexts);
+
+      const [activityEvent] = await db
+        .insert(schema.activityEvents)
+        .values({
+          userId: user.id,
+          type: "cooking_review",
+          recipeId: recipe.id,
+          createdAt: reviewCreatedAt,
+        })
+        .returning();
+
+      if (!activityEvent) continue;
+
+      await db.insert(schema.cookingReviews).values({
+        userId: user.id,
+        recipeId: recipe.id,
+        activityEventId: activityEvent.id,
+        rating,
+        reviewText,
+        createdAt: reviewCreatedAt,
+        updatedAt: reviewCreatedAt,
+      });
+
+      reviewCount++;
+    }
+  }
+
   console.log(
-    `✅ Seeded ${likesCount} likes, ${savesCount} saves, ${followsCount} follows`
+    `✅ Seeded ${importEventCount} import events, ${reviewCount} cooking reviews`
   );
 }
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   const DATABASE_URL = process.env.DATABASE_URL;
@@ -478,7 +546,6 @@ async function main() {
   const db = drizzle(sql, { schema });
 
   try {
-    // Ask if user wants to clear existing data
     const answer = await question(
       "⚠️  Do you want to clear existing data before seeding? (yes/no): "
     );
@@ -489,30 +556,42 @@ async function main() {
     }
 
     // Seed data
-    const { cuisineTags, categoryTags, dietaryTags, ingredientTags } = await seedTags(db);
-    const allTags = [...cuisineTags, ...categoryTags, ...dietaryTags, ...ingredientTags];
+    const { cuisineTags, categoryTags, dietaryTags } = await seedTags(db);
+    const allTags = [...cuisineTags, ...categoryTags, ...dietaryTags];
     console.log("");
 
     const users = await seedUsers(db);
     console.log("");
 
-    const recipes = await seedRecipes(db, users, allTags);
+    const originalRecipes = await seedRecipes(db, users, allTags);
     console.log("");
 
     const collections = await seedCollections(db, users);
     console.log("");
 
-    await seedEngagement(db, users, recipes, collections);
+    await seedFollows(db, users);
+    console.log("");
+
+    const importedRecipes = await seedImportedRecipes(
+      db,
+      users,
+      originalRecipes,
+      collections
+    );
+    console.log("");
+
+    const allRecipes = [...originalRecipes, ...importedRecipes];
+    await seedActivityFeed(db, users, allRecipes);
     console.log("");
 
     console.log("✨ Database seeded successfully!");
     console.log("\n📊 Summary:");
     console.log(`   👥 ${users.length} users`);
-    console.log(`   🍳 ${recipes.length} recipes`);
+    console.log(`   🍳 ${originalRecipes.length} original + ${importedRecipes.length} imported recipes`);
     console.log(`   🏷️  ${allTags.length} tags`);
     console.log(`   📚 ${collections.length} collections`);
     console.log("\n🔑 All users have password: Password123!");
-    console.log("\n📧 Sample login credentials:");
+    console.log("\n📧 Sample login:");
     console.log("   Email: emma.rodriguez@example.com");
     console.log("   Password: Password123!");
   } catch (error) {

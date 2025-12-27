@@ -5,13 +5,13 @@ import {
   recipes,
   recipeCollections,
   collections,
-  userLikes,
   user,
   tags,
   recipeTags,
   follows,
   shoppingLists,
   shoppingListRecipes,
+  activityEvents,
 } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
@@ -34,13 +34,13 @@ import {
   parseIngredients,
 } from "../../utils/ingredientParser";
 import { normalizeUnit } from "../../utils/unitNormalizer";
+import { propagateActivityToFollowers } from "../services/activity/activity-propagation.service";
 import {
-  queryRecipeList,
   queryPopularRecipesThisWeek,
   validateTags,
   createRecipe,
   getRecipeDetail,
-  toggleRecipeLike,
+  importRecipe,
 } from "../services/recipe";
 import { router, authedProcedure } from "../trpc";
 
@@ -73,6 +73,10 @@ const InstructionRecord = type({
   "imageUrl?": "string | null",
 });
 
+const SourceTypeValidator = type(
+  "'url' | 'image' | 'text' | 'ai' | 'manual' | 'user'",
+);
+
 export const RecipePostValidator = type({
   name: "string",
   ingredients: IngredientRecord.array().atLeastLength(1),
@@ -80,6 +84,7 @@ export const RecipePostValidator = type({
   images: ImageRecord.array().atLeastLength(1),
 
   "sourceUrl?": "string",
+  "sourceType?": SourceTypeValidator,
   "categories?": "string[]",
   "cuisines?": "string[]",
 
@@ -218,7 +223,35 @@ export const recipeRouter = router({
       await validateTags(ctx.db, input.categories, input.cuisines);
 
       try {
-        return await createRecipe(ctx.db, ctx.user.id, input);
+        // Create the recipe
+        const recipe = await createRecipe(ctx.db, ctx.user.id, input);
+
+        // Create activity event for the import
+        const activityEventResult = await ctx.db
+          .insert(activityEvents)
+          .values({
+            userId: ctx.user.id,
+            type: "recipe_import",
+            recipeId: recipe.id,
+            createdAt: new Date(),
+          })
+          .returning();
+
+        const activityEvent = activityEventResult[0];
+
+        // Propagate to followers (fire and forget - don't block the response)
+        if (activityEvent) {
+          propagateActivityToFollowers(
+            ctx.db,
+            ctx.env,
+            activityEvent.id,
+            ctx.user.id
+          ).catch((err) => {
+            console.error("Error propagating activity to followers:", err);
+          });
+        }
+
+        return recipe;
       } catch (err) {
         console.error("Error saving recipe:", err);
         throw new TRPCError({
@@ -240,10 +273,10 @@ export const recipeRouter = router({
       const { limit, cursor, search } = input;
 
       try {
+        // Query recipes owned by the current user (uploadedBy = currentUser)
         const userRecipesList = await ctx.db
           .select({
             recipe: recipes,
-            recipeCollection: recipeCollections,
             firstImage: min(recipeImages.url),
             uploader: {
               id: user.id,
@@ -252,32 +285,18 @@ export const recipeRouter = router({
               image: user.image,
             },
           })
-          .from(recipeCollections)
-          .innerJoin(
-            collections,
-            eq(recipeCollections.collectionId, collections.id),
-          )
-          .innerJoin(recipes, eq(recipeCollections.recipeId, recipes.id))
+          .from(recipes)
           .innerJoin(user, eq(recipes.uploadedBy, user.id))
           .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
           .where(
             and(
-              eq(collections.userId, ctx.user.id),
-              cursor
-                ? lt(recipeCollections.createdAt, new Date(cursor))
-                : undefined,
+              eq(recipes.uploadedBy, ctx.user.id),
+              cursor ? lt(recipes.createdAt, new Date(cursor)) : undefined,
               search ? ilike(recipes.name, `%${search}%`) : undefined,
             ),
           )
-          .groupBy(
-            recipeCollections.id,
-            recipes.id,
-            user.id,
-            user.name,
-            user.email,
-            user.image,
-          )
-          .orderBy(desc(recipeCollections.createdAt))
+          .groupBy(recipes.id, user.id, user.name, user.email, user.image)
+          .orderBy(desc(recipes.createdAt))
           .limit(limit + 1);
 
         // Get recipe IDs to fetch tags
@@ -311,7 +330,6 @@ export const recipeRouter = router({
 
         const items = userRecipesList.map((item) => ({
           ...item.recipe,
-          addedAt: item.recipeCollection.createdAt,
           coverImage: item.firstImage,
           uploadedBy: item.uploader,
           tags: tagsByRecipe[item.recipe.id] || [],
@@ -320,7 +338,7 @@ export const recipeRouter = router({
         let nextCursor: number | undefined = undefined;
         if (items.length > limit) {
           const nextItem = items.pop();
-          nextCursor = nextItem?.addedAt.getTime();
+          nextCursor = nextItem?.createdAt.getTime();
         }
 
         return {
@@ -441,7 +459,7 @@ export const recipeRouter = router({
       }
     }),
 
-  likeRecipe: authedProcedure
+  importRecipe: authedProcedure
     .input(
       type({
         recipeId: "number",
@@ -449,38 +467,43 @@ export const recipeRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        return await toggleRecipeLike(ctx.db, input.recipeId, ctx.user.id);
+        // Import the recipe (creates a copy for the current user)
+        const newRecipe = await importRecipe(
+          ctx.db,
+          ctx.user.id,
+          input.recipeId,
+        );
+
+        // Create activity event for the import
+        const [activityEvent] = await ctx.db
+          .insert(activityEvents)
+          .values({
+            userId: ctx.user.id,
+            type: "recipe_import",
+            recipeId: newRecipe.id,
+            createdAt: new Date(),
+          })
+          .returning();
+
+        // Propagate to followers (don't await to avoid blocking)
+        if (activityEvent) {
+          propagateActivityToFollowers(
+            ctx.db,
+            ctx.env,
+            activityEvent.id,
+            ctx.user.id,
+          ).catch((err) =>
+            console.error("Failed to propagate activity to followers:", err),
+          );
+        }
+
+        return newRecipe;
       } catch (err) {
         if (err instanceof TRPCError) throw err;
-        console.error("Error liking recipe:", err);
+        console.error("Error importing recipe:", err);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to like recipe",
-        });
-      }
-    }),
-
-  getRecommendedRecipes: authedProcedure
-    .input(
-      type({
-        limit: "number = 20",
-        "cursor?": {
-          id: "number",
-          score: "number",
-        },
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      try {
-        return await queryRecipeList(ctx.db, ctx.user.id, {
-          limit: input.limit,
-          cursor: input.cursor,
-        });
-      } catch (err) {
-        console.error("Error fetching recommended recipes:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch recommended recipes",
+          message: "Failed to import recipe",
         });
       }
     }),
@@ -561,39 +584,6 @@ export const recipeRouter = router({
     )
     .query(({ input }) => {
       return parseIngredients(input.ingredients);
-    }),
-
-  searchAllRecipes: authedProcedure
-    .input(
-      type({
-        limit: "number = 20",
-        "cursor?": {
-          id: "number",
-          score: "number",
-        },
-        "search?": "string",
-        "tagIds?": "number[]",
-        "maxTotalTime?": "string",
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      try {
-        return await queryRecipeList(ctx.db, ctx.user.id, {
-          filters: {
-            search: input.search,
-            tagIds: input.tagIds,
-            maxTotalTime: input.maxTotalTime,
-          },
-          limit: input.limit,
-          cursor: input.cursor,
-        });
-      } catch (err) {
-        console.error("Error searching recipes:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to search recipes",
-        });
-      }
     }),
 
   getPopularThisWeek: authedProcedure

@@ -18,9 +18,7 @@
           "launchMode": "most-recent"
         }
       ],
-      [
-        "expo-font"
-      ],
+      ["expo-font"],
       "expo-web-browser",
       "react-native-edge-to-edge",
       [
@@ -31,10 +29,7 @@
             "NSExtensionActivationSupportsText": true,
             "NSExtensionActivationSupportsImageWithMaxCount": 1
           },
-          "androidIntentFilters": [
-            "text/*",
-            "image/*"
-          ],
+          "androidIntentFilters": ["text/*", "image/*"],
           "androidMultiIntentFilters": []
         }
       ]
@@ -46,9 +41,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ejjsharpe.cookclub",

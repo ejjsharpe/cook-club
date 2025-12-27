@@ -3,7 +3,6 @@ import {
   useQuery,
   useMutation,
   useQueryClient,
-  useInfiniteQuery,
 } from "@tanstack/react-query";
 import type { inferOutput } from "@trpc/tanstack-react-query";
 import { Alert } from "react-native";
@@ -61,14 +60,11 @@ export const useToggleRecipeInCollection = () => {
         const { recipeId, collectionId } = variables;
 
         // Get type-safe query filters
-        const recommendedRecipesFilter =
-          trpc.recipe.getRecommendedRecipes.pathFilter();
         const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
         const collectionsFilter =
           trpc.collection.getUserCollections.pathFilter();
 
         // Cancel any outgoing refetches to prevent race conditions
-        await queryClient.cancelQueries(recommendedRecipesFilter);
         await queryClient.cancelQueries(recipeDetailFilter);
         await queryClient.cancelQueries(collectionsFilter);
 
@@ -79,31 +75,8 @@ export const useToggleRecipeInCollection = () => {
         const previousRecipeDetail =
           queryClient.getQueryData<RecipeDetailOutput>(recipeDetailQueryKey);
 
-        // Try to get collectionIds from either detail cache or recommended feed cache
-        let previousCollectionIds = previousRecipeDetail?.collectionIds;
-
-        if (!previousCollectionIds) {
-          // If not in detail cache, check the recommended recipes infinite query
-          const recommendedData = queryClient.getQueriesData<any>(
-            recommendedRecipesFilter,
-          );
-          for (const [_key, data] of recommendedData) {
-            if (data?.pages) {
-              for (const page of data.pages) {
-                const recipe = page.items?.find(
-                  (item: any) => item.id === recipeId,
-                );
-                if (recipe) {
-                  previousCollectionIds = recipe.collectionIds;
-                  break;
-                }
-              }
-            }
-            if (previousCollectionIds) break;
-          }
-        }
-
-        previousCollectionIds = previousCollectionIds || [];
+        // Get collectionIds from detail cache
+        const previousCollectionIds = previousRecipeDetail?.collectionIds || [];
 
         // Calculate new collectionIds optimistically
         let newCollectionIds: number[];
@@ -193,14 +166,11 @@ export const useToggleRecipeInCollection = () => {
       },
       onSettled: () => {
         // Invalidate queries to refetch and ensure cache is in sync with server
-        const recommendedRecipesFilter =
-          trpc.recipe.getRecommendedRecipes.pathFilter();
         const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
         const collectionsFilter =
           trpc.collection.getUserCollections.pathFilter();
         const userRecipesFilter = trpc.recipe.getUserRecipes.pathFilter();
 
-        queryClient.invalidateQueries(recommendedRecipesFilter);
         queryClient.invalidateQueries(recipeDetailFilter);
         queryClient.invalidateQueries(collectionsFilter);
         queryClient.invalidateQueries(userRecipesFilter);
@@ -208,30 +178,6 @@ export const useToggleRecipeInCollection = () => {
     });
 
   return useMutation(mutationOptions);
-};
-
-// Search public collections
-interface UseSearchPublicCollectionsParams {
-  query: string;
-  limit?: number;
-}
-
-export const useSearchPublicCollections = ({
-  query,
-  limit = 20,
-}: UseSearchPublicCollectionsParams) => {
-  const trpc = useTRPC();
-
-  return useInfiniteQuery({
-    ...trpc.collection.searchPublicCollections.infiniteQueryOptions(
-      { query, limit },
-      {
-        getNextPageParam: (lastPage) => lastPage?.nextCursor ?? undefined,
-      },
-    ),
-    enabled: query.length >= 2,
-    staleTime: 0,
-  });
 };
 
 // Get user's collections with metadata (recipe count, owner info)

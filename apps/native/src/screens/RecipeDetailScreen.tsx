@@ -11,15 +11,19 @@ import {
   Dimensions,
   ActivityIndicator,
   Modal,
+  Alert,
 } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useRecipeDetail, useLikeRecipe } from "@/api/recipe";
+import { useCreateCookingReview } from "@/api/activity";
+import { useRecipeDetail, useImportRecipe } from "@/api/recipe";
 import {
   useAddRecipeToShoppingList,
   useRemoveRecipeFromList,
 } from "@/api/shopping";
+import { useUser } from "@/api/user";
 import { CollectionSheetManager } from "@/components/CollectionSelectorSheet";
+import { CookingReviewSheetManager } from "@/components/CookingReviewSheet";
 import { VSpace, HSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
@@ -48,10 +52,11 @@ type TabType = "ingredients" | "method";
 
 export const RecipeDetailScreen = () => {
   const route = useRoute<RecipeDetailScreenRouteProp>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { recipeId } = route.params;
 
   const { data: recipe, isPending, error } = useRecipeDetail({ recipeId });
+  const { data: userData } = useUser();
 
   const [activeTab, setActiveTab] = useState<TabType>("ingredients");
   const [servings, setServings] = useState(1);
@@ -61,7 +66,11 @@ export const RecipeDetailScreen = () => {
   // Mutations
   const addToShoppingMutation = useAddRecipeToShoppingList();
   const removeFromShoppingMutation = useRemoveRecipeFromList();
-  const likeMutation = useLikeRecipe();
+  const createReviewMutation = useCreateCookingReview();
+  const importMutation = useImportRecipe();
+
+  // Check if the current user owns this recipe
+  const isOwnRecipe = recipe?.uploadedBy.id === userData?.user?.id;
 
   useEffect(() => {
     if (recipe?.servings && !hasInitializedServings.current) {
@@ -95,9 +104,38 @@ export const RecipeDetailScreen = () => {
     }
   };
 
-  const handleLikeRecipe = () => {
+  const handleIMadeThis = () => {
     if (!recipe) return;
-    likeMutation.mutate({ recipeId: recipe.id });
+
+    CookingReviewSheetManager.show("cooking-review-sheet", {
+      payload: {
+        recipeName: recipe.name,
+        onSubmit: async (data) => {
+          await createReviewMutation.mutateAsync({
+            recipeId: recipe.id,
+            rating: data.rating,
+            reviewText: data.reviewText,
+            imageUrls: data.imageUrls,
+          });
+        },
+      },
+    });
+  };
+
+  const handleImportRecipe = async () => {
+    if (!recipe) return;
+
+    try {
+      const newRecipe = await importMutation.mutateAsync({
+        recipeId: recipe.id,
+      });
+      // Navigate to the newly imported recipe
+      navigation.replace("RecipeDetail", { recipeId: newRecipe.id });
+    } catch (error: any) {
+      const message =
+        error?.message || "Something went wrong while importing the recipe.";
+      Alert.alert("Import Failed", message);
+    }
   };
 
   if (isPending) {
@@ -109,13 +147,41 @@ export const RecipeDetailScreen = () => {
   }
 
   if (error || !recipe) {
+    // Check if it's a FORBIDDEN error (URL-scraped recipe from another user)
+    const isForbidden = (error as any)?.data?.code === "FORBIDDEN";
+    const sourceUrl = (error as any)?.data?.cause?.sourceUrl as
+      | string
+      | undefined;
+
     return (
       <View style={[styles.screen, styles.centered]}>
-        <Text type="bodyFaded">Recipe not found</Text>
+        <Text type="bodyFaded">
+          {isForbidden
+            ? "This recipe is from an external website"
+            : "Recipe not found"}
+        </Text>
         <VSpace size={16} />
-        <PrimaryButton onPress={() => navigation.goBack()}>
-          Go Back
-        </PrimaryButton>
+        {isForbidden && sourceUrl ? (
+          <>
+            <PrimaryButton
+              onPress={() => {
+                import("expo-web-browser").then((WebBrowser) => {
+                  WebBrowser.openBrowserAsync(sourceUrl);
+                });
+              }}
+            >
+              View on Original Site
+            </PrimaryButton>
+            <VSpace size={8} />
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text type="bodyFaded">Go Back</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <PrimaryButton onPress={() => navigation.goBack()}>
+            Go Back
+          </PrimaryButton>
+        )}
       </View>
     );
   }
@@ -154,33 +220,50 @@ export const RecipeDetailScreen = () => {
     </View>
   );
 
-  const renderUserInfo = () => (
-    <View style={styles.userSection}>
-      <View style={styles.userInfo}>
-        <View style={styles.avatar}>
-          {recipe.uploadedBy.image ? (
-            <Image
-              source={{ uri: recipe.uploadedBy.image }}
-              style={styles.avatarImage}
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text type="heading" style={styles.avatarText}>
-                {recipe.uploadedBy.name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-        </View>
-        <HSpace size={12} />
-        <View>
-          <Text type="heading">{recipe.uploadedBy.name}</Text>
-          <Text type="bodyFaded" style={styles.recipeCount}>
-            {recipe.userRecipesCount} recipes
-          </Text>
+  const renderUserInfo = () => {
+    // Don't show user section for own recipes
+    if (isOwnRecipe) {
+      // For imported recipes (own recipe with sourceType === "user"), show attribution
+      if (recipe.sourceType === "user" && recipe.originalUploader) {
+        return (
+          <View style={styles.attributionSection}>
+            <Text type="bodyFaded" style={styles.attributionText}>
+              Originally from @{recipe.originalUploader.name}
+            </Text>
+          </View>
+        );
+      }
+      return null;
+    }
+
+    return (
+      <View style={styles.userSection}>
+        <View style={styles.userInfo}>
+          <View style={styles.avatar}>
+            {recipe.uploadedBy.image ? (
+              <Image
+                source={{ uri: recipe.uploadedBy.image }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text type="heading" style={styles.avatarText}>
+                  {recipe.uploadedBy.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+          <HSpace size={12} />
+          <View>
+            <Text type="heading">{recipe.uploadedBy.name}</Text>
+            <Text type="bodyFaded" style={styles.recipeCount}>
+              {recipe.userRecipesCount} recipes
+            </Text>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const isSaved = !!recipe.collectionIds.length;
 
@@ -219,49 +302,74 @@ export const RecipeDetailScreen = () => {
         </View>
       </View>
 
-      {/* Right side - Icon buttons */}
+      {/* Right side - Context-dependent buttons */}
       <View style={styles.rightControls}>
-        {/* Save button */}
-        <TouchableOpacity
-          style={[styles.iconButton, isSaved && styles.iconButtonActive]}
-          onPress={handleSaveRecipe}
-        >
-          <Ionicons
-            name={isSaved ? "bookmark" : "bookmark-outline"}
-            size={24}
-            color={isSaved ? "#fff" : undefined}
-            style={styles.iconButtonIcon}
-          />
-        </TouchableOpacity>
+        {isOwnRecipe ? (
+          // Own recipe controls
+          <>
+            {/* Collection/Manage button */}
+            <TouchableOpacity
+              style={[styles.iconButton, isSaved && styles.iconButtonActive]}
+              onPress={handleSaveRecipe}
+            >
+              <Ionicons
+                name={isSaved ? "bookmark" : "bookmark-outline"}
+                size={24}
+                color={isSaved ? "#fff" : undefined}
+                style={styles.iconButtonIcon}
+              />
+            </TouchableOpacity>
 
-        {/* Shopping list button */}
-        <TouchableOpacity
-          style={[
-            styles.iconButton,
-            recipe.isInShoppingList && styles.iconButtonActive,
-          ]}
-          onPress={handleToggleShoppingList}
-        >
-          <Ionicons
-            name={recipe.isInShoppingList ? "cart" : "cart-outline"}
-            size={24}
-            color={recipe.isInShoppingList ? "#fff" : undefined}
-            style={styles.iconButtonIcon}
-          />
-        </TouchableOpacity>
+            {/* Shopping list button */}
+            <TouchableOpacity
+              style={[
+                styles.iconButton,
+                recipe.isInShoppingList && styles.iconButtonActive,
+              ]}
+              onPress={handleToggleShoppingList}
+            >
+              <Ionicons
+                name={recipe.isInShoppingList ? "cart" : "cart-outline"}
+                size={24}
+                color={recipe.isInShoppingList ? "#fff" : undefined}
+                style={styles.iconButtonIcon}
+              />
+            </TouchableOpacity>
 
-        {/* Like button */}
-        <TouchableOpacity
-          style={[styles.iconButton, recipe.isLiked && styles.iconButtonActive]}
-          onPress={handleLikeRecipe}
-        >
-          <Ionicons
-            name={recipe.isLiked ? "heart" : "heart-outline"}
-            size={24}
-            color={recipe.isLiked ? "#fff" : undefined}
-            style={styles.iconButtonIcon}
-          />
-        </TouchableOpacity>
+            {/* I made this button */}
+            <TouchableOpacity
+              style={styles.iMadeThisButton}
+              onPress={handleIMadeThis}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                style={styles.iMadeThisIcon}
+              />
+              <Text style={styles.iMadeThisText}>I made this!</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          // Someone else's recipe - show import button
+          <TouchableOpacity
+            style={styles.importButton}
+            onPress={handleImportRecipe}
+            disabled={importMutation.isPending}
+          >
+            {importMutation.isPending ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons
+                  name="download-outline"
+                  size={20}
+                  style={styles.importIcon}
+                />
+                <Text style={styles.importText}>Import Recipe</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -596,6 +704,48 @@ const styles = StyleSheet.create((theme) => ({
   },
   iconButtonIcon: {
     color: theme.colors.text,
+  },
+  iMadeThisButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+  },
+  iMadeThisIcon: {
+    color: theme.colors.buttonText,
+  },
+  iMadeThisText: {
+    color: theme.colors.buttonText,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  importButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    minWidth: 140,
+    justifyContent: "center",
+  },
+  importIcon: {
+    color: theme.colors.buttonText,
+  },
+  importText: {
+    color: theme.colors.buttonText,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  attributionSection: {
+    paddingVertical: 12,
+  },
+  attributionText: {
+    fontSize: 14,
   },
   centered: {
     justifyContent: "center",

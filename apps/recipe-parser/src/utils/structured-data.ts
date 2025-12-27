@@ -469,6 +469,7 @@ function toParsedRecipe(
     totalTime: raw.totalTime || null,
     servings: extractServingsFromYield(raw.recipeYield),
     sourceUrl,
+    sourceType: "url" as const,
     ingredients,
     instructions,
     images,

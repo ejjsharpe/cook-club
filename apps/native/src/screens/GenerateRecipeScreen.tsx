@@ -15,9 +15,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useGenerateRecipeChat } from "@/api/chat";
-import { BackButton } from "@/components/buttons/BackButton";
 import { HSpace, VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import { BackButton } from "@/components/buttons/BackButton";
 import type { ChatMessage, ConversationState, ChatStatus } from "@/types/chat";
 
 const INITIAL_MESSAGE: ChatMessage = {

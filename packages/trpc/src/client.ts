@@ -5,10 +5,10 @@ import {
 import { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 
-import type { AppRouter, UserCollectionWithMetadata } from "./server";
+import type { AppRouter, UserCollectionWithMetadata, FeedItem } from "./server";
 
 // Re-export service types for frontend use
-export type { UserCollectionWithMetadata };
+export type { UserCollectionWithMetadata, FeedItem };
 
 export const createTRPCClient = ({
   apiUrl,

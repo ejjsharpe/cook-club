@@ -10,5 +10,13 @@
   },
   "services": [
     { "binding": "RECIPE_PARSER", "service": "cook-club-recipe-parser", "entrypoint": "RecipeParser" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "USER_FEED", "class_name": "FeedDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_classes": ["FeedDO"] }
   ]
 }

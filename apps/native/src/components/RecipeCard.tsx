@@ -29,7 +29,6 @@ interface Recipe {
   servings?: number | null;
   category?: string | null;
   cuisine?: string | null;
-  addedAt: string;
   coverImage?: string | null;
   tags?: Tag[];
   uploadedBy?: User;

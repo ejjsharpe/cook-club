@@ -106,4 +106,5 @@ export interface Env {
   FB_CLIENT_ID: string;
   FB_CLIENT_SECRET: string;
   RECIPE_PARSER: RecipeParserService;
+  USER_FEED: DurableObjectNamespace;
 }

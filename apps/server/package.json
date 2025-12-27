@@ -2,7 +2,9 @@
   "name": "cook-club-server",
   "scripts": {
     "dev": "wait-on tcp:8788 && wrangler dev --ip 0.0.0.0",
-    "deploy": "wrangler deploy --minify"
+    "deploy": "wrangler deploy --minify",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@better-auth/expo": "^1.4.1",
@@ -11,10 +13,12 @@
     "hono": "^4.10.6"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.11.0",
     "@cloudflare/workers-types": "^4.20250718.0",
     "@types/node": "^24.0.14",
     "eslint-config-universe": "15.0.3",
     "typescript": "^5.8.3",
+    "vitest": "^3.2.3",
     "wait-on": "^9.0.3",
     "wrangler": "^4.50.0"
   },

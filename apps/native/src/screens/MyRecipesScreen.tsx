@@ -230,7 +230,7 @@ export const MyRecipesScreen = () => {
           <Text type="bodyFaded">
             {searchQuery
               ? "No recipes found for your search"
-              : "No recipes yet"}
+              : "No recipes in your library yet. Import recipes from the feed or add your own!"}
           </Text>
         </View>
       );
@@ -314,7 +314,7 @@ export const MyRecipesScreen = () => {
   );
 };
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   container: {
     flex: 1,
   },
@@ -328,7 +328,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   listContent: {
-    flex: 1,
+    paddingBottom: rt.insets.bottom + 48,
   },
   centered: {
     flex: 1,

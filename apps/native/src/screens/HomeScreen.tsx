@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
-import type { Outputs } from "@repo/trpc/client";
+import type { Outputs, FeedItem } from "@repo/trpc/client";
 import { Image } from "expo-image";
 import { useState, useCallback, useMemo, useRef, memo, useEffect } from "react";
 import {
@@ -10,7 +10,6 @@ import {
   RefreshControl,
   ActivityIndicator,
   FlatList,
-  ScrollView,
 } from "react-native";
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import Animated, {
@@ -26,35 +25,20 @@ import {
 } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useSearchPublicCollections } from "@/api/collection";
+import { useActivityFeed } from "@/api/activity";
 import { useSearchUsers } from "@/api/follows";
-import {
-  useRecommendedRecipes,
-  useLikeRecipe,
-  useSearchAllRecipes,
-  useAllTags,
-  usePopularThisWeek,
-} from "@/api/recipe";
 import { useUser } from "@/api/user";
-import { CollectionCard } from "@/components/CollectionCard";
 import { CollectionSheetManager } from "@/components/CollectionSelectorSheet";
-import { FeaturedRecipeCard } from "@/components/FeaturedRecipeCard";
-import { SheetManager } from "@/components/FilterBottomSheet";
-import { FullWidthRecipeCard } from "@/components/FullWidthRecipeCard";
-import { RecipeCarousel } from "@/components/RecipeCarousel";
+import { EmptyFeedState } from "@/components/EmptyFeedState";
+import { ImportActivityCard } from "@/components/ImportActivityCard";
+import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { SearchBar } from "@/components/SearchBar";
 import { SearchEmptyState } from "@/components/SearchEmptyState";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { UnderlineTabBar, type TabOption } from "@/components/UnderlineTabBar";
 import { UserSearchCard } from "@/components/UserSearchCard";
 import { useDebounce } from "@/hooks/useDebounce";
-import { useTabSlideAnimation } from "@/hooks/useTabSlideAnimation";
 
-type RecipePage = Outputs["recipe"]["searchAllRecipes"];
-type RecommendedRecipe = RecipePage["items"][number];
-type CollectionPage = Outputs["collection"]["searchPublicCollections"];
-type CollectionResult = CollectionPage["items"][number];
 type SearchUser = Outputs["follows"]["searchUsers"][number];
 type CurrentUser = Outputs["user"]["getUser"]["user"];
 
@@ -107,28 +91,16 @@ const Header = memo(({ user, onAvatarPress }: HeaderProps) => {
   );
 });
 
-// ─── Search Empty State ───────────────────────────────────────────────────────
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-type SearchType = "recipes" | "collections" | "users";
-
-const searchTabOptions: TabOption<SearchType>[] = [
-  { value: "recipes", label: "Recipes" },
-  { value: "collections", label: "Collections" },
-  { value: "users", label: "Users" },
-];
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 const HORIZONTAL_PADDING = 20;
 const BACK_BUTTON_WIDTH = 40;
-const FILTER_BUTTON_WIDTH = 44;
 const HEADER_GAP = 12;
 const SEARCH_BAR_HEIGHT = 44;
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const HomeScreen = () => {
-  const browseScrollRef = useRef<ScrollView>(null);
+  const browseScrollRef = useRef<FlatList>(null);
   const searchListRef = useRef<FlatList>(null);
   const searchBarRef = useRef<View>(null);
   useScrollToTop(browseScrollRef);
@@ -140,9 +112,6 @@ export const HomeScreen = () => {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [showFloatingSearch, setShowFloatingSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<SearchType>("recipes");
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
-  const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>();
 
   // Track the search bar's Y position relative to the screen
   const searchBarY = useSharedValue(0);
@@ -150,9 +119,6 @@ export const HomeScreen = () => {
 
   // Animation progress (0 = browse, 1 = search)
   const searchProgress = useSharedValue(0);
-
-  // Filter button visibility (0 = hidden, 1 = visible) - animated separately for tab changes
-  const filterButtonProgress = useSharedValue(1);
 
   // Keyboard height as animated value for empty state centering
   const keyboardHeight = useSharedValue(0);
@@ -167,10 +133,6 @@ export const HomeScreen = () => {
       keyboardHeight.value = e.height;
     },
   });
-
-  // Tab slide animation from hook
-  const { animatedStyle: tabContentStyle, triggerSlide } =
-    useTabSlideAnimation();
 
   // Target Y position for search mode (safe area top + padding)
   const searchModeY = insets.top + 20;
@@ -198,70 +160,25 @@ export const HomeScreen = () => {
     }
   }, [isSearchActive, animationConfig, searchProgress]);
 
-  // Animate filter button when tab changes
-  useEffect(() => {
-    filterButtonProgress.value = withTiming(
-      activeTab === "recipes" ? 1 : 0,
-      animationConfig,
-    );
-  }, [activeTab, animationConfig, filterButtonProgress]);
-
   // Debounce search query
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // ─── API Hooks ────────────────────────────────────────────────────────────────
   const { data: userData } = useUser();
   const user = userData?.user;
-  const { data: allTags = [] } = useAllTags();
-  const { data: popularRecipes = [] } = usePopularThisWeek();
-  const likeRecipeMutation = useLikeRecipe();
 
-  // Recommended recipes (for featured card)
-  const { data: recommendedData, refetch: recommendedRefetch } =
-    useRecommendedRecipes();
-
-  // Search conditions
-  const shouldFetchRecipes =
-    isSearchActive &&
-    activeTab === "recipes" &&
-    (debouncedSearch.trim() !== "" ||
-      selectedTagIds.length > 0 ||
-      maxTotalTime !== undefined);
-
-  const shouldFetchCollections =
-    isSearchActive &&
-    activeTab === "collections" &&
-    debouncedSearch.length >= 2;
-
-  const shouldFetchUsers =
-    isSearchActive && activeTab === "users" && debouncedSearch.length >= 2;
-
-  // Search hooks
+  // Activity feed
   const {
-    data: recipeData,
-    isPending: recipesPending,
-    isFetchingNextPage: recipesFetchingNext,
-    hasNextPage: recipesHasNext,
-    fetchNextPage: recipesFetchNext,
-    refetch: recipesRefetch,
-    isFetching: recipesFetching,
-  } = useSearchAllRecipes({
-    search: debouncedSearch,
-    tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
-    maxTotalTime,
-  });
+    data: activityData,
+    isPending: activityPending,
+    isFetchingNextPage: activityFetchingNext,
+    hasNextPage: activityHasNext,
+    fetchNextPage: activityFetchNext,
+    refetch: activityRefetch,
+  } = useActivityFeed();
 
-  const {
-    data: collectionData,
-    isPending: collectionsPending,
-    isFetchingNextPage: collectionsFetchingNext,
-    hasNextPage: collectionsHasNext,
-    fetchNextPage: collectionsFetchNext,
-    refetch: collectionsRefetch,
-    isFetching: collectionsFetching,
-  } = useSearchPublicCollections({
-    query: debouncedSearch,
-  });
+  // Search condition - only search users
+  const shouldFetchUsers = isSearchActive && debouncedSearch.length >= 2;
 
   const {
     data: usersData,
@@ -273,26 +190,9 @@ export const HomeScreen = () => {
   });
 
   // ─── Flatten Data ─────────────────────────────────────────────────────────────
-  const featuredRecipe: RecommendedRecipe | undefined = useMemo(
-    () => recommendedData?.pages[0]?.items?.[0],
-    [recommendedData],
-  );
-
-  const searchRecipes = useMemo(() => {
-    if (!shouldFetchRecipes) return [];
-    return (
-      recipeData?.pages.flatMap((page: RecipePage) => page?.items ?? []) ?? []
-    );
-  }, [recipeData, shouldFetchRecipes]);
-
-  const collections = useMemo(() => {
-    if (!shouldFetchCollections) return [];
-    return (
-      collectionData?.pages.flatMap(
-        (page: CollectionPage) => page?.items ?? [],
-      ) ?? []
-    );
-  }, [collectionData, shouldFetchCollections]);
+  const activityFeedItems = useMemo(() => {
+    return activityData?.pages.flatMap((page) => page?.items ?? []) ?? [];
+  }, [activityData]);
 
   const users: SearchUser[] = useMemo(() => {
     if (!shouldFetchUsers) return [];
@@ -311,13 +211,6 @@ export const HomeScreen = () => {
       navigation.navigate("RecipeDetail", { recipeId });
     },
     [navigation],
-  );
-
-  const handleLikePress = useCallback(
-    (recipeId: number) => {
-      likeRecipeMutation.mutate({ recipeId });
-    },
-    [likeRecipeMutation],
   );
 
   const handleSavePress = useCallback((recipeId: number) => {
@@ -347,101 +240,30 @@ export const HomeScreen = () => {
     setSearchQuery("");
   }, []);
 
-  const handleTabChange = useCallback(
-    (tab: SearchType, direction: number) => {
-      triggerSlide(direction);
-      setActiveTab(tab);
-      if (tab !== "recipes") {
-        setSelectedTagIds([]);
-        setMaxTotalTime(undefined);
-      }
-    },
-    [triggerSlide],
-  );
-
-  const handleFilterPress = useCallback(() => {
-    SheetManager.show("filter-sheet", {
-      payload: {
-        selectedTagIds,
-        onTagsChange: setSelectedTagIds,
-        maxTotalTime,
-        onTimeChange: setMaxTotalTime,
-        allTags,
-      },
-    });
-  }, [selectedTagIds, maxTotalTime, allTags]);
-
-  const handleLoadMore = useCallback(() => {
-    if (activeTab === "recipes") {
-      if (shouldFetchRecipes && recipesHasNext && !recipesFetchingNext) {
-        recipesFetchNext();
-      }
-    } else if (activeTab === "collections") {
-      if (
-        shouldFetchCollections &&
-        collectionsHasNext &&
-        !collectionsFetchingNext
-      ) {
-        collectionsFetchNext();
-      }
-    }
-  }, [
-    activeTab,
-    shouldFetchRecipes,
-    recipesHasNext,
-    recipesFetchingNext,
-    recipesFetchNext,
-    shouldFetchCollections,
-    collectionsHasNext,
-    collectionsFetchingNext,
-    collectionsFetchNext,
-  ]);
-
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     if (isSearchActive) {
-      if (activeTab === "recipes" && shouldFetchRecipes) {
-        await recipesRefetch();
-      } else if (activeTab === "collections" && shouldFetchCollections) {
-        await collectionsRefetch();
-      } else if (activeTab === "users" && shouldFetchUsers) {
+      if (shouldFetchUsers) {
         await usersRefetch();
       }
     } else {
-      await recommendedRefetch();
+      await activityRefetch();
     }
     setIsRefreshing(false);
-  }, [
-    isSearchActive,
-    activeTab,
-    shouldFetchRecipes,
-    recipesRefetch,
-    shouldFetchCollections,
-    collectionsRefetch,
-    shouldFetchUsers,
-    usersRefetch,
-    recommendedRefetch,
-  ]);
+  }, [isSearchActive, shouldFetchUsers, usersRefetch, activityRefetch]);
+
+  const handleActivityLoadMore = useCallback(() => {
+    if (activityHasNext && !activityFetchingNext) {
+      activityFetchNext();
+    }
+  }, [activityHasNext, activityFetchingNext, activityFetchNext]);
+
+  const handleDiscoverPress = useCallback(() => {
+    // Activate search mode
+    setIsSearchActive(true);
+  }, []);
 
   // ─── Render Functions ─────────────────────────────────────────────────────────
-  const renderSearchRecipe = ({ item }: { item: RecommendedRecipe }) => (
-    <FullWidthRecipeCard
-      recipe={item}
-      onPress={() => handleRecipePress(item.id)}
-      onLikePress={() => handleLikePress(item.id)}
-      onSavePress={() => handleSavePress(item.id)}
-      onUserPress={() => handleUserPress(item.uploadedBy.id)}
-    />
-  );
-
-  const renderCollection = ({ item }: { item: CollectionResult }) => (
-    <CollectionCard
-      collection={item}
-      onPress={() => handleUserPress(item.owner.id)}
-      onOwnerPress={() => handleUserPress(item.owner.id)}
-    />
-  );
-
   const renderUser = ({ item }: { item: SearchUser }) => (
     <View style={styles.userCardWrapper}>
       <UserSearchCard
@@ -450,6 +272,41 @@ export const HomeScreen = () => {
       />
     </View>
   );
+
+  // ─── Activity Feed Render Function ────────────────────────────────────────────
+  const renderActivityItem = useCallback(
+    ({ item }: { item: FeedItem }) => {
+      if (item.type === "cooking_review") {
+        return (
+          <ReviewActivityCard
+            activity={item}
+            onPress={
+              item.recipeId
+                ? () => handleRecipePress(item.recipeId!)
+                : undefined
+            }
+            onUserPress={() => handleUserPress(item.actorId)}
+          />
+        );
+      }
+
+      return (
+        <ImportActivityCard
+          activity={item}
+          onPress={
+            item.recipeId ? () => handleRecipePress(item.recipeId!) : undefined
+          }
+          onUserPress={() => handleUserPress(item.actorId)}
+          onImportPress={
+            item.recipeId ? () => handleRecipePress(item.recipeId!) : undefined
+          }
+        />
+      );
+    },
+    [handleRecipePress, handleUserPress],
+  );
+
+  const activityKeyExtractor = useCallback((item: FeedItem) => item.id, []);
 
   // ─── Browse Mode Header ───────────────────────────────────────────────────────
   const BrowseListHeader = useMemo(
@@ -470,113 +327,60 @@ export const HomeScreen = () => {
             <SearchBar
               value=""
               onChangeText={() => {}}
-              placeholder="Search recipes, collections, users..."
+              placeholder="Search users..."
             />
           </View>
         </Pressable>
-        <VSpace size={28} />
-        {featuredRecipe && (
-          <>
-            <Text type="title3" style={styles.sectionTitle}>
-              Today's featured recipe
-            </Text>
-            <VSpace size={12} />
-            <FeaturedRecipeCard
-              recipe={featuredRecipe}
-              onPress={() => handleRecipePress(featuredRecipe.id)}
-            />
-            <VSpace size={28} />
-          </>
-        )}
-        {popularRecipes.length > 0 && (
-          <RecipeCarousel
-            title="Trending"
-            recipes={popularRecipes}
-            onRecipePress={handleRecipePress}
-          />
-        )}
-        <VSpace size={24} />
+        <VSpace size={16} />
       </>
     ),
-    [
-      user,
-      handleAvatarPress,
-      showFloatingSearch,
-      handleSearchFocus,
-      featuredRecipe,
-      handleRecipePress,
-      popularRecipes,
-    ],
+    [user, handleAvatarPress, showFloatingSearch, handleSearchFocus],
   );
 
-  // ─── Search Mode Header ───────────────────────────────────────────────────────
-  // The search bar, back button, filter button, and tab switcher are rendered as
-  // fixed elements outside the FlatList. FlatList only contains search results.
-  const SearchListHeader = useMemo(() => <VSpace size={16} />, []);
+  // ─── Activity Feed Empty State ─────────────────────────────────────────────────
+  const renderActivityEmpty = useCallback(() => {
+    if (activityPending) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" />
+        </View>
+      );
+    }
+    return <EmptyFeedState onDiscoverPress={handleDiscoverPress} />;
+  }, [activityPending, handleDiscoverPress]);
 
-  // ─── Search Empty State ───────────────────────────────────────────────────────
-  const isFetching =
-    (activeTab === "recipes" && (recipesPending || recipesFetching)) ||
-    (activeTab === "collections" &&
-      (collectionsPending || collectionsFetching)) ||
-    (activeTab === "users" && (usersPending || usersFetching));
-
-  const shouldFetch =
-    (activeTab === "recipes" && shouldFetchRecipes) ||
-    (activeTab === "collections" && shouldFetchCollections) ||
-    (activeTab === "users" && shouldFetchUsers);
-
-  const fixedHeaderHeight = insets.top + SEARCH_BAR_HEIGHT;
-
-  const renderSearchEmpty = () => (
-    <SearchEmptyState
-      activeTab={activeTab}
-      isFetching={isFetching}
-      shouldFetch={shouldFetch}
-      keyboardHeight={keyboardHeight}
-      fixedHeaderHeight={fixedHeaderHeight}
-    />
-  );
-
-  // ─── Search Footer ────────────────────────────────────────────────────────────
-  const renderSearchFooter = () => {
-    const isFetchingNext =
-      (activeTab === "recipes" && recipesFetchingNext) ||
-      (activeTab === "collections" && collectionsFetchingNext);
-
-    if (!isFetchingNext) return null;
-
+  // ─── Activity Feed Footer ──────────────────────────────────────────────────────
+  const renderActivityFooter = useCallback(() => {
+    if (!activityFetchingNext) return null;
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="large" />
         <VSpace size={20} />
       </View>
     );
-  };
+  }, [activityFetchingNext]);
 
-  // Determine search data
-  const searchData =
-    activeTab === "recipes"
-      ? searchRecipes
-      : activeTab === "collections"
-        ? collections
-        : users;
+  // ─── Search Mode Header ───────────────────────────────────────────────────────
+  // The search bar and back button are rendered as fixed elements outside the FlatList.
+  // FlatList only contains search results.
+  const SearchListHeader = useMemo(() => <VSpace size={16} />, []);
 
-  const searchRenderItem =
-    activeTab === "recipes"
-      ? renderSearchRecipe
-      : activeTab === "collections"
-        ? renderCollection
-        : renderUser;
+  // ─── Search Empty State ───────────────────────────────────────────────────────
+  const isFetching = usersPending || usersFetching;
 
-  const searchKeyExtractor = (
-    item: RecommendedRecipe | CollectionResult | SearchUser,
-  ) =>
-    "uploadedBy" in item
-      ? item.id.toString()
-      : "owner" in item
-        ? `collection-${item.id}`
-        : item.id;
+  const fixedHeaderHeight = insets.top + SEARCH_BAR_HEIGHT;
+
+  const renderSearchEmpty = () => (
+    <SearchEmptyState
+      activeTab="users"
+      isFetching={isFetching}
+      shouldFetch={shouldFetchUsers}
+      keyboardHeight={keyboardHeight}
+      fixedHeaderHeight={fixedHeaderHeight}
+    />
+  );
+
+  const searchKeyExtractor = (item: SearchUser) => item.id;
 
   // ─── Animation Styles ─────────────────────────────────────────────────────────
   // Use showFloatingSearch to control visibility so the animation plays out fully
@@ -590,13 +394,6 @@ export const HomeScreen = () => {
 
   // Floating search bar animates from its scroll position to fixed position
   const floatingSearchBarStyle = useAnimatedStyle(() => {
-    // Calculate the right padding based on filter button visibility
-    const filterSpace = interpolate(
-      filterButtonProgress.value,
-      [0, 1],
-      [0, FILTER_BUTTON_WIDTH + HEADER_GAP],
-    );
-
     return {
       position: "absolute",
       top: interpolate(
@@ -612,11 +409,7 @@ export const HomeScreen = () => {
           HORIZONTAL_PADDING + BACK_BUTTON_WIDTH + HEADER_GAP,
         ],
       ),
-      right: interpolate(
-        searchProgress.value,
-        [0, 1],
-        [HORIZONTAL_PADDING, HORIZONTAL_PADDING + filterSpace],
-      ),
+      right: HORIZONTAL_PADDING,
       zIndex: 100,
     };
   });
@@ -632,44 +425,35 @@ export const HomeScreen = () => {
     ],
   }));
 
-  // Filter button slides in from right
-  const filterButtonAnimatedStyle = useAnimatedStyle(() => ({
-    position: "absolute",
-    top: searchModeY,
-    right: HORIZONTAL_PADDING,
-    opacity: searchProgress.value * filterButtonProgress.value,
-    transform: [
-      {
-        translateX: interpolate(
-          Math.min(searchProgress.value, filterButtonProgress.value),
-          [0, 1],
-          [20, 0],
-        ),
-      },
-    ],
-  }));
-
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <View style={styles.screen}>
-      {/* Browse Mode */}
+      {/* Browse Mode - Activity Feed */}
       <Animated.View
         style={[styles.listContainer, browseAnimatedStyle]}
         pointerEvents={showFloatingSearch ? "none" : "auto"}
       >
-        <ScrollView
-          ref={browseScrollRef}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing && !isSearchActive}
-              onRefresh={handleRefresh}
-            />
-          }
-        >
-          <SafeAreaView edges={["top"]}>{BrowseListHeader}</SafeAreaView>
-        </ScrollView>
+        <SafeAreaView edges={["top"]} style={styles.feedContainer}>
+          <FlatList
+            ref={browseScrollRef}
+            data={activityFeedItems}
+            renderItem={renderActivityItem}
+            keyExtractor={activityKeyExtractor}
+            ListHeaderComponent={BrowseListHeader}
+            ListEmptyComponent={renderActivityEmpty}
+            ListFooterComponent={renderActivityFooter}
+            onEndReached={handleActivityLoadMore}
+            onEndReachedThreshold={0.5}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.feedContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing && !isSearchActive}
+                onRefresh={handleRefresh}
+              />
+            }
+          />
+        </SafeAreaView>
       </Animated.View>
 
       {/* Search Mode */}
@@ -681,45 +465,34 @@ export const HomeScreen = () => {
         ]}
         pointerEvents={isSearchActive ? "auto" : "none"}
       >
-        {/* Fixed header with tabs */}
+        {/* Fixed header */}
         <SafeAreaView edges={["top"]} style={styles.searchFixedHeader}>
           {/* Spacer for the floating search bar row */}
           <VSpace size={20 + SEARCH_BAR_HEIGHT + 12} />
-          <View style={styles.searchContainer}>
-            <UnderlineTabBar
-              options={searchTabOptions}
-              value={activeTab}
-              onValueChange={handleTabChange}
-            />
-          </View>
-          <VSpace size={16} />
         </SafeAreaView>
 
         {/* Scrollable search results */}
-        <Animated.View style={[styles.searchResultsList, tabContentStyle]}>
+        <View style={styles.searchResultsList}>
           <FlatList
             ref={searchListRef}
-            data={searchData}
-            // Type assertion needed: data and renderItem change types based on activeTab
-            renderItem={searchRenderItem as any}
+            data={users}
+            renderItem={renderUser}
             keyExtractor={searchKeyExtractor}
             ListHeaderComponent={SearchListHeader}
             ListEmptyComponent={renderSearchEmpty}
-            ListFooterComponent={renderSearchFooter}
-            onEndReached={handleLoadMore}
             onEndReachedThreshold={0.5}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing && isSearchActive}
                 onRefresh={handleRefresh}
-                enabled={shouldFetch}
+                enabled={shouldFetchUsers}
               />
             }
             showsVerticalScrollIndicator={false}
             style={styles.flatListFlex}
             contentContainerStyle={styles.searchResultsContent}
           />
-        </Animated.View>
+        </View>
       </Animated.View>
 
       {/* Floating Search Bar (appears during transition and in search mode) */}
@@ -743,25 +516,8 @@ export const HomeScreen = () => {
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus={isSearchActive}
+              placeholder="Search users..."
             />
-          </Animated.View>
-
-          <Animated.View style={filterButtonAnimatedStyle}>
-            <TouchableOpacity
-              style={styles.filterButton}
-              onPress={handleFilterPress}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="options-outline"
-                size={24}
-                style={
-                  selectedTagIds.length > 0 || maxTotalTime
-                    ? styles.filterIconActive
-                    : styles.filterIcon
-                }
-              />
-            </TouchableOpacity>
           </Animated.View>
         </>
       )}
@@ -792,8 +548,17 @@ const styles = StyleSheet.create((theme) => ({
   searchResultsContent: {
     flexGrow: 1,
   },
-  scrollContent: {
+  feedContainer: {
+    flex: 1,
+  },
+  feedContent: {
     flexGrow: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 60,
   },
   headerContainer: {
     paddingHorizontal: 20,
@@ -847,31 +612,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   backIcon: {
     color: theme.colors.text,
-  },
-  searchBarExpanded: {
-    flex: 1,
-  },
-  filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.borderRadius.full,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: theme.colors.background,
-  },
-  filterIcon: {
-    color: theme.colors.text,
-  },
-  filterIconActive: {
-    color: theme.colors.primary,
-  },
-  sectionHeader: {
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    paddingHorizontal: 20,
   },
   userCardWrapper: {
     paddingHorizontal: 20,

@@ -1,10 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useState, useMemo, useRef } from "react";
 import { View, TextInput, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { Ionicons } from "@expo/vector-icons";
 
-import { Text } from "./Text";
 import { VSpace } from "./Space";
+import { Text } from "./Text";
+
 import { useAllTags } from "@/api/recipe";
 
 interface Tag {
@@ -45,7 +46,7 @@ export const AutocompleteTagSelector = ({
         (tag) =>
           tag.name.toLowerCase().includes(searchLower) &&
           !selectedIds.includes(tag.id) &&
-          !excludeIds.includes(tag.id)
+          !excludeIds.includes(tag.id),
       )
       .slice(0, 5); // Limit dropdown to 5 items
   }, [searchText, allTags, selectedIds, excludeIds]);

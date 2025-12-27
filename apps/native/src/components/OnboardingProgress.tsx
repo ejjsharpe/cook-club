@@ -1,10 +1,10 @@
 import { View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
 import Animated, {
   useAnimatedStyle,
   withTiming,
   Easing,
 } from "react-native-reanimated";
+import { StyleSheet } from "react-native-unistyles";
 
 interface Props {
   currentStep: number;

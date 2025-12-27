@@ -12,7 +12,7 @@ import type {
   ChatResponse,
 } from "./types";
 
-export type { ParsedRecipe, Ingredient, Instruction, Tag } from "./schema";
+export type { ParsedRecipe, Ingredient, Instruction, Tag, SourceType } from "./schema";
 export type {
   ParseInput,
   ParseResponse,

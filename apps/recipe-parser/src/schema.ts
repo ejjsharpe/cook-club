@@ -18,6 +18,10 @@ export const TagSchema = type({
   name: "string",
 });
 
+export const SourceTypeSchema = type(
+  "'url' | 'image' | 'text' | 'ai' | 'manual'"
+);
+
 export const ParsedRecipeSchema = type({
   name: "string",
   "description?": "string | null",
@@ -26,6 +30,7 @@ export const ParsedRecipeSchema = type({
   "totalTime?": "string | null",
   "servings?": "number | null",
   "sourceUrl?": "string | null",
+  "sourceType?": SourceTypeSchema,
   ingredients: IngredientSchema.array().atLeastLength(1),
   instructions: InstructionSchema.array().atLeastLength(1),
   "images?": "string[]",
@@ -36,3 +41,4 @@ export type ParsedRecipe = typeof ParsedRecipeSchema.infer;
 export type Ingredient = typeof IngredientSchema.infer;
 export type Instruction = typeof InstructionSchema.infer;
 export type Tag = typeof TagSchema.infer;
+export type SourceType = typeof SourceTypeSchema.infer;

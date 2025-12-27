@@ -2,8 +2,11 @@ import { trpcServer } from "@hono/trpc-server";
 import { appRouter, createContext } from "@repo/trpc/server";
 import { Hono } from "hono";
 
+import { FeedDO } from "./durable-objects/FeedDO";
 import { getAuth } from "./lib/auth";
 import { Env } from "./types";
+
+export { FeedDO };
 
 type Session = ReturnType<typeof getAuth>["$Infer"]["Session"]["session"];
 type User = ReturnType<typeof getAuth>["$Infer"]["Session"]["user"];

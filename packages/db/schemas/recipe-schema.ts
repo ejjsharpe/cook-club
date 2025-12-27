@@ -7,6 +7,7 @@ import {
   index,
   boolean,
   numeric,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
@@ -29,6 +30,17 @@ export const recipes = pgTable(
 
     // properties for scraped recipes
     sourceUrl: text("source_url"),
+    // Source type: "url" (scraped), "image" (OCR), "text" (pasted), "ai" (generated), "manual" (created), "user" (imported from another user)
+    sourceType: text("source_type").notNull().default("manual"),
+
+    // For recipes imported from another user
+    originalRecipeId: integer("original_recipe_id").references(
+      (): AnyPgColumn => recipes.id,
+      { onDelete: "set null" }
+    ),
+    originalUploaderId: text("original_uploader_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
   },
   (table) => [
     index("recipes_uploaded_by_idx").on(table.uploadedBy),
@@ -83,26 +95,6 @@ export const recipeCollections = pgTable(
       table.recipeId,
       table.collectionId
     ),
-  ]
-);
-
-// ─── Join table: which users have liked recipes ──────────────────────────────
-export const userLikes = pgTable(
-  "user_likes",
-  {
-    id: serial("id").primaryKey(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    recipeId: integer("recipe_id")
-      .notNull()
-      .references(() => recipes.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull(),
-  },
-  (table) => [
-    index("user_likes_user_id_idx").on(table.userId),
-    index("user_likes_recipe_id_idx").on(table.recipeId),
-    index("user_likes_user_recipe_idx").on(table.userId, table.recipeId),
   ]
 );
 

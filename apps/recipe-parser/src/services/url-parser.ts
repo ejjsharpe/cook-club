@@ -47,6 +47,7 @@ function aiResultToRecipe(
     totalTime: ai.totalTime,
     servings: ai.servings,
     sourceUrl,
+    sourceType: "url" as const,
     ingredients,
     instructions,
     images,

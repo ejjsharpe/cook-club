@@ -28,9 +28,7 @@ interface Recipe {
   totalTime?: string | null;
   servings?: number | null;
   saveCount: number;
-  likeCount: number;
   collectionIds: number[];
-  isLiked: boolean;
   coverImage?: string | null;
   tags: Tag[];
   uploadedBy: User;
@@ -40,7 +38,6 @@ interface Recipe {
 interface Props {
   recipe: Recipe;
   onPress?: () => void;
-  onLikePress?: () => void;
   onSavePress?: () => void;
   onUserPress?: () => void;
 }
@@ -61,7 +58,7 @@ const getInitials = (name: string): string => {
 };
 
 export const FullWidthRecipeCard = memo(
-  ({ recipe, onPress, onLikePress, onSavePress, onUserPress }: Props) => {
+  ({ recipe, onPress, onSavePress, onUserPress }: Props) => {
     const timeAgo = useMemo(
       () =>
         formatDistanceToNow(new Date(recipe.createdAt), { addSuffix: true }),
@@ -169,23 +166,6 @@ export const FullWidthRecipeCard = memo(
 
         {/* Interaction Buttons */}
         <View style={styles.interactionButtons}>
-          <TouchableOpacity
-            style={styles.interactionButton}
-            onPress={onLikePress}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={recipe.isLiked ? "heart" : "heart-outline"}
-              size={24}
-              style={recipe.isLiked ? styles.iconLiked : styles.iconDefault}
-            />
-            {recipe.likeCount > 0 && (
-              <Text style={styles.interactionButtonText}>
-                {recipe.likeCount}
-              </Text>
-            )}
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.interactionButton}
             onPress={onSavePress}
@@ -336,9 +316,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   iconDefault: {
     color: theme.colors.text,
-  },
-  iconLiked: {
-    color: theme.colors.primary,
   },
   iconSaved: {
     color: theme.colors.primary,

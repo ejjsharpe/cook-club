@@ -1,6 +1,6 @@
+import * as ImagePicker from "expo-image-picker";
 import { View, TouchableOpacity, Image, Alert } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import * as ImagePicker from "expo-image-picker";
 
 import { Input } from "@/components/Input";
 import { VSpace } from "@/components/Space";
@@ -34,7 +34,7 @@ export const OnboardingStepProfile = ({
     if (!permissionResult.granted) {
       Alert.alert(
         "Permission Required",
-        "Please allow access to your photos to set a profile picture."
+        "Please allow access to your photos to set a profile picture.",
       );
       return;
     }

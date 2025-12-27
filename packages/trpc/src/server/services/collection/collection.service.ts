@@ -6,7 +6,7 @@ import {
   user,
 } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
-import { eq, and, desc, ilike, sql, gt, inArray } from "drizzle-orm";
+import { eq, and, desc, ilike, sql, inArray } from "drizzle-orm";
 
 import type { DbClient } from "../types";
 
@@ -59,9 +59,9 @@ export async function toggleRecipeInCollection(
 ) {
   const { userId, recipeId, collectionId: inputCollectionId } = params;
 
-  // Verify recipe exists
+  // Verify recipe exists and belongs to user
   const recipe = await db
-    .select({ id: recipes.id })
+    .select({ id: recipes.id, uploadedBy: recipes.uploadedBy })
     .from(recipes)
     .where(eq(recipes.id, recipeId))
     .then((rows) => rows[0]);
@@ -70,6 +70,15 @@ export async function toggleRecipeInCollection(
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "Recipe not found",
+    });
+  }
+
+  // Verify user owns the recipe - users can only add their own recipes to collections
+  if (recipe.uploadedBy !== userId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message:
+        "You can only add your own recipes to collections. Import this recipe first.",
     });
   }
 
@@ -84,7 +93,9 @@ export async function toggleRecipeInCollection(
   const collection = await db
     .select({ id: collections.id, name: collections.name })
     .from(collections)
-    .where(and(eq(collections.id, collectionId), eq(collections.userId, userId)))
+    .where(
+      and(eq(collections.id, collectionId), eq(collections.userId, userId)),
+    )
     .then((rows) => rows[0]);
 
   if (!collection) {
@@ -234,28 +245,6 @@ export async function getUserCollectionsWithMetadata(
   }));
 }
 
-// ─── Public Collection Search ─────────────────────────────────────────────────
-
-export interface CollectionSearchResult {
-  id: number;
-  name: string;
-  recipeCount: number;
-  owner: {
-    id: string;
-    name: string;
-    image: string | null;
-  };
-  createdAt: Date;
-}
-
-export interface SearchPublicCollectionsResult {
-  items: CollectionSearchResult[];
-  nextCursor: number | null;
-}
-
-/**
- * Search all public collections by name
- */
 // ─── Collection Detail ──────────────────────────────────────────────────────
 
 export interface CollectionDetailResult {
@@ -397,73 +386,4 @@ export async function deleteCollection(
   await db.delete(collections).where(eq(collections.id, collectionId));
 
   return { success: true };
-}
-
-// ─── Public Collection Search ─────────────────────────────────────────────────
-
-export async function searchPublicCollections(
-  db: DbClient,
-  params: {
-    query: string;
-    limit?: number;
-    cursor?: number;
-  },
-): Promise<SearchPublicCollectionsResult> {
-  const { query, limit = 20, cursor } = params;
-
-  // Build the recipe count subquery
-  const recipeCountSubquery = db
-    .select({
-      collectionId: recipeCollections.collectionId,
-      count: sql<number>`count(*)`.as("recipe_count"),
-    })
-    .from(recipeCollections)
-    .groupBy(recipeCollections.collectionId)
-    .as("recipe_counts");
-
-  // Build the main query
-  const results = await db
-    .select({
-      id: collections.id,
-      name: collections.name,
-      createdAt: collections.createdAt,
-      recipeCount: sql<number>`coalesce(${recipeCountSubquery.count}, 0)`,
-      ownerId: user.id,
-      ownerName: user.name,
-      ownerImage: user.image,
-    })
-    .from(collections)
-    .innerJoin(user, eq(collections.userId, user.id))
-    .leftJoin(
-      recipeCountSubquery,
-      eq(collections.id, recipeCountSubquery.collectionId),
-    )
-    .where(
-      and(
-        ilike(collections.name, `%${query}%`),
-        cursor ? gt(collections.id, cursor) : undefined,
-      ),
-    )
-    .orderBy(collections.id)
-    .limit(limit + 1);
-
-  // Determine if there are more results
-  const hasMore = results.length > limit;
-  const items = hasMore ? results.slice(0, limit) : results;
-  const nextCursor = hasMore ? items[items.length - 1]?.id ?? null : null;
-
-  return {
-    items: items.map((row) => ({
-      id: row.id,
-      name: row.name,
-      recipeCount: Number(row.recipeCount),
-      owner: {
-        id: row.ownerId,
-        name: row.ownerName,
-        image: row.ownerImage,
-      },
-      createdAt: row.createdAt,
-    })),
-    nextCursor,
-  };
 }

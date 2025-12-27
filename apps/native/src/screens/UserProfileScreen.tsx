@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
-import { useState, useMemo, useCallback } from "react";
+import type { FeedItem } from "@repo/trpc/client";
+import { useMemo, useCallback } from "react";
 import {
   View,
   Image,
@@ -10,22 +11,18 @@ import {
   TouchableOpacity,
   Share,
 } from "react-native";
-import Animated from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useGetUserCollectionsById } from "@/api/collection";
+import { useUserActivities } from "@/api/activity";
 import { useUserProfile, useFollowUser, useUnfollowUser } from "@/api/follows";
-import { useGetUserRecipesById } from "@/api/recipe";
 import { useUser } from "@/api/user";
-import { CollectionCard } from "@/components/CollectionCard";
-import { RecipeCard } from "@/components/RecipeCard";
+import { ImportActivityCard } from "@/components/ImportActivityCard";
+import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { UnderlineTabBar, type TabOption } from "@/components/UnderlineTabBar";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
-import { useTabSlideAnimation } from "@/hooks/useTabSlideAnimation";
 
 type UserProfileScreenParams = {
   UserProfile: {
@@ -38,64 +35,30 @@ type UserProfileScreenRouteProp = RouteProp<
   "UserProfile"
 >;
 
-type Recipe = NonNullable<
-  ReturnType<typeof useGetUserRecipesById>["data"]
->["pages"][number]["items"][number];
-
-type Collection = NonNullable<
-  ReturnType<typeof useGetUserCollectionsById>["data"]
->[number];
-
-type ProfileTab = "recipes" | "collections";
-
-const tabOptions: TabOption<ProfileTab>[] = [
-  { value: "recipes", label: "Recipes" },
-  { value: "collections", label: "Collections" },
-];
-
 export const UserProfileScreen = () => {
   const route = useRoute<UserProfileScreenRouteProp>();
   const navigation = useNavigation();
   const { userId } = route.params;
-
-  const [activeTab, setActiveTab] = useState<ProfileTab>("recipes");
-  const { animatedStyle: tabContentStyle, triggerSlide } =
-    useTabSlideAnimation();
-
-  const handleTabChange = useCallback(
-    (tab: ProfileTab, direction: number) => {
-      triggerSlide(direction);
-      setActiveTab(tab);
-    },
-    [triggerSlide],
-  );
 
   const { data: currentUser } = useUser();
   const { data: profile, isLoading, error } = useUserProfile({ userId });
   const followMutation = useFollowUser();
   const unfollowMutation = useUnfollowUser();
 
-  // Fetch recipes and collections
+  // Fetch user activities
   const {
-    data: recipesData,
-    fetchNextPage: fetchNextRecipes,
-    hasNextPage: hasMoreRecipes,
-    isFetchingNextPage: isFetchingNextRecipes,
-    isLoading: isLoadingRecipes,
-  } = useGetUserRecipesById({ userId });
-
-  const { data: collectionsData, isLoading: isLoadingCollections } =
-    useGetUserCollectionsById({ userId });
+    data: activitiesData,
+    fetchNextPage: fetchNextActivities,
+    hasNextPage: hasMoreActivities,
+    isFetchingNextPage: isFetchingNextActivities,
+    isLoading: isLoadingActivities,
+  } = useUserActivities({ userId });
 
   const isOwnProfile = currentUser?.user?.id === userId;
 
-  const recipes = useMemo(() => {
-    return recipesData?.pages.flatMap((page) => page?.items ?? []) ?? [];
-  }, [recipesData]);
-
-  const collections = useMemo(() => {
-    return collectionsData ?? [];
-  }, [collectionsData]);
+  const activities = useMemo(() => {
+    return activitiesData?.pages.flatMap((page) => page?.items ?? []) ?? [];
+  }, [activitiesData]);
 
   const handleFollow = () => {
     followMutation.mutate({ userId });
@@ -133,45 +96,62 @@ export const UserProfileScreen = () => {
     navigation.navigate("EditProfile");
   };
 
-  const handleLoadMoreRecipes = useCallback(() => {
-    if (hasMoreRecipes && !isFetchingNextRecipes) {
-      fetchNextRecipes();
+  const handleLoadMoreActivities = useCallback(() => {
+    if (hasMoreActivities && !isFetchingNextActivities) {
+      fetchNextActivities();
     }
-  }, [hasMoreRecipes, isFetchingNextRecipes, fetchNextRecipes]);
+  }, [hasMoreActivities, isFetchingNextActivities, fetchNextActivities]);
 
-  const renderRecipe = useCallback(
-    ({ item }: { item: Recipe }) => (
-      <RecipeCard
-        recipe={{
-          ...item,
-          addedAt: item.createdAt.toString(),
-        }}
-        onPress={() =>
-          navigation.navigate("RecipeDetail", { recipeId: item.id })
-        }
-      />
-    ),
-    [navigation],
-  );
-
-  const renderCollection = useCallback(
-    ({ item }: { item: Collection }) => (
-      <CollectionCard
-        collection={item}
-        onPress={() =>
-          navigation.navigate("CollectionDetail", { collectionId: item.id })
-        }
-        onOwnerPress={() => {}} // Already on profile, no action
-      />
-    ),
+  const renderActivityItem = useCallback(
+    ({ item }: { item: FeedItem }) => {
+      if (item.type === "cooking_review") {
+        return (
+          <ReviewActivityCard
+            activity={item}
+            onPress={
+              item.recipeId
+                ? () =>
+                    navigation.navigate("RecipeDetail", {
+                      recipeId: item.recipeId!,
+                    })
+                : undefined
+            }
+            onUserPress={() =>
+              navigation.navigate("UserProfile", { userId: item.actorId })
+            }
+          />
+        );
+      }
+      return (
+        <ImportActivityCard
+          activity={item}
+          onPress={
+            item.recipeId
+              ? () =>
+                  navigation.navigate("RecipeDetail", {
+                    recipeId: item.recipeId!,
+                  })
+              : undefined
+          }
+          onUserPress={() =>
+            navigation.navigate("UserProfile", { userId: item.actorId })
+          }
+          onImportPress={
+            item.recipeId
+              ? () =>
+                  navigation.navigate("RecipeDetail", {
+                    recipeId: item.recipeId!,
+                  })
+              : undefined
+          }
+        />
+      );
+    },
     [navigation],
   );
 
   const renderEmpty = () => {
-    const isLoadingContent =
-      activeTab === "recipes" ? isLoadingRecipes : isLoadingCollections;
-
-    if (isLoadingContent) {
+    if (isLoadingActivities) {
       return (
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" />
@@ -182,14 +162,16 @@ export const UserProfileScreen = () => {
     return (
       <View style={styles.emptyContainer}>
         <Text type="bodyFaded">
-          {activeTab === "recipes" ? "No recipes yet" : "No collections yet"}
+          {isOwnProfile
+            ? "No activity yet. Import recipes or write reviews to share!"
+            : `${profile?.user.name} hasn't shared any activity yet`}
         </Text>
       </View>
     );
   };
 
   const renderFooter = () => {
-    if (activeTab === "recipes" && isFetchingNextRecipes) {
+    if (isFetchingNextActivities) {
       return (
         <View style={styles.footer}>
           <ActivityIndicator />
@@ -404,21 +386,9 @@ export const UserProfileScreen = () => {
         </>
       )}
 
-      <VSpace size={24} />
-
-      {/* Tab Switcher */}
-      <UnderlineTabBar
-        options={tabOptions}
-        value={activeTab}
-        onValueChange={handleTabChange}
-      />
-
       <VSpace size={16} />
     </View>
   );
-
-  const listData = activeTab === "recipes" ? recipes : collections;
-  const renderItem = activeTab === "recipes" ? renderRecipe : renderCollection;
 
   return (
     <View style={styles.screen}>
@@ -427,23 +397,13 @@ export const UserProfileScreen = () => {
         <BackButton />
 
         <LegendList
-          data={listData as any[]}
-          renderItem={({ item }: any) => (
-            <Animated.View style={tabContentStyle}>
-              {renderItem({ item })}
-            </Animated.View>
-          )}
-          keyExtractor={(item: any) => item.id.toString()}
+          data={activities}
+          renderItem={renderActivityItem}
+          keyExtractor={(item) => item.id}
           ListHeaderComponent={renderHeader}
-          ListEmptyComponent={() => (
-            <Animated.View style={tabContentStyle}>
-              {renderEmpty()}
-            </Animated.View>
-          )}
+          ListEmptyComponent={renderEmpty}
           ListFooterComponent={renderFooter}
-          onEndReached={
-            activeTab === "recipes" ? handleLoadMoreRecipes : undefined
-          }
+          onEndReached={handleLoadMoreActivities}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}

@@ -4,8 +4,8 @@ import {
   recipeIngredients,
   recipeInstructions,
   recipeCollections,
+  recipeTags,
   collections,
-  userLikes,
   shoppingLists,
   shoppingListRecipes,
   tags,
@@ -13,6 +13,7 @@ import {
 } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
 import { eq, and, inArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { parseIngredient } from "../../../utils/ingredientParser";
 import { normalizeUnit } from "../../../utils/unitNormalizer";
@@ -38,12 +39,15 @@ export interface CreateRecipeImage {
   url: string;
 }
 
+export type SourceType = "url" | "image" | "text" | "ai" | "manual" | "user";
+
 export interface CreateRecipeInput {
   name: string;
   ingredients: CreateRecipeIngredient[];
   instructions: CreateRecipeInstruction[];
   images: CreateRecipeImage[];
   sourceUrl?: string;
+  sourceType?: SourceType;
   categories?: string[];
   cuisines?: string[];
   description?: string;
@@ -69,10 +73,13 @@ export type RecipeWithDetails = Omit<
   >[];
   userRecipesCount: number;
   collectionIds: number[];
-  isLiked: boolean;
   isInShoppingList: boolean;
-  likeCount: number;
   saveCount: number;
+  // For recipes imported from another user
+  originalUploader: Pick<
+    typeof user.$inferSelect,
+    "id" | "name" | "image"
+  > | null;
 };
 
 // ─── Tag Validation ────────────────────────────────────────────────────────
@@ -151,6 +158,7 @@ export async function createRecipe(
         name: input.name,
         description: input.description || null,
         sourceUrl: input.sourceUrl || null,
+        sourceType: input.sourceType || "manual",
         prepTime: input.prepTime || null,
         cookTime: input.cookTime || null,
         totalTime: input.totalTime || null,
@@ -256,6 +264,9 @@ export async function getRecipeDetail(
   recipeId: number,
   userId: string,
 ): Promise<RecipeWithDetails> {
+  // Alias user table for original uploader
+  const originalUser = alias(user, "original_user");
+
   // Single query with all aggregations and checks using Drizzle helpers
   const recipeData = await db
     .select({
@@ -266,13 +277,11 @@ export async function getRecipeDetail(
         email: user.email,
         image: user.image,
       },
-      // Scalar subquery: count of likes for this recipe
-      // Note: Must use CAST to INTEGER for Neon database to return number type
-      likeCount: sql<number>`(
-        SELECT CAST(COUNT(*) AS INTEGER)
-        FROM ${userLikes}
-        WHERE ${userLikes.recipeId} = ${recipes.id}
-      )`,
+      originalUploader: {
+        id: originalUser.id,
+        name: originalUser.name,
+        image: originalUser.image,
+      },
       // Scalar subquery: count of saves for this recipe
       saveCount: sql<number>`(
         SELECT CAST(COUNT(DISTINCT ${recipeCollections.id}) AS INTEGER)
@@ -285,12 +294,6 @@ export async function getRecipeDetail(
         FROM ${recipes} r
         WHERE r.uploaded_by = ${recipes.uploadedBy}
       )`,
-      // EXISTS: check if current user has liked this recipe
-      isLiked: sql<boolean>`EXISTS(
-        SELECT 1 FROM ${userLikes}
-        WHERE ${userLikes.recipeId} = ${recipes.id}
-        AND ${userLikes.userId} = ${userId}
-      )`,
       // EXISTS: check if recipe is in current user's shopping list
       isInShoppingList: sql<boolean>`EXISTS(
         SELECT 1 FROM ${shoppingListRecipes}
@@ -301,6 +304,7 @@ export async function getRecipeDetail(
     })
     .from(recipes)
     .innerJoin(user, eq(recipes.uploadedBy, user.id))
+    .leftJoin(originalUser, eq(recipes.originalUploaderId, originalUser.id))
     .where(eq(recipes.id, recipeId))
     .then((rows) => rows[0]);
 
@@ -308,6 +312,21 @@ export async function getRecipeDetail(
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "Recipe not found",
+    });
+  }
+
+  // Access control: URL-scraped recipes can only be viewed by their owner
+  if (
+    recipeData.recipe.sourceType === "url" &&
+    recipeData.recipe.uploadedBy !== userId
+  ) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This recipe can only be viewed on the original source website.",
+      cause: {
+        sourceUrl: recipeData.recipe.sourceUrl,
+        recipeName: recipeData.recipe.name,
+      },
     });
   }
 
@@ -354,6 +373,12 @@ export async function getRecipeDetail(
       .orderBy(recipeInstructions.index),
   ]);
 
+  // originalUploader is null if the recipe wasn't imported from another user
+  const originalUploader =
+    recipeData.recipe.originalUploaderId && recipeData.originalUploader?.id
+      ? recipeData.originalUploader
+      : null;
+
   return {
     ...recipeData.recipe,
     uploadedBy: recipeData.uploader,
@@ -362,60 +387,176 @@ export async function getRecipeDetail(
     instructions,
     userRecipesCount: recipeData.uploaderRecipeCount,
     collectionIds,
-    isLiked: recipeData.isLiked,
     isInShoppingList: recipeData.isInShoppingList,
-    likeCount: recipeData.likeCount,
     saveCount: recipeData.saveCount,
+    originalUploader,
   };
 }
 
-// ─── Like/Unlike Recipe ────────────────────────────────────────────────────
+// ─── Recipe Import ──────────────────────────────────────────────────────────
 
 /**
- * Toggle like status for a recipe
+ * Import a recipe from another user, creating a copy in the current user's library
  */
-export async function toggleRecipeLike(
+export async function importRecipe(
   db: DbClient,
-  recipeId: number,
   userId: string,
-): Promise<{ success: boolean; liked: boolean }> {
-  // Check if recipe exists
-  const recipe = await db
-    .select({ id: recipes.id })
-    .from(recipes)
-    .where(eq(recipes.id, recipeId))
-    .then((rows) => rows[0]);
+  sourceRecipeId: number,
+): Promise<{ id: number }> {
+  const result = await db.transaction(async (tx) => {
+    // Fetch source recipe
+    const sourceRecipe = await tx
+      .select()
+      .from(recipes)
+      .where(eq(recipes.id, sourceRecipeId))
+      .then((rows) => rows[0]);
 
-  if (!recipe) {
+    if (!sourceRecipe) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Recipe not found",
+      });
+    }
+
+    // Prevent importing own recipe
+    if (sourceRecipe.uploadedBy === userId) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "You cannot import your own recipe",
+      });
+    }
+
+    // Check for duplicate imports
+    const existingImport = await tx
+      .select({ id: recipes.id })
+      .from(recipes)
+      .where(
+        and(
+          eq(recipes.uploadedBy, userId),
+          eq(recipes.originalRecipeId, sourceRecipeId),
+        ),
+      )
+      .then((rows) => rows[0]);
+
+    if (existingImport) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "You have already imported this recipe",
+      });
+    }
+
+    // Create the new recipe
+    const [newRecipe] = await tx
+      .insert(recipes)
+      .values({
+        name: sourceRecipe.name,
+        description: sourceRecipe.description,
+        prepTime: sourceRecipe.prepTime,
+        cookTime: sourceRecipe.cookTime,
+        totalTime: sourceRecipe.totalTime,
+        servings: sourceRecipe.servings,
+        nutrition: sourceRecipe.nutrition,
+        sourceUrl: null, // Clear URL since it's user-imported
+        sourceType: "user",
+        originalRecipeId: sourceRecipeId,
+        originalUploaderId: sourceRecipe.uploadedBy,
+        uploadedBy: userId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning({ id: recipes.id });
+
+    if (!newRecipe) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to create recipe copy",
+      });
+    }
+
+    // Fetch and copy images
+    const sourceImages = await tx
+      .select({ url: recipeImages.url })
+      .from(recipeImages)
+      .where(eq(recipeImages.recipeId, sourceRecipeId));
+
+    if (sourceImages.length > 0) {
+      await tx.insert(recipeImages).values(
+        sourceImages.map((img) => ({
+          recipeId: newRecipe.id,
+          url: img.url,
+        })),
+      );
+    }
+
+    // Fetch and copy ingredients
+    const sourceIngredients = await tx
+      .select({
+        index: recipeIngredients.index,
+        quantity: recipeIngredients.quantity,
+        unit: recipeIngredients.unit,
+        name: recipeIngredients.name,
+      })
+      .from(recipeIngredients)
+      .where(eq(recipeIngredients.recipeId, sourceRecipeId));
+
+    if (sourceIngredients.length > 0) {
+      await tx.insert(recipeIngredients).values(
+        sourceIngredients.map((ing) => ({
+          recipeId: newRecipe.id,
+          index: ing.index,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          name: ing.name,
+        })),
+      );
+    }
+
+    // Fetch and copy instructions
+    const sourceInstructions = await tx
+      .select({
+        index: recipeInstructions.index,
+        instruction: recipeInstructions.instruction,
+        imageUrl: recipeInstructions.imageUrl,
+      })
+      .from(recipeInstructions)
+      .where(eq(recipeInstructions.recipeId, sourceRecipeId));
+
+    if (sourceInstructions.length > 0) {
+      await tx.insert(recipeInstructions).values(
+        sourceInstructions.map((inst) => ({
+          recipeId: newRecipe.id,
+          index: inst.index,
+          instruction: inst.instruction,
+          imageUrl: inst.imageUrl,
+        })),
+      );
+    }
+
+    // Fetch and copy tags
+    const sourceTags = await tx
+      .select({ tagId: recipeTags.tagId })
+      .from(recipeTags)
+      .where(eq(recipeTags.recipeId, sourceRecipeId));
+
+    if (sourceTags.length > 0) {
+      await tx.insert(recipeTags).values(
+        sourceTags.map((tag) => ({
+          recipeId: newRecipe.id,
+          tagId: tag.tagId,
+        })),
+      );
+    }
+
+    return newRecipe;
+  });
+
+  if (!result) {
     throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Recipe not found",
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Failed to import recipe",
     });
   }
 
-  // Check if already liked
-  const existingLike = await db
-    .select()
-    .from(userLikes)
-    .where(and(eq(userLikes.userId, userId), eq(userLikes.recipeId, recipeId)))
-    .then((rows) => rows[0]);
-
-  if (existingLike) {
-    // Unlike - remove the like
-    await db
-      .delete(userLikes)
-      .where(
-        and(eq(userLikes.userId, userId), eq(userLikes.recipeId, recipeId)),
-      );
-    return { success: true, liked: false };
-  }
-
-  // Like the recipe
-  await db.insert(userLikes).values({
-    userId,
-    recipeId,
-    createdAt: new Date(),
-  });
-
-  return { success: true, liked: true };
+  return result;
 }
+

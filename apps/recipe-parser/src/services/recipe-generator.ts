@@ -143,6 +143,7 @@ async function generateRecipe(
       cookTime: generated.cookTime,
       totalTime: generated.totalTime,
       servings: generated.servings || 4,
+      sourceType: "ai" as const,
       ingredients: generated.ingredients.map((ing, idx) => ({
         index: idx,
         quantity: ing.quantity,
