@@ -57,11 +57,8 @@ export interface CreateRecipeInput {
   servings: number;
 }
 
-export type RecipeWithDetails = Omit<
-  typeof recipes.$inferSelect,
-  "uploadedBy"
-> & {
-  uploadedBy: Pick<typeof user.$inferSelect, "id" | "name" | "email" | "image">;
+export type RecipeWithDetails = Omit<typeof recipes.$inferSelect, "ownerId"> & {
+  owner: Pick<typeof user.$inferSelect, "id" | "name" | "email" | "image">;
   images: Pick<typeof recipeImages.$inferSelect, "id" | "url">[];
   ingredients: Pick<
     typeof recipeIngredients.$inferSelect,
@@ -76,10 +73,7 @@ export type RecipeWithDetails = Omit<
   isInShoppingList: boolean;
   saveCount: number;
   // For recipes imported from another user
-  originalUploader: Pick<
-    typeof user.$inferSelect,
-    "id" | "name" | "image"
-  > | null;
+  originalOwner: Pick<typeof user.$inferSelect, "id" | "name" | "image"> | null;
 };
 
 // ─── Tag Validation ────────────────────────────────────────────────────────
@@ -165,7 +159,7 @@ export async function createRecipe(
         servings: input.servings,
         createdAt: new Date(),
         updatedAt: new Date(),
-        uploadedBy: userId,
+        ownerId: userId,
       })
       .returning()
       .then((rows) => rows[0]);
@@ -264,7 +258,7 @@ export async function getRecipeDetail(
   recipeId: number,
   userId: string,
 ): Promise<RecipeWithDetails> {
-  // Alias user table for original uploader
+  // Alias user table for original owner
   const originalUser = alias(user, "original_user");
 
   // Single query with all aggregations and checks using Drizzle helpers
@@ -277,7 +271,7 @@ export async function getRecipeDetail(
         email: user.email,
         image: user.image,
       },
-      originalUploader: {
+      originalOwner: {
         id: originalUser.id,
         name: originalUser.name,
         image: originalUser.image,
@@ -288,11 +282,11 @@ export async function getRecipeDetail(
         FROM ${recipeCollections}
         WHERE ${recipeCollections.recipeId} = ${recipes.id}
       )`,
-      // Scalar subquery: total recipes by this uploader
-      uploaderRecipeCount: sql<number>`(
+      // Scalar subquery: total recipes by this owner
+      ownerRecipeCount: sql<number>`(
         SELECT CAST(COUNT(*) AS INTEGER)
         FROM ${recipes} r
-        WHERE r.uploaded_by = ${recipes.uploadedBy}
+        WHERE r.owner_id = ${recipes.ownerId}
       )`,
       // EXISTS: check if recipe is in current user's shopping list
       isInShoppingList: sql<boolean>`EXISTS(
@@ -303,8 +297,8 @@ export async function getRecipeDetail(
       )`,
     })
     .from(recipes)
-    .innerJoin(user, eq(recipes.uploadedBy, user.id))
-    .leftJoin(originalUser, eq(recipes.originalUploaderId, originalUser.id))
+    .innerJoin(user, eq(recipes.ownerId, user.id))
+    .leftJoin(originalUser, eq(recipes.originalOwnerId, originalUser.id))
     .where(eq(recipes.id, recipeId))
     .then((rows) => rows[0]);
 
@@ -318,7 +312,7 @@ export async function getRecipeDetail(
   // Access control: URL-scraped recipes can only be viewed by their owner
   if (
     recipeData.recipe.sourceType === "url" &&
-    recipeData.recipe.uploadedBy !== userId
+    recipeData.recipe.ownerId !== userId
   ) {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -373,23 +367,23 @@ export async function getRecipeDetail(
       .orderBy(recipeInstructions.index),
   ]);
 
-  // originalUploader is null if the recipe wasn't imported from another user
-  const originalUploader =
-    recipeData.recipe.originalUploaderId && recipeData.originalUploader?.id
-      ? recipeData.originalUploader
+  // originalOwner is null if the recipe wasn't imported from another user
+  const originalOwner =
+    recipeData.recipe.originalOwnerId && recipeData.originalOwner?.id
+      ? recipeData.originalOwner
       : null;
 
   return {
     ...recipeData.recipe,
-    uploadedBy: recipeData.uploader,
+    owner: recipeData.uploader,
     images,
     ingredients,
     instructions,
-    userRecipesCount: recipeData.uploaderRecipeCount,
+    userRecipesCount: recipeData.ownerRecipeCount,
     collectionIds,
     isInShoppingList: recipeData.isInShoppingList,
     saveCount: recipeData.saveCount,
-    originalUploader,
+    originalOwner,
   };
 }
 
@@ -419,7 +413,7 @@ export async function importRecipe(
     }
 
     // Prevent importing own recipe
-    if (sourceRecipe.uploadedBy === userId) {
+    if (sourceRecipe.ownerId === userId) {
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "You cannot import your own recipe",
@@ -432,7 +426,7 @@ export async function importRecipe(
       .from(recipes)
       .where(
         and(
-          eq(recipes.uploadedBy, userId),
+          eq(recipes.ownerId, userId),
           eq(recipes.originalRecipeId, sourceRecipeId),
         ),
       )
@@ -459,8 +453,8 @@ export async function importRecipe(
         sourceUrl: null, // Clear URL since it's user-imported
         sourceType: "user",
         originalRecipeId: sourceRecipeId,
-        originalUploaderId: sourceRecipe.uploadedBy,
-        uploadedBy: userId,
+        originalOwnerId: sourceRecipe.ownerId,
+        ownerId: userId,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -559,4 +553,3 @@ export async function importRecipe(
 
   return result;
 }
-

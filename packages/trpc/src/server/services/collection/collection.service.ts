@@ -61,7 +61,7 @@ export async function toggleRecipeInCollection(
 
   // Verify recipe exists and belongs to user
   const recipe = await db
-    .select({ id: recipes.id, uploadedBy: recipes.uploadedBy })
+    .select({ id: recipes.id, ownerId: recipes.ownerId })
     .from(recipes)
     .where(eq(recipes.id, recipeId))
     .then((rows) => rows[0]);
@@ -74,7 +74,7 @@ export async function toggleRecipeInCollection(
   }
 
   // Verify user owns the recipe - users can only add their own recipes to collections
-  if (recipe.uploadedBy !== userId) {
+  if (recipe.ownerId !== userId) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message:

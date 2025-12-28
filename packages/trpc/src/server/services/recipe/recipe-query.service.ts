@@ -22,8 +22,8 @@ import type { DbClient } from "../types";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type RecipeListItem = Omit<typeof recipes.$inferSelect, "uploadedBy"> & {
-  uploadedBy: {
+export type RecipeListItem = Omit<typeof recipes.$inferSelect, "ownerId"> & {
+  owner: {
     id: string;
     name: string;
     email: string;
@@ -112,13 +112,13 @@ export async function queryPopularRecipesThisWeek(
       isFollowing: sql<boolean>`${follows.id} IS NOT NULL`,
     })
     .from(recipes)
-    .innerJoin(user, eq(recipes.uploadedBy, user.id))
+    .innerJoin(user, eq(recipes.ownerId, user.id))
     .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
     .leftJoin(recipeCollections, eq(recipes.id, recipeCollections.recipeId))
     .leftJoin(
       follows,
       and(
-        eq(follows.followingId, recipes.uploadedBy),
+        eq(follows.followingId, recipes.ownerId),
         eq(follows.followerId, userId),
       ),
     )
@@ -167,7 +167,7 @@ export async function queryPopularRecipesThisWeek(
 
   return queryResults.map((item) => ({
     ...item.recipe,
-    uploadedBy: item.uploader,
+    owner: item.uploader,
     coverImage: item.firstImage,
     saveCount: item.saveCount,
     collectionIds: collectionsByRecipe[item.recipe.id] || [],

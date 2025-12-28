@@ -233,7 +233,7 @@ async function seedRecipes(
         cookTime: r.cookTime,
         totalTime: r.totalTime,
         servings: r.servings,
-        uploadedBy: user.id,
+        ownerId: user.id,
         sourceUrl: r.sourceUrl || null,
         sourceType: r.sourceUrl ? "url" : "manual",
         createdAt,
@@ -351,7 +351,7 @@ async function seedImportedRecipes(
 
   for (const user of users) {
     // Get recipes from other users
-    const otherRecipes = originalRecipes.filter((r) => r.uploadedBy !== user.id);
+    const otherRecipes = originalRecipes.filter((r) => r.ownerId !== user.id);
     const recipesToImport = shuffle(otherRecipes).slice(0, randomInt(2, 4));
     const userCollection = collections.find((c) => c.userId === user.id);
 
@@ -372,8 +372,8 @@ async function seedImportedRecipes(
           sourceUrl: null,
           sourceType: "user",
           originalRecipeId: sourceRecipe.id,
-          originalUploaderId: sourceRecipe.uploadedBy,
-          uploadedBy: user.id,
+          originalOwnerId: sourceRecipe.ownerId,
+          ownerId: user.id,
           createdAt: importedAt,
           updatedAt: importedAt,
         })
@@ -467,7 +467,7 @@ async function seedActivityFeed(
   // Create activity events for all recipe imports
   for (const recipe of allRecipes) {
     await db.insert(schema.activityEvents).values({
-      userId: recipe.uploadedBy,
+      userId: recipe.ownerId,
       type: "recipe_import",
       recipeId: recipe.id,
       createdAt: recipe.createdAt,
@@ -491,7 +491,7 @@ async function seedActivityFeed(
   // Create cooking reviews
   for (const user of users) {
     // Each user reviews 1-3 recipes they own
-    const userRecipes = allRecipes.filter((r) => r.uploadedBy === user.id);
+    const userRecipes = allRecipes.filter((r) => r.ownerId === user.id);
     const recipesToReview = shuffle(userRecipes).slice(0, randomInt(1, 3));
 
     for (const recipe of recipesToReview) {

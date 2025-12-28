@@ -24,7 +24,11 @@ export const followsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const result = await followUserService(ctx.db, ctx.user.id, input.userId);
+        const result = await followUserService(
+          ctx.db,
+          ctx.user.id,
+          input.userId,
+        );
 
         // Backfill feed with recent activities from the followed user
         backfillFeedFromUser(
@@ -32,7 +36,7 @@ export const followsRouter = router({
           ctx.env,
           ctx.user.id,
           input.userId,
-          10
+          10,
         ).catch((err) => {
           console.error("Error backfilling feed:", err);
         });
@@ -56,7 +60,11 @@ export const followsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const result = await unfollowUserService(ctx.db, ctx.user.id, input.userId);
+        const result = await unfollowUserService(
+          ctx.db,
+          ctx.user.id,
+          input.userId,
+        );
 
         // Remove unfollowed user's items from feed
         removeUserFromFeed(ctx.env, ctx.user.id, input.userId).catch((err) => {
@@ -109,7 +117,7 @@ export const followsRouter = router({
       type({
         query: "string",
         limit: "number = 10",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { query, limit } = input;
@@ -133,8 +141,8 @@ export const followsRouter = router({
           .where(
             and(
               ne(user.id, ctx.user.id), // Exclude current user
-              or(like(user.name, `%${query}%`), like(user.email, `%${query}%`))
-            )
+              or(like(user.name, `%${query}%`), like(user.email, `%${query}%`)),
+            ),
           )
           .limit(limit);
 
@@ -152,7 +160,7 @@ export const followsRouter = router({
     .input(
       type({
         userId: "string",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { userId } = input;
@@ -185,8 +193,8 @@ export const followsRouter = router({
           .where(
             and(
               eq(follows.followerId, ctx.user.id),
-              eq(follows.followingId, userId)
-            )
+              eq(follows.followingId, userId),
+            ),
           )
           .then((rows) => rows[0]);
 
@@ -197,27 +205,29 @@ export const followsRouter = router({
           .where(
             and(
               eq(follows.followerId, userId),
-              eq(follows.followingId, ctx.user.id)
-            )
+              eq(follows.followingId, ctx.user.id),
+            ),
           )
           .then((rows) => rows[0]);
 
         // Get follower/following counts and recipe count
-        const [followersCount, followingCount, recipeCount] = await Promise.all([
-          ctx.db
-            .select({ count: follows.id })
-            .from(follows)
-            .where(eq(follows.followingId, userId)),
-          ctx.db
-            .select({ count: follows.id })
-            .from(follows)
-            .where(eq(follows.followerId, userId)),
-          ctx.db
-            .select({ count: count(recipes.id) })
-            .from(recipes)
-            .where(eq(recipes.uploadedBy, userId))
-            .then((rows) => rows[0]?.count ?? 0),
-        ]);
+        const [followersCount, followingCount, recipeCount] = await Promise.all(
+          [
+            ctx.db
+              .select({ count: follows.id })
+              .from(follows)
+              .where(eq(follows.followingId, userId)),
+            ctx.db
+              .select({ count: follows.id })
+              .from(follows)
+              .where(eq(follows.followerId, userId)),
+            ctx.db
+              .select({ count: count(recipes.id) })
+              .from(recipes)
+              .where(eq(recipes.ownerId, userId))
+              .then((rows) => rows[0]?.count ?? 0),
+          ],
+        );
 
         return {
           user: targetUser,
@@ -241,7 +251,7 @@ export const followsRouter = router({
     .input(
       type({
         userId: "string",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { userId } = input;
@@ -250,7 +260,7 @@ export const followsRouter = router({
         const followersList = await ctx.db
           .select({
             follow: follows,
-            user: user,
+            user,
           })
           .from(follows)
           .innerJoin(user, eq(follows.followerId, user.id))
@@ -279,7 +289,7 @@ export const followsRouter = router({
     .input(
       type({
         userId: "string",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { userId } = input;
@@ -288,7 +298,7 @@ export const followsRouter = router({
         const followingList = await ctx.db
           .select({
             follow: follows,
-            user: user,
+            user,
           })
           .from(follows)
           .innerJoin(user, eq(follows.followingId, user.id))

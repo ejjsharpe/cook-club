@@ -33,7 +33,7 @@ interface Recipe {
   cuisine?: string | null;
   coverImage?: string | null;
   tags?: Tag[];
-  uploadedBy?: User;
+  owner?: User;
 }
 
 interface Props {

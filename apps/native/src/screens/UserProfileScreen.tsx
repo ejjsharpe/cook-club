@@ -2,7 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import type { FeedItem } from "@repo/trpc/client";
-import { useMemo, useCallback } from "react";
+import { useTRPC } from "@repo/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMemo, useCallback, useState } from "react";
 import {
   View,
   Image,
@@ -39,6 +41,10 @@ export const UserProfileScreen = () => {
   const route = useRoute<UserProfileScreenRouteProp>();
   const navigation = useNavigation();
   const { userId } = route.params;
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const [isImporting, setIsImporting] = useState(false);
 
   const { data: currentUser } = useUser();
   const { data: profile, isLoading, error } = useUserProfile({ userId });
@@ -102,6 +108,31 @@ export const UserProfileScreen = () => {
     }
   }, [hasMoreActivities, isFetchingNextActivities, fetchNextActivities]);
 
+  const handleImportRecipe = useCallback(
+    async (sourceUrl: string) => {
+      if (isImporting) return;
+
+      setIsImporting(true);
+      try {
+        const result = await queryClient.fetchQuery(
+          trpc.recipe.parseRecipeFromUrl.queryOptions({ url: sourceUrl }),
+        );
+
+        if (result.success) {
+          navigation.navigate("EditRecipe", { parsedRecipe: result });
+        } else {
+          Alert.alert("Error", "Failed to parse recipe from URL");
+        }
+      } catch (error) {
+        console.error("Import error:", error);
+        Alert.alert("Error", "Something went wrong. Please try again.");
+      } finally {
+        setIsImporting(false);
+      }
+    },
+    [isImporting, queryClient, trpc, navigation],
+  );
+
   const renderActivityItem = useCallback(
     ({ item }: { item: FeedItem }) => {
       if (item.type === "cooking_review") {
@@ -119,6 +150,7 @@ export const UserProfileScreen = () => {
             onUserPress={() =>
               navigation.navigate("UserProfile", { userId: item.actorId })
             }
+            onImportPress={handleImportRecipe}
           />
         );
       }
@@ -136,18 +168,11 @@ export const UserProfileScreen = () => {
           onUserPress={() =>
             navigation.navigate("UserProfile", { userId: item.actorId })
           }
-          onImportPress={
-            item.recipeId
-              ? () =>
-                  navigation.navigate("RecipeDetail", {
-                    recipeId: item.recipeId!,
-                  })
-              : undefined
-          }
+          onImportPress={handleImportRecipe}
         />
       );
     },
-    [navigation],
+    [navigation, handleImportRecipe],
   );
 
   const renderEmpty = () => {

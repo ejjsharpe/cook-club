@@ -33,7 +33,7 @@ interface Recipe {
   collectionIds: number[];
   coverImage?: string | null;
   tags: Tag[];
-  uploadedBy: User;
+  owner: User;
   createdAt: string;
 }
 
@@ -68,8 +68,8 @@ export const FullWidthRecipeCard = memo(
     );
     const isSaved = recipe.collectionIds.length > 0;
     const userInitials = useMemo(
-      () => getInitials(recipe.uploadedBy.name),
-      [recipe.uploadedBy.name],
+      () => getInitials(recipe.owner.name),
+      [recipe.owner.name],
     );
 
     return (
@@ -85,9 +85,9 @@ export const FullWidthRecipeCard = memo(
           activeOpacity={0.7}
         >
           <View style={styles.avatar}>
-            {recipe.uploadedBy.image ? (
+            {recipe.owner.image ? (
               <Image
-                source={{ uri: recipe.uploadedBy.image }}
+                source={{ uri: recipe.owner.image }}
                 style={styles.avatarImage}
                 cachePolicy="memory-disk"
                 transition={100}
@@ -100,7 +100,7 @@ export const FullWidthRecipeCard = memo(
           </View>
           <View style={styles.userInfo}>
             <Text type="body" style={styles.userName}>
-              {recipe.uploadedBy.name}
+              {recipe.owner.name}
             </Text>
             <Text type="bodyFaded" style={styles.uploadTime}>
               {timeAgo}

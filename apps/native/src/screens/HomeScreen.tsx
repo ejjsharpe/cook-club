@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import type { Outputs, FeedItem } from "@repo/trpc/client";
+import { useTRPC } from "@repo/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useState, useCallback, useMemo, useRef, memo, useEffect } from "react";
 import {
@@ -10,6 +12,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   FlatList,
+  Alert,
 } from "react-native";
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import Animated, {
@@ -28,7 +31,6 @@ import { StyleSheet } from "react-native-unistyles";
 import { useActivityFeed } from "@/api/activity";
 import { useSearchUsers } from "@/api/follows";
 import { useUser } from "@/api/user";
-import { CollectionSheetManager } from "@/components/CollectionSelectorSheet";
 import { EmptyFeedState } from "@/components/EmptyFeedState";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
@@ -106,12 +108,15 @@ export const HomeScreen = () => {
   useScrollToTop(browseScrollRef);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
   // ─── State ────────────────────────────────────────────────────────────────────
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [showFloatingSearch, setShowFloatingSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
 
   // Track the search bar's Y position relative to the screen
   const searchBarY = useSharedValue(0);
@@ -257,6 +262,31 @@ export const HomeScreen = () => {
     setIsSearchActive(true);
   }, []);
 
+  const handleImportRecipe = useCallback(
+    async (sourceUrl: string) => {
+      if (isImporting) return;
+
+      setIsImporting(true);
+      try {
+        const result = await queryClient.fetchQuery(
+          trpc.recipe.parseRecipeFromUrl.queryOptions({ url: sourceUrl }),
+        );
+
+        if (result.success) {
+          navigation.navigate("EditRecipe", { parsedRecipe: result });
+        } else {
+          Alert.alert("Error", "Failed to parse recipe from URL");
+        }
+      } catch (error) {
+        console.error("Import error:", error);
+        Alert.alert("Error", "Something went wrong. Please try again.");
+      } finally {
+        setIsImporting(false);
+      }
+    },
+    [isImporting, queryClient, trpc, navigation],
+  );
+
   // ─── Render Functions ─────────────────────────────────────────────────────────
   const renderUser = ({ item }: { item: SearchUser }) => (
     <View style={styles.userCardWrapper}>
@@ -280,6 +310,7 @@ export const HomeScreen = () => {
                 : undefined
             }
             onUserPress={() => handleUserPress(item.actorId)}
+            onImportPress={handleImportRecipe}
           />
         );
       }
@@ -291,13 +322,11 @@ export const HomeScreen = () => {
             item.recipeId ? () => handleRecipePress(item.recipeId!) : undefined
           }
           onUserPress={() => handleUserPress(item.actorId)}
-          onImportPress={
-            item.recipeId ? () => handleRecipePress(item.recipeId!) : undefined
-          }
+          onImportPress={handleImportRecipe}
         />
       );
     },
-    [handleRecipePress, handleUserPress],
+    [handleRecipePress, handleUserPress, handleImportRecipe],
   );
 
   const activityKeyExtractor = useCallback((item: FeedItem) => item.id, []);

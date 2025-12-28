@@ -164,7 +164,7 @@ export const CollectionDetailScreen = () => {
                       prepTime: null,
                       nutrition: null,
                       coverImage: null,
-                      uploadedBy: {
+                      owner: {
                         id: "current-user",
                         name: "You",
                         email: "",

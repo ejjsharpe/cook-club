@@ -290,7 +290,7 @@ export const recipeRouter = router({
           }
         }
 
-        // Query recipes owned by the current user (uploadedBy = currentUser)
+        // Query recipes owned by the current user (ownerId = currentUser)
         const userRecipesList = await ctx.db
           .select({
             recipe: recipes,
@@ -303,11 +303,11 @@ export const recipeRouter = router({
             },
           })
           .from(recipes)
-          .innerJoin(user, eq(recipes.uploadedBy, user.id))
+          .innerJoin(user, eq(recipes.ownerId, user.id))
           .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
           .where(
             and(
-              eq(recipes.uploadedBy, ctx.user.id),
+              eq(recipes.ownerId, ctx.user.id),
               cursor ? lt(recipes.createdAt, new Date(cursor)) : undefined,
               search ? ilike(recipes.name, `%${search}%`) : undefined,
               recipeIdsWithTags
@@ -351,7 +351,7 @@ export const recipeRouter = router({
         let items = userRecipesList.map((item) => ({
           ...item.recipe,
           coverImage: item.firstImage,
-          uploadedBy: item.uploader,
+          owner: item.uploader,
           tags: tagsByRecipe[item.recipe.id] || [],
         }));
 
@@ -404,11 +404,11 @@ export const recipeRouter = router({
             },
           })
           .from(recipes)
-          .innerJoin(user, eq(recipes.uploadedBy, user.id))
+          .innerJoin(user, eq(recipes.ownerId, user.id))
           .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
           .where(
             and(
-              eq(recipes.uploadedBy, userId),
+              eq(recipes.ownerId, userId),
               cursor ? lt(recipes.createdAt, new Date(cursor)) : undefined,
               search ? ilike(recipes.name, `%${search}%`) : undefined,
             ),
@@ -449,7 +449,7 @@ export const recipeRouter = router({
         const items = userRecipesList.map((item) => ({
           ...item.recipe,
           coverImage: item.firstImage,
-          uploadedBy: item.uploader,
+          owner: item.uploader,
           tags: tagsByRecipe[item.recipe.id] || [],
         }));
 

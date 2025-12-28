@@ -3,7 +3,7 @@ import type { FeedItem } from "@repo/trpc/server";
 import { formatDistanceToNow } from "date-fns";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
-import { memo, useMemo, useCallback, act } from "react";
+import { memo, useMemo, useCallback } from "react";
 import { View, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -13,7 +13,7 @@ interface Props {
   activity: FeedItem;
   onPress?: () => void;
   onUserPress?: () => void;
-  onImportPress?: () => void;
+  onImportPress?: (sourceUrl: string) => void;
   onViewSourcePress?: () => void;
 }
 
@@ -133,71 +133,97 @@ export const ImportActivityCard = memo(
 
         {/* Recipe Preview (only for single recipe imports) */}
         {!isBatchImport && activity.recipeId && (
-          <TouchableOpacity
-            style={styles.recipePreview}
-            onPress={onPress}
-            activeOpacity={0.8}
-          >
-            {activity.recipeImage && (
-              <Image
-                source={{ uri: activity.recipeImage }}
-                style={styles.recipeImage}
-                cachePolicy="memory-disk"
-                transition={200}
-              />
+          <>
+            {activity.sourceType === "url" && activity.sourceUrl ? (
+              // For URL-sourced recipes, show non-tappable preview with action buttons
+              <>
+                <View style={styles.recipePreview}>
+                  {activity.recipeImage && (
+                    <Image
+                      source={{ uri: activity.recipeImage }}
+                      style={styles.recipeImage}
+                      cachePolicy="memory-disk"
+                      transition={200}
+                    />
+                  )}
+                  <View style={styles.recipeInfo}>
+                    <Text
+                      type="body"
+                      style={styles.recipeTitle}
+                      numberOfLines={2}
+                    >
+                      {activity.recipeName}
+                    </Text>
+                    <Text type="bodyFaded" style={styles.recipeSource}>
+                      from {activity.sourceDomain || "external source"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={styles.viewSourceButton}
+                    onPress={handleViewSource}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="open-outline"
+                      size={18}
+                      style={styles.viewSourceIcon}
+                    />
+                    <Text style={styles.viewSourceButtonText}>
+                      View on {activity.sourceDomain || "source"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.importButton}
+                    onPress={() => onImportPress?.(activity.sourceUrl!)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={18}
+                      style={styles.importIcon}
+                    />
+                    <Text style={styles.importButtonText}>Import</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              // For non-URL recipes, show tappable preview
+              <TouchableOpacity
+                style={styles.recipePreview}
+                onPress={onPress}
+                activeOpacity={0.8}
+              >
+                {activity.recipeImage && (
+                  <Image
+                    source={{ uri: activity.recipeImage }}
+                    style={styles.recipeImage}
+                    cachePolicy="memory-disk"
+                    transition={200}
+                  />
+                )}
+                <View style={styles.recipeInfo}>
+                  <Text
+                    type="body"
+                    style={styles.recipeTitle}
+                    numberOfLines={2}
+                  >
+                    {activity.recipeName}
+                  </Text>
+                  {activity.sourceDomain && (
+                    <Text type="bodyFaded" style={styles.recipeSource}>
+                      from {activity.sourceDomain}
+                    </Text>
+                  )}
+                  <Text type="bodyFaded" style={styles.tapHint}>
+                    Tap to view recipe
+                  </Text>
+                </View>
+              </TouchableOpacity>
             )}
-            <View style={styles.recipeInfo}>
-              <Text type="body" style={styles.recipeTitle} numberOfLines={2}>
-                {activity.recipeName}
-              </Text>
-              {activity.sourceDomain && (
-                <Text type="bodyFaded" style={styles.recipeSource}>
-                  from {activity.sourceDomain}
-                </Text>
-              )}
-              {/* Only show external link hint for URL-scraped recipes */}
-              {activity.sourceType === "url" && activity.sourceDomain && (
-                <Text type="bodyFaded" style={styles.tapHint}>
-                  Tap to view on {activity.sourceDomain}
-                </Text>
-              )}
-            </View>
-          </TouchableOpacity>
+          </>
         )}
-
-        {/* Action buttons for external recipes (URL-scraped) */}
-        {!activity.canViewFullRecipe &&
-          !isBatchImport &&
-          activity.sourceUrl && (
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={styles.viewSourceButton}
-                onPress={handleViewSource}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="open-outline"
-                  size={18}
-                  style={styles.viewSourceIcon}
-                />
-                <Text style={styles.viewSourceButtonText}>
-                  View on {activity.sourceDomain || "source"}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.importButton}
-                onPress={onImportPress}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="add-circle-outline"
-                  size={18}
-                  style={styles.importIcon}
-                />
-                <Text style={styles.importButtonText}>Import</Text>
-              </TouchableOpacity>
-            </View>
-          )}
       </View>
     );
   },

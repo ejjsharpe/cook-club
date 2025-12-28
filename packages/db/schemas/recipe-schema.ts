@@ -18,7 +18,7 @@ export const recipes = pgTable(
   {
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
-    uploadedBy: text("uploaded_by").notNull(),
+    ownerId: text("owner_id").notNull(),
     description: text("description"),
     prepTime: integer("prep_time"), // minutes
     cookTime: integer("cook_time"), // minutes
@@ -38,12 +38,12 @@ export const recipes = pgTable(
       (): AnyPgColumn => recipes.id,
       { onDelete: "set null" }
     ),
-    originalUploaderId: text("original_uploader_id").references(() => user.id, {
+    originalOwnerId: text("original_owner_id").references(() => user.id, {
       onDelete: "set null",
     }),
   },
   (table) => [
-    index("recipes_uploaded_by_idx").on(table.uploadedBy),
+    index("recipes_owner_id_idx").on(table.ownerId),
     index("recipes_created_at_idx").on(table.createdAt),
     index("recipes_name_idx").on(table.name),
   ]

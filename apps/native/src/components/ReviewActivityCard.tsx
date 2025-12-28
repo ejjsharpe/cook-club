@@ -13,7 +13,7 @@ interface Props {
   activity: FeedItem;
   onPress?: () => void;
   onUserPress?: () => void;
-  onImportPress?: () => void;
+  onImportPress?: (sourceUrl: string) => void;
 }
 
 const getInitials = (name: string): string => {
@@ -65,12 +65,6 @@ export const ReviewActivityCard = memo(
       () =>
         formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true }),
       [activity.createdAt],
-    );
-
-    console.log(
-      activity.sourceType,
-      activity.sourceDomain,
-      activity.recipeName,
     );
 
     const userInitials = useMemo(
@@ -163,61 +157,88 @@ export const ReviewActivityCard = memo(
         {/* Recipe Preview */}
         {activity.recipeId && (
           <>
-            <TouchableOpacity
-              style={styles.recipePreview}
-              onPress={onPress}
-              activeOpacity={0.8}
-            >
-              {activity.recipeImage && (
-                <Image
-                  source={{ uri: activity.recipeImage }}
-                  style={styles.recipeImage}
-                  cachePolicy="memory-disk"
-                  transition={200}
-                />
-              )}
-              <View style={styles.recipeInfo}>
-                <Text type="body" style={styles.recipeTitle} numberOfLines={2}>
-                  {activity.recipeName}
-                </Text>
-                <Text type="bodyFaded" style={styles.tapToView}>
-                  {activity.sourceType === "url" && activity.sourceDomain
-                    ? `Tap to view on ${activity.sourceDomain}`
-                    : "Tap to view recipe"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Action buttons for URL-scraped recipes */}
-            {activity.sourceType === "url" && activity.sourceUrl && (
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={styles.viewSourceButton}
-                  onPress={handleViewSource}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name="open-outline"
-                    size={16}
-                    style={styles.viewSourceIcon}
+            {activity.sourceType === "url" && activity.sourceUrl ? (
+              // For URL-sourced recipes, show non-tappable preview with action buttons
+              <>
+                <View style={styles.recipePreview}>
+                  {activity.recipeImage && (
+                    <Image
+                      source={{ uri: activity.recipeImage }}
+                      style={styles.recipeImage}
+                      cachePolicy="memory-disk"
+                      transition={200}
+                    />
+                  )}
+                  <View style={styles.recipeInfo}>
+                    <Text
+                      type="body"
+                      style={styles.recipeTitle}
+                      numberOfLines={2}
+                    >
+                      {activity.recipeName}
+                    </Text>
+                    <Text type="bodyFaded" style={styles.tapToView}>
+                      from {activity.sourceDomain || "external source"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={styles.viewSourceButton}
+                    onPress={handleViewSource}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="open-outline"
+                      size={16}
+                      style={styles.viewSourceIcon}
+                    />
+                    <Text style={styles.viewSourceButtonText}>
+                      View on {activity.sourceDomain || "source"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.importButton}
+                    onPress={() => onImportPress?.(activity.sourceUrl!)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={16}
+                      style={styles.importIcon}
+                    />
+                    <Text style={styles.importButtonText}>Import</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              // For non-URL recipes, show tappable preview
+              <TouchableOpacity
+                style={styles.recipePreview}
+                onPress={onPress}
+                activeOpacity={0.8}
+              >
+                {activity.recipeImage && (
+                  <Image
+                    source={{ uri: activity.recipeImage }}
+                    style={styles.recipeImage}
+                    cachePolicy="memory-disk"
+                    transition={200}
                   />
-                  <Text style={styles.viewSourceButtonText}>
-                    View on {activity.sourceDomain || "source"}
+                )}
+                <View style={styles.recipeInfo}>
+                  <Text
+                    type="body"
+                    style={styles.recipeTitle}
+                    numberOfLines={2}
+                  >
+                    {activity.recipeName}
                   </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.importButton}
-                  onPress={onImportPress}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={16}
-                    style={styles.importIcon}
-                  />
-                  <Text style={styles.importButtonText}>Import</Text>
-                </TouchableOpacity>
-              </View>
+                  <Text type="bodyFaded" style={styles.tapToView}>
+                    Tap to view recipe
+                  </Text>
+                </View>
+              </TouchableOpacity>
             )}
           </>
         )}

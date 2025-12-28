@@ -71,7 +71,7 @@ export const RecipeDetailScreen = () => {
   const importMutation = useImportRecipe();
 
   // Check if the current user owns this recipe
-  const isOwnRecipe = recipe?.uploadedBy.id === userData?.user?.id;
+  const isOwnRecipe = recipe?.owner.id === userData?.user?.id;
 
   useEffect(() => {
     if (recipe?.servings && !hasInitializedServings.current) {
@@ -225,11 +225,11 @@ export const RecipeDetailScreen = () => {
     // Don't show user section for own recipes
     if (isOwnRecipe) {
       // For imported recipes (own recipe with sourceType === "user"), show attribution
-      if (recipe.sourceType === "user" && recipe.originalUploader) {
+      if (recipe.sourceType === "user" && recipe.originalOwner) {
         return (
           <View style={styles.attributionSection}>
             <Text type="bodyFaded" style={styles.attributionText}>
-              Originally from @{recipe.originalUploader.name}
+              Originally from @{recipe.originalOwner.name}
             </Text>
           </View>
         );
@@ -241,22 +241,22 @@ export const RecipeDetailScreen = () => {
       <View style={styles.userSection}>
         <View style={styles.userInfo}>
           <View style={styles.avatar}>
-            {recipe.uploadedBy.image ? (
+            {recipe.owner.image ? (
               <Image
-                source={{ uri: recipe.uploadedBy.image }}
+                source={{ uri: recipe.owner.image }}
                 style={styles.avatarImage}
               />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text type="heading" style={styles.avatarText}>
-                  {recipe.uploadedBy.name.charAt(0).toUpperCase()}
+                  {recipe.owner.name.charAt(0).toUpperCase()}
                 </Text>
               </View>
             )}
           </View>
           <HSpace size={12} />
           <View>
-            <Text type="heading">{recipe.uploadedBy.name}</Text>
+            <Text type="heading">{recipe.owner.name}</Text>
             <Text type="bodyFaded" style={styles.recipeCount}>
               {recipe.userRecipesCount} recipes
             </Text>
