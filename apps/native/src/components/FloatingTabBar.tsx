@@ -9,7 +9,6 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -140,7 +139,7 @@ const SlidingIndicator = ({
 };
 
 export const FloatingTabBar = ({ state, navigation }: BottomTabBarProps) => {
-  const insets = useSafeAreaInsets();
+  const insets = UnistylesRuntime.insets;
   const [tabBarWidth, setTabBarWidth] = useState(0);
 
   return (

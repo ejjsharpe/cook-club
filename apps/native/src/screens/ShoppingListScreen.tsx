@@ -13,11 +13,8 @@ import {
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { StyleSheet } from "react-native-unistyles";
+import { SafeAreaView } from "@/components/SafeAreaView";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
   useGetShoppingList,
@@ -57,7 +54,7 @@ const INPUT_SECTION_HEIGHT = 68;
 
 export const ShoppingListScreen = () => {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
+  const insets = UnistylesRuntime.insets;
   const [manualItemText, setManualItemText] = useState("");
 
   const { data, isLoading, error } = useGetShoppingList();

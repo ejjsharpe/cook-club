@@ -21,9 +21,6 @@ export const activityEvents = pgTable(
     recipeId: integer("recipe_id").references(() => recipes.id, {
       onDelete: "cascade",
     }),
-    // For batch imports: "6 recipes from bbcgoodfood"
-    batchImportCount: integer("batch_import_count"),
-    batchImportSource: text("batch_import_source"), // domain like "bbcgoodfood.com"
     createdAt: timestamp("created_at").notNull(),
   },
   (table) => [

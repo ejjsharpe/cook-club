@@ -134,7 +134,7 @@ describe("activityRouter", () => {
       const result = await caller.getFeed({ limit: 20 });
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0].id).toBe("1");
+      expect(result.items[0]!.id).toBe("1");
       expect(result.nextCursor).toBeNull();
 
       // Verify DO was called correctly
@@ -155,7 +155,7 @@ describe("activityRouter", () => {
 
       await caller.getFeed({ cursor: "some-cursor", limit: 10 });
 
-      const fetchCall = mockEnv.USER_FEED._stub.fetch.mock.calls[0][0] as Request;
+      const fetchCall = mockEnv.USER_FEED._stub.fetch.mock.calls[0]![0] as Request;
       const url = new URL(fetchCall.url);
       expect(url.searchParams.get("cursor")).toBe("some-cursor");
       expect(url.searchParams.get("limit")).toBe("10");
@@ -358,9 +358,9 @@ describe("activityRouter", () => {
       const result = await caller.getRecipeReviews({ recipeId: 1, limit: 20 });
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0].rating).toBe(5);
-      expect(result.items[0].reviewText).toBe("Great!");
-      expect(result.items[0].user.name).toBe("Chef User");
+      expect(result.items[0]!.rating).toBe(5);
+      expect(result.items[0]!.reviewText).toBe("Great!");
+      expect(result.items[0]!.user.name).toBe("Chef User");
     });
 
     it("includes review images", async () => {
@@ -380,7 +380,7 @@ describe("activityRouter", () => {
 
       const result = await caller.getRecipeReviews({ recipeId: 1 });
 
-      expect(result.items[0].images).toEqual([
+      expect(result.items[0]!.images).toEqual([
         "http://example.com/img1.jpg",
         "http://example.com/img2.jpg",
       ]);

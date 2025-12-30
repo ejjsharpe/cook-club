@@ -90,5 +90,19 @@ export const users: UserData[] = [
     email: "alex.santos@example.com",
     password: "Password123!",
     image: "https://i.pravatar.cc/150?img=18"
+  },
+  {
+    id: "user_013",
+    name: "Chloe Harper",
+    email: "chloe.harper@example.com",
+    password: "Password123!",
+    image: "https://i.pravatar.cc/150?img=23"
+  },
+  {
+    id: "user_014",
+    name: "Daniel Park",
+    email: "daniel.park@example.com",
+    password: "Password123!",
+    image: "https://i.pravatar.cc/150?img=52"
   }
 ];

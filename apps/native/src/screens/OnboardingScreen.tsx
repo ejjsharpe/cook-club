@@ -8,7 +8,7 @@ import {
   Alert,
 } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { OnboardingStepCuisines } from "./onboarding-steps/OnboardingStepCuisines";

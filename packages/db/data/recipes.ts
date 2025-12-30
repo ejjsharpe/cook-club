@@ -1,3 +1,5 @@
+export type SourceType = "url" | "image" | "text" | "ai" | "manual";
+
 export interface RecipeData {
   name: string;
   description: string;
@@ -11,6 +13,7 @@ export interface RecipeData {
   instructions: string[];
   imageUrl: string;
   sourceUrl?: string;
+  sourceType?: SourceType;
 }
 
 export const recipes: RecipeData[] = [

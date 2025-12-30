@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import { recipeRouter } from "./recipe-router";
 import { createMockEnv } from "../__mocks__/env";
 
 // Mock the propagation service
@@ -31,7 +32,6 @@ vi.mock("@repo/db/schemas", () => ({
   recipeTags: { _name: "recipe_tags" },
   tags: { _name: "tags" },
   user: { _name: "user" },
-  userLikes: { _name: "user_likes" },
 }));
 
 // Mock drizzle-orm
@@ -86,7 +86,9 @@ function createMockDb() {
     then: vi.fn().mockResolvedValue([]),
     insert: vi.fn().mockImplementation(() => ({
       values: vi.fn().mockReturnThis(),
-      returning: vi.fn().mockImplementation(() => Promise.resolve(insertReturning)),
+      returning: vi
+        .fn()
+        .mockImplementation(() => Promise.resolve(insertReturning)),
     })),
     _setInsertReturning: (result: unknown[]) => {
       insertReturning = result;
@@ -100,7 +102,7 @@ function createMockContext(
   overrides: Partial<{
     user: { id: string; name: string; image: string | null };
     env: ReturnType<typeof createMockEnv>;
-  }> = {}
+  }> = {},
 ) {
   return {
     db: db as any,
@@ -114,8 +116,6 @@ function createMockContext(
     resHeaders: new Headers(),
   };
 }
-
-import { recipeRouter } from "./recipe-router";
 
 describe("recipeRouter - activity integration", () => {
   let mockDb: ReturnType<typeof createMockDb>;
@@ -134,8 +134,9 @@ describe("recipeRouter - activity integration", () => {
       prepTime: 15,
       cookTime: 30,
       servings: 4,
-      ingredients: [{ text: "1 cup flour", index: 0 }],
-      instructions: [{ text: "Mix ingredients", index: 0 }],
+      ingredients: [{ ingredient: "1 cup flour", index: 0 }],
+      instructions: [{ instruction: "Mix ingredients", index: 0 }],
+      images: [{ url: "https://example.com/image.jpg" }],
       cuisines: [],
       categories: [],
     };
@@ -167,14 +168,14 @@ describe("recipeRouter - activity integration", () => {
         expect.anything(), // db
         expect.anything(), // env
         100, // activity event id
-        "test-user-id" // user id
+        "test-user-id", // user id
       );
     });
 
     it("recipe creation succeeds even if propagation fails", async () => {
       mockDb._setInsertReturning([{ id: 100 }]);
       mockPropagateActivityToFollowers.mockRejectedValueOnce(
-        new Error("Propagation failed")
+        new Error("Propagation failed"),
       );
 
       const ctx = createMockContext(mockDb, { env: mockEnv });

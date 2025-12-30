@@ -1,3 +1,17 @@
+// Fallback type declaration for when Cloudflare types aren't available
+// (e.g., when this file is imported from a non-Cloudflare environment like React Native)
+// These will be overridden by @cloudflare/workers-types when available
+type FallbackDurableObjectId = {
+  toString(): string;
+};
+type FallbackDurableObjectStub = {
+  fetch(request: Request): Promise<Response>;
+};
+type FallbackDurableObjectNamespace = {
+  idFromName(name: string): FallbackDurableObjectId;
+  get(id: FallbackDurableObjectId): FallbackDurableObjectStub;
+};
+
 // Type for the recipe parser service binding
 // This matches the ParseInput/ParseResponse types from cook-club-recipe-parser
 type ParseInput =
@@ -97,6 +111,13 @@ export interface RecipeParserService {
   chat(input: ChatInput): Promise<ChatResponse>;
 }
 
+// Use the Cloudflare type if available, otherwise use fallback
+type DurableObjectNamespaceType = typeof globalThis extends {
+  DurableObjectNamespace: infer T;
+}
+  ? T
+  : FallbackDurableObjectNamespace;
+
 export interface Env {
   DATABASE_URL: string;
   GOOGLE_CLIENT_ID: string;
@@ -106,5 +127,5 @@ export interface Env {
   FB_CLIENT_ID: string;
   FB_CLIENT_SECRET: string;
   RECIPE_PARSER: RecipeParserService;
-  USER_FEED: DurableObjectNamespace;
+  USER_FEED: DurableObjectNamespaceType;
 }

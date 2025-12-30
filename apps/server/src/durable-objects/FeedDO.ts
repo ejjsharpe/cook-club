@@ -17,13 +17,13 @@ export class FeedDO implements DurableObject {
     const path = url.pathname;
 
     if (request.method === "POST" && path === "/addFeedItem") {
-      const item = await request.json() as FeedItem;
+      const item = (await request.json()) as FeedItem;
       await this.addFeedItem(item);
       return new Response("OK");
     }
 
     if (request.method === "POST" && path === "/addFeedItems") {
-      const items = await request.json() as FeedItem[];
+      const items = (await request.json()) as FeedItem[];
       await this.addFeedItems(items);
       return new Response("OK");
     }
@@ -38,7 +38,7 @@ export class FeedDO implements DurableObject {
     }
 
     if (request.method === "POST" && path === "/removeItemsFromUser") {
-      const { userId } = await request.json() as { userId: string };
+      const { userId } = (await request.json()) as { userId: string };
       await this.removeItemsFromUser(userId);
       return new Response("OK");
     }
@@ -120,7 +120,7 @@ export class FeedDO implements DurableObject {
 
     const keysToDelete: string[] = [];
     for (const [key, item] of allItems) {
-      if (item.actorId === userId) {
+      if (item.actor.id === userId) {
         keysToDelete.push(key);
       }
     }

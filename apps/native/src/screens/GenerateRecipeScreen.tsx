@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import Animated, { FadeInUp, FadeInDown } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useGenerateRecipeChat } from "@/api/chat";

@@ -1,7 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import startImage1 from "@/assets/images/start-food-1.jpg";

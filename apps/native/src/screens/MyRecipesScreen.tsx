@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {

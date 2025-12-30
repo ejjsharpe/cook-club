@@ -1,7 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
-import type { FeedItem } from "@repo/trpc/client";
+import type {
+  FeedItem,
+  CookingReviewFeedItem,
+  RecipeImportFeedItem,
+} from "@repo/trpc/client";
 import { useTRPC } from "@repo/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useCallback, useState } from "react";
@@ -13,7 +17,7 @@ import {
   TouchableOpacity,
   Share,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useUserActivities } from "@/api/activity";
@@ -138,17 +142,14 @@ export const UserProfileScreen = () => {
       if (item.type === "cooking_review") {
         return (
           <ReviewActivityCard
-            activity={item}
-            onPress={
-              item.recipeId
-                ? () =>
-                    navigation.navigate("RecipeDetail", {
-                      recipeId: item.recipeId!,
-                    })
-                : undefined
+            activity={item as CookingReviewFeedItem}
+            onPress={() =>
+              navigation.navigate("RecipeDetail", {
+                recipeId: item.recipe.id,
+              })
             }
             onUserPress={() =>
-              navigation.navigate("UserProfile", { userId: item.actorId })
+              navigation.navigate("UserProfile", { userId: item.actor.id })
             }
             onImportPress={handleImportRecipe}
           />
@@ -156,17 +157,14 @@ export const UserProfileScreen = () => {
       }
       return (
         <ImportActivityCard
-          activity={item}
-          onPress={
-            item.recipeId
-              ? () =>
-                  navigation.navigate("RecipeDetail", {
-                    recipeId: item.recipeId!,
-                  })
-              : undefined
+          activity={item as RecipeImportFeedItem}
+          onPress={() =>
+            navigation.navigate("RecipeDetail", {
+              recipeId: item.recipe.id,
+            })
           }
           onUserPress={() =>
-            navigation.navigate("UserProfile", { userId: item.actorId })
+            navigation.navigate("UserProfile", { userId: item.actor.id })
           }
           onImportPress={handleImportRecipe}
         />
@@ -415,11 +413,26 @@ export const UserProfileScreen = () => {
     </View>
   );
 
+  const handleSettings = () => {
+    navigation.navigate("Settings");
+  };
+
   return (
     <View style={styles.screen}>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={["top"]} style={styles.container}>
         <VSpace size={8} />
-        <BackButton />
+        <View style={styles.headerRow}>
+          <BackButton />
+          {isOwnProfile && (
+            <TouchableOpacity onPress={handleSettings} activeOpacity={0.7}>
+              <Ionicons
+                name="settings-outline"
+                size={24}
+                style={styles.settingsIcon}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
 
         <LegendList
           data={activities}
@@ -446,7 +459,15 @@ const styles = StyleSheet.create((theme) => ({
   },
   container: {
     flex: 1,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
+  },
+  settingsIcon: {
+    color: theme.colors.text,
   },
   centered: {
     flex: 1,
@@ -456,6 +477,7 @@ const styles = StyleSheet.create((theme) => ({
   headerContent: {
     alignItems: "center",
     paddingTop: 24,
+    paddingHorizontal: 20,
   },
   profileHeader: {
     alignItems: "center",
@@ -555,6 +577,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   emptyContainer: {
     paddingVertical: 40,
+    paddingHorizontal: 20,
     alignItems: "center",
   },
   footer: {

@@ -30,3 +30,9 @@ export const useSignInWithSocial = () => {
       authClient.signIn.social({ provider, callbackURL: "/" }),
   });
 };
+
+export const useSignOut = () => {
+  return useMutation({
+    mutationFn: () => authClient.signOut(),
+  });
+};

@@ -11,7 +11,7 @@ import {
 import { eq, desc } from "drizzle-orm";
 
 import type { Env } from "../../../../../../apps/server/src/types";
-import type { FeedItem } from "../../types/feed";
+import type { FeedItem, RecipeMetadata, SourceType } from "../../types/feed";
 
 /**
  * Extract domain from a URL.
@@ -33,15 +33,13 @@ export async function buildFeedItem(
   db: DbType,
   activityEventId: number,
 ): Promise<FeedItem | null> {
-  // Fetch the activity event with related data
+  // Fetch the activity event
   const activity = await db
     .select({
       id: activityEvents.id,
       type: activityEvents.type,
       userId: activityEvents.userId,
       recipeId: activityEvents.recipeId,
-      batchImportCount: activityEvents.batchImportCount,
-      batchImportSource: activityEvents.batchImportSource,
       createdAt: activityEvents.createdAt,
     })
     .from(activityEvents)
@@ -63,59 +61,73 @@ export async function buildFeedItem(
 
   if (!actor) return null;
 
-  // Fetch recipe info if there's a recipeId
-  let recipeData: {
-    id: number;
-    name: string;
-    sourceUrl: string | null;
-    sourceType: string;
-    coverImage: string | null;
-  } | null = null;
+  // Recipe is required for current activity types
+  if (!activity.recipeId) return null;
 
-  if (activity.recipeId) {
-    const recipe = await db
-      .select({
-        id: recipes.id,
-        name: recipes.name,
-        sourceUrl: recipes.sourceUrl,
-        sourceType: recipes.sourceType,
-      })
-      .from(recipes)
-      .where(eq(recipes.id, activity.recipeId))
-      .then((rows) => rows[0]);
+  // Fetch recipe info
+  const recipe = await db
+    .select({
+      id: recipes.id,
+      name: recipes.name,
+      sourceUrl: recipes.sourceUrl,
+      sourceType: recipes.sourceType,
+    })
+    .from(recipes)
+    .where(eq(recipes.id, activity.recipeId))
+    .then((rows) => rows[0]);
 
-    if (recipe) {
-      // Filter out image-sourced recipes from feed
-      if (recipe.sourceType === "image") {
-        return null;
-      }
+  if (!recipe) return null;
 
-      // Get first image
-      const image = await db
-        .select({ url: recipeImages.url })
-        .from(recipeImages)
-        .where(eq(recipeImages.recipeId, recipe.id))
-        .limit(1)
-        .then((rows) => rows[0]);
-
-      recipeData = {
-        id: recipe.id,
-        name: recipe.name,
-        sourceUrl: recipe.sourceUrl,
-        sourceType: recipe.sourceType,
-        coverImage: image?.url ?? null,
-      };
-    }
+  // Filter out image-sourced recipes from feed
+  if (recipe.sourceType === "image") {
+    return null;
   }
 
-  // For cooking reviews, fetch review data
-  let reviewData: {
-    rating: number;
-    reviewText: string | null;
-    images: string[];
-  } | null = null;
+  // Get first image
+  const image = await db
+    .select({ url: recipeImages.url })
+    .from(recipeImages)
+    .where(eq(recipeImages.recipeId, recipe.id))
+    .limit(1)
+    .then((rows) => rows[0]);
 
+  // Build recipe metadata based on source type
+  const sourceType = recipe.sourceType as SourceType;
+  let recipeMetadata: RecipeMetadata;
+
+  if (sourceType === "url" && recipe.sourceUrl) {
+    const sourceDomain = extractDomain(recipe.sourceUrl);
+    recipeMetadata = {
+      id: recipe.id,
+      name: recipe.name,
+      image: image?.url ?? null,
+      sourceType: "url",
+      sourceUrl: recipe.sourceUrl,
+      sourceDomain: sourceDomain ?? recipe.sourceUrl,
+    };
+  } else {
+    recipeMetadata = {
+      id: recipe.id,
+      name: recipe.name,
+      image: image?.url ?? null,
+      sourceType: sourceType === "url" ? "manual" : sourceType,
+    };
+  }
+
+  // Build base item
+  const baseItem = {
+    id: activity.id.toString(),
+    actor: {
+      id: actor.id,
+      name: actor.name,
+      image: actor.image ?? null,
+    },
+    createdAt: activity.createdAt.getTime(),
+  };
+
+  // Return type-specific item
   if (activity.type === "cooking_review") {
+    // Fetch review data
     const review = await db
       .select({
         id: cookingReviews.id,
@@ -126,54 +138,31 @@ export async function buildFeedItem(
       .where(eq(cookingReviews.activityEventId, activityEventId))
       .then((rows) => rows[0]);
 
-    if (review) {
-      const images = await db
-        .select({ url: cookingReviewImages.url })
-        .from(cookingReviewImages)
-        .where(eq(cookingReviewImages.reviewId, review.id))
-        .orderBy(cookingReviewImages.index);
+    if (!review) return null;
 
-      reviewData = {
+    const reviewImages = await db
+      .select({ url: cookingReviewImages.url })
+      .from(cookingReviewImages)
+      .where(eq(cookingReviewImages.reviewId, review.id))
+      .orderBy(cookingReviewImages.index);
+
+    return {
+      ...baseItem,
+      type: "cooking_review",
+      recipe: recipeMetadata,
+      review: {
         rating: review.rating,
-        reviewText: review.reviewText,
-        images: images.map((img) => img.url),
-      };
-    }
+        text: review.reviewText,
+        images: reviewImages.map((img) => img.url),
+      },
+    };
+  } else {
+    return {
+      ...baseItem,
+      type: "recipe_import",
+      recipe: recipeMetadata,
+    };
   }
-
-  const sourceType = (recipeData?.sourceType ?? "manual") as
-    | "url"
-    | "image"
-    | "text"
-    | "ai"
-    | "manual"
-    | "user";
-  const isExternalRecipe = !!recipeData?.sourceUrl;
-  const sourceDomain = extractDomain(recipeData?.sourceUrl ?? null);
-  // Users can view full recipe for text, ai, and manual sources (not url-scraped)
-  const canViewFullRecipe = sourceType !== "url";
-
-  return {
-    id: activity.id.toString(),
-    type: activity.type as "recipe_import" | "cooking_review",
-    actorId: actor.id,
-    actorName: actor.name,
-    actorImage: actor.image ?? null,
-    recipeId: recipeData?.id ?? null,
-    recipeName: recipeData?.name ?? null,
-    recipeImage: recipeData?.coverImage ?? null,
-    sourceUrl: recipeData?.sourceUrl ?? null,
-    sourceDomain,
-    sourceType,
-    isExternalRecipe,
-    canViewFullRecipe,
-    batchCount: activity.batchImportCount,
-    batchSource: activity.batchImportSource,
-    rating: reviewData?.rating ?? null,
-    reviewText: reviewData?.reviewText ?? null,
-    reviewImages: reviewData?.images ?? [],
-    createdAt: activity.createdAt.getTime(),
-  };
 }
 
 /**

@@ -3,7 +3,8 @@ import { drizzle } from "drizzle-orm/neon-http";
 import { eq } from "drizzle-orm";
 import * as schema from "./schemas";
 import { users as userData } from "./data/users";
-import { recipes as recipeData } from "./data/recipes";
+import { recipes as recipeData, type SourceType } from "./data/recipes";
+import { socialRecipes } from "./data/social-recipes";
 import * as readline from "readline";
 import { hashPassword } from "better-auth/crypto";
 
@@ -217,11 +218,30 @@ async function seedRecipes(
   const shuffledUsers = shuffle(users);
   let userIndex = 0;
 
+  // Source types to distribute across recipes (excluding "user" which is for imported recipes)
+  const sourceTypes: SourceType[] = ["url", "image", "text", "ai", "manual"];
+
   for (const r of recipeData) {
     const user = shuffledUsers[userIndex % shuffledUsers.length]!;
-    userIndex++;
 
     const createdAt = randomDate(60);
+
+    // Determine source type: use explicit sourceType if provided,
+    // use "url" if sourceUrl exists, otherwise cycle through source types
+    let sourceType: SourceType;
+    if (r.sourceType) {
+      sourceType = r.sourceType;
+    } else if (r.sourceUrl) {
+      sourceType = "url";
+    } else {
+      // Cycle through non-url source types for variety
+      sourceType = sourceTypes[userIndex % sourceTypes.length]!;
+    }
+
+    // Only include sourceUrl if sourceType is "url"
+    const sourceUrl = sourceType === "url" ? (r.sourceUrl || `https://example.com/recipe-${userIndex}`) : null;
+
+    userIndex++;
 
     // Create the recipe
     const [recipe] = await db
@@ -234,8 +254,8 @@ async function seedRecipes(
         totalTime: r.totalTime,
         servings: r.servings,
         ownerId: user.id,
-        sourceUrl: r.sourceUrl || null,
-        sourceType: r.sourceUrl ? "url" : "manual",
+        sourceUrl,
+        sourceType,
         createdAt,
         updatedAt: createdAt,
       })
@@ -287,7 +307,94 @@ async function seedRecipes(
     }
   }
 
-  console.log(`✅ Seeded ${recipes.length} recipes`);
+  // Log source type distribution
+  const sourceTypeCounts = recipes.reduce((acc, r) => {
+    acc[r.sourceType] = (acc[r.sourceType] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  const distribution = Object.entries(sourceTypeCounts)
+    .map(([type, count]) => `${type}: ${count}`)
+    .join(", ");
+  console.log(`✅ Seeded ${recipes.length} recipes (${distribution})`);
+  return recipes;
+}
+
+async function seedSocialRecipes(
+  db: DbClient,
+  allTags: (typeof schema.tags.$inferSelect)[]
+) {
+  console.log("📱 Seeding social media recipes...");
+
+  const recipes: (typeof schema.recipes.$inferSelect)[] = [];
+
+  for (const r of socialRecipes) {
+    const createdAt = randomDate(30);
+
+    // Create the recipe with specific owner
+    const [recipe] = await db
+      .insert(schema.recipes)
+      .values({
+        name: r.name,
+        description: r.description,
+        prepTime: r.prepTime,
+        cookTime: r.cookTime,
+        totalTime: r.totalTime,
+        servings: r.servings,
+        ownerId: r.ownerId,
+        sourceUrl: r.sourceUrl || null,
+        sourceType: "url",
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .returning();
+
+    if (!recipe) continue;
+    recipes.push(recipe);
+
+    // Add image
+    await db.insert(schema.recipeImages).values({
+      recipeId: recipe.id,
+      url: r.imageUrl,
+    });
+
+    // Add ingredients
+    for (let i = 0; i < r.ingredients.length; i++) {
+      const parsed = parseIngredient(r.ingredients[i]!);
+      await db.insert(schema.recipeIngredients).values({
+        recipeId: recipe.id,
+        index: i,
+        quantity: parsed.quantity,
+        unit: parsed.unit,
+        name: parsed.name,
+      });
+    }
+
+    // Add instructions
+    for (let i = 0; i < r.instructions.length; i++) {
+      await db.insert(schema.recipeInstructions).values({
+        recipeId: recipe.id,
+        index: i,
+        instruction: r.instructions[i]!,
+      });
+    }
+
+    // Add tags
+    const cuisineTagsToAdd = allTags.filter(
+      (t) => t.type === "cuisine" && r.cuisines.includes(t.name)
+    );
+    const categoryTagsToAdd = allTags.filter(
+      (t) => t.type === "category" && r.categories.includes(t.name)
+    );
+
+    for (const tag of [...cuisineTagsToAdd, ...categoryTagsToAdd]) {
+      await db.insert(schema.recipeTags).values({
+        recipeId: recipe.id,
+        tagId: tag.id,
+      });
+    }
+  }
+
+  console.log(`✅ Seeded ${recipes.length} social media recipes`);
   return recipes;
 }
 
@@ -320,19 +427,46 @@ async function seedFollows(
 ) {
   console.log("👥 Seeding follow relationships...");
 
-  let followsCount = 0;
+  // Users that everyone should follow (social media content creators)
+  const socialMediaUsers = ["user_013", "user_014"];
 
+  let followsCount = 0;
+  const followPairs = new Set<string>();
+
+  // First, make all users follow the social media users
+  for (const user of users) {
+    for (const socialUserId of socialMediaUsers) {
+      if (user.id !== socialUserId) {
+        const pairKey = `${user.id}->${socialUserId}`;
+        if (!followPairs.has(pairKey)) {
+          await db.insert(schema.follows).values({
+            followerId: user.id,
+            followingId: socialUserId,
+            createdAt: randomDate(60),
+          });
+          followPairs.add(pairKey);
+          followsCount++;
+        }
+      }
+    }
+  }
+
+  // Then add random follows for variety
   for (const user of users) {
     const otherUsers = users.filter((u) => u.id !== user.id);
     const usersToFollow = shuffle(otherUsers).slice(0, randomInt(2, 5));
 
     for (const userToFollow of usersToFollow) {
-      await db.insert(schema.follows).values({
-        followerId: user.id,
-        followingId: userToFollow.id,
-        createdAt: randomDate(60),
-      });
-      followsCount++;
+      const pairKey = `${user.id}->${userToFollow.id}`;
+      if (!followPairs.has(pairKey)) {
+        await db.insert(schema.follows).values({
+          followerId: user.id,
+          followingId: userToFollow.id,
+          createdAt: randomDate(60),
+        });
+        followPairs.add(pairKey);
+        followsCount++;
+      }
     }
   }
 
@@ -566,6 +700,9 @@ async function main() {
     const originalRecipes = await seedRecipes(db, users, allTags);
     console.log("");
 
+    const socialMediaRecipes = await seedSocialRecipes(db, allTags);
+    console.log("");
+
     const collections = await seedCollections(db, users);
     console.log("");
 
@@ -580,14 +717,14 @@ async function main() {
     );
     console.log("");
 
-    const allRecipes = [...originalRecipes, ...importedRecipes];
+    const allRecipes = [...originalRecipes, ...socialMediaRecipes, ...importedRecipes];
     await seedActivityFeed(db, users, allRecipes);
     console.log("");
 
     console.log("✨ Database seeded successfully!");
     console.log("\n📊 Summary:");
     console.log(`   👥 ${users.length} users`);
-    console.log(`   🍳 ${originalRecipes.length} original + ${importedRecipes.length} imported recipes`);
+    console.log(`   🍳 ${originalRecipes.length} original + ${socialMediaRecipes.length} social + ${importedRecipes.length} imported recipes`);
     console.log(`   🏷️  ${allTags.length} tags`);
     console.log(`   📚 ${collections.length} collections`);
     console.log("\n🔑 All users have password: Password123!");

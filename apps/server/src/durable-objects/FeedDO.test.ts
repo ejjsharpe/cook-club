@@ -51,26 +51,23 @@ function createMockState() {
 }
 
 function createFeedItem(overrides: Partial<FeedItem> = {}): FeedItem {
-  return {
+  const base = {
     id: "1",
-    type: "recipe_import",
-    actorId: "user-1",
-    actorName: "Test User",
-    actorImage: null,
-    recipeId: 1,
-    recipeName: "Test Recipe",
-    recipeImage: null,
-    sourceUrl: null,
-    sourceDomain: null,
-    isExternalRecipe: false,
-    batchCount: null,
-    batchSource: null,
-    rating: null,
-    reviewText: null,
-    reviewImages: [],
+    type: "recipe_import" as const,
+    actor: {
+      id: "user-1",
+      name: "Test User",
+      image: null,
+    },
+    recipe: {
+      id: 1,
+      name: "Test Recipe",
+      image: null,
+      sourceType: "manual" as const,
+    },
     createdAt: Date.now(),
-    ...overrides,
   };
+  return { ...base, ...overrides } as FeedItem;
 }
 
 describe("FeedDO", () => {
@@ -131,13 +128,13 @@ describe("FeedDO", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("application/json");
 
-      const result = await response.json();
+      const result = await response.json() as { items: FeedItem[] };
       expect(result.items).toHaveLength(1);
     });
 
     it("routes POST /removeItemsFromUser correctly", async () => {
       // Add an item first
-      const item = createFeedItem({ actorId: "user-to-remove" });
+      const item = createFeedItem({ actor: { id: "user-to-remove", name: "Test", image: null } });
       await feedDO.fetch(new Request("http://do/addFeedItem", {
         method: "POST",
         body: JSON.stringify(item),
@@ -213,9 +210,9 @@ describe("FeedDO", () => {
   describe("getFeed", () => {
     it("returns items in reverse chronological order", async () => {
       const items = [
-        createFeedItem({ id: "1", createdAt: 1000, recipeName: "First" }),
-        createFeedItem({ id: "2", createdAt: 3000, recipeName: "Third" }),
-        createFeedItem({ id: "3", createdAt: 2000, recipeName: "Second" }),
+        createFeedItem({ id: "1", createdAt: 1000, recipe: { id: 1, name: "First", image: null, sourceType: "manual" } }),
+        createFeedItem({ id: "2", createdAt: 3000, recipe: { id: 2, name: "Third", image: null, sourceType: "manual" } }),
+        createFeedItem({ id: "3", createdAt: 2000, recipe: { id: 3, name: "Second", image: null, sourceType: "manual" } }),
       ];
 
       await feedDO.fetch(new Request("http://do/addFeedItems", {
@@ -227,9 +224,9 @@ describe("FeedDO", () => {
       const result = await response.json() as { items: FeedItem[]; nextCursor: string | null };
 
       expect(result.items).toHaveLength(3);
-      expect(result.items[0].recipeName).toBe("Third");
-      expect(result.items[1].recipeName).toBe("Second");
-      expect(result.items[2].recipeName).toBe("First");
+      expect(result.items[0]!.recipe.name).toBe("Third");
+      expect(result.items[1]!.recipe.name).toBe("Second");
+      expect(result.items[2]!.recipe.name).toBe("First");
     });
 
     it("respects limit parameter", async () => {
@@ -298,9 +295,9 @@ describe("FeedDO", () => {
       const result1 = await response1.json() as { items: FeedItem[]; nextCursor: string | null };
 
       expect(result1.items).toHaveLength(3);
-      expect(result1.items[0].id).toBe("5"); // Newest first (createdAt: 5000)
-      expect(result1.items[1].id).toBe("4");
-      expect(result1.items[2].id).toBe("3");
+      expect(result1.items[0]!.id).toBe("5"); // Newest first (createdAt: 5000)
+      expect(result1.items[1]!.id).toBe("4");
+      expect(result1.items[2]!.id).toBe("3");
       expect(result1.nextCursor).not.toBeNull();
 
       // Second page using cursor - should get remaining 3 items
@@ -321,9 +318,9 @@ describe("FeedDO", () => {
   describe("removeItemsFromUser", () => {
     it("removes all items from specified user", async () => {
       const items = [
-        createFeedItem({ id: "1", actorId: "user-a", createdAt: 1000 }),
-        createFeedItem({ id: "2", actorId: "user-b", createdAt: 2000 }),
-        createFeedItem({ id: "3", actorId: "user-a", createdAt: 3000 }),
+        createFeedItem({ id: "1", actor: { id: "user-a", name: "User A", image: null }, createdAt: 1000 }),
+        createFeedItem({ id: "2", actor: { id: "user-b", name: "User B", image: null }, createdAt: 2000 }),
+        createFeedItem({ id: "3", actor: { id: "user-a", name: "User A", image: null }, createdAt: 3000 }),
       ];
 
       await feedDO.fetch(new Request("http://do/addFeedItems", {
@@ -343,13 +340,13 @@ describe("FeedDO", () => {
       const result = await response.json() as { items: FeedItem[] };
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0].actorId).toBe("user-b");
+      expect(result.items[0]!.actor.id).toBe("user-b");
     });
 
     it("leaves other users items intact", async () => {
       const items = [
-        createFeedItem({ id: "1", actorId: "user-a", createdAt: 1000 }),
-        createFeedItem({ id: "2", actorId: "user-b", createdAt: 2000 }),
+        createFeedItem({ id: "1", actor: { id: "user-a", name: "User A", image: null }, createdAt: 1000 }),
+        createFeedItem({ id: "2", actor: { id: "user-b", name: "User B", image: null }, createdAt: 2000 }),
       ];
 
       await feedDO.fetch(new Request("http://do/addFeedItems", {

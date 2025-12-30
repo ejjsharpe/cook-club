@@ -30,3 +30,15 @@ export const useCompleteOnboarding = () => {
     },
   });
 };
+
+export const useUpdatePreferences = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    ...trpc.user.updatePreferences.mutationOptions(),
+    onSuccess: () => {
+      queryClient.invalidateQueries(trpc.user.getUser.queryFilter());
+    },
+  });
+};

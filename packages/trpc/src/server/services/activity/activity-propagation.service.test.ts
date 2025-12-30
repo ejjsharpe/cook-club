@@ -84,8 +84,6 @@ describe("activity-propagation.service", () => {
           type: "recipe_import",
           userId: "user-1",
           recipeId: 1,
-          batchImportCount: null,
-          batchImportSource: null,
           createdAt: new Date(),
         },
       ]);
@@ -95,7 +93,25 @@ describe("activity-propagation.service", () => {
       expect(result).toBeNull();
     });
 
-    it("builds FeedItem for recipe_import activity", async () => {
+    it("returns null when recipe is not found", async () => {
+      mockDb._setResults("activity_events", [
+        {
+          id: 1,
+          type: "recipe_import",
+          userId: "user-1",
+          recipeId: null, // No recipe
+          createdAt: new Date(),
+        },
+      ]);
+      mockDb._setResults("user", [
+        { id: "user-1", name: "Test User", image: null },
+      ]);
+
+      const result = await buildFeedItem(mockDb as any, 1);
+      expect(result).toBeNull();
+    });
+
+    it("builds FeedItem for recipe_import activity with URL source", async () => {
       const createdAt = new Date("2024-01-15T10:00:00Z");
 
       mockDb._setResults("activity_events", [
@@ -104,8 +120,6 @@ describe("activity-propagation.service", () => {
           type: "recipe_import",
           userId: "user-1",
           recipeId: 1,
-          batchImportCount: null,
-          batchImportSource: null,
           createdAt,
         },
       ]);
@@ -113,7 +127,7 @@ describe("activity-propagation.service", () => {
         { id: "user-1", name: "Test User", image: "http://example.com/avatar.jpg" },
       ]);
       mockDb._setResults("recipes", [
-        { id: 1, name: "Test Recipe", sourceUrl: "https://www.example.com/recipe" },
+        { id: 1, name: "Test Recipe", sourceUrl: "https://www.example.com/recipe", sourceType: "url" },
       ]);
       mockDb._setResults("recipe_images", [
         { url: "http://example.com/recipe.jpg" },
@@ -124,18 +138,22 @@ describe("activity-propagation.service", () => {
       expect(result).not.toBeNull();
       expect(result!.id).toBe("1");
       expect(result!.type).toBe("recipe_import");
-      expect(result!.actorId).toBe("user-1");
-      expect(result!.actorName).toBe("Test User");
-      expect(result!.actorImage).toBe("http://example.com/avatar.jpg");
-      expect(result!.recipeId).toBe(1);
-      expect(result!.recipeName).toBe("Test Recipe");
-      expect(result!.recipeImage).toBe("http://example.com/recipe.jpg");
-      expect(result!.sourceUrl).toBe("https://www.example.com/recipe");
-      expect(result!.sourceDomain).toBe("example.com");
-      expect(result!.isExternalRecipe).toBe(true);
-      expect(result!.rating).toBeNull();
-      expect(result!.reviewText).toBeNull();
-      expect(result!.reviewImages).toEqual([]);
+
+      // Actor is now nested
+      expect(result!.actor.id).toBe("user-1");
+      expect(result!.actor.name).toBe("Test User");
+      expect(result!.actor.image).toBe("http://example.com/avatar.jpg");
+
+      // Recipe is now nested with URL source fields
+      expect(result!.recipe.id).toBe(1);
+      expect(result!.recipe.name).toBe("Test Recipe");
+      expect(result!.recipe.image).toBe("http://example.com/recipe.jpg");
+      expect(result!.recipe.sourceType).toBe("url");
+      if (result!.recipe.sourceType === "url") {
+        expect(result!.recipe.sourceUrl).toBe("https://www.example.com/recipe");
+        expect(result!.recipe.sourceDomain).toBe("example.com");
+      }
+
       expect(result!.createdAt).toBe(createdAt.getTime());
     });
 
@@ -148,8 +166,6 @@ describe("activity-propagation.service", () => {
           type: "cooking_review",
           userId: "user-1",
           recipeId: 1,
-          batchImportCount: null,
-          batchImportSource: null,
           createdAt,
         },
       ]);
@@ -157,7 +173,7 @@ describe("activity-propagation.service", () => {
         { id: "user-1", name: "Chef User", image: null },
       ]);
       mockDb._setResults("recipes", [
-        { id: 1, name: "Pasta", sourceUrl: null },
+        { id: 1, name: "Pasta", sourceUrl: null, sourceType: "manual" },
       ]);
       mockDb._setResults("recipe_images", []);
       mockDb._setResults("cooking_reviews", [
@@ -172,14 +188,19 @@ describe("activity-propagation.service", () => {
 
       expect(result).not.toBeNull();
       expect(result!.type).toBe("cooking_review");
-      expect(result!.rating).toBe(5);
-      expect(result!.reviewText).toBe("Delicious!");
-      expect(result!.reviewImages).toEqual([
-        "http://example.com/photo1.jpg",
-        "http://example.com/photo2.jpg",
-      ]);
-      expect(result!.isExternalRecipe).toBe(false);
-      expect(result!.sourceDomain).toBeNull();
+
+      // Review fields are now nested
+      if (result!.type === "cooking_review") {
+        expect(result!.review.rating).toBe(5);
+        expect(result!.review.text).toBe("Delicious!");
+        expect(result!.review.images).toEqual([
+          "http://example.com/photo1.jpg",
+          "http://example.com/photo2.jpg",
+        ]);
+      }
+
+      // Non-URL recipe should not have sourceUrl/sourceDomain
+      expect(result!.recipe.sourceType).toBe("manual");
     });
 
     it("handles recipe without sourceUrl (internal recipe)", async () => {
@@ -189,8 +210,6 @@ describe("activity-propagation.service", () => {
           type: "recipe_import",
           userId: "user-1",
           recipeId: 1,
-          batchImportCount: null,
-          batchImportSource: null,
           createdAt: new Date(),
         },
       ]);
@@ -198,45 +217,22 @@ describe("activity-propagation.service", () => {
         { id: "user-1", name: "Test User", image: null },
       ]);
       mockDb._setResults("recipes", [
-        { id: 1, name: "My Recipe", sourceUrl: null },
+        { id: 1, name: "My Recipe", sourceUrl: null, sourceType: "manual" },
       ]);
       mockDb._setResults("recipe_images", []);
 
       const result = await buildFeedItem(mockDb as any, 1);
 
       expect(result).not.toBeNull();
-      expect(result!.isExternalRecipe).toBe(false);
-      expect(result!.sourceDomain).toBeNull();
-      expect(result!.sourceUrl).toBeNull();
-    });
-
-    it("handles batch import metadata", async () => {
-      mockDb._setResults("activity_events", [
-        {
-          id: 1,
-          type: "recipe_import",
-          userId: "user-1",
-          recipeId: null,
-          batchImportCount: 5,
-          batchImportSource: "instagram.com",
-          createdAt: new Date(),
-        },
-      ]);
-      mockDb._setResults("user", [
-        { id: "user-1", name: "Test User", image: null },
-      ]);
-
-      const result = await buildFeedItem(mockDb as any, 1);
-
-      expect(result).not.toBeNull();
-      expect(result!.batchCount).toBe(5);
-      expect(result!.batchSource).toBe("instagram.com");
-      expect(result!.recipeId).toBeNull();
+      expect(result!.recipe.sourceType).toBe("manual");
+      // Non-URL sources don't have sourceUrl/sourceDomain properties
+      expect("sourceUrl" in result!.recipe).toBe(false);
+      expect("sourceDomain" in result!.recipe).toBe(false);
     });
   });
 
   describe("propagateActivityToFollowers", () => {
-    it("sends activity to all followers feeds", async () => {
+    it("sends activity to all followers feeds and user's own feed", async () => {
       const createdAt = new Date();
 
       // Set up activity event
@@ -246,8 +242,6 @@ describe("activity-propagation.service", () => {
           type: "recipe_import",
           userId: "user-1",
           recipeId: 1,
-          batchImportCount: null,
-          batchImportSource: null,
           createdAt,
         },
       ]);
@@ -255,7 +249,7 @@ describe("activity-propagation.service", () => {
         { id: "user-1", name: "Test User", image: null },
       ]);
       mockDb._setResults("recipes", [
-        { id: 1, name: "Test Recipe", sourceUrl: null },
+        { id: 1, name: "Test Recipe", sourceUrl: null, sourceType: "manual" },
       ]);
       mockDb._setResults("recipe_images", []);
       mockDb._setResults("follows", [
@@ -265,14 +259,15 @@ describe("activity-propagation.service", () => {
 
       await propagateActivityToFollowers(mockDb as any, mockEnv as any, 1, "user-1");
 
-      // Should have called idFromName for each follower
-      expect(mockEnv.USER_FEED.idFromName).toHaveBeenCalledTimes(2);
+      // Should have called idFromName for user + each follower
+      expect(mockEnv.USER_FEED.idFromName).toHaveBeenCalledTimes(3);
+      expect(mockEnv.USER_FEED.idFromName).toHaveBeenCalledWith("user-1");
       expect(mockEnv.USER_FEED.idFromName).toHaveBeenCalledWith("follower-1");
       expect(mockEnv.USER_FEED.idFromName).toHaveBeenCalledWith("follower-2");
 
       // Should have made fetch calls to each DO
       const stub = mockEnv.USER_FEED._stub;
-      expect(stub.fetch).toHaveBeenCalledTimes(2);
+      expect(stub.fetch).toHaveBeenCalledTimes(3);
     });
 
     it("handles user with no followers", async () => {
@@ -282,8 +277,6 @@ describe("activity-propagation.service", () => {
           type: "recipe_import",
           userId: "user-1",
           recipeId: 1,
-          batchImportCount: null,
-          batchImportSource: null,
           createdAt: new Date(),
         },
       ]);
@@ -291,16 +284,17 @@ describe("activity-propagation.service", () => {
         { id: "user-1", name: "Test User", image: null },
       ]);
       mockDb._setResults("recipes", [
-        { id: 1, name: "Test Recipe", sourceUrl: null },
+        { id: 1, name: "Test Recipe", sourceUrl: null, sourceType: "manual" },
       ]);
       mockDb._setResults("recipe_images", []);
       mockDb._setResults("follows", []); // No followers
 
       await propagateActivityToFollowers(mockDb as any, mockEnv as any, 1, "user-1");
 
-      // Should not have made any DO calls
+      // Should still call for user's own feed
+      expect(mockEnv.USER_FEED.idFromName).toHaveBeenCalledWith("user-1");
       const stub = mockEnv.USER_FEED._stub;
-      expect(stub.fetch).not.toHaveBeenCalled();
+      expect(stub.fetch).toHaveBeenCalledTimes(1);
     });
 
     it("does nothing when activity not found", async () => {
@@ -323,8 +317,6 @@ describe("activity-propagation.service", () => {
           type: "recipe_import",
           userId: "followed-user",
           recipeId: 1,
-          batchImportCount: null,
-          batchImportSource: null,
           createdAt,
         },
       ]);
@@ -332,7 +324,7 @@ describe("activity-propagation.service", () => {
         { id: "followed-user", name: "Followed User", image: null },
       ]);
       mockDb._setResults("recipes", [
-        { id: 1, name: "Recipe 1", sourceUrl: null },
+        { id: 1, name: "Recipe 1", sourceUrl: null, sourceType: "manual" },
       ]);
       mockDb._setResults("recipe_images", []);
 
@@ -351,7 +343,7 @@ describe("activity-propagation.service", () => {
       const stub = mockEnv.USER_FEED._stub;
       expect(stub.fetch).toHaveBeenCalledTimes(1);
 
-      const fetchCall = stub.fetch.mock.calls[0][0] as Request;
+      const fetchCall = stub.fetch.mock.calls[0]?.[0] as Request;
       expect(fetchCall.url).toBe("http://do/addFeedItems");
       expect(fetchCall.method).toBe("POST");
     });
@@ -382,7 +374,7 @@ describe("activity-propagation.service", () => {
       const stub = mockEnv.USER_FEED._stub;
       expect(stub.fetch).toHaveBeenCalledTimes(1);
 
-      const fetchCall = stub.fetch.mock.calls[0][0] as Request;
+      const fetchCall = stub.fetch.mock.calls[0]?.[0] as Request;
       expect(fetchCall.url).toBe("http://do/removeItemsFromUser");
       expect(fetchCall.method).toBe("POST");
 

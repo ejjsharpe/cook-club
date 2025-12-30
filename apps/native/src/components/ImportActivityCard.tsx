@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { FeedItem } from "@repo/trpc/server";
+import type { RecipeImportFeedItem } from "@repo/trpc/server";
 import { formatDistanceToNow } from "date-fns";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
@@ -10,7 +10,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { Text } from "./Text";
 
 interface Props {
-  activity: FeedItem;
+  activity: RecipeImportFeedItem;
   onPress?: () => void;
   onUserPress?: () => void;
   onImportPress?: (sourceUrl: string) => void;
@@ -41,26 +41,30 @@ export const ImportActivityCard = memo(
     );
 
     const userInitials = useMemo(
-      () => getInitials(activity.actorName),
-      [activity.actorName],
+      () => getInitials(activity.actor.name),
+      [activity.actor.name],
     );
-
-    // For batch imports
-    const isBatchImport = activity.batchCount && activity.batchCount > 1;
 
     // Handle opening external source URL
     const handleViewSource = useCallback(async () => {
-      if (activity.sourceUrl) {
-        await WebBrowser.openBrowserAsync(activity.sourceUrl);
+      if (activity.recipe.sourceType === "url") {
+        await WebBrowser.openBrowserAsync(activity.recipe.sourceUrl);
       }
-    }, [activity.sourceUrl]);
+    }, [activity.recipe]);
+
+    // Handle importing the recipe
+    const handleImport = useCallback(() => {
+      if (activity.recipe.sourceType === "url") {
+        onImportPress?.(activity.recipe.sourceUrl);
+      }
+    }, [activity.recipe, onImportPress]);
 
     // Get a human-readable source description based on sourceType
     const getSourceDescription = () => {
-      if (activity.sourceDomain) {
-        return activity.sourceDomain;
+      if (activity.recipe.sourceType === "url") {
+        return activity.recipe.sourceDomain;
       }
-      switch (activity.sourceType) {
+      switch (activity.recipe.sourceType) {
         case "text":
           return "text";
         case "image":
@@ -78,20 +82,13 @@ export const ImportActivityCard = memo(
 
     // Build the activity description
     const getDescription = () => {
-      if (isBatchImport) {
-        return `imported ${activity.batchCount} recipes from ${activity.batchSource || "a website"}`;
-      }
-      if (activity.recipeName) {
-        const source = getSourceDescription();
-        return (
-          <>
-            imported{" "}
-            <Text style={styles.recipeName}>{activity.recipeName}</Text> from{" "}
-            {source}
-          </>
-        );
-      }
-      return "imported a recipe";
+      const source = getSourceDescription();
+      return (
+        <>
+          imported <Text style={styles.recipeName}>{activity.recipe.name}</Text>{" "}
+          from {source}
+        </>
+      );
     };
 
     return (
@@ -103,9 +100,9 @@ export const ImportActivityCard = memo(
           activeOpacity={0.7}
         >
           <View style={styles.avatar}>
-            {activity.actorImage ? (
+            {activity.actor.image ? (
               <Image
-                source={{ uri: activity.actorImage }}
+                source={{ uri: activity.actor.image }}
                 style={styles.avatarImage}
                 cachePolicy="memory-disk"
                 transition={100}
@@ -119,7 +116,7 @@ export const ImportActivityCard = memo(
           <View style={styles.userInfo}>
             <View style={styles.userNameRow}>
               <Text type="body" style={styles.userName}>
-                {activity.actorName}
+                {activity.actor.name}
               </Text>
               <Text type="bodyFaded" style={styles.uploadTime}>
                 {timeAgo}
@@ -131,98 +128,81 @@ export const ImportActivityCard = memo(
           </View>
         </TouchableOpacity>
 
-        {/* Recipe Preview (only for single recipe imports) */}
-        {!isBatchImport && activity.recipeId && (
+        {/* Recipe Preview */}
+        {activity.recipe.sourceType === "url" ? (
+          // For URL-sourced recipes, show non-tappable preview with action buttons
           <>
-            {activity.sourceType === "url" && activity.sourceUrl ? (
-              // For URL-sourced recipes, show non-tappable preview with action buttons
-              <>
-                <View style={styles.recipePreview}>
-                  {activity.recipeImage && (
-                    <Image
-                      source={{ uri: activity.recipeImage }}
-                      style={styles.recipeImage}
-                      cachePolicy="memory-disk"
-                      transition={200}
-                    />
-                  )}
-                  <View style={styles.recipeInfo}>
-                    <Text
-                      type="body"
-                      style={styles.recipeTitle}
-                      numberOfLines={2}
-                    >
-                      {activity.recipeName}
-                    </Text>
-                    <Text type="bodyFaded" style={styles.recipeSource}>
-                      from {activity.sourceDomain || "external source"}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    style={styles.viewSourceButton}
-                    onPress={handleViewSource}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name="open-outline"
-                      size={18}
-                      style={styles.viewSourceIcon}
-                    />
-                    <Text style={styles.viewSourceButtonText}>
-                      View on {activity.sourceDomain || "source"}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.importButton}
-                    onPress={() => onImportPress?.(activity.sourceUrl!)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name="add-circle-outline"
-                      size={18}
-                      style={styles.importIcon}
-                    />
-                    <Text style={styles.importButtonText}>Import</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              // For non-URL recipes, show tappable preview
+            <View style={styles.recipePreview}>
+              {activity.recipe.image && (
+                <Image
+                  source={{ uri: activity.recipe.image }}
+                  style={styles.recipeImage}
+                  cachePolicy="memory-disk"
+                  transition={200}
+                />
+              )}
+              <View style={styles.recipeInfo}>
+                <Text type="body" style={styles.recipeTitle} numberOfLines={2}>
+                  {activity.recipe.name}
+                </Text>
+                <Text type="bodyFaded" style={styles.recipeSource}>
+                  from {activity.recipe.sourceDomain}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.actionRow}>
               <TouchableOpacity
-                style={styles.recipePreview}
-                onPress={onPress}
-                activeOpacity={0.8}
+                style={styles.viewSourceButton}
+                onPress={handleViewSource}
+                activeOpacity={0.7}
               >
-                {activity.recipeImage && (
-                  <Image
-                    source={{ uri: activity.recipeImage }}
-                    style={styles.recipeImage}
-                    cachePolicy="memory-disk"
-                    transition={200}
-                  />
-                )}
-                <View style={styles.recipeInfo}>
-                  <Text
-                    type="body"
-                    style={styles.recipeTitle}
-                    numberOfLines={2}
-                  >
-                    {activity.recipeName}
-                  </Text>
-                  {activity.sourceDomain && (
-                    <Text type="bodyFaded" style={styles.recipeSource}>
-                      from {activity.sourceDomain}
-                    </Text>
-                  )}
-                  <Text type="bodyFaded" style={styles.tapHint}>
-                    Tap to view recipe
-                  </Text>
-                </View>
+                <Ionicons
+                  name="open-outline"
+                  size={18}
+                  style={styles.viewSourceIcon}
+                />
+                <Text style={styles.viewSourceButtonText}>
+                  View on {activity.recipe.sourceDomain}
+                </Text>
               </TouchableOpacity>
-            )}
+              <TouchableOpacity
+                style={styles.importButton}
+                onPress={handleImport}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="add-circle-outline"
+                  size={18}
+                  style={styles.importIcon}
+                />
+                <Text style={styles.importButtonText}>Import</Text>
+              </TouchableOpacity>
+            </View>
           </>
+        ) : (
+          // For non-URL recipes, show tappable preview
+          <TouchableOpacity
+            style={styles.recipePreview}
+            onPress={onPress}
+            activeOpacity={0.8}
+          >
+            {activity.recipe.image && (
+              <Image
+                source={{ uri: activity.recipe.image }}
+                style={styles.recipeImage}
+                cachePolicy="memory-disk"
+                transition={200}
+              />
+            )}
+            <View style={styles.recipeInfo}>
+              <Text type="body" style={styles.recipeTitle} numberOfLines={2}>
+                {activity.recipe.name}
+              </Text>
+              <Text type="bodyFaded" style={styles.tapHint}>
+                Tap to view recipe
+              </Text>
+            </View>
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -235,11 +215,11 @@ const styles = StyleSheet.create((theme) => ({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     paddingVertical: 12,
+    marginHorizontal: 20,
   },
   userHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingHorizontal: 16,
     gap: 12,
   },
   avatar: {
@@ -291,8 +271,7 @@ const styles = StyleSheet.create((theme) => ({
   recipePreview: {
     flexDirection: "row",
     marginTop: 12,
-    marginHorizontal: 16,
-    marginLeft: 68, // Align with text
+    marginLeft: 52, // Align with text (40px avatar + 12px gap)
     backgroundColor: "#f5f5f5",
     borderRadius: 12,
     overflow: "hidden",
@@ -316,8 +295,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   actionRow: {
     marginTop: 12,
-    marginHorizontal: 16,
-    marginLeft: 68,
+    marginLeft: 52,
     flexDirection: "row",
     gap: 8,
   },

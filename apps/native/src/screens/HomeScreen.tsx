@@ -22,11 +22,8 @@ import Animated, {
   interpolate,
   Easing,
 } from "react-native-reanimated";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import { StyleSheet } from "react-native-unistyles";
+import { SafeAreaView } from "@/components/SafeAreaView";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { useActivityFeed } from "@/api/activity";
 import { useSearchUsers } from "@/api/follows";
@@ -107,7 +104,7 @@ export const HomeScreen = () => {
   const searchBarRef = useRef<View>(null);
   useScrollToTop(browseScrollRef);
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
+  const insets = UnistylesRuntime.insets;
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -304,12 +301,8 @@ export const HomeScreen = () => {
         return (
           <ReviewActivityCard
             activity={item}
-            onPress={
-              item.recipeId
-                ? () => handleRecipePress(item.recipeId!)
-                : undefined
-            }
-            onUserPress={() => handleUserPress(item.actorId)}
+            onPress={() => handleRecipePress(item.recipe.id)}
+            onUserPress={() => handleUserPress(item.actor.id)}
             onImportPress={handleImportRecipe}
           />
         );
@@ -318,10 +311,8 @@ export const HomeScreen = () => {
       return (
         <ImportActivityCard
           activity={item}
-          onPress={
-            item.recipeId ? () => handleRecipePress(item.recipeId!) : undefined
-          }
-          onUserPress={() => handleUserPress(item.actorId)}
+          onPress={() => handleRecipePress(item.recipe.id)}
+          onUserPress={() => handleUserPress(item.actor.id)}
           onImportPress={handleImportRecipe}
         />
       );

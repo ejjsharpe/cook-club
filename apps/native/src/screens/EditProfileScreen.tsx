@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, Image, TouchableOpacity, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useUser } from "@/api/user";

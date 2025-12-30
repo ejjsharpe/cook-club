@@ -21,6 +21,14 @@ const CompleteOnboardingValidator = type({
   dietaryRequirements: "number[]",
 });
 
+const UpdatePreferencesValidator = type({
+  "cuisineLikes?": "number[]",
+  "cuisineDislikes?": "number[]",
+  "ingredientLikes?": "number[]",
+  "ingredientDislikes?": "number[]",
+  "dietaryRequirements?": "number[]",
+});
+
 export const userRouter = router({
   getUser: authedProcedure.query(async ({ ctx }) => {
     // Fetch full user from database to get all fields including onboardingCompleted
@@ -67,6 +75,35 @@ export const userRouter = router({
           ingredientDislikes: input.ingredientDislikes,
           dietaryRequirements: input.dietaryRequirements,
           onboardingCompleted: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, ctx.user.id))
+        .returning();
+
+      return { user: updatedUser };
+    }),
+
+  updatePreferences: authedProcedure
+    .input(UpdatePreferencesValidator)
+    .mutation(async ({ ctx, input }) => {
+      const [updatedUser] = await ctx.db
+        .update(user)
+        .set({
+          ...(input.cuisineLikes !== undefined && {
+            cuisineLikes: input.cuisineLikes,
+          }),
+          ...(input.cuisineDislikes !== undefined && {
+            cuisineDislikes: input.cuisineDislikes,
+          }),
+          ...(input.ingredientLikes !== undefined && {
+            ingredientLikes: input.ingredientLikes,
+          }),
+          ...(input.ingredientDislikes !== undefined && {
+            ingredientDislikes: input.ingredientDislikes,
+          }),
+          ...(input.dietaryRequirements !== undefined && {
+            dietaryRequirements: input.dietaryRequirements,
+          }),
           updatedAt: new Date(),
         })
         .where(eq(user.id, ctx.user.id))

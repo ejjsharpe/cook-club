@@ -12,7 +12,13 @@ export type Context = Awaited<ReturnType<typeof createContext>>;
 
 // Re-export service types for use in frontend
 export type { UserCollectionWithMetadata } from "./services/collection";
-export type { FeedItem } from "./types/feed";
+export type {
+  FeedItem,
+  RecipeImportFeedItem,
+  CookingReviewFeedItem,
+  RecipeMetadata,
+  SourceType,
+} from "./types/feed";
 
 export const appRouter = router({
   user: userRouter,

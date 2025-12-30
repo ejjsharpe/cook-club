@@ -150,7 +150,6 @@ Key tables (in `packages/db/schemas/`):
 - `recipeInstructions`: Steps with index ordering
 - `collections`: User-created recipe collections
 - `recipeCollections`: Join table for recipes in collections
-- `userLikes`: User likes on recipes
 - `tags`: Taxonomy (cuisine, meal_type, occasion)
 - `recipeTags`: Join table for recipe categorization
 

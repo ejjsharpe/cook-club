@@ -12,7 +12,7 @@ import {
   FlatList,
   Modal,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Input } from "@/components/Input";
@@ -36,6 +36,8 @@ export default function EditRecipeScreen() {
   const parsedRecipe = route.params?.parsedRecipe;
   // Extract the recipe data if parsing was successful
   const prefill = parsedRecipe?.success ? parsedRecipe.data : undefined;
+  // Extract source type from metadata (url, text, image)
+  const sourceType = parsedRecipe?.success ? parsedRecipe.metadata.source : undefined;
   const navigation = useNavigation();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -207,9 +209,6 @@ export default function EditRecipeScreen() {
       return;
     }
 
-    // Determine if this is an imported recipe (has sourceUrl from URL parsing)
-    const isImportedRecipe = !!prefill?.sourceUrl;
-
     // Prepare recipe data
     const recipeData = {
       name: title.trim(),
@@ -228,11 +227,10 @@ export default function EditRecipeScreen() {
         }))
         .filter((inst) => inst.instruction),
       images: images.map((url) => ({ url })),
-      // Include source URL if imported from web
-      ...(isImportedRecipe &&
-        prefill && {
-          sourceUrl: prefill.sourceUrl ?? undefined,
-        }),
+      // Include source URL if present (from URL parsing)
+      ...(prefill?.sourceUrl && { sourceUrl: prefill.sourceUrl }),
+      // Include source type from metadata (url, text, image) or default to manual
+      sourceType: (sourceType ?? "manual") as "url" | "text" | "image" | "manual" | "ai" | "user",
       // Use author from form for all recipes
       author: author.trim() || undefined,
     };

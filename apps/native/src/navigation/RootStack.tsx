@@ -19,6 +19,10 @@ import EditRecipeScreen from "@/screens/EditRecipeScreen";
 import { FollowsScreen } from "@/screens/FollowsScreen";
 import GenerateRecipeScreen from "@/screens/GenerateRecipeScreen";
 import { RecipeDetailScreen } from "@/screens/RecipeDetailScreen";
+import { SettingsScreen } from "@/screens/SettingsScreen";
+import { CuisinePreferencesScreen } from "@/screens/settings/CuisinePreferencesScreen";
+import { DietaryPreferencesScreen } from "@/screens/settings/DietaryPreferencesScreen";
+import { IngredientPreferencesScreen } from "@/screens/settings/IngredientPreferencesScreen";
 import { UserProfileScreen } from "@/screens/UserProfileScreen";
 
 // Type for AI-parsed recipe result
@@ -74,6 +78,10 @@ const RootStack = createNativeStackNavigator({
         EditRecipe: { screen: EditRecipeScreen },
         GenerateRecipe: { screen: GenerateRecipeScreen },
         EditProfile: { screen: EditProfileScreen },
+        Settings: { screen: SettingsScreen },
+        CuisinePreferences: { screen: CuisinePreferencesScreen },
+        IngredientPreferences: { screen: IngredientPreferencesScreen },
+        DietaryPreferences: { screen: DietaryPreferencesScreen },
         UserProfile: { screen: UserProfileScreen },
         FollowsList: { screen: FollowsScreen },
         RecipeDetail: { screen: RecipeDetailScreen },
