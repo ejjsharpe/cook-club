@@ -21,10 +21,6 @@ import React, { useEffect, useState } from "react";
 import { SheetProvider } from "react-native-actions-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import {
-  initialWindowMetrics,
-  SafeAreaProvider,
-} from "react-native-safe-area-context";
 
 import startImage1 from "@/assets/images/start-food-1.jpg";
 import startImage10 from "@/assets/images/start-food-10.jpg";
@@ -112,35 +108,33 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <KeyboardProvider>
-        <ShareIntentProvider>
-          <ReactQueryProvider>
-            <SessionProvider>
-              <TRPCProvider>
-                <SignedInProvider>
-                  <ShareIntentStorageHandler />
-                  <GestureHandlerRootView>
-                    <SheetProvider>
-                      <Navigation
-                        onReady={onNavigationReady}
-                        linking={linking}
-                        theme={{
-                          ...DefaultTheme,
-                          colors: {
-                            ...DefaultTheme.colors,
-                            background: "#FFF",
-                          },
-                        }}
-                      />
-                    </SheetProvider>
-                  </GestureHandlerRootView>
-                </SignedInProvider>
-              </TRPCProvider>
-            </SessionProvider>
-          </ReactQueryProvider>
-        </ShareIntentProvider>
-      </KeyboardProvider>
-    </SafeAreaProvider>
+    <KeyboardProvider>
+      <ShareIntentProvider>
+        <ReactQueryProvider>
+          <SessionProvider>
+            <TRPCProvider>
+              <SignedInProvider>
+                <ShareIntentStorageHandler />
+                <GestureHandlerRootView>
+                  <SheetProvider>
+                    <Navigation
+                      onReady={onNavigationReady}
+                      linking={linking}
+                      theme={{
+                        ...DefaultTheme,
+                        colors: {
+                          ...DefaultTheme.colors,
+                          background: "#FFF",
+                        },
+                      }}
+                    />
+                  </SheetProvider>
+                </GestureHandlerRootView>
+              </SignedInProvider>
+            </TRPCProvider>
+          </SessionProvider>
+        </ReactQueryProvider>
+      </ShareIntentProvider>
+    </KeyboardProvider>
   );
 }
