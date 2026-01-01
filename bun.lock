@@ -5,7 +5,6 @@
     "": {
       "name": "cook-club",
       "devDependencies": {
-        "@cloudflare/workers-types": "^4.20260101.0",
         "nx": "22.3.3",
       },
     },
@@ -34,6 +33,7 @@
         "@react-navigation/bottom-tabs": "^7.8.6",
         "@react-navigation/native": "^7.1.21",
         "@react-navigation/native-stack": "^7.7.0",
+        "@repo/shared": "workspace:*",
         "@repo/trpc": "workspace:*",
         "@tanstack/react-query": "^5.83.0",
         "better-auth": "^1.4.1",
@@ -63,6 +63,7 @@
         "react-native-mmkv": "^3.3.0",
         "react-native-nitro-modules": "0.31.9",
         "react-native-reanimated": "^4.1.5",
+        "react-native-safe-area-context": "^5.6.2",
         "react-native-screens": "~4.16.0",
         "react-native-svg": "15.12.1",
         "react-native-unistyles": "^3.0.18",
@@ -130,9 +131,17 @@
         "typescript": "^5.8.3",
       },
     },
+    "packages/shared": {
+      "name": "@repo/shared",
+      "version": "1.0.0",
+      "devDependencies": {
+        "typescript": "^5.8.3",
+      },
+    },
     "packages/trpc": {
       "name": "@repo/trpc",
       "dependencies": {
+        "@repo/shared": "workspace:*",
         "@trpc/client": "^11.4.3",
         "@trpc/server": "^11.4.3",
         "@trpc/tanstack-react-query": "^11.4.3",
@@ -697,6 +706,8 @@
     "@react-navigation/routers": ["@react-navigation/routers@7.5.2", "", { "dependencies": { "nanoid": "^3.3.11" } }, "sha512-kymreY5aeTz843E+iPAukrsOtc7nabAH6novtAPREmmGu77dQpfxPB2ZWpKb5nRErIRowp1kYRoN2Ckl+S6JYw=="],
 
     "@repo/db": ["@repo/db@workspace:packages/db"],
+
+    "@repo/shared": ["@repo/shared@workspace:packages/shared"],
 
     "@repo/trpc": ["@repo/trpc@workspace:packages/trpc"],
 

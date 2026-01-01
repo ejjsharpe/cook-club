@@ -142,7 +142,6 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
 
   // Fall back to AI parsing
   try {
-    console.log({ html });
     const cleanedContent = cleanHtml(html);
 
     if (cleanedContent.length < 100) {

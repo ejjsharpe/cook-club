@@ -199,8 +199,6 @@ export const recipeRouter = router({
         conversationState: input.conversationState,
       });
 
-      console.log({ result });
-
       if (result.type === "error") {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

@@ -71,6 +71,13 @@
       "when": 1766924088767,
       "tag": "0009_blushing_chronomancer",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1767289312067,
+      "tag": "0010_magical_freak",
+      "breakpoints": true
     }
   ]
 }

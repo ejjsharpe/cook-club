@@ -5,17 +5,18 @@ import {
   recipes,
   recipeIngredients,
 } from "@repo/db/schemas";
+import { classifyIngredientAisle } from "@repo/shared";
 import { eq, and, desc } from "drizzle-orm";
 
 import {
   parseIngredient,
   normalizeIngredientName,
 } from "../../../utils/ingredientParser";
+import { normalizeUnit } from "../../../utils/unitNormalizer";
+import type { DbClient, TransactionClient } from "../types";
 
 // Re-export for convenience
 export { parseIngredient, normalizeIngredientName };
-import { normalizeUnit } from "../../../utils/unitNormalizer";
-import type { DbClient, TransactionClient } from "../types";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ export interface ShoppingListItem {
   recipeNames: string[];
   isChecked: boolean;
   itemIds: number[];
+  aisle: string;
 }
 
 // ─── Database Helper Functions ─────────────────────────────────────────────
@@ -89,6 +91,7 @@ export async function insertShoppingListItem(
 
   const normalizedName = normalizeIngredientName(ingredientName);
   const normalizedUnit = normalizeUnit(unit); // Normalize units for better aggregation
+  const aisle = classifyIngredientAisle(normalizedName); // Classify into supermarket aisle
 
   // Insert new item - one row per recipe
   const [newItem] = await db
@@ -102,6 +105,7 @@ export async function insertShoppingListItem(
       isChecked: false,
       sourceRecipeId: sourceRecipeId || null,
       sourceRecipeName: sourceRecipeName || null,
+      aisle,
       createdAt: new Date(),
       updatedAt: new Date(),
     })

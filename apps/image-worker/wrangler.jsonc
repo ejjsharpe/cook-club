@@ -12,18 +12,31 @@
   "r2_buckets": [
     {
       "binding": "IMAGES",
-      "bucket_name": "cook-club-images"
+      "bucket_name": "cook-club-images",
+      "preview_bucket_name": "cook-club-images-dev",
+      "remote": true
     }
   ],
   "vars": {
-    // Public URL for serving images via this worker (custom domain)
-    "PUBLIC_URL": "https://images.cook-club.app",
+    // Public URL for serving images (dev uses R2 public URL, prod uses custom domain)
+    "PUBLIC_URL": "https://pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev",
     // R2 bucket's public URL (used as origin for image transformations)
-    // Enable public access on R2 bucket and use the r2.dev URL or custom domain
-    "R2_ORIGIN_URL": "https://pub-cook-club-images.r2.dev"
+    "R2_ORIGIN_URL": "https://pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev",
+    // R2 bucket name for presigned URLs (must match preview_bucket_name in dev, bucket_name in prod)
+    "R2_BUCKET_NAME": "cook-club-images-dev"
   },
   // Scheduled cleanup for orphaned temp images
   "triggers": {
     "crons": ["0 3 * * *"]
+  },
+  // Production environment overrides
+  "env": {
+    "production": {
+      "vars": {
+        "PUBLIC_URL": "https://images.cook-club.app",
+        "R2_ORIGIN_URL": "https://images.cook-club.app",
+        "R2_BUCKET_NAME": "cook-club-images"
+      }
+    }
   }
 }

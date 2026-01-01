@@ -1,3 +1,4 @@
+import { classifyIngredientAisle } from "@repo/shared";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert } from "react-native";
@@ -220,18 +221,65 @@ export const useRemoveRecipeFromList = () => {
   return useMutation(mutationOptions);
 };
 
-// Add manual item
+// Add manual item with optimistic updates
 export const useAddManualItem = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
   const mutationOptions = trpc.shopping.addManualItem.mutationOptions({
-    onSuccess: () => {
+    onMutate: async (variables) => {
+      const { ingredientText } = variables;
+
+      // Cancel outgoing refetches
+      const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
+      await queryClient.cancelQueries(shoppingListFilter);
+
+      // Snapshot previous value
+      const shoppingListQueryKey = trpc.shopping.getShoppingList.queryKey();
+      const previous = queryClient.getQueryData(shoppingListQueryKey);
+
+      // Parse the ingredient text (simple extraction for optimistic update)
+      const trimmed = ingredientText.trim();
+      const aisle = classifyIngredientAisle(trimmed);
+
+      // Optimistically add the item
+      queryClient.setQueryData(shoppingListQueryKey, (old: any) => {
+        if (!old) return old;
+
+        // Create an optimistic item with a temporary negative ID
+        const optimisticItem = {
+          id: -Date.now(), // Temporary negative ID
+          ingredientName: trimmed.toLowerCase(),
+          displayText: trimmed,
+          quantity: 0,
+          unit: null,
+          isChecked: false,
+          aisle,
+          sourceItems: [],
+        };
+
+        return {
+          ...old,
+          items: [optimisticItem, ...old.items],
+        };
+      });
+
+      return { previous, shoppingListQueryKey };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previous && context?.shoppingListQueryKey) {
+        queryClient.setQueryData(
+          context.shoppingListQueryKey,
+          context.previous,
+        );
+      }
+      Alert.alert("Error", "Failed to add item");
+    },
+    onSettled: () => {
+      // Invalidate to ensure sync with server
       const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
       queryClient.invalidateQueries(shoppingListFilter);
-    },
-    onError: () => {
-      Alert.alert("Error", "Failed to add item");
     },
   });
 

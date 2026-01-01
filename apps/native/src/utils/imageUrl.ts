@@ -23,6 +23,12 @@ const PRESETS: Record<Exclude<ImagePreset, "full">, string> = {
   "step-full": "w=1600&fit=scale-down&format=auto",
 };
 
+// Image hosts that support Cloudflare Image Resizing
+const TRANSFORMABLE_HOSTS = [
+  "images.cook-club.app", // Production
+  "pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev", // Dev R2 bucket
+];
+
 /**
  * Transforms an image URL by appending Cloudflare Image Resizing parameters.
  *
@@ -42,7 +48,10 @@ export function getImageUrl(
   if (preset === "full") return url;
 
   // Only transform our own images
-  if (!url.includes("images.cook-club.app")) return url;
+  const isTransformable = TRANSFORMABLE_HOSTS.some((host) =>
+    url.includes(host),
+  );
+  if (!isTransformable) return url;
 
   const separator = url.includes("?") ? "&" : "?";
   return `${url}${separator}${PRESETS[preset]}`;

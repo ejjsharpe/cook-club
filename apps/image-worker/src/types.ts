@@ -3,6 +3,8 @@ export interface Env {
   // R2 API credentials for presigned URLs
   R2_ACCESS_KEY_ID: string;
   R2_SECRET_ACCESS_KEY: string;
+  // R2 bucket name for generating presigned URLs (must match the bucket used by IMAGES binding)
+  R2_BUCKET_NAME: string;
   // Public URL base for the image worker (e.g., https://images.cook-club.app)
   // This is used for generating public URLs returned to clients
   PUBLIC_URL: string;

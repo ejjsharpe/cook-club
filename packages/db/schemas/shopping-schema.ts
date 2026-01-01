@@ -51,6 +51,8 @@ export const shoppingListItems = pgTable(
     sourceRecipeId: integer("source_recipe_id"),
     // Source recipe name for display (null for manual items)
     sourceRecipeName: text("source_recipe_name"),
+    // Supermarket aisle for grouping (e.g., "Fresh Produce", "Dairy & Eggs")
+    aisle: text("aisle").notNull().default("Other"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
@@ -63,6 +65,8 @@ export const shoppingListItems = pgTable(
     ),
     // Index for finding items by recipe for efficient removal
     index("shopping_list_items_source_recipe_idx").on(table.sourceRecipeId),
+    // Index for grouping by aisle
+    index("shopping_list_items_aisle_idx").on(table.aisle),
   ]
 );
 

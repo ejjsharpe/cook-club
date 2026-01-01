@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { getAisleOrder } from "@repo/shared";
 import { Image } from "expo-image";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   View,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
@@ -13,7 +14,6 @@ import {
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
@@ -25,6 +25,7 @@ import {
   useAddManualItem,
 } from "@/api/shopping";
 import { FLOATING_TAB_BAR_HEIGHT } from "@/components/FloatingTabBar";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -36,12 +37,18 @@ interface ShoppingListItem {
   unit: string | null;
   displayText: string;
   isChecked: boolean;
+  aisle: string;
   sourceItems: {
     id: number;
     quantity: number | null;
     sourceRecipeId: number | null;
     sourceRecipeName: string | null;
   }[];
+}
+
+interface Section {
+  title: string;
+  data: ShoppingListItem[];
 }
 
 interface Recipe {
@@ -69,6 +76,28 @@ export const ShoppingListScreen = () => {
   const checkedCount = items.filter(
     (item: ShoppingListItem) => item.isChecked,
   ).length;
+
+  // Group items by aisle for SectionList
+  const sections = useMemo((): Section[] => {
+    if (!items.length) return [];
+
+    // Group by aisle
+    const groups = new Map<string, ShoppingListItem[]>();
+    for (const item of items) {
+      const aisle = item.aisle || "Other";
+      const existing = groups.get(aisle) || [];
+      existing.push(item);
+      groups.set(aisle, existing);
+    }
+
+    // Convert to SectionList format, ordered by aisle order
+    return Array.from(groups.entries())
+      .sort((a, b) => getAisleOrder(a[0] as any) - getAisleOrder(b[0] as any))
+      .map(([aisle, data]) => ({
+        title: aisle,
+        data,
+      }));
+  }, [items]);
 
   const handleToggleCheck = (itemId: number) => {
     toggleMutation.mutate({ itemId });
@@ -213,6 +242,14 @@ export const ShoppingListScreen = () => {
     </Swipeable>
   );
 
+  const renderSectionHeader = ({ section }: { section: Section }) => (
+    <View style={styles.sectionHeader}>
+      <Text type="body" style={styles.sectionTitle}>
+        {section.title}
+      </Text>
+    </View>
+  );
+
   const renderEmpty = () => {
     if (isLoading) {
       return (
@@ -285,16 +322,18 @@ export const ShoppingListScreen = () => {
         )}
 
         {/* Shopping List Items */}
-        <FlatList
-          data={items}
+        <SectionList
+          sections={sections}
           renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
           keyExtractor={(item) => item.id.toString()}
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
+          stickySectionHeadersEnabled={false}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: INPUT_SECTION_HEIGHT + insets.bottom },
-            items.length === 0 && styles.emptyListContent,
+            sections.length === 0 && styles.emptyListContent,
           ]}
         />
       </SafeAreaView>
@@ -436,6 +475,22 @@ const styles = StyleSheet.create((theme) => ({
   },
   addIconDisabled: {
     opacity: 0.3,
+  },
+
+  // Section Headers
+  sectionHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 8,
+    backgroundColor: theme.colors.background,
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    opacity: 0.5,
+    textTransform: "uppercase",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.5,
   },
 
   // List Items

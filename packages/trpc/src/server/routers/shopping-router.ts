@@ -6,6 +6,7 @@ import {
   recipeIngredients,
   recipeImages,
 } from "@repo/db/schemas";
+import { classifyIngredientAisle } from "@repo/shared";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -45,6 +46,7 @@ export const shoppingRouter = router({
           unit: string | null;
           totalQuantity: number;
           isChecked: boolean;
+          aisle: string;
           items: {
             id: number;
             quantity: number | null;
@@ -65,6 +67,7 @@ export const shoppingRouter = router({
             unit: item.unit,
             totalQuantity: quantity,
             isChecked: item.isChecked,
+            aisle: item.aisle,
             items: [
               {
                 id: item.id,
@@ -103,6 +106,7 @@ export const shoppingRouter = router({
         quantity: agg.totalQuantity,
         unit: agg.unit,
         isChecked: agg.isChecked,
+        aisle: agg.aisle,
         // Return the underlying items for detailed view
         sourceItems: agg.items,
       }));
@@ -637,6 +641,7 @@ export const shoppingRouter = router({
             );
 
           // Create a new MANUAL item (no sourceRecipeId) with the user's quantity
+          const aisle = classifyIngredientAisle(normalizedName);
           await tx.insert(shoppingListItems).values({
             shoppingListId: shoppingList.id,
             ingredientName: normalizedName,
@@ -646,6 +651,7 @@ export const shoppingRouter = router({
             isChecked: false,
             sourceRecipeId: null, // Explicitly unlinked from recipes
             sourceRecipeName: null,
+            aisle,
             createdAt: new Date(),
             updatedAt: new Date(),
           });

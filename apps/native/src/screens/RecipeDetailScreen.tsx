@@ -17,7 +17,6 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { useCreateCookingReview } from "@/api/activity";
 import { useRecipeDetail, useImportRecipe } from "@/api/recipe";
-import { getImageUrl } from "@/utils/imageUrl";
 import {
   useAddRecipeToShoppingList,
   useRemoveRecipeFromList,
@@ -29,6 +28,7 @@ import { VSpace, HSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { getImageUrl } from "@/utils/imageUrl";
 import { formatMinutes } from "@/utils/timeUtils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -492,6 +492,8 @@ export const RecipeDetailScreen = () => {
       );
     }
   };
+
+  console.log(recipe.images[0]);
 
   return (
     <View style={styles.screen}>

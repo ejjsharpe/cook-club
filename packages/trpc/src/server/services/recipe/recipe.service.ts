@@ -261,9 +261,14 @@ export async function createRecipe(
       const moveResult = await imageWorker.move(moves);
 
       if (!moveResult.success) {
+        const failedMoves = moveResult.results.filter((r) => !r.success);
+        const errorDetails = failedMoves
+          .map((r) => `${r.from} -> ${r.to}: ${r.error}`)
+          .join(", ");
+        console.error("Failed to move uploaded images:", errorDetails);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to move uploaded images",
+          message: `Failed to move uploaded images: ${errorDetails}`,
         });
       }
 

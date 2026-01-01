@@ -13,8 +13,8 @@
     { "binding": "IMAGE_WORKER", "service": "cook-club-image-worker", "entrypoint": "ImageWorker" }
   ],
   "vars": {
-    // Public URL for images (used to construct image URLs in responses)
-    "IMAGE_PUBLIC_URL": "https://images.cook-club.app"
+    // Public URL for images (dev uses R2 public URL, prod uses custom domain)
+    "IMAGE_PUBLIC_URL": "https://pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev"
   },
   "durable_objects": {
     "bindings": [
@@ -23,5 +23,13 @@
   },
   "migrations": [
     { "tag": "v1", "new_classes": ["FeedDO"] }
-  ]
+  ],
+  // Production environment overrides
+  "env": {
+    "production": {
+      "vars": {
+        "IMAGE_PUBLIC_URL": "https://images.cook-club.app"
+      }
+    }
+  }
 }
