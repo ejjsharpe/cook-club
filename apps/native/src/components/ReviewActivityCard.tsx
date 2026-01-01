@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { CookingReviewFeedItem } from "@repo/trpc/server";
 import { formatDistanceToNow } from "date-fns";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
@@ -8,6 +7,8 @@ import { View, TouchableOpacity, ScrollView } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
+
+import type { CookingReviewFeedItem } from "@/api/activity";
 
 interface Props {
   activity: CookingReviewFeedItem;

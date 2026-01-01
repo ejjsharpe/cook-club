@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { useNavigation } from "@react-navigation/native";
-import { UserCollectionWithMetadata } from "@repo/trpc/client";
 import { useState, useMemo, useCallback } from "react";
 import { View, ActivityIndicator, Alert, TouchableOpacity } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -11,9 +10,9 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
+import type { Collection } from "@/api/collection";
 import {
   useGetUserCollectionsWithMetadata,
   useCreateCollection,
@@ -23,6 +22,7 @@ import { useGetUserRecipes, useAllTags } from "@/api/recipe";
 import { CollectionCard } from "@/components/CollectionCard";
 import { SheetManager } from "@/components/FilterBottomSheet";
 import { RecipeCard } from "@/components/RecipeCard";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SearchBar } from "@/components/SearchBar";
 import { VSpace } from "@/components/Space";
@@ -34,8 +34,6 @@ import { useTabSlideAnimation } from "@/hooks/useTabSlideAnimation";
 type Recipe = NonNullable<
   ReturnType<typeof useGetUserRecipes>["data"]
 >["pages"][number]["items"][number];
-
-type Collection = UserCollectionWithMetadata;
 
 type MyRecipesTab = "recipes" | "collections";
 

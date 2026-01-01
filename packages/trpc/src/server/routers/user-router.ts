@@ -10,6 +10,10 @@ const UpdateProfileValidator = type({
   "image?": "string | null",
 });
 
+const UploadAvatarValidator = type({
+  imageKey: "string",
+});
+
 const CompleteOnboardingValidator = type({
   "name?": "string",
   "bio?": "string | null",
@@ -107,6 +111,38 @@ export const userRouter = router({
           updatedAt: new Date(),
         })
         .where(eq(user.id, ctx.user.id))
+        .returning();
+
+      return { user: updatedUser };
+    }),
+
+  /**
+   * Upload a new avatar image.
+   * Moves the image from temp storage to permanent avatar location.
+   */
+  uploadAvatar: authedProcedure
+    .input(UploadAvatarValidator)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+      const ext = input.imageKey.split(".").pop() || "jpg";
+      const destinationKey = `avatars/${userId}.${ext}`;
+
+      // Move from temp to permanent location
+      await ctx.env.IMAGE_WORKER.move([
+        {
+          from: input.imageKey,
+          to: destinationKey,
+        },
+      ]);
+
+      // Construct public URL
+      const imageUrl = `${ctx.env.IMAGE_PUBLIC_URL}/${destinationKey}`;
+
+      // Update user record
+      const [updatedUser] = await ctx.db
+        .update(user)
+        .set({ image: imageUrl, updatedAt: new Date() })
+        .where(eq(user.id, userId))
         .returning();
 
       return { user: updatedUser };

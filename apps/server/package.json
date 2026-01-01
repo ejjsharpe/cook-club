@@ -1,5 +1,8 @@
 {
   "name": "cook-club-server",
+  "exports": {
+    "./service-types": "./src/service-types.ts"
+  },
   "scripts": {
     "dev": "wait-on tcp:8788 && wrangler dev --ip 0.0.0.0",
     "deploy": "wrangler deploy --minify",

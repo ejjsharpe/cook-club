@@ -1,0 +1,29 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cook-club-image-worker",
+  "main": "src/index.ts",
+  "account_id": "46fa47bc2bba51d75383b4dfe6e3deb1",
+  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2025-02-20",
+  "dev": {
+    "port": 8789
+  },
+  "workers_dev": false,
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "cook-club-images"
+    }
+  ],
+  "vars": {
+    // Public URL for serving images via this worker (custom domain)
+    "PUBLIC_URL": "https://images.cook-club.app",
+    // R2 bucket's public URL (used as origin for image transformations)
+    // Enable public access on R2 bucket and use the r2.dev URL or custom domain
+    "R2_ORIGIN_URL": "https://pub-cook-club-images.r2.dev"
+  },
+  // Scheduled cleanup for orphaned temp images
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  }
+}

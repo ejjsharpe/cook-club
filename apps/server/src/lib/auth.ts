@@ -1,12 +1,11 @@
 import { expo } from "@better-auth/expo";
 import { getDb } from "@repo/db";
 import * as schema from "@repo/db/schemas";
+import type { TRPCEnv } from "@repo/trpc/server/env";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
-import { Env } from "../types";
-
-export function getAuth(env: Env) {
+export function getAuth(env: TRPCEnv) {
   return betterAuth({
     database: drizzleAdapter(getDb(env), {
       provider: "pg",

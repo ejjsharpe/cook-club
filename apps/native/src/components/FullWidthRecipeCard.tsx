@@ -3,11 +3,12 @@ import { formatDistanceToNow } from "date-fns";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { memo, useMemo } from "react";
-import { View, TouchableOpacity, ScrollView } from "react-native";
+import { View, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
+import { getImageUrl } from "@/utils/imageUrl";
 import { formatMinutes } from "@/utils/timeUtils";
 
 interface Tag {
@@ -19,7 +20,6 @@ interface Tag {
 interface User {
   id: string;
   name: string;
-  email: string;
   image?: string | null;
 }
 
@@ -87,7 +87,7 @@ export const FullWidthRecipeCard = memo(
           <View style={styles.avatar}>
             {recipe.owner.image ? (
               <Image
-                source={{ uri: recipe.owner.image }}
+                source={{ uri: getImageUrl(recipe.owner.image, "avatar-sm") }}
                 style={styles.avatarImage}
                 cachePolicy="memory-disk"
                 transition={100}
@@ -112,7 +112,7 @@ export const FullWidthRecipeCard = memo(
         <View style={styles.imageContainer}>
           {recipe.coverImage ? (
             <Image
-              source={{ uri: recipe.coverImage }}
+              source={{ uri: getImageUrl(recipe.coverImage, "recipe-card") }}
               style={styles.coverImage}
               cachePolicy="memory-disk"
               priority="normal"

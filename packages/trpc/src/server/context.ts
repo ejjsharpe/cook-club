@@ -2,11 +2,11 @@ import { getDb } from "@repo/db";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 
 import { getAuth } from "../../../../apps/server/src/lib/auth";
-import type { Env } from "../../../../apps/server/src/types";
+import type { TRPCEnv } from "./env";
 
 export async function createContext(
   opts: FetchCreateContextFnOptions,
-  env: Env,
+  env: TRPCEnv,
 ) {
   const { req, resHeaders } = opts;
   const db = getDb(env);

@@ -1,5 +1,11 @@
+import type { Outputs } from "@repo/trpc/client";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+// API Response Types
+export type SearchUser = Outputs["follows"]["searchUsers"][number];
+export type UserProfile = Outputs["follows"]["getUserProfile"];
+export type FollowItem = Outputs["follows"]["getFollowing"][number];
 
 export const useFollowing = () => {
   const trpc = useTRPC();

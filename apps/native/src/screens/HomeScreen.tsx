@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
-import type { Outputs, FeedItem } from "@repo/trpc/client";
 import { useTRPC } from "@repo/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -22,15 +21,15 @@ import Animated, {
   interpolate,
   Easing,
 } from "react-native-reanimated";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { useActivityFeed } from "@/api/activity";
-import { useSearchUsers } from "@/api/follows";
-import { useUser } from "@/api/user";
+import { useActivityFeed, FeedItem } from "@/api/activity";
+import { useSearchUsers, SearchUser } from "@/api/follows";
+import { useUser, User } from "@/api/user";
 import { EmptyFeedState } from "@/components/EmptyFeedState";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { SearchBar } from "@/components/SearchBar";
 import { SearchEmptyState } from "@/components/SearchEmptyState";
 import { VSpace } from "@/components/Space";
@@ -38,13 +37,10 @@ import { Text } from "@/components/Text";
 import { UserSearchCard } from "@/components/UserSearchCard";
 import { useDebounce } from "@/hooks/useDebounce";
 
-type SearchUser = Outputs["follows"]["searchUsers"][number];
-type CurrentUser = Outputs["user"]["getUser"]["user"];
-
 // ─── Header Component ─────────────────────────────────────────────────────────
 
 interface HeaderProps {
-  user: CurrentUser | undefined;
+  user: User | undefined;
   onAvatarPress: () => void;
 }
 

@@ -17,6 +17,7 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { useCreateCookingReview } from "@/api/activity";
 import { useRecipeDetail, useImportRecipe } from "@/api/recipe";
+import { getImageUrl } from "@/utils/imageUrl";
 import {
   useAddRecipeToShoppingList,
   useRemoveRecipeFromList,
@@ -217,7 +218,10 @@ export const RecipeDetailScreen = () => {
     index: number;
   }) => (
     <View style={styles.imageContainer}>
-      <Image source={{ uri: item.url }} style={styles.recipeImage} />
+      <Image
+        source={{ uri: getImageUrl(item.url, "recipe-hero") }}
+        style={styles.recipeImage}
+      />
     </View>
   );
 
@@ -243,7 +247,7 @@ export const RecipeDetailScreen = () => {
           <View style={styles.avatar}>
             {recipe.owner.image ? (
               <Image
-                source={{ uri: recipe.owner.image }}
+                source={{ uri: getImageUrl(recipe.owner.image, "avatar-sm") }}
                 style={styles.avatarImage}
               />
             ) : (
@@ -471,7 +475,9 @@ export const RecipeDetailScreen = () => {
                         style={styles.stepImageThumbnail}
                       >
                         <Image
-                          source={{ uri: item.imageUrl }}
+                          source={{
+                            uri: getImageUrl(item.imageUrl, "step-thumb"),
+                          }}
                           style={styles.stepImage}
                           contentFit="cover"
                         />
@@ -574,7 +580,7 @@ export const RecipeDetailScreen = () => {
 
             {expandedImageUrl && (
               <Image
-                source={{ uri: expandedImageUrl }}
+                source={{ uri: getImageUrl(expandedImageUrl, "step-full") }}
                 style={styles.expandedImage}
                 contentFit="contain"
               />

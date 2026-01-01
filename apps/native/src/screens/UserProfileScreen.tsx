@@ -1,11 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
-import type {
-  FeedItem,
-  CookingReviewFeedItem,
-  RecipeImportFeedItem,
-} from "@repo/trpc/client";
 import { useTRPC } from "@repo/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useCallback, useState } from "react";
@@ -17,14 +12,19 @@ import {
   TouchableOpacity,
   Share,
 } from "react-native";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
+import type {
+  FeedItem,
+  CookingReviewFeedItem,
+  RecipeImportFeedItem,
+} from "@/api/activity";
 import { useUserActivities } from "@/api/activity";
 import { useUserProfile, useFollowUser, useUnfollowUser } from "@/api/follows";
 import { useUser } from "@/api/user";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
@@ -142,7 +142,7 @@ export const UserProfileScreen = () => {
       if (item.type === "cooking_review") {
         return (
           <ReviewActivityCard
-            activity={item as CookingReviewFeedItem}
+            activity={item satisfies CookingReviewFeedItem}
             onPress={() =>
               navigation.navigate("RecipeDetail", {
                 recipeId: item.recipe.id,
@@ -157,7 +157,7 @@ export const UserProfileScreen = () => {
       }
       return (
         <ImportActivityCard
-          activity={item as RecipeImportFeedItem}
+          activity={item satisfies RecipeImportFeedItem}
           onPress={() =>
             navigation.navigate("RecipeDetail", {
               recipeId: item.recipe.id,

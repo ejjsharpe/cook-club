@@ -4,21 +4,12 @@ import { collectionRouter } from "./routers/collection-router";
 import { followsRouter } from "./routers/follows-router";
 import { recipeRouter } from "./routers/recipe-router";
 import { shoppingRouter } from "./routers/shopping-router";
+import { uploadRouter } from "./routers/upload-router";
 import { userRouter } from "./routers/user-router";
 import { router } from "./trpc";
 
 export { createContext };
 export type Context = Awaited<ReturnType<typeof createContext>>;
-
-// Re-export service types for use in frontend
-export type { UserCollectionWithMetadata } from "./services/collection";
-export type {
-  FeedItem,
-  RecipeImportFeedItem,
-  CookingReviewFeedItem,
-  RecipeMetadata,
-  SourceType,
-} from "./types/feed";
 
 export const appRouter = router({
   user: userRouter,
@@ -27,6 +18,7 @@ export const appRouter = router({
   collection: collectionRouter,
   shopping: shoppingRouter,
   activity: activityRouter,
+  upload: uploadRouter,
 });
 
 export type AppRouter = typeof appRouter;

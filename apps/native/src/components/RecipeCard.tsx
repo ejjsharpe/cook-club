@@ -3,10 +3,10 @@ import { Image } from "expo-image";
 import { View, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { VSpace } from "./Space";
 import { TagChip } from "./TagChip";
 import { Text } from "./Text";
 
+import { getImageUrl } from "@/utils/imageUrl";
 import { formatMinutes } from "@/utils/timeUtils";
 
 interface Tag {
@@ -29,8 +29,6 @@ interface Recipe {
   cookTime?: number | null;
   totalTime?: number | null;
   servings?: number | null;
-  category?: string | null;
-  cuisine?: string | null;
   coverImage?: string | null;
   tags?: Tag[];
   owner?: User;
@@ -53,7 +51,7 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
       <View style={styles.thumbnail}>
         {recipe.coverImage ? (
           <Image
-            source={{ uri: recipe.coverImage }}
+            source={{ uri: getImageUrl(recipe.coverImage, "recipe-thumb") }}
             style={styles.thumbnailImage}
             contentFit="cover"
           />

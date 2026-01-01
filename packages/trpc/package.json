@@ -4,6 +4,7 @@
   "exports": {
     "./client": "./src/client.ts",
     "./server": "./src/server/index.ts",
+    "./server/env": "./src/server/env.ts",
     "./server/types/feed": "./src/server/types/feed.ts"
   },
   "scripts": {
@@ -14,7 +15,10 @@
     "@trpc/client": "^11.4.3",
     "@trpc/server": "^11.4.3",
     "@trpc/tanstack-react-query": "^11.4.3",
-    "arktype": "^2.1.20"
+    "arktype": "^2.1.20",
+    "cook-club-image-worker": "workspace:*",
+    "cook-club-recipe-parser": "workspace:*",
+    "cook-club-server": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^3.2.3"

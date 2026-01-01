@@ -1,8 +1,11 @@
-import { View, TouchableOpacity, Image } from "react-native";
+import { Image } from "expo-image";
+import { View, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { HSpace } from "./Space";
 import { Text } from "./Text";
+
+import { getImageUrl } from "@/utils/imageUrl";
 
 interface User {
   id: string;
@@ -21,7 +24,10 @@ export const UserCard = ({ user, onPress }: Props) => {
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.avatar}>
         {user.image ? (
-          <Image source={{ uri: user.image }} style={styles.avatarImage} />
+          <Image
+            source={{ uri: getImageUrl(user.image, "avatar-sm") }}
+            style={styles.avatarImage}
+          />
         ) : (
           <View style={styles.avatarPlaceholder}>
             <Text type="heading" style={styles.avatarText}>

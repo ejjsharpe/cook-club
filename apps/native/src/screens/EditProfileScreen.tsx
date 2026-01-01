@@ -1,38 +1,91 @@
-import { useState } from "react";
-import { View, Image, TouchableOpacity, Alert } from "react-native";
-import { SafeAreaView } from "@/components/SafeAreaView";
+import { useNavigation } from "@react-navigation/native";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useState, useEffect } from "react";
+import { View, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useUser } from "@/api/user";
+import { useUser, useUpdateProfile } from "@/api/user";
 import { Input } from "@/components/Input";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { useAvatarUpload } from "@/hooks/useAvatarUpload";
+import { getImageUrl } from "@/utils/imageUrl";
 
 export const EditProfileScreen = () => {
+  const navigation = useNavigation();
   const { data: currentUser } = useUser();
+  const { mutateAsync: updateProfile, isPending: isUpdatingProfile } =
+    useUpdateProfile();
+  const {
+    upload: uploadAvatar,
+    isUploading: isUploadingAvatar,
+    progress: uploadProgress,
+  } = useAvatarUpload({
+    onError: (error) => {
+      Alert.alert("Upload Failed", error.message);
+    },
+  });
 
-  const [name, setName] = useState(currentUser?.user?.name ?? "");
+  const [name, setName] = useState("");
+  const [localImage, setLocalImage] = useState<string | null>(null);
 
-  const handleSave = () => {
-    // TODO: Implement profile update mutation when backend endpoint is available
-    Alert.alert(
-      "Coming Soon",
-      "Profile editing will be available in a future update.",
-    );
-  };
-
-  const handlePickImage = () => {
-    // TODO: Implement image picker when backend supports image upload
-    Alert.alert(
-      "Coming Soon",
-      "Profile image editing will be available in a future update.",
-    );
-  };
+  // Initialize name from current user
+  useEffect(() => {
+    if (currentUser?.user?.name && !name) {
+      setName(currentUser.user.name);
+    }
+  }, [currentUser?.user?.name]);
 
   const userImage = currentUser?.user?.image;
   const userName = currentUser?.user?.name ?? "";
+  const isSaving = isUploadingAvatar || isUpdatingProfile;
+
+  const hasChanges =
+    localImage !== null || name !== (currentUser?.user?.name ?? "");
+
+  const handlePickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setLocalImage(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!hasChanges) {
+      navigation.goBack();
+      return;
+    }
+
+    try {
+      // Upload avatar if changed
+      if (localImage) {
+        await uploadAvatar(localImage);
+      }
+
+      // Update name if changed
+      if (name !== currentUser?.user?.name) {
+        await updateProfile({ name });
+      }
+
+      navigation.goBack();
+    } catch (error) {
+      // Error is already handled in useAvatarUpload
+      console.error("Failed to save profile:", error);
+    }
+  };
+
+  // Determine which image to display
+  const displayImage = localImage ?? getImageUrl(userImage, "avatar-lg");
 
   return (
     <View style={styles.screen}>
@@ -50,10 +103,14 @@ export const EditProfileScreen = () => {
           <VSpace size={32} />
 
           {/* Avatar with edit overlay */}
-          <TouchableOpacity onPress={handlePickImage} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={handlePickImage}
+            activeOpacity={0.7}
+            disabled={isSaving}
+          >
             <View style={styles.avatarContainer}>
-              {userImage ? (
-                <Image source={{ uri: userImage }} style={styles.avatar} />
+              {displayImage ? (
+                <Image source={{ uri: displayImage }} style={styles.avatar} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
                   <Text type="largeTitle" style={styles.avatarText}>
@@ -61,9 +118,16 @@ export const EditProfileScreen = () => {
                   </Text>
                 </View>
               )}
-              <View style={styles.editOverlay}>
-                <Text style={styles.editOverlayText}>Edit</Text>
-              </View>
+              {isUploadingAvatar ? (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.uploadingText}>{uploadProgress}%</Text>
+                </View>
+              ) : (
+                <View style={styles.editOverlay}>
+                  <Text style={styles.editOverlayText}>Edit</Text>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
 
@@ -80,12 +144,18 @@ export const EditProfileScreen = () => {
               onChangeText={setName}
               placeholder="Your name"
               autoCapitalize="words"
+              editable={!isSaving}
             />
           </View>
 
           <VSpace size={32} />
 
-          <PrimaryButton onPress={handleSave}>Save Changes</PrimaryButton>
+          <PrimaryButton
+            onPress={handleSave}
+            disabled={isSaving || !hasChanges}
+          >
+            {isSaving ? "Saving..." : "Save Changes"}
+          </PrimaryButton>
         </View>
       </SafeAreaView>
     </View>
@@ -142,6 +212,23 @@ const styles = StyleSheet.create((theme) => ({
     color: "#fff",
     fontSize: 12,
     fontWeight: "600",
+  },
+  uploadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadingText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
   },
   inputContainer: {
     width: "100%",

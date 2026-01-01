@@ -1,3 +1,4 @@
+import type { Outputs } from "@repo/trpc/client";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { inferOutput } from "@trpc/tanstack-react-query";
@@ -7,6 +8,12 @@ import {
   updateRecipeCollections,
   toggleCollectionInArray,
 } from "./utils/cache-helpers";
+
+// API Response Types
+// Use getUserCollectionsById which always returns metadata
+export type Collection =
+  Outputs["collection"]["getUserCollectionsById"][number];
+export type CollectionDetail = Outputs["collection"]["getCollectionDetail"];
 
 // Get user's collections with optional recipe membership info
 interface UseGetUserCollectionsParams {

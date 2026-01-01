@@ -5,25 +5,7 @@ import {
 import { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 
-import type {
-  AppRouter,
-  UserCollectionWithMetadata,
-  FeedItem,
-  RecipeImportFeedItem,
-  CookingReviewFeedItem,
-  RecipeMetadata,
-  SourceType,
-} from "./server";
-
-// Re-export service types for frontend use
-export type {
-  UserCollectionWithMetadata,
-  FeedItem,
-  RecipeImportFeedItem,
-  CookingReviewFeedItem,
-  RecipeMetadata,
-  SourceType,
-};
+import type { AppRouter } from "./server";
 
 export const createTRPCClient = ({
   apiUrl,

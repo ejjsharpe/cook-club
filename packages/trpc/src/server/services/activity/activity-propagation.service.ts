@@ -10,7 +10,7 @@ import {
 } from "@repo/db/schemas";
 import { eq, desc } from "drizzle-orm";
 
-import type { Env } from "../../../../../../apps/server/src/types";
+import type { TRPCEnv } from "../../env";
 import type { FeedItem, RecipeMetadata, SourceType } from "../../types/feed";
 
 /**
@@ -170,7 +170,7 @@ export async function buildFeedItem(
  */
 export async function propagateActivityToFollowers(
   db: DbType,
-  env: Env,
+  env: TRPCEnv,
   activityEventId: number,
   userId: string,
 ): Promise<void> {
@@ -206,7 +206,7 @@ export async function propagateActivityToFollowers(
  */
 export async function backfillFeedFromUser(
   db: DbType,
-  env: Env,
+  env: TRPCEnv,
   currentUserId: string,
   followedUserId: string,
   limit: number = 10,
@@ -245,7 +245,7 @@ export async function backfillFeedFromUser(
  * Remove all items from a user after unfollowing.
  */
 export async function removeUserFromFeed(
-  env: Env,
+  env: TRPCEnv,
   currentUserId: string,
   unfollowedUserId: string,
 ): Promise<void> {
@@ -265,7 +265,7 @@ export async function removeUserFromFeed(
  */
 export async function hydrateFeed(
   db: DbType,
-  env: Env,
+  env: TRPCEnv,
   userId: string,
   limitPerUser: number = 10,
 ): Promise<number> {

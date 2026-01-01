@@ -81,7 +81,9 @@ export const RecipePostValidator = type({
   name: "string",
   ingredients: IngredientRecord.array().atLeastLength(1),
   instructions: InstructionRecord.array().atLeastLength(1),
-  images: ImageRecord.array().atLeastLength(1),
+  // Either images (direct URLs) or imageUploadIds (temp keys from upload)
+  "images?": ImageRecord.array(),
+  "imageUploadIds?": "string[]",
 
   "sourceUrl?": "string",
   "sourceType?": SourceTypeValidator,
@@ -219,12 +221,29 @@ export const recipeRouter = router({
         });
       }
 
+      // Validate that at least one image source is provided
+      const hasImages = input.images && input.images.length > 0;
+      const hasUploadIds =
+        input.imageUploadIds && input.imageUploadIds.length > 0;
+      if (!hasImages && !hasUploadIds) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "At least one image is required",
+        });
+      }
+
       // Validate tags
       await validateTags(ctx.db, input.categories, input.cuisines);
 
       try {
-        // Create the recipe
-        const recipe = await createRecipe(ctx.db, ctx.user.id, input);
+        // Create the recipe, passing image worker if we have upload IDs
+        const recipe = await createRecipe(
+          ctx.db,
+          ctx.user.id,
+          input,
+          hasUploadIds ? ctx.env.IMAGE_WORKER : undefined,
+          hasUploadIds ? ctx.env.IMAGE_PUBLIC_URL : undefined,
+        );
 
         // Create activity event for the import
         const activityEventResult = await ctx.db

@@ -1,3 +1,4 @@
+import type { Outputs } from "@repo/trpc/client";
 import { useTRPC } from "@repo/trpc/client";
 import {
   useInfiniteQuery,
@@ -5,6 +6,14 @@ import {
   useQueryClient,
   useQuery,
 } from "@tanstack/react-query";
+
+// API Response Types
+export type FeedItem = Outputs["activity"]["getFeed"]["items"][number];
+export type RecipeImportFeedItem = Extract<FeedItem, { type: "recipe_import" }>;
+export type CookingReviewFeedItem = Extract<
+  FeedItem,
+  { type: "cooking_review" }
+>;
 
 // Get activity feed with infinite scroll
 interface UseActivityFeedParams {

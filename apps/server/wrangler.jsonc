@@ -9,8 +9,13 @@
     "port": 8787
   },
   "services": [
-    { "binding": "RECIPE_PARSER", "service": "cook-club-recipe-parser", "entrypoint": "RecipeParser" }
+    { "binding": "RECIPE_PARSER", "service": "cook-club-recipe-parser", "entrypoint": "RecipeParser" },
+    { "binding": "IMAGE_WORKER", "service": "cook-club-image-worker", "entrypoint": "ImageWorker" }
   ],
+  "vars": {
+    // Public URL for images (used to construct image URLs in responses)
+    "IMAGE_PUBLIC_URL": "https://images.cook-club.app"
+  },
   "durable_objects": {
     "bindings": [
       { "name": "USER_FEED", "class_name": "FeedDO" }

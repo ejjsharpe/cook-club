@@ -3,11 +3,11 @@ import {
   StaticParamList,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Outputs } from "@repo/trpc/client";
 import { lazy } from "react";
 
 import { TabNavigator } from "./TabNavigator";
 
+import type { ParsedRecipe } from "@/api/recipe";
 import {
   useIsSignedIn,
   useIsSignedOut,
@@ -20,13 +20,10 @@ import { FollowsScreen } from "@/screens/FollowsScreen";
 import GenerateRecipeScreen from "@/screens/GenerateRecipeScreen";
 import { RecipeDetailScreen } from "@/screens/RecipeDetailScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
+import { UserProfileScreen } from "@/screens/UserProfileScreen";
 import { CuisinePreferencesScreen } from "@/screens/settings/CuisinePreferencesScreen";
 import { DietaryPreferencesScreen } from "@/screens/settings/DietaryPreferencesScreen";
 import { IngredientPreferencesScreen } from "@/screens/settings/IngredientPreferencesScreen";
-import { UserProfileScreen } from "@/screens/UserProfileScreen";
-
-// Type for AI-parsed recipe result
-type ParsedRecipeResult = Outputs["recipe"]["parseRecipeFromUrl"];
 
 const StartScreen = lazy(() => import("@/screens/StartScreen"));
 const SignUpScreen = lazy(() => import("@/screens/SignUpScreen"));
@@ -38,7 +35,7 @@ type RootStackParamList = StaticParamList<typeof RootStack>;
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {
-      EditRecipe: { parsedRecipe?: ParsedRecipeResult };
+      EditRecipe: { parsedRecipe?: ParsedRecipe };
       GenerateRecipe: Record<string, never>;
       UserProfile: { userId: string };
       FollowsList: {

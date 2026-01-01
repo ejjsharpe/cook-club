@@ -12,6 +12,7 @@ import {
   user,
 } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
+import type { ImageWorkerService } from "cook-club-image-worker/service";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
@@ -45,7 +46,9 @@ export interface CreateRecipeInput {
   name: string;
   ingredients: CreateRecipeIngredient[];
   instructions: CreateRecipeInstruction[];
-  images: CreateRecipeImage[];
+  // Either images (direct URLs) or imageUploadIds (temp keys to be moved)
+  images?: CreateRecipeImage[];
+  imageUploadIds?: string[];
   sourceUrl?: string;
   sourceType?: SourceType;
   categories?: string[];
@@ -56,6 +59,8 @@ export interface CreateRecipeInput {
   totalTime?: number; // minutes
   servings: number;
 }
+
+export type { ImageWorkerService };
 
 export type RecipeWithDetails = Omit<typeof recipes.$inferSelect, "ownerId"> & {
   owner: Pick<typeof user.$inferSelect, "id" | "name" | "email" | "image">;
@@ -136,13 +141,27 @@ export async function validateTags(
 // ─── Recipe Creation ───────────────────────────────────────────────────────
 
 /**
- * Create a new recipe with ingredients, instructions, and images
+ * Create a new recipe with ingredients, instructions, and images.
+ * Supports both direct image URLs and uploaded image keys that need to be moved.
  */
 export async function createRecipe(
   db: DbClient,
   userId: string,
   input: CreateRecipeInput,
+  imageWorker?: ImageWorkerService,
+  imagePublicUrl?: string,
 ) {
+  // Validate that we have either images or imageUploadIds
+  const hasDirectImages = input.images && input.images.length > 0;
+  const hasUploadIds = input.imageUploadIds && input.imageUploadIds.length > 0;
+
+  if (!hasDirectImages && !hasUploadIds) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "At least one image is required",
+    });
+  }
+
   // Use transaction to ensure all inserts succeed or all fail
   return await db.transaction(async (tx) => {
     // Insert recipe
@@ -226,13 +245,47 @@ export async function createRecipe(
         imageUrl: recipeInstructions.imageUrl,
       });
 
-    // Insert images (required)
+    // Handle images - either direct URLs or uploaded keys
+    let imageUrls: string[];
+
+    if (hasUploadIds && imageWorker && imagePublicUrl) {
+      // Move images from temp to permanent location
+      const moves = input.imageUploadIds!.map((uploadId) => {
+        // Extract extension from upload key (temp/{uuid}.{ext})
+        const ext = uploadId.split(".").pop() || "jpg";
+        const imageId = crypto.randomUUID();
+        const permanentKey = `recipes/covers/${recipe.id}/${imageId}.${ext}`;
+        return { from: uploadId, to: permanentKey };
+      });
+
+      const moveResult = await imageWorker.move(moves);
+
+      if (!moveResult.success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to move uploaded images",
+        });
+      }
+
+      // Generate public URLs from permanent keys
+      imageUrls = moves.map((move) => `${imagePublicUrl}/${move.to}`);
+    } else if (hasDirectImages) {
+      // Use direct URLs as-is
+      imageUrls = input.images!.map((img) => img.url);
+    } else {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "No valid images provided",
+      });
+    }
+
+    // Insert images
     const images = await tx
       .insert(recipeImages)
       .values(
-        input.images.map((image) => ({
+        imageUrls.map((url) => ({
           recipeId: recipe.id,
-          url: image.url,
+          url,
         })),
       )
       .returning({

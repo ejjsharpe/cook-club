@@ -3,7 +3,7 @@ import { useTRPC } from "@repo/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   ScrollView,
@@ -11,16 +11,18 @@ import {
   Alert,
   FlatList,
   Modal,
+  ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Input } from "@/components/Input";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { TimePicker } from "@/components/TimePicker";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 interface ParsedIngredient {
   quantity: number | null;
@@ -37,7 +39,9 @@ export default function EditRecipeScreen() {
   // Extract the recipe data if parsing was successful
   const prefill = parsedRecipe?.success ? parsedRecipe.data : undefined;
   // Extract source type from metadata (url, text, image)
-  const sourceType = parsedRecipe?.success ? parsedRecipe.metadata.source : undefined;
+  const sourceType = parsedRecipe?.success
+    ? parsedRecipe.metadata.source
+    : undefined;
   const navigation = useNavigation();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -80,11 +84,27 @@ export default function EditRecipeScreen() {
   const [method, setMethod] = useState<string[]>(getInstructionsText);
   const [methodImages, setMethodImages] =
     useState<(string | null)[]>(getInstructionImages);
-  const [images, setImages] = useState<string[]>(prefill?.images || []);
+  // Track images with their upload state
+  // For new uploads: { uri, key } where key is set after upload completes
+  // For prefill images: { uri } where uri is already a remote URL
+  const [images, setImages] = useState<{ uri: string; key?: string }[]>(
+    () => prefill?.images?.map((uri) => ({ uri })) || [],
+  );
   const [showParsePreview, setShowParsePreview] = useState(false);
   const [parsedIngredients, setParsedIngredients] = useState<
     ParsedIngredient[]
   >([]);
+
+  // Image upload hook
+  const {
+    uploadImages,
+    isUploading: isUploadingImages,
+    uploadProgress,
+  } = useImageUpload({
+    onError: (error) => {
+      Alert.alert("Upload Error", error.message);
+    },
+  });
 
   const updateIngredient = (idx: number, value: string) => {
     setIngredients((prev) => prev.map((ing, i) => (i === idx ? value : ing)));
@@ -134,7 +154,7 @@ export default function EditRecipeScreen() {
     );
   };
 
-  const pickImage = async () => {
+  const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
@@ -143,13 +163,37 @@ export default function EditRecipeScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setImages((prev) => [...prev, ...result.assets.map((item) => item.uri)]);
-    }
-  };
+      const newUris = result.assets.map((item) => item.uri);
 
-  const removeImage = (idx: number) => {
+      // Add to display immediately (without keys yet)
+      setImages((prev) => [...prev, ...newUris.map((uri) => ({ uri }))]);
+
+      try {
+        // Upload in background
+        const uploadResults = await uploadImages(newUris);
+
+        // Build a map of URI -> key for efficient lookup
+        const uriToKey = new Map(
+          uploadResults.map((result, i) => [newUris[i], result.key]),
+        );
+
+        // Update images with their keys
+        setImages((prev) =>
+          prev.map((img) => {
+            const key = uriToKey.get(img.uri);
+            return key ? { ...img, key } : img;
+          }),
+        );
+      } catch {
+        // Remove from display if upload fails
+        setImages((prev) => prev.filter((img) => !newUris.includes(img.uri)));
+      }
+    }
+  }, [uploadImages]);
+
+  const removeImage = useCallback((idx: number) => {
     setImages((prev) => prev.filter((_, i) => i !== idx));
-  };
+  }, []);
 
   const saveRecipeMutation = useMutation({
     ...trpc.recipe.postRecipe.mutationOptions(),
@@ -209,6 +253,26 @@ export default function EditRecipeScreen() {
       return;
     }
 
+    // Check if images are still uploading
+    if (isUploadingImages) {
+      Alert.alert("Please wait", "Images are still uploading...");
+      return;
+    }
+
+    // Separate images into new uploads (with keys) and existing URLs (prefill without keys)
+    const newUploadKeys = images
+      .filter((img) => img.key)
+      .map((img) => img.key!);
+    const existingImageUrls = images
+      .filter((img) => !img.key && img.uri.startsWith("http"))
+      .map((img) => img.uri);
+
+    // Check if we have any valid images
+    if (newUploadKeys.length === 0 && existingImageUrls.length === 0) {
+      Alert.alert("Error", "Please wait for images to finish uploading");
+      return;
+    }
+
     // Prepare recipe data
     const recipeData = {
       name: title.trim(),
@@ -226,11 +290,22 @@ export default function EditRecipeScreen() {
           imageUrl: methodImages[idx] || null,
         }))
         .filter((inst) => inst.instruction),
-      images: images.map((url) => ({ url })),
+      // Include new upload keys if any
+      ...(newUploadKeys.length > 0 && { imageUploadIds: newUploadKeys }),
+      // Include existing image URLs if any
+      ...(existingImageUrls.length > 0 && {
+        images: existingImageUrls.map((url) => ({ url })),
+      }),
       // Include source URL if present (from URL parsing)
       ...(prefill?.sourceUrl && { sourceUrl: prefill.sourceUrl }),
       // Include source type from metadata (url, text, image) or default to manual
-      sourceType: (sourceType ?? "manual") as "url" | "text" | "image" | "manual" | "ai" | "user",
+      sourceType: (sourceType ?? "manual") as
+        | "url"
+        | "text"
+        | "image"
+        | "manual"
+        | "ai"
+        | "user",
       // Use author from form for all recipes
       author: author.trim() || undefined,
     };
@@ -263,20 +338,39 @@ export default function EditRecipeScreen() {
               <FlatList
                 horizontal
                 data={images}
-                keyExtractor={(_, index) => index.toString()}
+                keyExtractor={(item, index) => item.uri + index}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.imageList}
-                renderItem={({ item: uri, index }) => (
-                  <View style={styles.imageContainer}>
-                    <Image source={{ uri }} style={styles.image} />
-                    <TouchableOpacity
-                      style={styles.imageRemoveButton}
-                      onPress={() => removeImage(index)}
-                    >
-                      <Text style={styles.removeButtonText}>×</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                renderItem={({ item, index }) => {
+                  const progress = uploadProgress[item.uri];
+                  const isUploading =
+                    progress !== undefined && progress >= 0 && progress < 100;
+                  const uploadFailed = progress === -1;
+
+                  return (
+                    <View style={styles.imageContainer}>
+                      <Image source={{ uri: item.uri }} style={styles.image} />
+                      {isUploading && (
+                        <View style={styles.uploadOverlay}>
+                          <ActivityIndicator color="white" size="large" />
+                        </View>
+                      )}
+                      {uploadFailed && (
+                        <View
+                          style={[styles.uploadOverlay, styles.uploadFailed]}
+                        >
+                          <Text style={styles.uploadFailedText}>!</Text>
+                        </View>
+                      )}
+                      <TouchableOpacity
+                        style={styles.imageRemoveButton}
+                        onPress={() => removeImage(index)}
+                      >
+                        <Text style={styles.removeButtonText}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }}
               />
               <View style={styles.padded}>
                 <TouchableOpacity style={styles.addButton} onPress={pickImage}>
@@ -453,9 +547,13 @@ export default function EditRecipeScreen() {
             <VSpace size={32} />
             <PrimaryButton
               onPress={onSave}
-              disabled={saveRecipeMutation.isPending}
+              disabled={saveRecipeMutation.isPending || isUploadingImages}
             >
-              {saveRecipeMutation.isPending ? "Saving..." : "Save recipe"}
+              {isUploadingImages
+                ? "Uploading images..."
+                : saveRecipeMutation.isPending
+                  ? "Saving..."
+                  : "Save recipe"}
             </PrimaryButton>
             <VSpace size={32} />
           </View>
@@ -572,6 +670,25 @@ const styles = StyleSheet.create((theme) => ({
     height: 180,
     borderRadius: 12,
     backgroundColor: "#eee",
+  },
+  uploadOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadFailed: {
+    backgroundColor: "rgba(255, 68, 68, 0.7)",
+  },
+  uploadFailedText: {
+    color: "white",
+    fontSize: 32,
+    fontWeight: "bold",
   },
   imageRemoveButton: {
     position: "absolute",

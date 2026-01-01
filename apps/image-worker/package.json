@@ -1,5 +1,5 @@
 {
-  "name": "cook-club-recipe-parser",
+  "name": "cook-club-image-worker",
   "type": "module",
   "exports": {
     "./service": "./src/service.ts"
@@ -9,23 +9,16 @@
     "deploy": "wrangler deploy --minify",
     "check-types": "tsc --noEmit",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
-    "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:all": "vitest run && vitest run --config vitest.integration.config.ts"
+    "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix"
   },
   "dependencies": {
-    "@cloudflare/puppeteer": "^1.0.4",
-    "arktype": "^2.1.20",
-    "cheerio": "^1.1.0"
+    "aws4fetch": "^1.0.20",
+    "hono": "^4.10.6"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.11.0",
     "@cloudflare/workers-types": "^4.20250718.0",
     "@repo/tsconfig": "workspace:*",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.3",
     "wrangler": "^4.50.0"
   },
   "eslintConfig": {
