@@ -32,6 +32,18 @@ interface ParsedIngredient {
   originalText: string;
 }
 
+interface IngredientSection {
+  name: string | null;
+  index: number;
+  items: string[];
+}
+
+interface MethodSection {
+  name: string | null;
+  index: number;
+  items: { text: string; imageUrl: string | null }[];
+}
+
 export default function EditRecipeScreen() {
   const route =
     useRoute<RouteProp<ReactNavigation.RootParamList, "EditRecipe">>();
@@ -46,28 +58,53 @@ export default function EditRecipeScreen() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Convert structured ingredients back to text format for editing
-  const getIngredientText = () => {
-    if (!prefill?.ingredients) return [""];
-    return prefill.ingredients.map((ing) => {
-      const parts = [];
-      if (ing.quantity) parts.push(ing.quantity.toString());
-      if (ing.unit) parts.push(ing.unit);
-      parts.push(ing.name);
-      return parts.join(" ");
+  // Convert structured ingredients to section-aware format for editing
+  const getIngredientSections = (): IngredientSection[] => {
+    if (
+      !prefill?.ingredientSections ||
+      prefill.ingredientSections.length === 0
+    ) {
+      return [{ name: null, index: 0, items: [""] }];
+    }
+
+    return prefill.ingredientSections.map((section, sectionIdx) => {
+      const items = section.ingredients.map((ing) => {
+        const parts = [];
+        if (ing.quantity) parts.push(ing.quantity.toString());
+        if (ing.unit) parts.push(ing.unit);
+        parts.push(ing.name);
+        return parts.join(" ");
+      });
+      return {
+        name: section.name,
+        index: sectionIdx,
+        // Ensure section always has at least one item for editing
+        items: items.length > 0 ? items : [""],
+      };
     });
   };
 
-  // Convert structured instructions to text format
-  const getInstructionsText = () => {
-    if (!prefill?.instructions) return [""];
-    return prefill.instructions.map((inst) => inst.instruction);
-  };
+  // Convert structured instructions to section-aware format for editing
+  const getMethodSections = (): MethodSection[] => {
+    if (
+      !prefill?.instructionSections ||
+      prefill.instructionSections.length === 0
+    ) {
+      return [{ name: null, index: 0, items: [{ text: "", imageUrl: null }] }];
+    }
 
-  // Get instruction images from prefill
-  const getInstructionImages = () => {
-    if (!prefill?.instructions) return [null];
-    return prefill.instructions.map((inst) => inst.imageUrl || null);
+    return prefill.instructionSections.map((section, sectionIdx) => {
+      const items = section.instructions.map((inst) => ({
+        text: inst.instruction,
+        imageUrl: inst.imageUrl ?? null,
+      }));
+      return {
+        name: section.name,
+        index: sectionIdx,
+        // Ensure section always has at least one item for editing
+        items: items.length > 0 ? items : [{ text: "", imageUrl: null }],
+      };
+    });
   };
 
   const [title, setTitle] = useState(prefill?.name || "");
@@ -80,10 +117,12 @@ export default function EditRecipeScreen() {
     prefill?.cookTime ?? null,
   );
   const [servings, setServings] = useState<number>(prefill?.servings || 4);
-  const [ingredients, setIngredients] = useState<string[]>(getIngredientText);
-  const [method, setMethod] = useState<string[]>(getInstructionsText);
-  const [methodImages, setMethodImages] =
-    useState<(string | null)[]>(getInstructionImages);
+
+  // Section-aware state for ingredients and method
+  const [ingredientSections, setIngredientSections] =
+    useState<IngredientSection[]>(getIngredientSections);
+  const [methodSections, setMethodSections] =
+    useState<MethodSection[]>(getMethodSections);
   // Track images with their upload state
   // For new uploads: { uri, key } where key is set after upload completes
   // For prefill images: { uri } where uri is already a remote URL
@@ -106,33 +145,119 @@ export default function EditRecipeScreen() {
     },
   });
 
-  const updateIngredient = (idx: number, value: string) => {
-    setIngredients((prev) => prev.map((ing, i) => (i === idx ? value : ing)));
+  // Ingredient section management
+  const updateIngredient = (sectionIdx: number, itemIdx: number, value: string) => {
+    setIngredientSections((prev) =>
+      prev.map((section, si) =>
+        si === sectionIdx
+          ? {
+              ...section,
+              items: section.items.map((item, ii) =>
+                ii === itemIdx ? value : item,
+              ),
+            }
+          : section,
+      ),
+    );
   };
 
-  const addIngredient = () => {
-    setIngredients((prev) => [...prev, ""]);
+  const addIngredient = (sectionIdx: number) => {
+    setIngredientSections((prev) =>
+      prev.map((section, si) =>
+        si === sectionIdx
+          ? { ...section, items: [...section.items, ""] }
+          : section,
+      ),
+    );
   };
 
-  const removeIngredient = (idx: number) => {
-    setIngredients((prev) => prev.filter((_, i) => i !== idx));
+  const removeIngredient = (sectionIdx: number, itemIdx: number) => {
+    setIngredientSections((prev) =>
+      prev.map((section, si) =>
+        si === sectionIdx
+          ? { ...section, items: section.items.filter((_, ii) => ii !== itemIdx) }
+          : section,
+      ),
+    );
   };
 
-  const updateMethod = (idx: number, value: string) => {
-    setMethod((prev) => prev.map((step, i) => (i === idx ? value : step)));
+  const addIngredientSection = () => {
+    const newIndex = ingredientSections.length;
+    setIngredientSections((prev) => [
+      ...prev,
+      { name: "", index: newIndex, items: [""] },
+    ]);
   };
 
-  const addMethod = () => {
-    setMethod((prev) => [...prev, ""]);
-    setMethodImages((prev) => [...prev, null]);
+  const updateIngredientSectionName = (sectionIdx: number, name: string) => {
+    setIngredientSections((prev) =>
+      prev.map((section, si) =>
+        si === sectionIdx ? { ...section, name: name || null } : section,
+      ),
+    );
   };
 
-  const removeMethod = (idx: number) => {
-    setMethod((prev) => prev.filter((_, i) => i !== idx));
-    setMethodImages((prev) => prev.filter((_, i) => i !== idx));
+  const removeIngredientSection = (sectionIdx: number) => {
+    setIngredientSections((prev) => prev.filter((_, si) => si !== sectionIdx));
   };
 
-  const pickStepImage = async (stepIdx: number) => {
+  // Method section management
+  const updateMethod = (sectionIdx: number, itemIdx: number, value: string) => {
+    setMethodSections((prev) =>
+      prev.map((section, si) =>
+        si === sectionIdx
+          ? {
+              ...section,
+              items: section.items.map((item, ii) =>
+                ii === itemIdx ? { ...item, text: value } : item,
+              ),
+            }
+          : section,
+      ),
+    );
+  };
+
+  const addMethod = (sectionIdx: number) => {
+    setMethodSections((prev) =>
+      prev.map((section, si) =>
+        si === sectionIdx
+          ? { ...section, items: [...section.items, { text: "", imageUrl: null }] }
+          : section,
+      ),
+    );
+  };
+
+  const removeMethod = (sectionIdx: number, itemIdx: number) => {
+    setMethodSections((prev) =>
+      prev.map((section, si) =>
+        si === sectionIdx
+          ? { ...section, items: section.items.filter((_, ii) => ii !== itemIdx) }
+          : section,
+      ),
+    );
+  };
+
+  const addMethodSection = () => {
+    const newIndex = methodSections.length;
+    setMethodSections((prev) => [
+      ...prev,
+      { name: "", index: newIndex, items: [{ text: "", imageUrl: null }] },
+    ]);
+  };
+
+  const updateMethodSectionName = (sectionIdx: number, name: string) => {
+    setMethodSections((prev) =>
+      prev.map((section, si) =>
+        si === sectionIdx ? { ...section, name: name || null } : section,
+      ),
+    );
+  };
+
+  const removeMethodSection = (sectionIdx: number) => {
+    setMethodSections((prev) => prev.filter((_, si) => si !== sectionIdx));
+  };
+
+  const pickStepImage = async (sectionIdx: number, stepIdx: number) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
@@ -142,15 +267,33 @@ export default function EditRecipeScreen() {
 
     const pickedAsset = result.assets?.[0];
     if (!result.canceled && pickedAsset) {
-      setMethodImages((prev) =>
-        prev.map((img, i) => (i === stepIdx ? pickedAsset.uri : img)),
+      setMethodSections((prev) =>
+        prev.map((section, si) =>
+          si === sectionIdx
+            ? {
+                ...section,
+                items: section.items.map((item, ii) =>
+                  ii === stepIdx ? { ...item, imageUrl: pickedAsset.uri } : item,
+                ),
+              }
+            : section,
+        ),
       );
     }
   };
 
-  const removeStepImage = (stepIdx: number) => {
-    setMethodImages((prev) =>
-      prev.map((img, i) => (i === stepIdx ? null : img)),
+  const removeStepImage = (sectionIdx: number, stepIdx: number) => {
+    setMethodSections((prev) =>
+      prev.map((section, si) =>
+        si === sectionIdx
+          ? {
+              ...section,
+              items: section.items.map((item, ii) =>
+                ii === stepIdx ? { ...item, imageUrl: null } : item,
+              ),
+            }
+          : section,
+      ),
     );
   };
 
@@ -203,7 +346,10 @@ export default function EditRecipeScreen() {
   });
 
   const handlePreviewParsing = async () => {
-    const validIngredients = ingredients.filter((ing) => ing.trim());
+    // Flatten all ingredients from all sections
+    const validIngredients = ingredientSections
+      .flatMap((section) => section.items)
+      .filter((ing) => ing.trim());
 
     if (validIngredients.length === 0) {
       Alert.alert("Error", "Please add at least one ingredient first");
@@ -238,12 +384,20 @@ export default function EditRecipeScreen() {
       return;
     }
 
-    if (ingredients.filter((ing) => ing.trim()).length === 0) {
+    // Flatten ingredients with section info
+    const allIngredients = ingredientSections.flatMap((section) =>
+      section.items.filter((ing) => ing.trim()),
+    );
+    if (allIngredients.length === 0) {
       Alert.alert("Error", "Please add at least one ingredient");
       return;
     }
 
-    if (method.filter((step) => step.trim()).length === 0) {
+    // Flatten method steps with section info
+    const allSteps = methodSections.flatMap((section) =>
+      section.items.filter((step) => step.text.trim()),
+    );
+    if (allSteps.length === 0) {
       Alert.alert("Error", "Please add at least one cooking step");
       return;
     }
@@ -273,6 +427,33 @@ export default function EditRecipeScreen() {
       return;
     }
 
+    // Build nested ingredient sections
+    const ingredientSectionsData = ingredientSections
+      .map((section) => ({
+        name: section.name,
+        ingredients: section.items
+          .filter((ing) => ing.trim())
+          .map((ing, index) => ({
+            index,
+            ingredient: ing.trim(),
+          })),
+      }))
+      .filter((section) => section.ingredients.length > 0);
+
+    // Build nested instruction sections
+    const instructionSectionsData = methodSections
+      .map((section) => ({
+        name: section.name,
+        instructions: section.items
+          .filter((step) => step.text.trim())
+          .map((step, index) => ({
+            index,
+            instruction: step.text.trim(),
+            imageUrl: step.imageUrl || null,
+          })),
+      }))
+      .filter((section) => section.instructions.length > 0);
+
     // Prepare recipe data
     const recipeData = {
       name: title.trim(),
@@ -280,16 +461,8 @@ export default function EditRecipeScreen() {
       prepTime: prepTime ?? undefined,
       cookTime: cookTime ?? undefined,
       servings,
-      ingredients: ingredients
-        .map((ing, idx) => ({ index: idx, ingredient: ing.trim() }))
-        .filter((ing) => ing.ingredient),
-      instructions: method
-        .map((step, idx) => ({
-          index: idx,
-          instruction: step.trim(),
-          imageUrl: methodImages[idx] || null,
-        }))
-        .filter((inst) => inst.instruction),
+      ingredientSections: ingredientSectionsData,
+      instructionSections: instructionSectionsData,
       // Include new upload keys if any
       ...(newUploadKeys.length > 0 && { imageUploadIds: newUploadKeys }),
       // Include existing image URLs if any
@@ -456,37 +629,77 @@ export default function EditRecipeScreen() {
             {/* Ingredients */}
             <Text type="heading">Ingredients</Text>
             <VSpace size={8} />
-            {ingredients.map((ing, idx) => {
-              return (
-                <View key={idx} style={styles.ingredientRow}>
-                  <Input
-                    value={ing}
-                    onChangeText={(v) => updateIngredient(idx, v)}
-                    placeholder="e.g. 2 Carrots"
-                    style={{ flex: 1 }}
-                    multiline
-                  />
-                  {ingredients.length > 1 && (
+            {ingredientSections.map((section, sectionIdx) => (
+              <View key={sectionIdx} style={styles.sectionContainer}>
+                {/* Section header - only show for named sections */}
+                {section.name !== null && (
+                  <View style={styles.sectionHeaderRow}>
+                    <Input
+                      value={section.name}
+                      onChangeText={(name) =>
+                        updateIngredientSectionName(sectionIdx, name)
+                      }
+                      placeholder="Section name (e.g., For the Sauce)"
+                      style={styles.sectionNameInput}
+                    />
                     <TouchableOpacity
-                      onPress={() => removeIngredient(idx)}
-                      style={styles.removeButton}
+                      onPress={() => removeIngredientSection(sectionIdx)}
+                      style={styles.removeSectionButton}
                     >
-                      <Text type="heading">×</Text>
+                      <Text type="heading" style={styles.removeStepText}>
+                        ×
+                      </Text>
                     </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })}
-            <TouchableOpacity onPress={addIngredient} style={styles.addButton}>
-              <Text type="highlight">+ Add ingredient</Text>
+                  </View>
+                )}
+
+                {/* Ingredients in this section */}
+                {section.items.map((ing, itemIdx) => (
+                  <View key={itemIdx} style={styles.ingredientRow}>
+                    <Input
+                      value={ing}
+                      onChangeText={(v) =>
+                        updateIngredient(sectionIdx, itemIdx, v)
+                      }
+                      placeholder="e.g. 2 Carrots"
+                      style={{ flex: 1 }}
+                      multiline
+                    />
+                    {section.items.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => removeIngredient(sectionIdx, itemIdx)}
+                        style={styles.removeButton}
+                      >
+                        <Text type="heading">×</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+                <TouchableOpacity
+                  onPress={() => addIngredient(sectionIdx)}
+                  style={styles.addButton}
+                >
+                  <Text type="highlight">+ Add ingredient</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity
+              onPress={addIngredientSection}
+              style={styles.addSectionButton}
+            >
+              <Text type="body" style={styles.addSectionText}>
+                + Add section
+              </Text>
             </TouchableOpacity>
-            {ingredients.filter((ing) => ing.trim()).length > 0 && (
+            {ingredientSections.some((s) =>
+              s.items.some((ing) => ing.trim()),
+            ) && (
               <TouchableOpacity
                 onPress={handlePreviewParsing}
                 style={styles.previewButton}
               >
                 <Text type="body" style={styles.previewButtonText}>
-                  👁️ Preview how ingredients will be parsed
+                  Preview how ingredients will be parsed
                 </Text>
               </TouchableOpacity>
             )}
@@ -494,55 +707,106 @@ export default function EditRecipeScreen() {
             {/* Method */}
             <Text type="heading">Method</Text>
             <VSpace size={8} />
-            {method.map((step, idx) => {
-              return (
-                <View key={idx} style={styles.methodStep}>
-                  <View style={styles.methodStepHeader}>
-                    <Text type="bodyFaded">Step {idx + 1}</Text>
-                    {method.length > 1 && (
-                      <TouchableOpacity onPress={() => removeMethod(idx)}>
+            {(() => {
+              let globalStepIndex = 0;
+              return methodSections.map((section, sectionIdx) => (
+                <View key={sectionIdx} style={styles.sectionContainer}>
+                  {/* Section header - only show for named sections */}
+                  {section.name !== null && (
+                    <View style={styles.sectionHeaderRow}>
+                      <Input
+                        value={section.name}
+                        onChangeText={(name) =>
+                          updateMethodSectionName(sectionIdx, name)
+                        }
+                        placeholder="Section name (e.g., Make the Sauce)"
+                        style={styles.sectionNameInput}
+                      />
+                      <TouchableOpacity
+                        onPress={() => removeMethodSection(sectionIdx)}
+                        style={styles.removeSectionButton}
+                      >
                         <Text type="heading" style={styles.removeStepText}>
                           ×
                         </Text>
                       </TouchableOpacity>
-                    )}
-                  </View>
-                  <VSpace size={8} />
-                  <Input
-                    value={step}
-                    onChangeText={(v) => updateMethod(idx, v)}
-                    placeholder="Describe this step..."
-                    multiline
-                  />
-                  <VSpace size={8} />
-                  {methodImages[idx] ? (
-                    <View style={styles.stepImageContainer}>
-                      <Image
-                        source={{ uri: methodImages[idx]! }}
-                        style={styles.stepImagePreview}
-                      />
-                      <TouchableOpacity
-                        style={styles.removeStepImageButton}
-                        onPress={() => removeStepImage(idx)}
-                      >
-                        <Text style={styles.removeButtonText}>×</Text>
-                      </TouchableOpacity>
                     </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.addStepImageButton}
-                      onPress={() => pickStepImage(idx)}
-                    >
-                      <Text type="body" style={styles.addStepImageText}>
-                        + Add step image (optional)
-                      </Text>
-                    </TouchableOpacity>
                   )}
+
+                  {/* Steps in this section */}
+                  {section.items.map((step, itemIdx) => {
+                    globalStepIndex++;
+                    return (
+                      <View key={itemIdx} style={styles.methodStep}>
+                        <View style={styles.methodStepHeader}>
+                          <Text type="bodyFaded">Step {globalStepIndex}</Text>
+                          {section.items.length > 1 && (
+                            <TouchableOpacity
+                              onPress={() => removeMethod(sectionIdx, itemIdx)}
+                            >
+                              <Text
+                                type="heading"
+                                style={styles.removeStepText}
+                              >
+                                ×
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        <VSpace size={8} />
+                        <Input
+                          value={step.text}
+                          onChangeText={(v) =>
+                            updateMethod(sectionIdx, itemIdx, v)
+                          }
+                          placeholder="Describe this step..."
+                          multiline
+                        />
+                        <VSpace size={8} />
+                        {step.imageUrl ? (
+                          <View style={styles.stepImageContainer}>
+                            <Image
+                              source={{ uri: step.imageUrl }}
+                              style={styles.stepImagePreview}
+                            />
+                            <TouchableOpacity
+                              style={styles.removeStepImageButton}
+                              onPress={() =>
+                                removeStepImage(sectionIdx, itemIdx)
+                              }
+                            >
+                              <Text style={styles.removeButtonText}>×</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.addStepImageButton}
+                            onPress={() => pickStepImage(sectionIdx, itemIdx)}
+                          >
+                            <Text type="body" style={styles.addStepImageText}>
+                              + Add step image (optional)
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })}
+                  <TouchableOpacity
+                    onPress={() => addMethod(sectionIdx)}
+                    style={styles.addButton}
+                  >
+                    <Text type="highlight">+ Add step</Text>
+                  </TouchableOpacity>
                 </View>
-              );
-            })}
-            <TouchableOpacity onPress={addMethod} style={styles.addButton}>
-              <Text type="highlight">+ Add step</Text>
+              ));
+            })()}
+            <TouchableOpacity
+              onPress={addMethodSection}
+              style={styles.addSectionButton}
+            >
+              <Text type="body" style={styles.addSectionText}>
+                + Add section
+              </Text>
             </TouchableOpacity>
             <VSpace size={32} />
             <PrimaryButton
@@ -744,6 +1008,40 @@ const styles = StyleSheet.create((theme) => ({
   addButton: {
     marginTop: 4,
     marginBottom: 8,
+  },
+  sectionContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionNameInput: {
+    flex: 1,
+    fontWeight: "600",
+  },
+  removeSectionButton: {
+    marginLeft: 8,
+    padding: 4,
+  },
+  addSectionButton: {
+    marginTop: 8,
+    marginBottom: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  addSectionText: {
+    color: "#666",
   },
   previewButton: {
     marginTop: 12,

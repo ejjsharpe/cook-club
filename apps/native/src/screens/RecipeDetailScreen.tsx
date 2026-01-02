@@ -188,35 +188,7 @@ export const RecipeDetailScreen = () => {
     );
   }
 
-  const formatIngredient = (
-    quantity: string | null,
-    unit: string | null,
-    name: string,
-  ): string => {
-    if (!quantity) {
-      return name;
-    }
-
-    const adjustedQuantity = parseFloat(quantity) * servingMultiplier;
-    const formattedQuantity =
-      adjustedQuantity % 1 === 0
-        ? adjustedQuantity.toString()
-        : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "");
-
-    if (unit) {
-      return `${formattedQuantity} ${unit} ${name}`;
-    }
-
-    return `${formattedQuantity} ${name}`;
-  };
-
-  const renderImage = ({
-    item,
-    index,
-  }: {
-    item: RecipeImage;
-    index: number;
-  }) => (
+  const renderImage = ({ item }: { item: RecipeImage }) => (
     <View style={styles.imageContainer}>
       <Image
         source={{ uri: getImageUrl(item.url, "recipe-hero") }}
@@ -404,90 +376,104 @@ export const RecipeDetailScreen = () => {
     if (activeTab === "ingredients") {
       return (
         <View style={styles.tabContent}>
-          {recipe.ingredients.map(
-            (
-              item: {
-                index: number;
-                quantity: string | null;
-                unit: string | null;
-                name: string;
-              },
-              index: number,
-            ) => {
-              const adjustedQuantity = item.quantity
-                ? parseFloat(item.quantity) * servingMultiplier
-                : null;
-              const formattedQuantity = adjustedQuantity
-                ? adjustedQuantity % 1 === 0
-                  ? adjustedQuantity.toString()
-                  : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "")
-                : null;
-
-              return (
-                <View key={index} style={styles.ingredientItem}>
-                  <Text type="body">
-                    {formattedQuantity && (
-                      <Text type="heading" style={styles.ingredientQuantity}>
-                        {formattedQuantity}
-                      </Text>
-                    )}
-                    {item.unit && (
-                      <Text type="heading" style={styles.ingredientQuantity}>
-                        {formattedQuantity ? " " : ""}
-                        {item.unit}
-                      </Text>
-                    )}
-                    {(formattedQuantity || item.unit) && " "}
-                    {item.name}
+          {recipe.ingredientSections.map((section) => (
+            <View key={section.id}>
+              {/* Section header - only show if not default section */}
+              {section.name && (
+                <View style={styles.sectionHeader}>
+                  <Text type="heading" style={styles.sectionTitle}>
+                    {section.name}
                   </Text>
                 </View>
-              );
-            },
-          )}
+              )}
+
+              {/* Ingredients in this section */}
+              {section.ingredients.map((item) => {
+                const adjustedQuantity = item.quantity
+                  ? parseFloat(item.quantity) * servingMultiplier
+                  : null;
+                const formattedQuantity = adjustedQuantity
+                  ? adjustedQuantity % 1 === 0
+                    ? adjustedQuantity.toString()
+                    : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "")
+                  : null;
+
+                return (
+                  <View key={item.id} style={styles.ingredientItem}>
+                    <Text type="body">
+                      {formattedQuantity && (
+                        <Text type="heading" style={styles.ingredientQuantity}>
+                          {formattedQuantity}
+                        </Text>
+                      )}
+                      {item.unit && (
+                        <Text type="heading" style={styles.ingredientQuantity}>
+                          {formattedQuantity ? " " : ""}
+                          {item.unit}
+                        </Text>
+                      )}
+                      {(formattedQuantity || item.unit) && " "}
+                      {item.name}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
         </View>
       );
     } else {
+      let globalStepIndex = 0;
+
       return (
         <View style={styles.tabContent}>
-          {recipe.instructions.map(
-            (
-              item: {
-                index: number;
-                instruction: string;
-                imageUrl?: string | null;
-              },
-              index: number,
-            ) => (
-              <View key={index} style={styles.instructionItem}>
-                <View style={styles.stepNumber}>
-                  <Text type="highlight" style={styles.stepNumberText}>
-                    {item.index + 1}
+          {recipe.instructionSections.map((section) => (
+            <View key={section.id}>
+              {/* Section header - only show if not default section */}
+              {section.name && (
+                <View style={styles.sectionHeader}>
+                  <Text type="heading" style={styles.sectionTitle}>
+                    {section.name}
                   </Text>
                 </View>
-                <HSpace size={12} />
-                <View style={styles.instructionTextContainer}>
-                  <Text type="body">{item.instruction}</Text>
-                  {item.imageUrl && (
-                    <>
-                      <VSpace size={12} />
-                      <TouchableOpacity
-                        onPress={() => setExpandedImageUrl(item.imageUrl!)}
-                        style={styles.stepImageThumbnail}
-                      >
-                        <Image
-                          source={{
-                            uri: getImageUrl(item.imageUrl, "step-thumb"),
-                          }}
-                          style={styles.stepImage}
-                          contentFit="cover"
-                        />
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </View>
-              </View>
-            ),
-          )}
+              )}
+
+              {/* Instructions in this section */}
+              {section.instructions.map((item) => {
+                globalStepIndex++;
+                return (
+                  <View key={item.id} style={styles.instructionItem}>
+                    <View style={styles.stepNumber}>
+                      <Text type="highlight" style={styles.stepNumberText}>
+                        {globalStepIndex}
+                      </Text>
+                    </View>
+                    <HSpace size={12} />
+                    <View style={styles.instructionTextContainer}>
+                      <Text type="body">{item.instruction}</Text>
+                      {item.imageUrl && (
+                        <>
+                          <VSpace size={12} />
+                          <TouchableOpacity
+                            onPress={() => setExpandedImageUrl(item.imageUrl!)}
+                            style={styles.stepImageThumbnail}
+                          >
+                            <Image
+                              source={{
+                                uri: getImageUrl(item.imageUrl, "step-thumb"),
+                              }}
+                              style={styles.stepImage}
+                              contentFit="cover"
+                            />
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
         </View>
       );
     }
@@ -811,6 +797,17 @@ const styles = StyleSheet.create((theme) => ({
   },
   tabContent: {
     paddingTop: 20,
+  },
+  sectionHeader: {
+    paddingTop: 16,
+    paddingBottom: 8,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    textTransform: "uppercase",
+    opacity: 0.6,
+    letterSpacing: 0.5,
   },
   ingredientItem: {
     paddingVertical: 8,

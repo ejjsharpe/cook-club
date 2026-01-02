@@ -111,23 +111,62 @@ export const recipeImages = pgTable(
   (table) => [index("recipe_images_recipe_id_idx").on(table.recipeId)]
 );
 
-export const recipeIngredients = pgTable(
-  "recipe_ingredients",
+// ─── Section tables (normalized) ──────────────────────────────────────────────
+export const ingredientSections = pgTable(
+  "ingredient_sections",
   {
     id: serial("id").primaryKey(),
     recipeId: integer("recipe_id")
       .notNull()
       .references(() => recipes.id, { onDelete: "cascade" }),
-    index: integer("index").notNull(),
-    // Structured ingredient fields
+    name: text("name"), // NULL = default section (no header displayed)
+    index: integer("index").notNull(), // ordering
+  },
+  (table) => [
+    index("ingredient_sections_recipe_id_idx").on(table.recipeId),
+    index("ingredient_sections_recipe_id_index_idx").on(
+      table.recipeId,
+      table.index
+    ),
+  ]
+);
+
+export const instructionSections = pgTable(
+  "instruction_sections",
+  {
+    id: serial("id").primaryKey(),
+    recipeId: integer("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    name: text("name"), // NULL = default section (no header displayed)
+    index: integer("index").notNull(), // ordering
+  },
+  (table) => [
+    index("instruction_sections_recipe_id_idx").on(table.recipeId),
+    index("instruction_sections_recipe_id_index_idx").on(
+      table.recipeId,
+      table.index
+    ),
+  ]
+);
+
+// ─── Ingredient and instruction items ─────────────────────────────────────────
+export const recipeIngredients = pgTable(
+  "recipe_ingredients",
+  {
+    id: serial("id").primaryKey(),
+    sectionId: integer("section_id")
+      .notNull()
+      .references(() => ingredientSections.id, { onDelete: "cascade" }),
+    index: integer("index").notNull(), // ordering within section
     quantity: numeric("quantity"),
     unit: text("unit"),
     name: text("name").notNull(),
   },
   (table) => [
-    index("recipe_ingredients_recipe_id_idx").on(table.recipeId),
-    index("recipe_ingredients_recipe_id_index_idx").on(
-      table.recipeId,
+    index("recipe_ingredients_section_id_idx").on(table.sectionId),
+    index("recipe_ingredients_section_id_index_idx").on(
+      table.sectionId,
       table.index
     ),
   ]
@@ -137,17 +176,17 @@ export const recipeInstructions = pgTable(
   "recipe_instructions",
   {
     id: serial("id").primaryKey(),
-    recipeId: integer("recipe_id")
+    sectionId: integer("section_id")
       .notNull()
-      .references(() => recipes.id, { onDelete: "cascade" }),
-    index: integer("index").notNull(),
+      .references(() => instructionSections.id, { onDelete: "cascade" }),
+    index: integer("index").notNull(), // ordering within section
     instruction: text("instruction").notNull(),
     imageUrl: text("image_url"),
   },
   (table) => [
-    index("recipe_instructions_recipe_id_idx").on(table.recipeId),
-    index("recipe_instructions_recipe_id_index_idx").on(
-      table.recipeId,
+    index("recipe_instructions_section_id_idx").on(table.sectionId),
+    index("recipe_instructions_section_id_index_idx").on(
+      table.sectionId,
       table.index
     ),
   ]

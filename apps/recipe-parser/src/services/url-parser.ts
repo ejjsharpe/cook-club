@@ -1,4 +1,8 @@
-import type { ParsedRecipe, Ingredient, Instruction } from "../schema";
+import type {
+  ParsedRecipe,
+  IngredientSection,
+  InstructionSection,
+} from "../schema";
 import { ParsedRecipeSchema } from "../schema";
 import type { Env, ParseResult } from "../types";
 import { parseRecipeFromHtml, type AiRecipeResult } from "./ai-client";
@@ -26,18 +30,30 @@ function aiResultToRecipe(
   sourceUrl: string,
   images: string[],
 ): ParsedRecipe {
-  const ingredients: Ingredient[] = ai.ingredients.map((ing, index) => ({
-    index,
-    quantity: ing.quantity,
-    unit: ing.unit ? normalizeUnit(ing.unit) : null,
-    name: ing.name,
-  }));
+  // Map AI ingredient sections to our format
+  const ingredientSections: IngredientSection[] = ai.ingredientSections.map(
+    (section) => ({
+      name: section.name,
+      ingredients: section.ingredients.map((ing, index) => ({
+        index,
+        quantity: ing.quantity,
+        unit: ing.unit ? normalizeUnit(ing.unit) : null,
+        name: ing.name,
+      })),
+    }),
+  );
 
-  const instructions: Instruction[] = ai.instructions.map((inst, index) => ({
-    index,
-    instruction: inst.text,
-    imageUrl: inst.imageUrl || null,
-  }));
+  // Map AI instruction sections to our format
+  const instructionSections: InstructionSection[] = ai.instructionSections.map(
+    (section) => ({
+      name: section.name,
+      instructions: section.instructions.map((inst, index) => ({
+        index,
+        instruction: inst.instruction,
+        imageUrl: inst.imageUrl || null,
+      })),
+    }),
+  );
 
   return {
     name: ai.name,
@@ -48,8 +64,8 @@ function aiResultToRecipe(
     servings: ai.servings,
     sourceUrl,
     sourceType: "url" as const,
-    ingredients,
-    instructions,
+    ingredientSections,
+    instructionSections,
     images,
     suggestedTags: ai.suggestedTags,
   };

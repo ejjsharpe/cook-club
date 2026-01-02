@@ -3,6 +3,8 @@ import {
   recipeImages,
   recipeIngredients,
   recipeInstructions,
+  ingredientSections,
+  instructionSections,
   recipeCollections,
   recipeTags,
   collections,
@@ -36,6 +38,16 @@ export interface CreateRecipeInstruction {
   imageUrl?: string | null;
 }
 
+export interface CreateIngredientSection {
+  name: string | null;
+  ingredients: CreateRecipeIngredient[];
+}
+
+export interface CreateInstructionSection {
+  name: string | null;
+  instructions: CreateRecipeInstruction[];
+}
+
 export interface CreateRecipeImage {
   url: string;
 }
@@ -44,8 +56,8 @@ export type SourceType = "url" | "image" | "text" | "ai" | "manual" | "user";
 
 export interface CreateRecipeInput {
   name: string;
-  ingredients: CreateRecipeIngredient[];
-  instructions: CreateRecipeInstruction[];
+  ingredientSections: CreateIngredientSection[];
+  instructionSections: CreateInstructionSection[];
   // Either images (direct URLs) or imageUploadIds (temp keys to be moved)
   images?: CreateRecipeImage[];
   imageUploadIds?: string[];
@@ -62,17 +74,36 @@ export interface CreateRecipeInput {
 
 export type { ImageWorkerService };
 
+export interface IngredientSectionWithItems {
+  id: number;
+  name: string | null;
+  index: number;
+  ingredients: {
+    id: number;
+    index: number;
+    quantity: string | null;
+    unit: string | null;
+    name: string;
+  }[];
+}
+
+export interface InstructionSectionWithItems {
+  id: number;
+  name: string | null;
+  index: number;
+  instructions: {
+    id: number;
+    index: number;
+    instruction: string;
+    imageUrl: string | null;
+  }[];
+}
+
 export type RecipeWithDetails = Omit<typeof recipes.$inferSelect, "ownerId"> & {
   owner: Pick<typeof user.$inferSelect, "id" | "name" | "email" | "image">;
   images: Pick<typeof recipeImages.$inferSelect, "id" | "url">[];
-  ingredients: Pick<
-    typeof recipeIngredients.$inferSelect,
-    "index" | "quantity" | "unit" | "name"
-  >[];
-  instructions: Pick<
-    typeof recipeInstructions.$inferSelect,
-    "index" | "instruction" | "imageUrl"
-  >[];
+  ingredientSections: IngredientSectionWithItems[];
+  instructionSections: InstructionSectionWithItems[];
   userRecipesCount: number;
   collectionIds: number[];
   isInShoppingList: boolean;
@@ -190,60 +221,135 @@ export async function createRecipe(
       });
     }
 
-    // Parse ingredients if needed (support both formats)
-    const parsedIngredients = input.ingredients.map((ing) => {
-      // Check if ingredient is in unparsed format (has 'ingredient' field)
-      if (ing.ingredient) {
-        // Parse the ingredient text
-        const parsed = parseIngredient(ing.ingredient);
+    // Insert ingredient sections and their items
+    const insertedIngredientSections: IngredientSectionWithItems[] = [];
+    for (
+      let sectionIdx = 0;
+      sectionIdx < input.ingredientSections.length;
+      sectionIdx++
+    ) {
+      const section = input.ingredientSections[sectionIdx]!;
+
+      // Insert section
+      const [insertedSection] = await tx
+        .insert(ingredientSections)
+        .values({
+          recipeId: recipe.id,
+          name: section.name,
+          index: sectionIdx,
+        })
+        .returning();
+
+      if (!insertedSection) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create ingredient section",
+        });
+      }
+
+      // Parse and insert ingredients for this section
+      const parsedIngredients = section.ingredients.map((ing) => {
+        if (ing.ingredient) {
+          const parsed = parseIngredient(ing.ingredient);
+          return {
+            index: ing.index,
+            quantity: parsed.quantity?.toString() || null,
+            unit: normalizeUnit(parsed.unit),
+            name: parsed.name,
+          };
+        }
         return {
           index: ing.index,
-          quantity: parsed.quantity?.toString() || null,
-          unit: normalizeUnit(parsed.unit),
-          name: parsed.name,
+          quantity: ing.quantity || null,
+          unit: normalizeUnit(ing.unit || null),
+          name: ing.name || "",
         };
+      });
+
+      const insertedIngredients =
+        parsedIngredients.length > 0
+          ? await tx
+              .insert(recipeIngredients)
+              .values(
+                parsedIngredients.map((ingredient) => ({
+                  sectionId: insertedSection.id,
+                  index: ingredient.index,
+                  quantity: ingredient.quantity,
+                  unit: ingredient.unit,
+                  name: ingredient.name,
+                })),
+              )
+              .returning({
+                id: recipeIngredients.id,
+                index: recipeIngredients.index,
+                quantity: recipeIngredients.quantity,
+                unit: recipeIngredients.unit,
+                name: recipeIngredients.name,
+              })
+          : [];
+
+      insertedIngredientSections.push({
+        id: insertedSection.id,
+        name: insertedSection.name,
+        index: insertedSection.index,
+        ingredients: insertedIngredients,
+      });
+    }
+
+    // Insert instruction sections and their items
+    const insertedInstructionSections: InstructionSectionWithItems[] = [];
+    for (
+      let sectionIdx = 0;
+      sectionIdx < input.instructionSections.length;
+      sectionIdx++
+    ) {
+      const section = input.instructionSections[sectionIdx]!;
+
+      // Insert section
+      const [insertedSection] = await tx
+        .insert(instructionSections)
+        .values({
+          recipeId: recipe.id,
+          name: section.name,
+          index: sectionIdx,
+        })
+        .returning();
+
+      if (!insertedSection) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create instruction section",
+        });
       }
-      // Already parsed - just normalize the unit
-      return {
-        index: ing.index,
-        quantity: ing.quantity || null,
-        unit: normalizeUnit(ing.unit || null),
-        name: ing.name || "",
-      };
-    });
 
-    // Insert ingredients
-    const insertedIngredients = await tx
-      .insert(recipeIngredients)
-      .values(
-        parsedIngredients.map((ingredient) => ({
-          ...ingredient,
-          recipeId: recipe.id,
-        })),
-      )
-      .returning({
-        index: recipeIngredients.index,
-        quantity: recipeIngredients.quantity,
-        unit: recipeIngredients.unit,
-        name: recipeIngredients.name,
-      });
+      // Insert instructions for this section
+      const insertedInstructions =
+        section.instructions.length > 0
+          ? await tx
+              .insert(recipeInstructions)
+              .values(
+                section.instructions.map((instruction) => ({
+                  sectionId: insertedSection.id,
+                  index: instruction.index,
+                  instruction: instruction.instruction,
+                  imageUrl: instruction.imageUrl || null,
+                })),
+              )
+              .returning({
+                id: recipeInstructions.id,
+                index: recipeInstructions.index,
+                instruction: recipeInstructions.instruction,
+                imageUrl: recipeInstructions.imageUrl,
+              })
+          : [];
 
-    // Insert instructions
-    const insertedInstructions = await tx
-      .insert(recipeInstructions)
-      .values(
-        input.instructions.map((instruction) => ({
-          index: instruction.index,
-          instruction: instruction.instruction,
-          imageUrl: instruction.imageUrl || null,
-          recipeId: recipe.id,
-        })),
-      )
-      .returning({
-        index: recipeInstructions.index,
-        instruction: recipeInstructions.instruction,
-        imageUrl: recipeInstructions.imageUrl,
+      insertedInstructionSections.push({
+        id: insertedSection.id,
+        name: insertedSection.name,
+        index: insertedSection.index,
+        instructions: insertedInstructions,
       });
+    }
 
     // Handle images - either direct URLs or uploaded keys
     let imageUrls: string[];
@@ -299,8 +405,8 @@ export async function createRecipe(
 
     return {
       ...recipe,
-      ingredients: insertedIngredients,
-      instructions: insertedInstructions,
+      ingredientSections: insertedIngredientSections,
+      instructionSections: insertedInstructionSections,
       images,
     };
   });
@@ -396,8 +502,14 @@ export async function getRecipeDetail(
 
   const collectionIds = userRecipeCollections.map((rc) => rc.collectionId);
 
-  // Parallelize remaining queries
-  const [images, ingredients, instructions] = await Promise.all([
+  // Parallelize remaining queries - fetch sections with their items
+  const [
+    images,
+    ingredientSectionsData,
+    ingredientsData,
+    instructionSectionsData,
+    instructionsData,
+  ] = await Promise.all([
     db
       .select({ id: recipeImages.id, url: recipeImages.url })
       .from(recipeImages)
@@ -405,25 +517,103 @@ export async function getRecipeDetail(
 
     db
       .select({
+        id: ingredientSections.id,
+        name: ingredientSections.name,
+        index: ingredientSections.index,
+      })
+      .from(ingredientSections)
+      .where(eq(ingredientSections.recipeId, recipeId))
+      .orderBy(ingredientSections.index),
+
+    db
+      .select({
+        id: recipeIngredients.id,
+        sectionId: recipeIngredients.sectionId,
         index: recipeIngredients.index,
         quantity: recipeIngredients.quantity,
         unit: recipeIngredients.unit,
         name: recipeIngredients.name,
       })
       .from(recipeIngredients)
-      .where(eq(recipeIngredients.recipeId, recipeId))
+      .innerJoin(
+        ingredientSections,
+        eq(recipeIngredients.sectionId, ingredientSections.id),
+      )
+      .where(eq(ingredientSections.recipeId, recipeId))
       .orderBy(recipeIngredients.index),
 
     db
       .select({
+        id: instructionSections.id,
+        name: instructionSections.name,
+        index: instructionSections.index,
+      })
+      .from(instructionSections)
+      .where(eq(instructionSections.recipeId, recipeId))
+      .orderBy(instructionSections.index),
+
+    db
+      .select({
+        id: recipeInstructions.id,
+        sectionId: recipeInstructions.sectionId,
         index: recipeInstructions.index,
         instruction: recipeInstructions.instruction,
         imageUrl: recipeInstructions.imageUrl,
       })
       .from(recipeInstructions)
-      .where(eq(recipeInstructions.recipeId, recipeId))
+      .innerJoin(
+        instructionSections,
+        eq(recipeInstructions.sectionId, instructionSections.id),
+      )
+      .where(eq(instructionSections.recipeId, recipeId))
       .orderBy(recipeInstructions.index),
   ]);
+
+  // Group ingredients by section
+  const ingredientsBySection = new Map<number, typeof ingredientsData>();
+  for (const ing of ingredientsData) {
+    const existing = ingredientsBySection.get(ing.sectionId) || [];
+    existing.push(ing);
+    ingredientsBySection.set(ing.sectionId, existing);
+  }
+
+  // Group instructions by section
+  const instructionsBySection = new Map<number, typeof instructionsData>();
+  for (const inst of instructionsData) {
+    const existing = instructionsBySection.get(inst.sectionId) || [];
+    existing.push(inst);
+    instructionsBySection.set(inst.sectionId, existing);
+  }
+
+  // Build nested structure
+  const ingredientSectionsNested: IngredientSectionWithItems[] =
+    ingredientSectionsData.map((section) => ({
+      id: section.id,
+      name: section.name,
+      index: section.index,
+      ingredients: (ingredientsBySection.get(section.id) || []).map((ing) => ({
+        id: ing.id,
+        index: ing.index,
+        quantity: ing.quantity,
+        unit: ing.unit,
+        name: ing.name,
+      })),
+    }));
+
+  const instructionSectionsNested: InstructionSectionWithItems[] =
+    instructionSectionsData.map((section) => ({
+      id: section.id,
+      name: section.name,
+      index: section.index,
+      instructions: (instructionsBySection.get(section.id) || []).map(
+        (inst) => ({
+          id: inst.id,
+          index: inst.index,
+          instruction: inst.instruction,
+          imageUrl: inst.imageUrl,
+        }),
+      ),
+    }));
 
   // originalOwner is null if the recipe wasn't imported from another user
   const originalOwner =
@@ -435,8 +625,8 @@ export async function getRecipeDetail(
     ...recipeData.recipe,
     owner: recipeData.uploader,
     images,
-    ingredients,
-    instructions,
+    ingredientSections: ingredientSectionsNested,
+    instructionSections: instructionSectionsNested,
     userRecipesCount: recipeData.ownerRecipeCount,
     collectionIds,
     isInShoppingList: recipeData.isInShoppingList,
@@ -540,48 +730,98 @@ export async function importRecipe(
       );
     }
 
-    // Fetch and copy ingredients
-    const sourceIngredients = await tx
+    // Fetch source ingredient sections with their ingredients
+    const sourceIngSections = await tx
       .select({
-        index: recipeIngredients.index,
-        quantity: recipeIngredients.quantity,
-        unit: recipeIngredients.unit,
-        name: recipeIngredients.name,
+        id: ingredientSections.id,
+        name: ingredientSections.name,
+        index: ingredientSections.index,
       })
-      .from(recipeIngredients)
-      .where(eq(recipeIngredients.recipeId, sourceRecipeId));
+      .from(ingredientSections)
+      .where(eq(ingredientSections.recipeId, sourceRecipeId))
+      .orderBy(ingredientSections.index);
 
-    if (sourceIngredients.length > 0) {
-      await tx.insert(recipeIngredients).values(
-        sourceIngredients.map((ing) => ({
+    // Copy ingredient sections and their items
+    for (const section of sourceIngSections) {
+      const [newSection] = await tx
+        .insert(ingredientSections)
+        .values({
           recipeId: newRecipe.id,
-          index: ing.index,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          name: ing.name,
-        })),
-      );
+          name: section.name,
+          index: section.index,
+        })
+        .returning({ id: ingredientSections.id });
+
+      if (newSection) {
+        const sourceIngs = await tx
+          .select({
+            index: recipeIngredients.index,
+            quantity: recipeIngredients.quantity,
+            unit: recipeIngredients.unit,
+            name: recipeIngredients.name,
+          })
+          .from(recipeIngredients)
+          .where(eq(recipeIngredients.sectionId, section.id))
+          .orderBy(recipeIngredients.index);
+
+        if (sourceIngs.length > 0) {
+          await tx.insert(recipeIngredients).values(
+            sourceIngs.map((ing) => ({
+              sectionId: newSection.id,
+              index: ing.index,
+              quantity: ing.quantity,
+              unit: ing.unit,
+              name: ing.name,
+            })),
+          );
+        }
+      }
     }
 
-    // Fetch and copy instructions
-    const sourceInstructions = await tx
+    // Fetch source instruction sections with their instructions
+    const sourceInstSections = await tx
       .select({
-        index: recipeInstructions.index,
-        instruction: recipeInstructions.instruction,
-        imageUrl: recipeInstructions.imageUrl,
+        id: instructionSections.id,
+        name: instructionSections.name,
+        index: instructionSections.index,
       })
-      .from(recipeInstructions)
-      .where(eq(recipeInstructions.recipeId, sourceRecipeId));
+      .from(instructionSections)
+      .where(eq(instructionSections.recipeId, sourceRecipeId))
+      .orderBy(instructionSections.index);
 
-    if (sourceInstructions.length > 0) {
-      await tx.insert(recipeInstructions).values(
-        sourceInstructions.map((inst) => ({
+    // Copy instruction sections and their items
+    for (const section of sourceInstSections) {
+      const [newSection] = await tx
+        .insert(instructionSections)
+        .values({
           recipeId: newRecipe.id,
-          index: inst.index,
-          instruction: inst.instruction,
-          imageUrl: inst.imageUrl,
-        })),
-      );
+          name: section.name,
+          index: section.index,
+        })
+        .returning({ id: instructionSections.id });
+
+      if (newSection) {
+        const sourceInsts = await tx
+          .select({
+            index: recipeInstructions.index,
+            instruction: recipeInstructions.instruction,
+            imageUrl: recipeInstructions.imageUrl,
+          })
+          .from(recipeInstructions)
+          .where(eq(recipeInstructions.sectionId, section.id))
+          .orderBy(recipeInstructions.index);
+
+        if (sourceInsts.length > 0) {
+          await tx.insert(recipeInstructions).values(
+            sourceInsts.map((inst) => ({
+              sectionId: newSection.id,
+              index: inst.index,
+              instruction: inst.instruction,
+              imageUrl: inst.imageUrl,
+            })),
+          );
+        }
+      }
     }
 
     // Fetch and copy tags

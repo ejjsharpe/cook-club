@@ -11,6 +11,29 @@ import {
 const TEXT_MODEL = "@cf/openai/gpt-oss-20b" as const;
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct" as const;
 
+export interface AiIngredient {
+  index: number;
+  quantity: number | null;
+  unit: string | null;
+  name: string;
+}
+
+export interface AiInstruction {
+  index: number;
+  instruction: string;
+  imageUrl?: string | null;
+}
+
+export interface AiIngredientSection {
+  name: string | null;
+  ingredients: AiIngredient[];
+}
+
+export interface AiInstructionSection {
+  name: string | null;
+  instructions: AiInstruction[];
+}
+
 export interface AiRecipeResult {
   name: string;
   description: string | null;
@@ -18,15 +41,8 @@ export interface AiRecipeResult {
   cookTime: number | null; // minutes
   totalTime: number | null; // minutes
   servings: number | null;
-  ingredients: {
-    quantity: number | null;
-    unit: string | null;
-    name: string;
-  }[];
-  instructions: {
-    text: string;
-    imageUrl?: string | null;
-  }[];
+  ingredientSections: AiIngredientSection[];
+  instructionSections: AiInstructionSection[];
   suggestedTags?: {
     type: "cuisine" | "meal_type" | "occasion";
     name: string;

@@ -1,4 +1,8 @@
-import type { ParsedRecipe, Ingredient, Instruction } from "../schema";
+import type {
+  ParsedRecipe,
+  IngredientSection,
+  InstructionSection,
+} from "../schema";
 import { ParsedRecipeSchema } from "../schema";
 import type { Env, ParseResult } from "../types";
 import { parseRecipeFromText, type AiRecipeResult } from "./ai-client";
@@ -8,18 +12,30 @@ import { normalizeUnit } from "../utils/unit-normalizer";
  * Convert AI result to ParsedRecipe format
  */
 function aiResultToRecipe(ai: AiRecipeResult): ParsedRecipe {
-  const ingredients: Ingredient[] = ai.ingredients.map((ing, index) => ({
-    index,
-    quantity: ing.quantity,
-    unit: ing.unit ? normalizeUnit(ing.unit) : null,
-    name: ing.name,
-  }));
+  // Map AI ingredient sections to our format
+  const ingredientSections: IngredientSection[] = ai.ingredientSections.map(
+    (section) => ({
+      name: section.name,
+      ingredients: section.ingredients.map((ing, index) => ({
+        index,
+        quantity: ing.quantity,
+        unit: ing.unit ? normalizeUnit(ing.unit) : null,
+        name: ing.name,
+      })),
+    }),
+  );
 
-  const instructions: Instruction[] = ai.instructions.map((inst, index) => ({
-    index,
-    instruction: inst.text,
-    imageUrl: inst.imageUrl || null,
-  }));
+  // Map AI instruction sections to our format
+  const instructionSections: InstructionSection[] = ai.instructionSections.map(
+    (section) => ({
+      name: section.name,
+      instructions: section.instructions.map((inst, index) => ({
+        index,
+        instruction: inst.instruction,
+        imageUrl: inst.imageUrl || null,
+      })),
+    }),
+  );
 
   return {
     name: ai.name,
@@ -30,8 +46,8 @@ function aiResultToRecipe(ai: AiRecipeResult): ParsedRecipe {
     servings: ai.servings,
     sourceUrl: null,
     sourceType: "text" as const,
-    ingredients,
-    instructions,
+    ingredientSections,
+    instructionSections,
     images: [],
     suggestedTags: ai.suggestedTags,
   };
@@ -80,17 +96,24 @@ export async function parseText(env: Env, text: string): Promise<ParseResult> {
     }
 
     // Determine confidence based on completeness
+    // Count total ingredients and instructions across all sections
+    const totalIngredients = recipe.ingredientSections.reduce(
+      (sum, section) => sum + section.ingredients.length,
+      0,
+    );
+    const totalInstructions = recipe.instructionSections.reduce(
+      (sum, section) => sum + section.instructions.length,
+      0,
+    );
+
     let confidence: "high" | "medium" | "low" = "medium";
     if (
-      recipe.ingredients.length >= 3 &&
-      recipe.instructions.length >= 2 &&
+      totalIngredients >= 3 &&
+      totalInstructions >= 2 &&
       recipe.name.length > 3
     ) {
       confidence = "high";
-    } else if (
-      recipe.ingredients.length < 2 ||
-      recipe.instructions.length < 1
-    ) {
+    } else if (totalIngredients < 2 || totalInstructions < 1) {
       confidence = "low";
     }
 

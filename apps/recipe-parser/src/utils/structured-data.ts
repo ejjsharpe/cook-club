@@ -1,6 +1,13 @@
 import * as cheerio from "cheerio";
 
-import type { ParsedRecipe, Ingredient, Instruction, Tag } from "../schema";
+import type {
+  ParsedRecipe,
+  Ingredient,
+  Instruction,
+  IngredientSection,
+  InstructionSection,
+  Tag,
+} from "../schema";
 import { normalizeUnit } from "./unit-normalizer";
 
 /**
@@ -355,52 +362,77 @@ function extractStepImage(step: HowToStep, baseUrl: string): string | null {
 }
 
 /**
- * Flatten recipeInstructions which may contain HowToStep, HowToSection, or strings
- * into a flat array of step objects
+ * Extract recipeInstructions which may contain HowToStep, HowToSection, or strings
+ * into a nested array of sections with their instructions
  */
-function flattenInstructions(
+function extractInstructionSections(
   instructions: OneOrMany<string | HowToStep | HowToSection>,
   baseUrl: string,
-): { text: string; imageUrl: string | null }[] {
-  const result: { text: string; imageUrl: string | null }[] = [];
+): InstructionSection[] {
   const items = normalizeToArray(instructions);
+  const sections: InstructionSection[] = [];
+
+  // Collect default section items (items not in a HowToSection)
+  const defaultSectionItems: Instruction[] = [];
+  let defaultIndex = 0;
 
   for (const item of items) {
     if (typeof item === "string") {
-      // Plain string instruction
+      // Plain string instruction - add to default section
       const trimmed = item.trim();
       if (trimmed) {
-        result.push({ text: trimmed, imageUrl: null });
+        defaultSectionItems.push({
+          index: defaultIndex++,
+          instruction: trimmed,
+          imageUrl: null,
+        });
       }
     } else if (item && typeof item === "object") {
       if (item["@type"] === "HowToSection" && "itemListElement" in item) {
-        // HowToSection contains nested steps
+        // HowToSection contains nested steps - create a named section
         const section = item as HowToSection;
+        const sectionName = section.name?.trim() || null;
+        const sectionInstructions: Instruction[] = [];
+        let sectionIndex = 0;
+
         const nestedSteps = normalizeToArray(section.itemListElement);
         for (const nested of nestedSteps) {
           if (typeof nested === "string") {
             const trimmed = nested.trim();
             if (trimmed) {
-              result.push({ text: trimmed, imageUrl: null });
+              sectionInstructions.push({
+                index: sectionIndex++,
+                instruction: trimmed,
+                imageUrl: null,
+              });
             }
           } else if (nested && typeof nested === "object") {
             const step = nested as HowToStep;
             const text = (step.text || step.name || "").trim();
             if (text) {
-              result.push({
-                text,
+              sectionInstructions.push({
+                index: sectionIndex++,
+                instruction: text,
                 imageUrl: extractStepImage(step, baseUrl),
               });
             }
           }
         }
+
+        if (sectionInstructions.length > 0) {
+          sections.push({
+            name: sectionName,
+            instructions: sectionInstructions,
+          });
+        }
       } else {
-        // HowToStep
+        // HowToStep without section - add to default section
         const step = item as HowToStep;
         const text = (step.text || step.name || "").trim();
         if (text) {
-          result.push({
-            text,
+          defaultSectionItems.push({
+            index: defaultIndex++,
+            instruction: text,
             imageUrl: extractStepImage(step, baseUrl),
           });
         }
@@ -408,7 +440,15 @@ function flattenInstructions(
     }
   }
 
-  return result;
+  // If we have default section items, add them as the first section
+  if (defaultSectionItems.length > 0) {
+    sections.unshift({
+      name: null,
+      instructions: defaultSectionItems,
+    });
+  }
+
+  return sections;
 }
 
 /**
@@ -451,6 +491,7 @@ function toParsedRecipe(
   sourceUrl: string,
 ): ParsedRecipe {
   // Parse ingredients - ensure each item is a string
+  // For structured data, ingredients are typically a flat list without sections
   const rawIngredients = normalizeToArray(raw.recipeIngredient);
   const ingredients: Ingredient[] = rawIngredients
     .filter(
@@ -466,18 +507,14 @@ function toParsedRecipe(
       };
     });
 
-  // Parse instructions (handles HowToStep, HowToSection, and plain strings)
-  const flattenedInstructions = raw.recipeInstructions
-    ? flattenInstructions(raw.recipeInstructions, sourceUrl)
-    : [];
+  // Wrap ingredients in a single default section
+  const ingredientSections: IngredientSection[] =
+    ingredients.length > 0 ? [{ name: null, ingredients }] : [];
 
-  const instructions: Instruction[] = flattenedInstructions.map(
-    (step, index) => ({
-      index,
-      instruction: step.text,
-      imageUrl: step.imageUrl,
-    }),
-  );
+  // Parse instructions (handles HowToStep, HowToSection, and plain strings)
+  const instructionSections = raw.recipeInstructions
+    ? extractInstructionSections(raw.recipeInstructions, sourceUrl)
+    : [];
 
   // Get images (already normalized by parseJsonLd)
   const images: string[] = Array.isArray(raw.image)
@@ -493,8 +530,8 @@ function toParsedRecipe(
     servings: extractServingsFromYield(raw.recipeYield),
     sourceUrl,
     sourceType: "url" as const,
-    ingredients,
-    instructions,
+    ingredientSections,
+    instructionSections,
     images,
     suggestedTags: generateTags(raw),
   };

@@ -1,6 +1,4 @@
 import {
-  recipeIngredients,
-  recipeInstructions,
   recipeImages,
   recipes,
   recipeCollections,
@@ -8,32 +6,13 @@ import {
   user,
   tags,
   recipeTags,
-  follows,
-  shoppingLists,
-  shoppingListRecipes,
   activityEvents,
 } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import {
-  eq,
-  lt,
-  desc,
-  and,
-  like,
-  ilike,
-  count,
-  countDistinct,
-  inArray,
-  min,
-  sql,
-} from "drizzle-orm";
+import { eq, lt, desc, and, ilike, count, inArray, min } from "drizzle-orm";
 
-import {
-  parseIngredient,
-  parseIngredients,
-} from "../../utils/ingredientParser";
-import { normalizeUnit } from "../../utils/unitNormalizer";
+import { parseIngredients } from "../../utils/ingredientParser";
 import { propagateActivityToFollowers } from "../services/activity/activity-propagation.service";
 import {
   queryPopularRecipesThisWeek,
@@ -73,14 +52,25 @@ const InstructionRecord = type({
   "imageUrl?": "string | null",
 });
 
+// Section wrappers for nested structure
+const IngredientSectionRecord = type({
+  name: "string | null",
+  ingredients: IngredientRecord.array(),
+});
+
+const InstructionSectionRecord = type({
+  name: "string | null",
+  instructions: InstructionRecord.array(),
+});
+
 const SourceTypeValidator = type(
   "'url' | 'image' | 'text' | 'ai' | 'manual' | 'user'",
 );
 
 export const RecipePostValidator = type({
   name: "string",
-  ingredients: IngredientRecord.array().atLeastLength(1),
-  instructions: InstructionRecord.array().atLeastLength(1),
+  ingredientSections: IngredientSectionRecord.array().atLeastLength(1),
+  instructionSections: InstructionSectionRecord.array().atLeastLength(1),
   // Either images (direct URLs) or imageUploadIds (temp keys from upload)
   "images?": ImageRecord.array(),
   "imageUploadIds?": "string[]",

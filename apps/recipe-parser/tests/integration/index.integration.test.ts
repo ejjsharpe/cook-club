@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 import { RecipeParser } from "../../src/index";
 
-// Valid AI response for mocking
+// Valid AI response for mocking (uses section structure)
 const validAiResponse = JSON.stringify({
   name: "Classic Chocolate Chip Cookies",
   description: "Delicious homemade cookies",
@@ -11,20 +11,30 @@ const validAiResponse = JSON.stringify({
   cookTime: "PT10M",
   totalTime: "PT25M",
   servings: 24,
-  ingredients: [
-    { quantity: 2.25, unit: "cups", name: "all-purpose flour" },
-    { quantity: 1, unit: "tsp", name: "baking soda" },
-    { quantity: 1, unit: "cup", name: "butter, softened" },
-    { quantity: 0.75, unit: "cup", name: "granulated sugar" },
-    { quantity: 2, unit: "cups", name: "chocolate chips" },
+  ingredientSections: [
+    {
+      name: null,
+      ingredients: [
+        { index: 0, quantity: 2.25, unit: "cups", name: "all-purpose flour" },
+        { index: 1, quantity: 1, unit: "tsp", name: "baking soda" },
+        { index: 2, quantity: 1, unit: "cup", name: "butter, softened" },
+        { index: 3, quantity: 0.75, unit: "cup", name: "granulated sugar" },
+        { index: 4, quantity: 2, unit: "cups", name: "chocolate chips" },
+      ],
+    },
   ],
-  instructions: [
-    "Preheat oven to 375°F",
-    "Mix flour and baking soda in a bowl",
-    "Beat butter and sugar until creamy",
-    "Combine wet and dry ingredients",
-    "Fold in chocolate chips",
-    "Bake for 9 to 11 minutes",
+  instructionSections: [
+    {
+      name: null,
+      instructions: [
+        { index: 0, instruction: "Preheat oven to 375°F" },
+        { index: 1, instruction: "Mix flour and baking soda in a bowl" },
+        { index: 2, instruction: "Beat butter and sugar until creamy" },
+        { index: 3, instruction: "Combine wet and dry ingredients" },
+        { index: 4, instruction: "Fold in chocolate chips" },
+        { index: 5, instruction: "Bake for 9 to 11 minutes" },
+      ],
+    },
   ],
   suggestedTags: [{ type: "cuisine", name: "American" }],
 });
@@ -100,8 +110,10 @@ describe("RecipeParser Integration Tests", () => {
       if (result.success) {
         // Name comes from AI mock response
         expect(result.data.name).toBe("Classic Chocolate Chip Cookies");
-        expect(result.data.ingredients.length).toBe(5);
-        expect(result.data.instructions.length).toBe(6);
+        expect(result.data.ingredientSections.length).toBe(1);
+        expect(result.data.ingredientSections[0]?.ingredients.length).toBe(5);
+        expect(result.data.instructionSections.length).toBe(1);
+        expect(result.data.instructionSections[0]?.instructions.length).toBe(6);
         expect(result.metadata.parseMethod).toBe("ai_only");
         expect(result.metadata.source).toBe("url");
       }
@@ -116,13 +128,16 @@ describe("RecipeParser Integration Tests", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         // Check that all ingredients from mock have quantities
-        const withQuantities = result.data.ingredients.filter(
+        const allIngredients = result.data.ingredientSections.flatMap(
+          (s) => s.ingredients,
+        );
+        const withQuantities = allIngredients.filter(
           (i) => i.quantity !== null,
         );
         expect(withQuantities.length).toBe(5);
         // Verify first ingredient
-        expect(result.data.ingredients[0]?.quantity).toBe(2.25);
-        expect(result.data.ingredients[0]?.name).toBe("all-purpose flour");
+        expect(allIngredients[0]?.quantity).toBe(2.25);
+        expect(allIngredients[0]?.name).toBe("all-purpose flour");
       }
     });
   });
@@ -208,8 +223,8 @@ describe("RecipeParser Integration Tests", () => {
       if (result.success) {
         // Name comes from AI mock response
         expect(result.data.name).toBe("Classic Chocolate Chip Cookies");
-        expect(result.data.ingredients.length).toBeGreaterThan(0);
-        expect(result.data.instructions.length).toBeGreaterThan(0);
+        expect(result.data.ingredientSections.length).toBeGreaterThan(0);
+        expect(result.data.instructionSections.length).toBeGreaterThan(0);
         expect(result.metadata.source).toBe("text");
       }
     });

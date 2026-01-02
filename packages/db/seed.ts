@@ -111,8 +111,11 @@ async function clearDatabase(db: DbClient) {
   await db.delete(schema.recipeCollections);
   await db.delete(schema.collections);
   await db.delete(schema.recipeTags);
+  // Delete ingredients/instructions first, then their sections
   await db.delete(schema.recipeInstructions);
   await db.delete(schema.recipeIngredients);
+  await db.delete(schema.instructionSections);
+  await db.delete(schema.ingredientSections);
   await db.delete(schema.recipeImages);
   await db.delete(schema.recipes);
   await db.delete(schema.tags);
@@ -219,7 +222,20 @@ async function seedRecipes(
   let userIndex = 0;
 
   // Source types to distribute across recipes (excluding "user" which is for imported recipes)
-  const sourceTypes: SourceType[] = ["url", "image", "text", "ai", "manual"];
+  // Half are URLs, the other half are distributed among text, ai, manual
+  const sourceTypes: SourceType[] = ["url", "text", "url", "ai", "url", "manual"];
+
+  // Fake source domains for URL-type recipes
+  const fakeDomains = [
+    "bonappetit.com",
+    "seriouseats.com",
+    "food52.com",
+    "epicurious.com",
+    "nytimes.com/cooking",
+    "thekitchn.com",
+    "delish.com",
+    "allrecipes.com",
+  ];
 
   for (const r of recipeData) {
     const user = shuffledUsers[userIndex % shuffledUsers.length]!;
@@ -239,7 +255,13 @@ async function seedRecipes(
     }
 
     // Only include sourceUrl if sourceType is "url"
-    const sourceUrl = sourceType === "url" ? (r.sourceUrl || `https://example.com/recipe-${userIndex}`) : null;
+    // Generate realistic-looking URLs using fake domains
+    const generateFakeUrl = () => {
+      const domain = fakeDomains[userIndex % fakeDomains.length]!;
+      const slug = r.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+      return `https://www.${domain}/recipes/${slug}`;
+    };
+    const sourceUrl = sourceType === "url" ? (r.sourceUrl || generateFakeUrl()) : null;
 
     userIndex++;
 
@@ -270,25 +292,49 @@ async function seedRecipes(
       url: r.imageUrl,
     });
 
-    // Add ingredients
-    for (let i = 0; i < r.ingredients.length; i++) {
-      const parsed = parseIngredient(r.ingredients[i]!);
-      await db.insert(schema.recipeIngredients).values({
+    // Create default ingredient section (null name = no header displayed)
+    const [ingredientSection] = await db
+      .insert(schema.ingredientSections)
+      .values({
         recipeId: recipe.id,
-        index: i,
-        quantity: parsed.quantity,
-        unit: parsed.unit,
-        name: parsed.name,
-      });
+        name: null,
+        index: 0,
+      })
+      .returning();
+
+    // Add ingredients to the section
+    if (ingredientSection) {
+      for (let i = 0; i < r.ingredients.length; i++) {
+        const parsed = parseIngredient(r.ingredients[i]!);
+        await db.insert(schema.recipeIngredients).values({
+          sectionId: ingredientSection.id,
+          index: i,
+          quantity: parsed.quantity,
+          unit: parsed.unit,
+          name: parsed.name,
+        });
+      }
     }
 
-    // Add instructions
-    for (let i = 0; i < r.instructions.length; i++) {
-      await db.insert(schema.recipeInstructions).values({
+    // Create default instruction section (null name = no header displayed)
+    const [instructionSection] = await db
+      .insert(schema.instructionSections)
+      .values({
         recipeId: recipe.id,
-        index: i,
-        instruction: r.instructions[i]!,
-      });
+        name: null,
+        index: 0,
+      })
+      .returning();
+
+    // Add instructions to the section
+    if (instructionSection) {
+      for (let i = 0; i < r.instructions.length; i++) {
+        await db.insert(schema.recipeInstructions).values({
+          sectionId: instructionSection.id,
+          index: i,
+          instruction: r.instructions[i]!,
+        });
+      }
     }
 
     // Add tags
@@ -357,25 +403,49 @@ async function seedSocialRecipes(
       url: r.imageUrl,
     });
 
-    // Add ingredients
-    for (let i = 0; i < r.ingredients.length; i++) {
-      const parsed = parseIngredient(r.ingredients[i]!);
-      await db.insert(schema.recipeIngredients).values({
+    // Create default ingredient section (null name = no header displayed)
+    const [ingredientSection] = await db
+      .insert(schema.ingredientSections)
+      .values({
         recipeId: recipe.id,
-        index: i,
-        quantity: parsed.quantity,
-        unit: parsed.unit,
-        name: parsed.name,
-      });
+        name: null,
+        index: 0,
+      })
+      .returning();
+
+    // Add ingredients to the section
+    if (ingredientSection) {
+      for (let i = 0; i < r.ingredients.length; i++) {
+        const parsed = parseIngredient(r.ingredients[i]!);
+        await db.insert(schema.recipeIngredients).values({
+          sectionId: ingredientSection.id,
+          index: i,
+          quantity: parsed.quantity,
+          unit: parsed.unit,
+          name: parsed.name,
+        });
+      }
     }
 
-    // Add instructions
-    for (let i = 0; i < r.instructions.length; i++) {
-      await db.insert(schema.recipeInstructions).values({
+    // Create default instruction section (null name = no header displayed)
+    const [instructionSection] = await db
+      .insert(schema.instructionSections)
+      .values({
         recipeId: recipe.id,
-        index: i,
-        instruction: r.instructions[i]!,
-      });
+        name: null,
+        index: 0,
+      })
+      .returning();
+
+    // Add instructions to the section
+    if (instructionSection) {
+      for (let i = 0; i < r.instructions.length; i++) {
+        await db.insert(schema.recipeInstructions).values({
+          sectionId: instructionSection.id,
+          index: i,
+          instruction: r.instructions[i]!,
+        });
+      }
     }
 
     // Add tags
@@ -529,35 +599,75 @@ async function seedImportedRecipes(
         });
       }
 
-      // Copy ingredients
-      const sourceIngredients = await db
+      // Copy ingredient sections and their ingredients
+      const sourceIngredientSections = await db
         .select()
-        .from(schema.recipeIngredients)
-        .where(eq(schema.recipeIngredients.recipeId, sourceRecipe.id));
+        .from(schema.ingredientSections)
+        .where(eq(schema.ingredientSections.recipeId, sourceRecipe.id));
 
-      for (const ing of sourceIngredients) {
-        await db.insert(schema.recipeIngredients).values({
-          recipeId: importedRecipe.id,
-          index: ing.index,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          name: ing.name,
-        });
+      for (const section of sourceIngredientSections) {
+        // Create new section for imported recipe
+        const [newSection] = await db
+          .insert(schema.ingredientSections)
+          .values({
+            recipeId: importedRecipe.id,
+            name: section.name,
+            index: section.index,
+          })
+          .returning();
+
+        if (newSection) {
+          // Copy ingredients for this section
+          const sourceIngredients = await db
+            .select()
+            .from(schema.recipeIngredients)
+            .where(eq(schema.recipeIngredients.sectionId, section.id));
+
+          for (const ing of sourceIngredients) {
+            await db.insert(schema.recipeIngredients).values({
+              sectionId: newSection.id,
+              index: ing.index,
+              quantity: ing.quantity,
+              unit: ing.unit,
+              name: ing.name,
+            });
+          }
+        }
       }
 
-      // Copy instructions
-      const sourceInstructions = await db
+      // Copy instruction sections and their instructions
+      const sourceInstructionSections = await db
         .select()
-        .from(schema.recipeInstructions)
-        .where(eq(schema.recipeInstructions.recipeId, sourceRecipe.id));
+        .from(schema.instructionSections)
+        .where(eq(schema.instructionSections.recipeId, sourceRecipe.id));
 
-      for (const inst of sourceInstructions) {
-        await db.insert(schema.recipeInstructions).values({
-          recipeId: importedRecipe.id,
-          index: inst.index,
-          instruction: inst.instruction,
-          imageUrl: inst.imageUrl,
-        });
+      for (const section of sourceInstructionSections) {
+        // Create new section for imported recipe
+        const [newSection] = await db
+          .insert(schema.instructionSections)
+          .values({
+            recipeId: importedRecipe.id,
+            name: section.name,
+            index: section.index,
+          })
+          .returning();
+
+        if (newSection) {
+          // Copy instructions for this section
+          const sourceInstructions = await db
+            .select()
+            .from(schema.recipeInstructions)
+            .where(eq(schema.recipeInstructions.sectionId, section.id));
+
+          for (const inst of sourceInstructions) {
+            await db.insert(schema.recipeInstructions).values({
+              sectionId: newSection.id,
+              index: inst.index,
+              instruction: inst.instruction,
+              imageUrl: inst.imageUrl,
+            });
+          }
+        }
       }
 
       // Copy tags

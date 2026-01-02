@@ -31,8 +31,18 @@ const mockRecipe: ParsedRecipe = {
   totalTime: 30, // minutes
   servings: 4,
   sourceUrl: "https://example.com/recipe",
-  ingredients: [{ index: 0, quantity: 2, unit: "cup", name: "flour" }],
-  instructions: [{ index: 0, instruction: "Mix" }],
+  ingredientSections: [
+    {
+      name: null,
+      ingredients: [{ index: 0, quantity: 2, unit: "cup", name: "flour" }],
+    },
+  ],
+  instructionSections: [
+    {
+      name: null,
+      instructions: [{ index: 0, instruction: "Mix", imageUrl: null }],
+    },
+  ],
   images: ["https://example.com/img.jpg"],
   suggestedTags: [{ type: "cuisine", name: "American" }],
 };

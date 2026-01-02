@@ -20,11 +20,24 @@ const validRecipeJson = JSON.stringify({
   cookTime: "PT20M",
   totalTime: "PT30M",
   servings: 4,
-  ingredients: [
-    { quantity: 2, unit: "cup", name: "flour" },
-    { quantity: 1, unit: "tsp", name: "salt" },
+  ingredientSections: [
+    {
+      name: null,
+      ingredients: [
+        { index: 0, quantity: 2, unit: "cup", name: "flour" },
+        { index: 1, quantity: 1, unit: "tsp", name: "salt" },
+      ],
+    },
   ],
-  instructions: ["Mix ingredients", "Bake at 350F"],
+  instructionSections: [
+    {
+      name: null,
+      instructions: [
+        { index: 0, instruction: "Mix ingredients" },
+        { index: 1, instruction: "Bake at 350F" },
+      ],
+    },
+  ],
   suggestedTags: [{ type: "cuisine", name: "American" }],
 });
 
@@ -38,8 +51,10 @@ describe("parseRecipeFromText", () => {
     const result = await parseRecipeFromText(mockAi as any, "Recipe text here");
 
     expect(result.name).toBe("Test Recipe");
-    expect(result.ingredients).toHaveLength(2);
-    expect(result.instructions).toHaveLength(2);
+    expect(result.ingredientSections).toHaveLength(1);
+    expect(result.ingredientSections[0]?.ingredients).toHaveLength(2);
+    expect(result.instructionSections).toHaveLength(1);
+    expect(result.instructionSections[0]?.instructions).toHaveLength(2);
     expect(mockAi.run).toHaveBeenCalled();
   });
 
@@ -183,23 +198,45 @@ describe("AI response parsing edge cases", () => {
       cookTime: null,
       totalTime: null,
       servings: null,
-      ingredients: [{ quantity: null, unit: null, name: "something" }],
-      instructions: ["Do it"],
+      ingredientSections: [
+        {
+          name: null,
+          ingredients: [
+            { index: 0, quantity: null, unit: null, name: "something" },
+          ],
+        },
+      ],
+      instructionSections: [
+        {
+          name: null,
+          instructions: [{ index: 0, instruction: "Do it" }],
+        },
+      ],
     });
     const mockAi = createMockAi(recipeWithNulls);
     const result = await parseRecipeFromText(mockAi as any, "Recipe");
 
     expect(result.name).toBe("Simple Recipe");
     expect(result.description).toBeNull();
-    expect(result.ingredients[0]!.quantity).toBeNull();
+    expect(result.ingredientSections[0]!.ingredients[0]!.quantity).toBeNull();
   });
 
   it("handles recipe without optional suggestedTags", async () => {
     const recipeWithoutTags = JSON.stringify({
       name: "No Tags Recipe",
       description: "Test",
-      ingredients: [{ quantity: 1, unit: "cup", name: "flour" }],
-      instructions: ["Mix"],
+      ingredientSections: [
+        {
+          name: null,
+          ingredients: [{ index: 0, quantity: 1, unit: "cup", name: "flour" }],
+        },
+      ],
+      instructionSections: [
+        {
+          name: null,
+          instructions: [{ index: 0, instruction: "Mix" }],
+        },
+      ],
     });
     const mockAi = createMockAi(recipeWithoutTags);
     const result = await parseRecipeFromText(mockAi as any, "Recipe");

@@ -34,14 +34,20 @@ interface GeneratedRecipeAiResponse {
   cookTime: number | null; // minutes
   totalTime: number | null; // minutes
   servings: number;
-  ingredients: {
-    quantity: number | null;
-    unit: string | null;
-    name: string;
+  ingredientSections: {
+    name: string | null;
+    ingredients: {
+      quantity: number | null;
+      unit: string | null;
+      name: string;
+    }[];
   }[];
-  instructions: {
-    text: string;
-    imageUrl?: string | null;
+  instructionSections: {
+    name: string | null;
+    instructions: {
+      text: string;
+      imageUrl?: string | null;
+    }[];
   }[];
   suggestedTags?: {
     type: "cuisine" | "meal_type" | "occasion";
@@ -135,7 +141,7 @@ async function generateRecipe(
     const generated =
       parseAiJsonResponse<GeneratedRecipeAiResponse>(responseText);
 
-    // Transform to ParsedRecipe format
+    // Transform to ParsedRecipe format with sections
     const recipe: ParsedRecipe = {
       name: generated.name,
       description: generated.description,
@@ -144,16 +150,22 @@ async function generateRecipe(
       totalTime: generated.totalTime,
       servings: generated.servings || 4,
       sourceType: "ai" as const,
-      ingredients: generated.ingredients.map((ing, idx) => ({
-        index: idx,
-        quantity: ing.quantity,
-        unit: ing.unit,
-        name: ing.name,
+      ingredientSections: generated.ingredientSections.map((section) => ({
+        name: section.name,
+        ingredients: section.ingredients.map((ing, idx) => ({
+          index: idx,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          name: ing.name,
+        })),
       })),
-      instructions: generated.instructions.map((inst, idx) => ({
-        index: idx,
-        instruction: inst.text,
-        imageUrl: inst.imageUrl || null,
+      instructionSections: generated.instructionSections.map((section) => ({
+        name: section.name,
+        instructions: section.instructions.map((inst, idx) => ({
+          index: idx,
+          instruction: inst.text,
+          imageUrl: inst.imageUrl || null,
+        })),
       })),
       images: [], // AI-generated recipes start with no images
       suggestedTags: generated.suggestedTags,
