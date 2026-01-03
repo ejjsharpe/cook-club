@@ -39,7 +39,7 @@ const StarRating = ({ rating }: { rating: number }) => {
         <Ionicons
           key={star}
           name={star <= rating ? "star" : "star-outline"}
-          size={16}
+          size={14}
           style={star <= rating ? starStyles.filled : starStyles.empty}
         />
       ))}
@@ -75,14 +75,12 @@ export const ReviewActivityCard = memo(
 
     const hasImages = activity.review.images.length > 0;
 
-    // Handle opening external source URL
     const handleViewSource = useCallback(async () => {
       if (activity.recipe.sourceType === "url") {
         await WebBrowser.openBrowserAsync(activity.recipe.sourceUrl);
       }
     }, [activity.recipe]);
 
-    // Handle importing the recipe
     const handleImport = useCallback(() => {
       if (activity.recipe.sourceType === "url") {
         onImportPress?.(activity.recipe.sourceUrl);
@@ -113,58 +111,65 @@ export const ReviewActivityCard = memo(
           </View>
           <View style={styles.userInfo}>
             <View style={styles.userNameRow}>
-              <Text type="body" style={styles.userName}>
+              <Text type="headline" style={styles.userName}>
                 {activity.actor.name}
               </Text>
-              <Text type="bodyFaded" style={styles.uploadTime}>
-                {timeAgo}
+              <Text type="caption" style={styles.dot}>
+                ·
               </Text>
+              <Text type="caption">{timeAgo}</Text>
             </View>
-            <Text type="bodyFaded" style={styles.activityText}>
-              cooked{" "}
-              <Text style={styles.recipeName}>{activity.recipe.name}</Text>
+            <Text type="subheadline" style={styles.activityText}>
+              cooked {activity.recipe.name}
             </Text>
           </View>
         </TouchableOpacity>
 
-        {/* Rating */}
-        <View style={styles.ratingRow}>
-          <StarRating rating={activity.review.rating} />
-        </View>
+        {/* Review Content Card */}
+        <View style={styles.contentCard}>
+          {/* Review Images - Full width carousel */}
+          {hasImages && (
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.imagesContainer}
+            >
+              {activity.review.images.map((imageUrl, index) => (
+                <Image
+                  key={index}
+                  source={{ uri: imageUrl }}
+                  style={styles.reviewImage}
+                  cachePolicy="memory-disk"
+                  transition={200}
+                />
+              ))}
+            </ScrollView>
+          )}
 
-        {/* Review Text */}
-        {activity.review.text && (
-          <View style={styles.reviewTextContainer}>
-            <Text type="body" style={styles.reviewText}>
-              {activity.review.text}
-            </Text>
+          {/* Rating and Review Text */}
+          <View style={styles.reviewContent}>
+            <View style={styles.ratingRow}>
+              <StarRating rating={activity.review.rating} />
+              <Text type="footnote" style={styles.ratingText}>
+                {activity.review.rating}/5
+              </Text>
+            </View>
+
+            {activity.review.text && (
+              <Text type="body" style={styles.reviewText}>
+                {activity.review.text}
+              </Text>
+            )}
           </View>
-        )}
 
-        {/* Review Images */}
-        {hasImages && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.imagesContainer}
-          >
-            {activity.review.images.map((imageUrl, index) => (
-              <Image
-                key={index}
-                source={{ uri: imageUrl }}
-                style={styles.reviewImage}
-                cachePolicy="memory-disk"
-                transition={200}
-              />
-            ))}
-          </ScrollView>
-        )}
-
-        {/* Recipe Preview */}
-        {activity.recipe.sourceType === "url" ? (
-          // For URL-sourced recipes, show non-tappable preview with action buttons
-          <>
-            <View style={styles.recipePreview}>
+          {/* Recipe Preview */}
+          {activity.recipe.sourceType === "url" ? (
+            <TouchableOpacity
+              style={styles.recipePreview}
+              onPress={handleViewSource}
+              activeOpacity={0.7}
+            >
               {activity.recipe.image && (
                 <Image
                   source={{ uri: activity.recipe.image }}
@@ -174,67 +179,66 @@ export const ReviewActivityCard = memo(
                 />
               )}
               <View style={styles.recipeInfo}>
-                <Text type="body" style={styles.recipeTitle} numberOfLines={2}>
+                <Text type="subheadline" numberOfLines={1} style={styles.recipeTitle}>
                   {activity.recipe.name}
                 </Text>
-                <Text type="bodyFaded" style={styles.tapToView}>
-                  from {activity.recipe.sourceDomain}
+                <Text type="caption" style={styles.recipeSource}>
+                  {activity.recipe.sourceDomain}
                 </Text>
               </View>
-            </View>
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={styles.viewSourceButton}
-                onPress={handleViewSource}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="open-outline"
-                  size={16}
-                  style={styles.viewSourceIcon}
-                />
-                <Text style={styles.viewSourceButtonText}>
-                  View on {activity.recipe.sourceDomain}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.importButton}
-                onPress={handleImport}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="add-circle-outline"
-                  size={16}
-                  style={styles.importIcon}
-                />
-                <Text style={styles.importButtonText}>Import</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          // For non-URL recipes, show tappable preview
-          <TouchableOpacity
-            style={styles.recipePreview}
-            onPress={onPress}
-            activeOpacity={0.8}
-          >
-            {activity.recipe.image && (
-              <Image
-                source={{ uri: activity.recipe.image }}
-                style={styles.recipeImage}
-                cachePolicy="memory-disk"
-                transition={200}
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                style={styles.chevron}
               />
-            )}
-            <View style={styles.recipeInfo}>
-              <Text type="body" style={styles.recipeTitle} numberOfLines={2}>
-                {activity.recipe.name}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.recipePreview}
+              onPress={onPress}
+              activeOpacity={0.7}
+            >
+              {activity.recipe.image && (
+                <Image
+                  source={{ uri: activity.recipe.image }}
+                  style={styles.recipeImage}
+                  cachePolicy="memory-disk"
+                  transition={200}
+                />
+              )}
+              <View style={styles.recipeInfo}>
+                <Text type="subheadline" numberOfLines={1} style={styles.recipeTitle}>
+                  {activity.recipe.name}
+                </Text>
+                <Text type="caption">View recipe</Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                style={styles.chevron}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Action Buttons */}
+        {activity.recipe.sourceType === "url" && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleImport}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={20}
+                style={styles.actionIcon}
+              />
+              <Text type="subheadline" style={styles.actionText}>
+                Import recipe
               </Text>
-              <Text type="bodyFaded" style={styles.tapToView}>
-                Tap to view recipe
-              </Text>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     );
@@ -244,20 +248,20 @@ export const ReviewActivityCard = memo(
 const styles = StyleSheet.create((theme) => ({
   card: {
     backgroundColor: theme.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    paddingVertical: 12,
-    marginHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    gap: 12,
   },
   userHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 12,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     overflow: "hidden",
   },
   avatarImage: {
@@ -273,8 +277,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   avatarInitials: {
     color: theme.colors.buttonText,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontFamily: theme.fonts.albertSemiBold,
   },
   userInfo: {
     flex: 1,
@@ -283,112 +287,83 @@ const styles = StyleSheet.create((theme) => ({
   userNameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
-  userName: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  uploadTime: {
-    fontSize: 12,
+  userName: {},
+  dot: {
+    opacity: 0.5,
   },
   activityText: {
-    fontSize: 14,
-    lineHeight: 20,
+    color: theme.colors.textSecondary,
   },
-  recipeName: {
-    fontWeight: "600",
-    color: theme.colors.text,
-  },
-  ratingRow: {
-    marginTop: 8,
-    marginLeft: 52,
-  },
-  reviewTextContainer: {
-    marginTop: 8,
-    marginLeft: 52,
-  },
-  reviewText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  imagesContainer: {
-    marginTop: 12,
-    marginHorizontal: -20,
-    paddingLeft: 72, // 20px card padding + 40px avatar + 12px gap
-    paddingRight: 20,
-    gap: 8,
-  },
-  reviewImage: {
-    width: 160,
-    height: 160,
-    borderRadius: 12,
-  },
-  recipePreview: {
-    flexDirection: "row",
-    marginTop: 12,
-    marginLeft: 52,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
+  contentCard: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 16,
     overflow: "hidden",
   },
+  imagesContainer: {
+    gap: 2,
+  },
+  reviewImage: {
+    width: 320,
+    height: 240,
+  },
+  reviewContent: {
+    padding: 16,
+    gap: 8,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  ratingText: {
+    color: theme.colors.textSecondary,
+  },
+  reviewText: {},
+  recipePreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    gap: 12,
+  },
   recipeImage: {
-    width: 60,
-    height: 60,
+    width: 48,
+    height: 48,
+    borderRadius: 8,
   },
   recipeInfo: {
     flex: 1,
-    padding: 10,
-    justifyContent: "center",
     gap: 2,
   },
   recipeTitle: {
-    fontSize: 13,
-    fontWeight: "500",
+    fontFamily: theme.fonts.albertSemiBold,
   },
-  tapToView: {
-    fontSize: 11,
+  recipeSource: {
+    color: theme.colors.textSecondary,
+  },
+  chevron: {
+    color: theme.colors.textTertiary,
   },
   actionRow: {
-    marginTop: 8,
-    marginLeft: 52,
     flexDirection: "row",
-    gap: 8,
+    gap: 12,
   },
-  viewSourceButton: {
+  actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 6,
+    gap: 6,
+    height: 44,
+    paddingHorizontal: 16,
+    backgroundColor: theme.colors.secondaryButtonBackground,
+    borderRadius: 22,
   },
-  viewSourceIcon: {
+  actionIcon: {
     color: theme.colors.text,
   },
-  viewSourceButtonText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  importButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: theme.colors.primary,
-    borderRadius: 6,
-  },
-  importIcon: {
-    color: theme.colors.buttonText,
-  },
-  importButtonText: {
-    color: theme.colors.buttonText,
-    fontSize: 12,
-    fontWeight: "500",
+  actionText: {
+    fontFamily: theme.fonts.albertSemiBold,
   },
 }));

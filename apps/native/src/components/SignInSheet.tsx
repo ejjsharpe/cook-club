@@ -1,12 +1,15 @@
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { Platform, View } from "react-native";
+import ActionSheet, {
+  SheetManager,
+  registerSheet,
+  SheetDefinition,
+  SheetProps,
+} from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useSignInWithEmail } from "@/api/auth";
 import { Input } from "@/components/Input";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BaseButton } from "@/components/buttons/BaseButton";
@@ -14,20 +17,35 @@ import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { SignInWithAppleButton } from "@/components/buttons/SignInWithAppleButton";
 import { SignInWithGoogleButton } from "@/components/buttons/SignInWithGoogleButton";
 
-export default function SignInScreen() {
+declare module "react-native-actions-sheet" {
+  interface Sheets {
+    "sign-in-sheet": SheetDefinition;
+  }
+}
+
+const SignInSheet = (props: SheetProps<"sign-in-sheet">) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { mutate: signInWithEmail } = useSignInWithEmail();
+
   const onPressSignInWithEmail = () => signInWithEmail({ email, password });
 
-  const { popTo } =
-    useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList>>();
-  const onPressSignUp = () => popTo("Sign Up");
+  const onPressSignUp = () => {
+    SheetManager.hide("sign-in-sheet");
+    setTimeout(() => {
+      SheetManager.show("sign-up-sheet");
+    }, 300);
+  };
 
   return (
-    <View style={styles.screenContainer}>
-      <SafeAreaView style={styles.safeArea}>
-        <VSpace size={32} />
+    <ActionSheet
+      id={props.sheetId}
+      gestureEnabled
+      indicatorStyle={styles.indicator}
+      containerStyle={styles.container}
+    >
+      <View style={styles.content}>
+        <VSpace size={8} />
         <Text type="title1">Sign in</Text>
         <VSpace size={12} />
         <Text style={styles.textAlignCenter} type="bodyFaded">
@@ -38,22 +56,27 @@ export default function SignInScreen() {
           label="Email"
           onChangeText={setEmail}
           placeholder="gordon@superchef.com"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
         />
         <VSpace size={12} />
         <Input
           label="Password"
           onChangeText={setPassword}
           placeholder="••••••••••••"
+          secureTextEntry
+          autoComplete="password"
         />
         <VSpace size={12} />
-        <PrimaryButton onPress={onPressSignInWithEmail}>Sign in </PrimaryButton>
+        <PrimaryButton onPress={onPressSignInWithEmail}>Sign in</PrimaryButton>
         <VSpace size={12} />
         <Text type="bodyFaded" style={styles.textAlignCenter}>
           or
         </Text>
         <VSpace size={12} />
         {Platform.OS === "ios" && <SignInWithAppleButton />}
-        <VSpace size={12} />
+        {Platform.OS === "ios" && <VSpace size={12} />}
         <SignInWithGoogleButton />
         <VSpace size={32} />
         <BaseButton onPress={onPressSignUp}>
@@ -61,20 +84,27 @@ export default function SignInScreen() {
             Don't have an account yet? <Text type="highlight">Sign up</Text>
           </Text>
         </BaseButton>
-        <VSpace size={12} />
-      </SafeAreaView>
-    </View>
+        <VSpace size={24} />
+      </View>
+    </ActionSheet>
   );
-}
+};
+
+registerSheet("sign-in-sheet", SignInSheet);
+
+export { SignInSheet };
 
 const styles = StyleSheet.create((theme) => ({
-  screenContainer: {
-    flex: 1,
-    paddingHorizontal: 24,
+  indicator: {
+    backgroundColor: theme.colors.border,
   },
-  safeArea: {
+  container: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  content: {
+    paddingHorizontal: 24,
     alignItems: "center",
-    width: "100%",
   },
   textAlignCenter: {
     textAlign: "center",

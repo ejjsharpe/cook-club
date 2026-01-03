@@ -26,8 +26,6 @@ import { DietaryPreferencesScreen } from "@/screens/settings/DietaryPreferencesS
 import { IngredientPreferencesScreen } from "@/screens/settings/IngredientPreferencesScreen";
 
 const StartScreen = lazy(() => import("@/screens/StartScreen"));
-const SignUpScreen = lazy(() => import("@/screens/SignUpScreen"));
-const SignInScreen = lazy(() => import("@/screens/SignInScreen"));
 const OnboardingScreen = lazy(() => import("@/screens/OnboardingScreen"));
 
 type RootStackParamList = StaticParamList<typeof RootStack>;
@@ -93,24 +91,6 @@ const RootStack = createNativeStackNavigator({
       },
       screens: {
         Start: { screen: StartScreen },
-        "Sign In": {
-          screen: SignInScreen,
-          options: {
-            presentation: "formSheet",
-            sheetAllowedDetents: "fitToContents",
-            sheetGrabberVisible: true,
-            sheetCornerRadius: 24,
-          },
-        },
-        "Sign Up": {
-          screen: SignUpScreen,
-          options: {
-            presentation: "formSheet",
-            sheetAllowedDetents: "fitToContents",
-            sheetGrabberVisible: true,
-            sheetCornerRadius: 24,
-          },
-        },
       },
     },
   },

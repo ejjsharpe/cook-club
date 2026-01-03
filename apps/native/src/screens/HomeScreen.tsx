@@ -30,7 +30,7 @@ import { EmptyFeedState } from "@/components/EmptyFeedState";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
-import { SearchBar } from "@/components/SearchBar";
+import { SearchBar, SEARCH_BAR_HEIGHT } from "@/components/SearchBar";
 import { SearchEmptyState } from "@/components/SearchEmptyState";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -88,9 +88,8 @@ const Header = memo(({ user, onAvatarPress }: HeaderProps) => {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const HORIZONTAL_PADDING = 20;
-const BACK_BUTTON_WIDTH = 40;
+const BACK_BUTTON_WIDTH = 44;
 const HEADER_GAP = 12;
-const SEARCH_BAR_HEIGHT = 44;
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -615,8 +614,8 @@ const styles = StyleSheet.create((theme) => ({
     gap: 12,
   },
   backButton: {
-    width: 40,
-    height: 44,
+    width: 44,
+    height: 50,
     justifyContent: "center",
     alignItems: "center",
   },

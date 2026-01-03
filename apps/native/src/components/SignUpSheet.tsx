@@ -1,42 +1,53 @@
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
-import {
-  Platform,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Platform, View } from "react-native";
+import ActionSheet, {
+  SheetManager,
+  registerSheet,
+  SheetDefinition,
+  SheetProps,
+} from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useSignUpWithEmail, useSignInWithSocial } from "@/api/auth";
+import { useSignUpWithEmail } from "@/api/auth";
 import { Input } from "@/components/Input";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { BackButton } from "@/components/buttons/BackButton";
 import { BaseButton } from "@/components/buttons/BaseButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { SignInWithAppleButton } from "@/components/buttons/SignInWithAppleButton";
 import { SignInWithGoogleButton } from "@/components/buttons/SignInWithGoogleButton";
 
-export default function SignUpScreen() {
+declare module "react-native-actions-sheet" {
+  interface Sheets {
+    "sign-up-sheet": SheetDefinition;
+  }
+}
+
+const SignUpSheet = (props: SheetProps<"sign-up-sheet">) => {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const { mutate: signUpWithEmail } = useSignUpWithEmail();
+
   const onPressSignUpWithEmail = () =>
     signUpWithEmail({ email, password, name });
 
-  const { navigate } =
-    useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList>>();
-  const onPressSignUp = () => navigate("Sign In");
+  const onPressSignIn = () => {
+    SheetManager.hide("sign-up-sheet");
+    setTimeout(() => {
+      SheetManager.show("sign-in-sheet");
+    }, 300);
+  };
 
   return (
-    <View style={styles.screenContainer}>
-      <SafeAreaView style={styles.safeArea}>
-        <VSpace size={32} />
+    <ActionSheet
+      id={props.sheetId}
+      gestureEnabled
+      indicatorStyle={styles.indicator}
+      containerStyle={styles.container}
+    >
+      <View style={styles.content}>
+        <VSpace size={8} />
         <Text type="title1">Sign up</Text>
         <VSpace size={12} />
         <Text style={styles.textAlignCenter} type="bodyFaded">
@@ -45,7 +56,7 @@ export default function SignUpScreen() {
         <VSpace size={32} />
         <Input
           label="Name"
-          autoComplete="cc-name"
+          autoComplete="name"
           onChangeText={setName}
           placeholder="Gordon Ramsey"
         />
@@ -55,6 +66,8 @@ export default function SignUpScreen() {
           autoComplete="email"
           onChangeText={setEmail}
           placeholder="gordon@superchef.com"
+          autoCapitalize="none"
+          keyboardType="email-address"
         />
         <VSpace size={12} />
         <Input
@@ -62,6 +75,7 @@ export default function SignUpScreen() {
           autoComplete="new-password"
           onChangeText={setPassword}
           placeholder="••••••••••••"
+          secureTextEntry
         />
         <VSpace size={12} />
         <PrimaryButton onPress={onPressSignUpWithEmail}>Sign up</PrimaryButton>
@@ -71,28 +85,35 @@ export default function SignUpScreen() {
         </Text>
         <VSpace size={12} />
         {Platform.OS === "ios" && <SignInWithAppleButton />}
-        <VSpace size={12} />
+        {Platform.OS === "ios" && <VSpace size={12} />}
         <SignInWithGoogleButton />
         <VSpace size={32} />
-        <BaseButton onPress={onPressSignUp}>
+        <BaseButton onPress={onPressSignIn}>
           <Text>
             Already have an account? <Text type="highlight">Sign in</Text>
           </Text>
         </BaseButton>
-        <VSpace size={12} />
-      </SafeAreaView>
-    </View>
+        <VSpace size={24} />
+      </View>
+    </ActionSheet>
   );
-}
+};
+
+registerSheet("sign-up-sheet", SignUpSheet);
+
+export { SignUpSheet };
 
 const styles = StyleSheet.create((theme) => ({
-  screenContainer: {
-    flex: 1,
-    paddingHorizontal: 24,
+  indicator: {
+    backgroundColor: theme.colors.border,
   },
-  safeArea: {
+  container: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  content: {
+    paddingHorizontal: 24,
     alignItems: "center",
-    width: "100%",
   },
   textAlignCenter: {
     textAlign: "center",

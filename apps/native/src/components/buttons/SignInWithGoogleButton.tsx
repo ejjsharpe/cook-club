@@ -1,3 +1,4 @@
+import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { BaseButton } from "./BaseButton";
@@ -14,25 +15,31 @@ export function SignInWithGoogleButton() {
 
   return (
     <BaseButton onPress={onPress} style={styles.container}>
-      <GoogleLogo style={styles.logo} />
-      <Text>Sign in with Google</Text>
+      <View style={styles.content}>
+        <GoogleLogo size={20} />
+        <Text style={styles.text}>Sign in with Google</Text>
+      </View>
     </BaseButton>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.secondaryButtonBackground,
     width: "100%",
-    borderRadius: theme.borderRadius.medium,
-    paddingVertical: 13,
+    height: 50,
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
   },
-  logo: {
-    position: "absolute",
-    left: 12,
+  content: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  text: {
+    fontSize: 17,
+    fontFamily: theme.fonts.albertSemiBold,
+    color: theme.colors.text,
   },
 }));

@@ -179,7 +179,7 @@ export const ShoppingListScreen = () => {
           />
         </View>
       )}
-      <Text type="body" style={styles.recipeChipText} numberOfLines={1}>
+      <Text style={styles.recipeChipText} numberOfLines={1}>
         {item.name}
       </Text>
       <TouchableOpacity
@@ -217,19 +217,18 @@ export const ShoppingListScreen = () => {
           style={[styles.checkbox, item.isChecked && styles.checkboxChecked]}
         >
           {item.isChecked && (
-            <Ionicons name="checkmark" size={20} style={styles.checkIcon} />
+            <Ionicons name="checkmark" size={18} style={styles.checkIcon} />
           )}
         </View>
         <View style={styles.itemContent}>
           <Text
-            type="body"
             style={[styles.itemText, item.isChecked && styles.itemTextChecked]}
           >
             {item.displayText}
           </Text>
           {item.sourceItems.length > 0 &&
             item.sourceItems.some((si) => si.sourceRecipeName) && (
-              <Text type="bodyFaded" style={styles.recipeTag}>
+              <Text style={styles.recipeTag}>
                 from{" "}
                 {item.sourceItems
                   .filter((si) => si.sourceRecipeName)
@@ -244,9 +243,7 @@ export const ShoppingListScreen = () => {
 
   const renderSectionHeader = ({ section }: { section: Section }) => (
     <View style={styles.sectionHeader}>
-      <Text type="body" style={styles.sectionTitle}>
-        {section.title}
-      </Text>
+      <Text style={styles.sectionTitle}>{section.title}</Text>
     </View>
   );
 
@@ -271,11 +268,11 @@ export const ShoppingListScreen = () => {
       <View style={styles.centered}>
         <Ionicons name="cart-outline" size={64} style={styles.emptyIcon} />
         <VSpace size={16} />
-        <Text type="heading" style={styles.emptyTitle}>
+        <Text type="title3" style={styles.emptyTitle}>
           Your shopping list is empty
         </Text>
         <VSpace size={8} />
-        <Text type="bodyFaded" style={styles.emptySubtitle}>
+        <Text type="subheadline" style={styles.emptySubtitle}>
           Add ingredients from any recipe to get started
         </Text>
       </View>
@@ -294,7 +291,7 @@ export const ShoppingListScreen = () => {
                 style={styles.clearButton}
                 disabled={clearMutation.isPending}
               >
-                <Text type="body" style={styles.clearButtonText}>
+                <Text style={styles.clearButtonText}>
                   Clear ({checkedCount})
                 </Text>
               </TouchableOpacity>
@@ -356,7 +353,7 @@ export const ShoppingListScreen = () => {
           onSubmitEditing={handleAddManualItem}
           returnKeyType="done"
           autoCapitalize="none"
-          placeholderTextColor="#999"
+          placeholderTextColor={styles.inputPlaceholder.color}
         />
         <TouchableOpacity
           style={[
@@ -392,80 +389,91 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   clearButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: theme.borderRadius.small,
-    backgroundColor: theme.colors.primary + "20",
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: theme.colors.secondaryButtonBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   clearButtonText: {
     color: theme.colors.primary,
+    fontSize: 15,
+    fontFamily: theme.fonts.albertSemiBold,
   },
 
   // Recipe Chips
   recipeChipsContainer: {
     paddingHorizontal: 20,
     paddingVertical: 4,
-    width: "100%",
+    gap: 10,
   },
   recipeChip: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-    gap: 8,
+    paddingLeft: 8,
+    paddingRight: 12,
+    borderRadius: 14,
+    backgroundColor: theme.colors.inputBackground,
+    gap: 10,
   },
   recipeChipImage: {
-    width: 40,
-    height: 40,
-    borderRadius: theme.borderRadius.small,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
   },
   recipeChipImagePlaceholder: {
-    backgroundColor: theme.colors.border + "40",
+    backgroundColor: theme.colors.border,
     justifyContent: "center",
     alignItems: "center",
   },
   placeholderIcon: {
-    color: theme.colors.text,
-    opacity: 0.3,
+    color: theme.colors.textTertiary,
   },
   recipeChipText: {
-    fontSize: 14,
+    fontSize: 15,
+    fontFamily: theme.fonts.albertSemiBold,
   },
   recipeChipRemove: {
-    padding: 4,
+    width: 28,
+    height: 28,
+    justifyContent: "center",
+    alignItems: "center",
   },
   removeIcon: {
-    color: theme.colors.text,
-    opacity: 0.5,
+    color: theme.colors.textTertiary,
   },
 
   // Manual Item Input (positioned at bottom)
   inputSection: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
     backgroundColor: theme.colors.background,
-    gap: 8,
+    gap: 12,
   },
   input: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 999,
-    backgroundColor: "#f5f5f5",
-    fontSize: 16,
+    height: 50,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    backgroundColor: theme.colors.inputBackground,
+    fontSize: 17,
     fontFamily: theme.fonts.albertRegular,
     color: theme.colors.text,
   },
+  inputPlaceholder: {
+    color: theme.colors.textTertiary,
+  },
   addButton: {
-    padding: 4,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
   },
   addButtonDisabled: {
     opacity: 0.3,
@@ -480,16 +488,15 @@ const styles = StyleSheet.create((theme) => ({
   // Section Headers
   sectionHeader: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingTop: 24,
+    paddingBottom: 12,
     backgroundColor: theme.colors.background,
   },
   sectionTitle: {
-    color: theme.colors.text,
-    opacity: 0.5,
+    color: theme.colors.textSecondary,
     textTransform: "uppercase",
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontFamily: theme.fonts.albertSemiBold,
     letterSpacing: 0.5,
   },
 
@@ -507,19 +514,20 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   emptyIcon: {
-    color: theme.colors.text,
-    opacity: 0.3,
+    color: theme.colors.textTertiary,
   },
   emptyTitle: {
     textAlign: "center",
   },
   emptySubtitle: {
     textAlign: "center",
+    color: theme.colors.textSecondary,
   },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    minHeight: 56,
+    paddingVertical: 14,
     paddingHorizontal: 20,
     backgroundColor: theme.colors.background,
   },
@@ -527,14 +535,14 @@ const styles = StyleSheet.create((theme) => ({
     opacity: 0.5,
   },
   checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 2,
     borderColor: theme.colors.border,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: 14,
   },
   checkboxChecked: {
     borderColor: theme.colors.primary,
@@ -547,14 +555,15 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
   },
   itemText: {
-    fontSize: 16,
+    fontSize: 17,
   },
   itemTextChecked: {
     textDecorationLine: "line-through",
   },
   recipeTag: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 13,
+    marginTop: 4,
+    color: theme.colors.textSecondary,
   },
   deleteAction: {
     backgroundColor: "#FF3B30",

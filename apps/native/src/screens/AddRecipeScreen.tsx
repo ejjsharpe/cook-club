@@ -1,13 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { View, TouchableOpacity } from "react-native";
+import { View, TouchableOpacity, ScrollView } from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
 import { SafeAreaView } from "@/components/SafeAreaView";
-
-import "@/components/ImportRecipeSheet";
-
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -28,8 +25,8 @@ const OptionCard = ({
       <Ionicons name={icon} size={24} style={styles.icon} />
     </View>
     <View style={styles.cardContent}>
-      <Text type="heading">{title}</Text>
-      <Text type="bodyFaded" style={styles.cardDescription}>
+      <Text type="headline">{title}</Text>
+      <Text type="subheadline" style={styles.cardDescription}>
         {description}
       </Text>
     </View>
@@ -62,35 +59,37 @@ export const AddRecipeScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView style={styles.container}>
-        <ScreenHeader title="Add a recipe">
-          <VSpace size={28} />
-        </ScreenHeader>
+      <SafeAreaView>
+        <ScrollView style={styles.container}>
+          <ScreenHeader title="Add a recipe">
+            <VSpace size={28} />
+          </ScreenHeader>
 
-        <OptionCard
-          icon="download-outline"
-          title="Import recipe"
-          description="Import from a URL, paste recipe text, or scan an image using AI"
-          onPress={onPressImport}
-        />
+          <OptionCard
+            icon="download-outline"
+            title="Import recipe"
+            description="Import from a URL, paste recipe text, or scan an image using AI"
+            onPress={onPressImport}
+          />
 
-        <VSpace size={12} />
+          <VSpace size={12} />
 
-        <OptionCard
-          icon="create-outline"
-          title="Create from scratch"
-          description="Start with a blank canvas and build your own unique recipe"
-          onPress={onPressCreate}
-        />
+          <OptionCard
+            icon="create-outline"
+            title="Create from scratch"
+            description="Start with a blank canvas and build your own unique recipe"
+            onPress={onPressCreate}
+          />
 
-        <VSpace size={12} />
+          <VSpace size={12} />
 
-        <OptionCard
-          icon="sparkles-outline"
-          title="Generate with AI"
-          description="Tell me what you have, and I'll create a recipe just for you"
-          onPress={onPressGenerate}
-        />
+          <OptionCard
+            icon="sparkles-outline"
+            title="Generate with AI"
+            description="Tell me what you have, and I'll create a recipe just for you"
+            onPress={onPressGenerate}
+          />
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -99,6 +98,7 @@ export const AddRecipeScreen = () => {
 const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
+    backgroundColor: theme.colors.background,
   },
   container: {
     paddingHorizontal: 20,
@@ -106,19 +106,17 @@ const styles = StyleSheet.create((theme) => ({
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor:
-      theme.colors.background === "#FFFFFF"
-        ? "rgba(0,0,0,0.04)"
-        : "rgba(255,255,255,0.06)",
-    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 16,
     padding: 16,
     gap: 14,
+    minHeight: 88,
   },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary + "15",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: theme.colors.primary + "20",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -127,13 +125,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   cardContent: {
     flex: 1,
-    gap: 2,
+    gap: 4,
   },
   cardDescription: {
-    fontSize: 14,
-    lineHeight: 18,
+    color: theme.colors.textSecondary,
   },
   chevron: {
-    color: theme.colors.border,
+    color: theme.colors.textTertiary,
   },
 }));

@@ -36,6 +36,8 @@ import startImage7 from "@/assets/images/start-food-7.jpg";
 import startImage8 from "@/assets/images/start-food-8.jpg";
 import startImage9 from "@/assets/images/start-food-9.jpg";
 import { ShareIntentStorageHandler } from "@/components/ShareIntentStorageHandler";
+import "@/components/SignInSheet";
+import "@/components/SignUpSheet";
 import { ReactQueryProvider } from "@/lib/reactQuery";
 import { SessionProvider } from "@/lib/sessionContext";
 import { SignedInProvider } from "@/lib/signedInContext";

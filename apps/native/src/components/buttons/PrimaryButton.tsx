@@ -19,7 +19,7 @@ export function PrimaryButton({
 }: ButtonProps) {
   return (
     <BaseButton
-      style={[styles.container, style]}
+      style={[styles.container, disabled && styles.disabled, style]}
       disabled={disabled}
       onPress={onPress}
     >
@@ -31,14 +31,18 @@ export function PrimaryButton({
 const styles = StyleSheet.create((theme) => ({
   container: {
     width: "100%",
-    borderRadius: 999,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
     alignItems: "center",
     backgroundColor: theme.colors.primary,
   },
+  disabled: {
+    opacity: 0.5,
+  },
   text: {
-    fontSize: 16,
+    fontSize: 17,
+    fontFamily: theme.fonts.albertSemiBold,
     color: theme.colors.buttonText,
   },
 }));

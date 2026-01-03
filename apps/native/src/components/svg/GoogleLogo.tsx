@@ -7,7 +7,7 @@ export const GoogleLogo = ({
   style,
 }: {
   size?: number;
-  style: ViewStyle;
+  style?: ViewStyle;
 }) => (
   <Svg width={size} height={size} fill="none" viewBox="0 0 40 40" style={style}>
     <Path

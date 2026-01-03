@@ -1,3 +1,4 @@
+import { View } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { BaseButton } from "./BaseButton";
@@ -13,26 +14,31 @@ export const SignInWithAppleButton = () => {
 
   return (
     <BaseButton style={styles.container} onPress={onPress}>
-      <AppleLogo size={24} color={colors.buttonText} style={styles.logo} />
-      <Text style={styles.text}> Sign in with Apple</Text>
+      <View style={styles.content}>
+        <AppleLogo size={20} color={colors.buttonText} />
+        <Text style={styles.text}>Sign in with Apple</Text>
+      </View>
     </BaseButton>
   );
 };
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    backgroundColor: "black",
+    backgroundColor: "#000000",
     width: "100%",
-    borderRadius: theme.borderRadius.medium,
-    paddingVertical: 14,
+    height: 50,
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
   },
-  text: {
-    color: theme.colors.background,
+  content: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  logo: {
-    position: "absolute",
-    left: 12,
+  text: {
+    fontSize: 17,
+    fontFamily: theme.fonts.albertSemiBold,
+    color: "#FFFFFF",
   },
 }));

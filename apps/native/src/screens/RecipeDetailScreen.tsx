@@ -295,9 +295,7 @@ export const RecipeDetailScreen = () => {
         <View key={section.id}>
           {section.name && (
             <View style={styles.sectionHeader}>
-              <Text type="heading" style={styles.sectionTitle}>
-                {section.name}
-              </Text>
+              <Text style={styles.sectionTitle}>{section.name}</Text>
             </View>
           )}
 
@@ -317,15 +315,13 @@ export const RecipeDetailScreen = () => {
                 <HSpace size={12} />
                 <View style={styles.ingredientContent}>
                   {(formattedQuantity || item.unit) && (
-                    <Text type="heading" style={styles.ingredientQuantity}>
+                    <Text style={styles.ingredientQuantity}>
                       {formattedQuantity}
                       {formattedQuantity && item.unit ? " " : ""}
                       {item.unit}
                     </Text>
                   )}
-                  <Text type="body" style={styles.ingredientName}>
-                    {item.name}
-                  </Text>
+                  <Text style={styles.ingredientName}>{item.name}</Text>
                 </View>
               </View>
             );
@@ -344,9 +340,7 @@ export const RecipeDetailScreen = () => {
           <View key={section.id}>
             {section.name && (
               <View style={styles.sectionHeader}>
-                <Text type="heading" style={styles.sectionTitle}>
-                  {section.name}
-                </Text>
+                <Text style={styles.sectionTitle}>{section.name}</Text>
               </View>
             )}
 
@@ -356,9 +350,7 @@ export const RecipeDetailScreen = () => {
                 <View key={item.id} style={styles.instructionItem}>
                   <Text style={styles.stepNumber}>{globalStepIndex}</Text>
                   <VSpace size={8} />
-                  <Text type="body" style={styles.instructionText}>
-                    {item.instruction}
-                  </Text>
+                  <Text style={styles.instructionText}>{item.instruction}</Text>
                   {item.imageUrl && (
                     <>
                       <VSpace size={16} />
@@ -437,11 +429,9 @@ export const RecipeDetailScreen = () => {
         {/* White Card Section */}
         <View style={styles.whiteCard}>
           {/* Title */}
-          <Text type="title1" style={styles.recipeTitle}>
-            {recipe.name}
-          </Text>
+          <Text type="title1">{recipe.name}</Text>
 
-          <VSpace size={12} />
+          <VSpace size={16} />
 
           {/* Cook Times */}
           <View style={styles.timesRow}>
@@ -452,7 +442,9 @@ export const RecipeDetailScreen = () => {
                   size={18}
                   style={styles.timeIcon}
                 />
-                <Text>Prep: {formatMinutesShort(recipe.prepTime)}</Text>
+                <Text type="subheadline" style={styles.timeIcon}>
+                  Prep: {formatMinutesShort(recipe.prepTime)}
+                </Text>
               </View>
             )}
             {recipe.cookTime && (
@@ -462,7 +454,9 @@ export const RecipeDetailScreen = () => {
                   size={18}
                   style={styles.timeIcon}
                 />
-                <Text>Cook: {formatMinutesShort(recipe.cookTime)}</Text>
+                <Text type="subheadline" style={styles.timeIcon}>
+                  Cook: {formatMinutesShort(recipe.cookTime)}
+                </Text>
               </View>
             )}
           </View>
@@ -473,7 +467,7 @@ export const RecipeDetailScreen = () => {
             recipe.originalOwner && (
               <>
                 <VSpace size={8} />
-                <Text type="caption" style={styles.attributionText}>
+                <Text type="footnote" style={styles.attributionText}>
                   Originally from @{recipe.originalOwner.name}
                 </Text>
               </>
@@ -491,12 +485,10 @@ export const RecipeDetailScreen = () => {
                 <Ionicons name="remove" size={20} style={styles.stepperIcon} />
               </TouchableOpacity>
               <View style={styles.servingsDisplay}>
-                <Text type="bodyFaded" style={styles.servingsLabel}>
+                <Text type="caption" style={styles.servingsLabel}>
                   Servings
                 </Text>
-                <Text type="heading" style={styles.servingsNumber}>
-                  {servings}
-                </Text>
+                <Text style={styles.servingsNumber}>{servings}</Text>
               </View>
               <TouchableOpacity
                 style={styles.stepperButton}
@@ -554,17 +546,13 @@ export const RecipeDetailScreen = () => {
                   />
                 ) : (
                   <View style={styles.authorAvatarPlaceholder}>
-                    <Text type="heading" style={styles.authorAvatarText}>
+                    <Text style={styles.authorAvatarText}>
                       {recipe.owner.name.charAt(0).toUpperCase()}
                     </Text>
                   </View>
                 )}
                 <View style={styles.authorInfo}>
-                  <Text
-                    type="heading"
-                    style={styles.authorName}
-                    numberOfLines={1}
-                  >
+                  <Text type="headline" numberOfLines={1}>
                     {recipe.owner.name}
                   </Text>
                   <Text type="caption">{recipe.userRecipesCount} recipes</Text>
@@ -708,10 +696,10 @@ const styles = StyleSheet.create((theme) => ({
     zIndex: 10,
   },
   overlayButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -722,17 +710,14 @@ const styles = StyleSheet.create((theme) => ({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     marginTop: -24,
-    paddingTop: 24,
+    paddingTop: 28,
     paddingHorizontal: 20,
     minHeight: 400,
   },
-  recipeTitle: {
-    fontSize: 28,
-    lineHeight: 34,
-  },
+  recipeTitle: {},
   timesRow: {
     flexDirection: "row",
-    gap: 20,
+    gap: 16,
   },
   timeItem: {
     flexDirection: "row",
@@ -740,20 +725,19 @@ const styles = StyleSheet.create((theme) => ({
     gap: 6,
   },
   timeIcon: {
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
   },
 
   // Author Card (in servings row)
   authorCard: {
-    width: "48%",
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 12,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    height: 52,
+    gap: 12,
+    paddingHorizontal: 14,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 16,
+    height: 56,
   },
   authorAvatarImage: {
     width: 36,
@@ -765,46 +749,45 @@ const styles = StyleSheet.create((theme) => ({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: theme.colors.primary + "20",
+    backgroundColor: theme.colors.primary,
     justifyContent: "center",
     alignItems: "center",
     flexShrink: 0,
   },
   authorAvatarText: {
-    fontSize: 14,
-    color: theme.colors.primary,
+    fontSize: 15,
+    fontFamily: theme.fonts.albertSemiBold,
+    color: theme.colors.buttonText,
   },
   authorInfo: {
     flex: 1,
     minWidth: 0,
   },
-  authorName: {
-    fontSize: 14,
-  },
+  authorName: {},
   attributionText: {
-    opacity: 0.6,
+    color: theme.colors.textSecondary,
   },
 
   // Servings Row
   servingsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 12,
   },
   servingsLabel: {
-    fontSize: 12,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
   },
   servingsStepper: {
-    width: "48%",
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 16,
     overflow: "hidden",
   },
   stepperButton: {
-    width: 44,
-    height: 52,
+    width: 50,
+    height: 56,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -813,25 +796,23 @@ const styles = StyleSheet.create((theme) => ({
   },
   servingsDisplay: {
     flex: 1,
-    height: 52,
+    height: 56,
     justifyContent: "center",
     alignItems: "center",
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: theme.colors.border,
   },
   servingsNumber: {
-    fontSize: 18,
+    fontSize: 20,
+    fontFamily: theme.fonts.albertSemiBold,
   },
   reviewButton: {
-    width: "48%",
-    height: 52,
+    flex: 1,
+    height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.medium,
+    borderRadius: 16,
   },
   starRatingContainer: {
     flexDirection: "row",
@@ -842,8 +823,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   reviewText: {
     color: theme.colors.buttonText,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontFamily: theme.fonts.albertSemiBold,
   },
 
   // Tab Content
@@ -855,59 +836,65 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   sectionHeader: {
-    paddingBottom: 12,
-    marginBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
   sectionTitle: {
     fontSize: 13,
     textTransform: "uppercase",
-    opacity: 0.5,
-    letterSpacing: 1,
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.5,
+    fontFamily: theme.fonts.albertSemiBold,
   },
 
-  // Modern Ingredients
+  // Ingredients
   ingredientItem: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   ingredientBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: theme.colors.primary,
-    marginTop: 8,
+    marginTop: 7,
   },
   ingredientContent: {
     flex: 1,
   },
   ingredientQuantity: {
     fontSize: 15,
+    fontFamily: theme.fonts.albertSemiBold,
     marginBottom: 2,
   },
   ingredientName: {
-    fontSize: 16,
-    opacity: 0.8,
+    fontSize: 17,
+    color: theme.colors.textSecondary,
   },
 
-  // Modern Instructions
+  // Instructions
   instructionItem: {
     paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   stepNumber: {
-    fontSize: 32,
+    fontSize: 34,
     fontFamily: theme.fonts.albertBold,
-    color: theme.colors.text,
-    opacity: 0.15,
+    color: theme.colors.primary,
+    opacity: 0.3,
   },
   instructionText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 17,
+    lineHeight: 26,
   },
   stepImageThumbnail: {
     width: "100%",
-    height: 180,
-    borderRadius: 12,
+    aspectRatio: 16 / 9,
+    borderRadius: 16,
     overflow: "hidden",
   },
   stepImage: {
@@ -932,17 +919,17 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    height: 50,
     backgroundColor: theme.colors.primary,
-    paddingVertical: 16,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: 25,
   },
   importIcon: {
     color: theme.colors.buttonText,
   },
   importText: {
     color: theme.colors.buttonText,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontFamily: theme.fonts.albertSemiBold,
   },
 
   // Modal
@@ -963,7 +950,10 @@ const styles = StyleSheet.create((theme) => ({
     top: 60,
     right: 20,
     zIndex: 10,
-    padding: 8,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
   },
   expandedImage: {
     width: "90%",

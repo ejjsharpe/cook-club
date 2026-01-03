@@ -3,6 +3,8 @@ import { useRef, useEffect } from "react";
 import { View, TextInput, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
+export const SEARCH_BAR_HEIGHT = 50;
+
 interface Props {
   value: string;
   onChangeText: (text: string) => void;
@@ -41,14 +43,19 @@ export const SearchBar = ({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        placeholderTextColor={styles.placeholder.color}
         autoCapitalize="none"
         autoCorrect={false}
         onFocus={onFocus}
         onBlur={onBlur}
       />
       {value.length > 0 && (
-        <TouchableOpacity onPress={() => onChangeText("")}>
-          <Ionicons name="close-circle" size={20} style={styles.clearIcon} />
+        <TouchableOpacity
+          onPress={() => onChangeText("")}
+          style={styles.clearButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="close-circle" size={18} style={styles.clearIcon} />
         </TouchableOpacity>
       )}
     </View>
@@ -59,22 +66,28 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    borderRadius: theme.borderRadius.full,
+    height: SEARCH_BAR_HEIGHT,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: SEARCH_BAR_HEIGHT / 2,
     paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   searchIcon: {
     marginRight: 10,
-    color: "#999",
+    color: theme.colors.textTertiary,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 17,
     color: theme.colors.text,
     fontFamily: theme.fonts.albertRegular,
   },
+  placeholder: {
+    color: theme.colors.textTertiary,
+  },
+  clearButton: {
+    marginLeft: 8,
+  },
   clearIcon: {
-    color: "#999",
+    color: theme.colors.textTertiary,
   },
 }));

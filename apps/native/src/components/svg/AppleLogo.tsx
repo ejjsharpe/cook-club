@@ -7,9 +7,9 @@ export const AppleLogo = ({
   color,
   style,
 }: {
-  size: number;
+  size?: number;
   color: string;
-  style: ViewStyle;
+  style?: ViewStyle;
 }) => (
   <View
     style={{

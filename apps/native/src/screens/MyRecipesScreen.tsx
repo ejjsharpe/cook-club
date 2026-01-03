@@ -67,7 +67,7 @@ export const MyRecipesScreen = () => {
   const filterButtonStyle = useAnimatedStyle(() => ({
     opacity: filterButtonProgress.value,
     transform: [{ scale: 0.8 + 0.2 * filterButtonProgress.value }],
-    width: 46 * filterButtonProgress.value,
+    width: 50 * filterButtonProgress.value,
     marginLeft: 12 * filterButtonProgress.value,
   }));
 
@@ -264,7 +264,7 @@ export const MyRecipesScreen = () => {
     if (error) {
       return (
         <View style={styles.centered}>
-          <Text type="bodyFaded">
+          <Text type="subheadline" style={styles.centeredText}>
             {activeTab === "recipes"
               ? "Failed to load recipes"
               : "Failed to load collections"}
@@ -276,7 +276,7 @@ export const MyRecipesScreen = () => {
     if (activeTab === "recipes") {
       return (
         <View style={styles.centered}>
-          <Text type="bodyFaded">
+          <Text type="subheadline" style={styles.centeredText}>
             {searchQuery
               ? "No recipes found for your search"
               : "No recipes in your library yet. Import recipes from the feed or add your own!"}
@@ -288,7 +288,7 @@ export const MyRecipesScreen = () => {
     // Collections empty state
     return (
       <View style={styles.centered}>
-        <Text type="bodyFaded">
+        <Text type="subheadline" style={styles.centeredText}>
           {searchQuery
             ? "No collections found for your search"
             : "No collections yet"}
@@ -386,6 +386,7 @@ export const MyRecipesScreen = () => {
 const styles = StyleSheet.create((theme, rt) => ({
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -401,20 +402,20 @@ const styles = StyleSheet.create((theme, rt) => ({
     overflow: "hidden",
   },
   filterButton: {
-    backgroundColor: "#f5f5f5",
-    borderRadius: theme.borderRadius.full,
-    width: 46,
-    height: 46,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 25,
+    width: 50,
+    height: 50,
     justifyContent: "center",
     alignItems: "center",
   },
   filterBadge: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 10,
+    right: 10,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: theme.colors.primary,
   },
   listWrapper: {
@@ -432,19 +433,23 @@ const styles = StyleSheet.create((theme, rt) => ({
     alignItems: "center",
     paddingHorizontal: 20,
   },
+  centeredText: {
+    textAlign: "center",
+    color: theme.colors.textSecondary,
+  },
   footer: {
     paddingVertical: 20,
     alignItems: "center",
   },
   deleteAction: {
-    backgroundColor: "#ff3b30",
+    backgroundColor: "#FF3B30",
     justifyContent: "center",
     alignItems: "center",
     width: 80,
     height: "100%",
     marginVertical: 4,
     marginRight: 20,
-    borderRadius: theme.borderRadius.medium,
+    borderRadius: 14,
   },
   separatorContainer: {
     paddingVertical: 8,

@@ -16,6 +16,7 @@ export const Input = ({ label, style, ...props }: Props) => {
       {!!label && <Text style={styles.label}>{label}</Text>}
       <TextInput
         style={[styles.input, isFocused && styles.focused, style]}
+        placeholderTextColor={styles.placeholder.color}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         {...props}
@@ -28,18 +29,26 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     width: "100%",
   },
-  label: { marginBottom: 8, marginLeft: 4 },
+  label: {
+    marginBottom: 8,
+    marginLeft: 16,
+    fontSize: 15,
+    color: theme.colors.textSecondary,
+  },
   input: {
     width: "100%",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: theme.borderRadius.extraLarge,
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
+    height: 50,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    backgroundColor: theme.colors.inputBackground,
     fontFamily: theme.fonts.albertRegular,
-    fontSize: 16,
+    fontSize: 17,
+    color: theme.colors.text,
   },
   focused: {
-    backgroundColor: "#efefef",
+    backgroundColor: theme.colors.inputBackgroundFocused,
+  },
+  placeholder: {
+    color: theme.colors.textTertiary,
   },
 }));

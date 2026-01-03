@@ -1,6 +1,6 @@
-import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { View } from "react-native";
+import { SheetManager } from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
 import startImage1 from "@/assets/images/start-food-1.jpg";
@@ -35,9 +35,7 @@ const getImageRow = (imageArr: string[]) =>
   ));
 
 export default function StartScreen() {
-  const { navigate } = useNavigation();
-
-  const onPressGetStarted = () => navigate("Sign Up");
+  const onPressGetStarted = () => SheetManager.show("sign-up-sheet");
 
   return (
     <View style={styles.screenContainer}>

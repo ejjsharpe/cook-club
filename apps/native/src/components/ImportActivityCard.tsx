@@ -46,21 +46,18 @@ export const ImportActivityCard = memo(
       [activity.actor.name],
     );
 
-    // Handle opening external source URL
     const handleViewSource = useCallback(async () => {
       if (activity.recipe.sourceType === "url") {
         await WebBrowser.openBrowserAsync(activity.recipe.sourceUrl);
       }
     }, [activity.recipe]);
 
-    // Handle importing the recipe
     const handleImport = useCallback(() => {
       if (activity.recipe.sourceType === "url") {
         onImportPress?.(activity.recipe.sourceUrl);
       }
     }, [activity.recipe, onImportPress]);
 
-    // Get a human-readable source description based on sourceType
     const getSourceDescription = () => {
       if (activity.recipe.sourceType === "url") {
         return activity.recipe.sourceDomain;
@@ -79,17 +76,6 @@ export const ImportActivityCard = memo(
         default:
           return "their collection";
       }
-    };
-
-    // Build the activity description
-    const getDescription = () => {
-      const source = getSourceDescription();
-      return (
-        <>
-          imported <Text style={styles.recipeName}>{activity.recipe.name}</Text>{" "}
-          from {source}
-        </>
-      );
     };
 
     return (
@@ -116,24 +102,28 @@ export const ImportActivityCard = memo(
           </View>
           <View style={styles.userInfo}>
             <View style={styles.userNameRow}>
-              <Text type="body" style={styles.userName}>
+              <Text type="headline" style={styles.userName}>
                 {activity.actor.name}
               </Text>
-              <Text type="bodyFaded" style={styles.uploadTime}>
-                {timeAgo}
+              <Text type="caption" style={styles.dot}>
+                ·
               </Text>
+              <Text type="caption">{timeAgo}</Text>
             </View>
-            <Text type="bodyFaded" style={styles.activityText}>
-              {getDescription()}
+            <Text type="subheadline" style={styles.activityText}>
+              imported from {getSourceDescription()}
             </Text>
           </View>
         </TouchableOpacity>
 
-        {/* Recipe Preview */}
-        {activity.recipe.sourceType === "url" ? (
-          // For URL-sourced recipes, show non-tappable preview with action buttons
-          <>
-            <View style={styles.recipePreview}>
+        {/* Recipe Preview Card */}
+        <View style={styles.contentCard}>
+          {activity.recipe.sourceType === "url" ? (
+            <TouchableOpacity
+              style={styles.recipePreview}
+              onPress={handleViewSource}
+              activeOpacity={0.7}
+            >
               {activity.recipe.image && (
                 <Image
                   source={{ uri: activity.recipe.image }}
@@ -143,67 +133,66 @@ export const ImportActivityCard = memo(
                 />
               )}
               <View style={styles.recipeInfo}>
-                <Text type="body" style={styles.recipeTitle} numberOfLines={2}>
+                <Text type="headline" numberOfLines={2} style={styles.recipeTitle}>
                   {activity.recipe.name}
                 </Text>
-                <Text type="bodyFaded" style={styles.recipeSource}>
-                  from {activity.recipe.sourceDomain}
+                <Text type="caption" style={styles.recipeSource}>
+                  {activity.recipe.sourceDomain}
                 </Text>
               </View>
-            </View>
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={styles.viewSourceButton}
-                onPress={handleViewSource}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="open-outline"
-                  size={18}
-                  style={styles.viewSourceIcon}
-                />
-                <Text style={styles.viewSourceButtonText}>
-                  View on {activity.recipe.sourceDomain}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.importButton}
-                onPress={handleImport}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="add-circle-outline"
-                  size={18}
-                  style={styles.importIcon}
-                />
-                <Text style={styles.importButtonText}>Import</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          // For non-URL recipes, show tappable preview
-          <TouchableOpacity
-            style={styles.recipePreview}
-            onPress={onPress}
-            activeOpacity={0.8}
-          >
-            {activity.recipe.image && (
-              <Image
-                source={{ uri: activity.recipe.image }}
-                style={styles.recipeImage}
-                cachePolicy="memory-disk"
-                transition={200}
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                style={styles.chevron}
               />
-            )}
-            <View style={styles.recipeInfo}>
-              <Text type="body" style={styles.recipeTitle} numberOfLines={2}>
-                {activity.recipe.name}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.recipePreview}
+              onPress={onPress}
+              activeOpacity={0.7}
+            >
+              {activity.recipe.image && (
+                <Image
+                  source={{ uri: activity.recipe.image }}
+                  style={styles.recipeImage}
+                  cachePolicy="memory-disk"
+                  transition={200}
+                />
+              )}
+              <View style={styles.recipeInfo}>
+                <Text type="headline" numberOfLines={2} style={styles.recipeTitle}>
+                  {activity.recipe.name}
+                </Text>
+                <Text type="caption">View recipe</Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                style={styles.chevron}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Action Buttons */}
+        {activity.recipe.sourceType === "url" && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleImport}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={20}
+                style={styles.actionIcon}
+              />
+              <Text type="subheadline" style={styles.actionText}>
+                Import recipe
               </Text>
-              <Text type="bodyFaded" style={styles.tapHint}>
-                Tap to view recipe
-              </Text>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     );
@@ -213,20 +202,20 @@ export const ImportActivityCard = memo(
 const styles = StyleSheet.create((theme) => ({
   card: {
     backgroundColor: theme.colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    paddingVertical: 12,
-    marginHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    gap: 12,
   },
   userHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 12,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     overflow: "hidden",
   },
   avatarImage: {
@@ -242,8 +231,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   avatarInitials: {
     color: theme.colors.buttonText,
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontFamily: theme.fonts.albertSemiBold,
   },
   userInfo: {
     flex: 1,
@@ -252,92 +241,59 @@ const styles = StyleSheet.create((theme) => ({
   userNameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
-  userName: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  uploadTime: {
-    fontSize: 12,
+  userName: {},
+  dot: {
+    opacity: 0.5,
   },
   activityText: {
-    fontSize: 14,
-    lineHeight: 20,
+    color: theme.colors.textSecondary,
   },
-  recipeName: {
-    fontWeight: "600",
-    color: theme.colors.text,
+  contentCard: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 16,
+    overflow: "hidden",
   },
   recipePreview: {
     flexDirection: "row",
-    marginTop: 12,
-    marginLeft: 52, // Align with text (40px avatar + 12px gap)
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    overflow: "hidden",
+    alignItems: "center",
+    padding: 12,
+    gap: 12,
   },
   recipeImage: {
-    width: 80,
-    height: 80,
+    width: 64,
+    height: 64,
+    borderRadius: 10,
   },
   recipeInfo: {
     flex: 1,
-    padding: 12,
-    justifyContent: "center",
     gap: 4,
   },
-  recipeTitle: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
+  recipeTitle: {},
   recipeSource: {
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
+  chevron: {
+    color: theme.colors.textTertiary,
   },
   actionRow: {
-    marginTop: 12,
-    marginLeft: 52,
     flexDirection: "row",
-    gap: 8,
+    gap: 12,
   },
-  viewSourceButton: {
+  actionButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 8,
+    height: 44,
+    paddingHorizontal: 16,
+    backgroundColor: theme.colors.secondaryButtonBackground,
+    borderRadius: 22,
   },
-  viewSourceIcon: {
+  actionIcon: {
     color: theme.colors.text,
   },
-  viewSourceButtonText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  importButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: theme.colors.primary,
-    borderRadius: 8,
-  },
-  importIcon: {
-    color: theme.colors.buttonText,
-  },
-  importButtonText: {
-    color: theme.colors.buttonText,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  tapHint: {
-    fontSize: 11,
-    marginTop: 2,
+  actionText: {
+    fontFamily: theme.fonts.albertSemiBold,
   },
 }));
