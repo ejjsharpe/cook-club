@@ -6,8 +6,66 @@ import Animated, {
   withRepeat,
   withTiming,
   interpolate,
+  FadeIn as ReanimatedFadeIn,
+  FadeOut as ReanimatedFadeOut,
 } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
+
+// ─── Fade In Component ───────────────────────────────────────────────────────
+
+interface FadeInProps {
+  children: React.ReactNode;
+  duration?: number;
+}
+
+export const FadeIn = ({ children, duration = 300 }: FadeInProps) => {
+  return (
+    <Animated.View
+      entering={ReanimatedFadeIn.duration(duration)}
+      style={styles.fadeIn}
+    >
+      {children}
+    </Animated.View>
+  );
+};
+
+// ─── Skeleton Container Component ────────────────────────────────────────────
+
+interface SkeletonContainerProps {
+  isLoading: boolean;
+  skeleton: React.ReactNode;
+  children: React.ReactNode;
+  duration?: number;
+}
+
+export const SkeletonContainer = ({
+  isLoading,
+  skeleton,
+  children,
+  duration = 200,
+}: SkeletonContainerProps) => {
+  return (
+    <View style={styles.skeletonContainer}>
+      {isLoading ? (
+        <Animated.View
+          key="skeleton"
+          exiting={ReanimatedFadeOut.duration(duration)}
+          style={styles.fadeIn}
+        >
+          {skeleton}
+        </Animated.View>
+      ) : (
+        <Animated.View
+          key="content"
+          entering={ReanimatedFadeIn.duration(duration)}
+          style={styles.fadeIn}
+        >
+          {children}
+        </Animated.View>
+      )}
+    </View>
+  );
+};
 
 interface SkeletonProps {
   width?: number | `${number}%`;
@@ -151,25 +209,38 @@ export const MyRecipesListSkeleton = () => {
 
 // ─── Collection Card Skeleton ────────────────────────────────────────────────
 
-export const CollectionCardSkeleton = () => {
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const GRID_PADDING = 20;
+const GRID_GAP = 12;
+
+export const CollectionGridCardSkeleton = () => {
   return (
-    <View style={styles.recipeCard}>
-      <Skeleton width={100} height={100} borderRadius={12} />
-      <View style={styles.recipeCardContent}>
-        <Skeleton width="70%" height={17} borderRadius={4} />
-        <Skeleton width={80} height={15} borderRadius={4} />
+    <View style={styles.collectionGridCard}>
+      <Skeleton
+        width="100%"
+        height={100}
+        borderRadius={12}
+        style={styles.collectionGridImageSkeleton}
+      />
+      <View style={styles.collectionGridContent}>
+        <Skeleton width="80%" height={17} borderRadius={4} />
+        <Skeleton width={60} height={14} borderRadius={4} />
       </View>
-      <Skeleton width={20} height={20} borderRadius={4} />
     </View>
   );
 };
 
 export const CollectionsListSkeleton = () => {
   return (
-    <View style={styles.collectionsContainer}>
-      <CollectionCardSkeleton />
-      <CollectionCardSkeleton />
-      <CollectionCardSkeleton />
+    <View style={styles.collectionsGridContainer}>
+      <View style={styles.collectionsGridRow}>
+        <CollectionGridCardSkeleton />
+        <CollectionGridCardSkeleton />
+      </View>
+      <View style={styles.collectionsGridRow}>
+        <CollectionGridCardSkeleton />
+        <CollectionGridCardSkeleton />
+      </View>
     </View>
   );
 };
@@ -223,7 +294,6 @@ export const ShoppingListSkeleton = () => {
 
 // ─── Recipe Detail Skeleton ──────────────────────────────────────────────────
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const IMAGE_HEIGHT = 400;
 
 const IngredientItemSkeleton = () => (
@@ -241,11 +311,7 @@ export const RecipeDetailSkeleton = () => {
     <View style={styles.recipeDetailScreen}>
       {/* Cover Image */}
       <View style={styles.coverSection}>
-        <Skeleton
-          width={SCREEN_WIDTH}
-          height={IMAGE_HEIGHT}
-          borderRadius={0}
-        />
+        <Skeleton width={SCREEN_WIDTH} height={IMAGE_HEIGHT} borderRadius={0} />
       </View>
 
       {/* White Card */}
@@ -291,6 +357,12 @@ export const RecipeDetailSkeleton = () => {
 };
 
 const styles = StyleSheet.create((theme) => ({
+  fadeIn: {
+    flex: 1,
+  },
+  skeletonContainer: {
+    flex: 1,
+  },
   skeleton: {
     backgroundColor: theme.colors.border,
   },
@@ -367,11 +439,28 @@ const styles = StyleSheet.create((theme) => ({
   recipeSeparatorLine: {
     height: 1,
     backgroundColor: theme.colors.border,
+    opacity: 0.5,
   },
 
   // Collections styles
-  collectionsContainer: {
-    gap: 12,
+  collectionGridCard: {
+    flex: 1,
+  },
+  collectionGridImageSkeleton: {
+    aspectRatio: 1,
+    height: "auto",
+  },
+  collectionGridContent: {
+    paddingTop: 8,
+    gap: 4,
+  },
+  collectionsGridContainer: {
+    paddingHorizontal: GRID_PADDING,
+    gap: GRID_GAP,
+  },
+  collectionsGridRow: {
+    flexDirection: "row",
+    gap: GRID_GAP,
   },
 
   // Shopping List styles

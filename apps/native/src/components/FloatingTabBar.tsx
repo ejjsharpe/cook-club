@@ -12,6 +12,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
+import { useTabBar } from "@/lib/tabBarContext";
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type TabIconName = "home" | "add" | "book" | "cart";
@@ -23,10 +25,12 @@ const TAB_ICONS: Record<string, TabIconName> = {
   "Shopping List": "cart",
 };
 
-const TAB_ITEM_SIZE = 44;
-const TAB_BAR_PADDING_VERTICAL = 8;
-const TAB_BAR_PADDING_HORIZONTAL = 0;
+const TAB_ITEM_SIZE = 52;
+const TAB_BAR_PADDING_VERTICAL = 10;
+const TAB_BAR_PADDING_HORIZONTAL = 8;
+const TAB_BAR_MARGIN_HORIZONTAL = 20;
 const TAB_BAR_BOTTOM_MARGIN = 16;
+const INDICATOR_HORIZONTAL_INSET = 0; // Padding from edge of tab area
 
 // Height of the floating tab bar (item + vertical padding)
 export const FLOATING_TAB_BAR_HEIGHT =
@@ -98,9 +102,11 @@ const SlidingIndicator = ({
   // Calculate position based on tab item widths
   const contentWidth = tabBarWidth - TAB_BAR_PADDING_HORIZONTAL * 2;
   const tabWidth = contentWidth / tabCount;
-  const indicatorOffset = (tabWidth - TAB_ITEM_SIZE) / 2;
+  const indicatorWidth = tabWidth - INDICATOR_HORIZONTAL_INSET * 2;
   const initialX =
-    TAB_BAR_PADDING_HORIZONTAL + activeIndex * tabWidth + indicatorOffset;
+    TAB_BAR_PADDING_HORIZONTAL +
+    activeIndex * tabWidth +
+    INDICATOR_HORIZONTAL_INSET;
 
   const translateX = useSharedValue(initialX);
   const scaleX = useSharedValue(1);
@@ -109,7 +115,9 @@ const SlidingIndicator = ({
 
   useEffect(() => {
     const targetX =
-      TAB_BAR_PADDING_HORIZONTAL + activeIndex * tabWidth + indicatorOffset;
+      TAB_BAR_PADDING_HORIZONTAL +
+      activeIndex * tabWidth +
+      INDICATOR_HORIZONTAL_INSET;
     const distance = Math.abs(activeIndex - prevIndex.current);
 
     if (distance > 0) {
@@ -134,7 +142,7 @@ const SlidingIndicator = ({
     });
 
     prevIndex.current = activeIndex;
-  }, [activeIndex, tabWidth, indicatorOffset, translateX, scaleX, scaleY]);
+  }, [activeIndex, tabWidth, translateX, scaleX, scaleY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -144,18 +152,45 @@ const SlidingIndicator = ({
     ],
   }));
 
-  return <Animated.View style={[styles.slidingIndicator, animatedStyle]} />;
+  return (
+    <Animated.View
+      style={[
+        styles.slidingIndicator,
+        { width: indicatorWidth },
+        animatedStyle,
+      ]}
+    />
+  );
 };
 
 export const FloatingTabBar = ({ state, navigation }: BottomTabBarProps) => {
   const insets = UnistylesRuntime.insets;
-  const theme = UnistylesRuntime.getTheme();
   const [tabBarWidth, setTabBarWidth] = useState(0);
+  const { isVisible } = useTabBar();
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: withSpring(isVisible.value === 1 ? 0 : 100, {
+          damping: 50,
+          stiffness: 400,
+          mass: 4,
+        }),
+      },
+    ],
+    opacity: withTiming(isVisible.value, { duration: 200 }),
+  }));
 
   return (
-    <View style={[styles.container, { bottom: Math.max(insets.bottom, 16) }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        { bottom: Math.max(insets.bottom, 16) },
+        animatedContainerStyle,
+      ]}
+    >
       <BlurView
-        intensity={80}
+        intensity={60}
         tint={UnistylesRuntime.themeName === "dark" ? "dark" : "light"}
         style={styles.tabBar}
         onLayout={(e) => {
@@ -202,16 +237,15 @@ export const FloatingTabBar = ({ state, navigation }: BottomTabBarProps) => {
           );
         })}
       </BlurView>
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create((theme) => ({
   container: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    alignItems: "center",
+    left: TAB_BAR_MARGIN_HORIZONTAL,
+    right: TAB_BAR_MARGIN_HORIZONTAL,
   },
   tabBar: {
     flexDirection: "row",
@@ -227,10 +261,10 @@ const styles = StyleSheet.create((theme) => ({
     elevation: 8,
   },
   tabItem: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
-    paddingHorizontal: 10,
   },
   iconContainer: {
     width: TAB_ITEM_SIZE,
@@ -243,14 +277,8 @@ const styles = StyleSheet.create((theme) => ({
     position: "absolute",
     left: 0,
     top: TAB_BAR_PADDING_VERTICAL,
-    width: TAB_ITEM_SIZE,
     height: TAB_ITEM_SIZE,
     borderRadius: TAB_ITEM_SIZE / 2,
     backgroundColor: theme.colors.primary + "20",
-    shadowColor: theme.colors.text,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
 }));

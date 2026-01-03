@@ -4,12 +4,43 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
+
 interface Props {
   onPress: () => void;
   disabled?: boolean;
+  variant?: "list" | "grid";
 }
 
-export const CreateCollectionCard = ({ onPress, disabled }: Props) => {
+export const CreateCollectionCard = ({
+  onPress,
+  disabled,
+  variant = "list",
+}: Props) => {
+  if (variant === "grid") {
+    return (
+      <TouchableOpacity
+        style={[styles.gridCard, disabled && styles.cardDisabled]}
+        onPress={onPress}
+        activeOpacity={0.7}
+        disabled={disabled}
+      >
+        <View style={styles.gridIconContainer}>
+          <View style={styles.gridAddIconCircle}>
+            <Ionicons name="add" size={32} style={styles.addIcon} />
+          </View>
+        </View>
+        <View style={styles.gridContent}>
+          <Text type="headline" numberOfLines={1}>
+            New Collection
+          </Text>
+          <Text type="caption" style={styles.subtitle}>
+            Create new
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <TouchableOpacity
       style={[styles.card, disabled && styles.cardDisabled]}
@@ -36,6 +67,7 @@ export const CreateCollectionCard = ({ onPress, disabled }: Props) => {
 };
 
 const styles = StyleSheet.create((theme) => ({
+  // List variant styles
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -75,5 +107,29 @@ const styles = StyleSheet.create((theme) => ({
   },
   chevron: {
     color: theme.colors.textTertiary,
+  },
+
+  // Grid variant styles
+  gridCard: {
+    flex: 1,
+  },
+  gridIconContainer: {
+    aspectRatio: 1,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  gridAddIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  gridContent: {
+    paddingTop: 8,
+    gap: 2,
   },
 }));

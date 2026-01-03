@@ -329,14 +329,14 @@ const styles = StyleSheet.create((theme) => ({
     gap: 4,
     height: 32,
     paddingHorizontal: 12,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.full,
   },
   importIcon: {
-    color: theme.colors.primary,
+    color: theme.colors.buttonText,
   },
   importText: {
     fontFamily: theme.fonts.albertSemiBold,
-    color: theme.colors.primary,
+    color: theme.colors.buttonText,
   },
 }));

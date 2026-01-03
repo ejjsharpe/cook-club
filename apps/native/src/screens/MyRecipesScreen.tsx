@@ -2,13 +2,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { useNavigation } from "@react-navigation/native";
 import { useState, useMemo, useCallback } from "react";
-import { View, Alert, TouchableOpacity, Dimensions, ActivityIndicator } from "react-native";
+import {
+  View,
+  Alert,
+  TouchableOpacity,
+  Dimensions,
+  ActivityIndicator,
+} from "react-native";
+import type { ViewStyle } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   Easing,
+  FadeIn as ReanimatedFadeIn,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -18,18 +26,30 @@ import {
   useDeleteCollection,
 } from "@/api/collection";
 import { useGetUserRecipes, useAllTags } from "@/api/recipe";
-import { CollectionCard } from "@/components/CollectionCard";
+import {
+  CollectionGridCard,
+  GRID_GAP,
+  GRID_PADDING,
+} from "@/components/CollectionGridCard";
 import { CreateCollectionCard } from "@/components/CreateCollectionCard";
 import { SheetManager } from "@/components/FilterBottomSheet";
 import { RecipeCard } from "@/components/RecipeCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
-import { MyRecipesListSkeleton, CollectionsListSkeleton } from "@/components/Skeleton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SearchBar } from "@/components/SearchBar";
+import {
+  MyRecipesListSkeleton,
+  CollectionsListSkeleton,
+} from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { Text } from "@/components/Text";
 import { UnderlineTabBar, type TabOption } from "@/components/UnderlineTabBar";
+import { useTabBarScroll } from "@/lib/tabBarContext";
+
+const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
+  props: React.ComponentProps<typeof LegendList<T>> & { entering?: any },
+) => React.ReactElement;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -61,6 +81,7 @@ const animationConfig = {
 export const MyRecipesScreen = () => {
   const navigation = useNavigation();
   const theme = UnistylesRuntime.getTheme();
+  const { onScroll: onTabBarScroll } = useTabBarScroll();
 
   const [activeTab, setActiveTab] = useState<MyRecipesTab>("recipes");
   const [searchQuery, setSearchQuery] = useState("");
@@ -77,8 +98,10 @@ export const MyRecipesScreen = () => {
   const filterButtonStyle = useAnimatedStyle(() => ({
     opacity: filterButtonProgress.value,
     transform: [{ scale: 0.8 + 0.2 * filterButtonProgress.value }],
-    width: 50 * filterButtonProgress.value,
+    width: (50 + 20) * filterButtonProgress.value,
     marginLeft: 12 * filterButtonProgress.value,
+    marginRight: -20 * filterButtonProgress.value,
+    paddingRight: 20 * filterButtonProgress.value,
   }));
 
   const activeTabIndex = activeTab === "recipes" ? 0 : 1;
@@ -218,6 +241,7 @@ export const MyRecipesScreen = () => {
     if ("type" in item && item.type === "create") {
       return (
         <CreateCollectionCard
+          variant="grid"
           onPress={handleCreateCollection}
           disabled={createCollectionMutation.isPending}
         />
@@ -225,8 +249,8 @@ export const MyRecipesScreen = () => {
     }
 
     const collection = item as CollectionWithMetadata;
-    const collectionCard = (
-      <CollectionCard
+    return (
+      <CollectionGridCard
         collection={collection}
         onPress={() =>
           navigation.navigate("CollectionDetail", {
@@ -235,17 +259,6 @@ export const MyRecipesScreen = () => {
         }
       />
     );
-
-    // Wrap with Swipeable if not default collection
-    if (!collection.isDefault) {
-      return (
-        <Swipeable renderRightActions={() => renderRightActions(collection)}>
-          {collectionCard}
-        </Swipeable>
-      );
-    }
-
-    return collectionCard;
   };
 
   const handleCreateCollection = () => {
@@ -271,10 +284,6 @@ export const MyRecipesScreen = () => {
   };
 
   const renderRecipesEmpty = () => {
-    if (isLoadingRecipes) {
-      return <MyRecipesListSkeleton />;
-    }
-
     if (recipesError) {
       return (
         <View style={styles.centered}>
@@ -297,10 +306,6 @@ export const MyRecipesScreen = () => {
   };
 
   const renderCollectionsEmpty = () => {
-    if (isLoadingCollections) {
-      return <CollectionsListSkeleton />;
-    }
-
     if (collectionsError) {
       return (
         <View style={styles.centered}>
@@ -375,6 +380,7 @@ export const MyRecipesScreen = () => {
           value={activeTab}
           onValueChange={handleTabChange}
           scrollProgress={scrollProgress}
+          fullWidth
         />
       </ScreenHeader>
       <VSpace size={16} />
@@ -384,27 +390,42 @@ export const MyRecipesScreen = () => {
         containerWidth={SCREEN_WIDTH}
         scrollProgress={scrollProgress}
       >
-        <LegendList
-          data={recipes}
-          renderItem={renderRecipe}
-          keyExtractor={(item) => item.id.toString()}
-          onEndReached={handleLoadMoreRecipes}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderRecipesFooter}
-          ListEmptyComponent={renderRecipesEmpty}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={RecipeSeparator}
-        />
-        <LegendList
-          data={collections}
-          renderItem={renderCollection}
-          keyExtractor={(item) => item.id.toString()}
-          ListEmptyComponent={renderCollectionsEmpty}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <VSpace size={12} />}
-        />
+        {isLoadingRecipes ? (
+          <MyRecipesListSkeleton />
+        ) : (
+          <AnimatedLegendList
+            entering={ReanimatedFadeIn.duration(200)}
+            data={recipes}
+            renderItem={renderRecipe}
+            keyExtractor={(item) => item.id.toString()}
+            onEndReached={handleLoadMoreRecipes}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={renderRecipesFooter}
+            ListEmptyComponent={renderRecipesEmpty}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={RecipeSeparator}
+            onScroll={onTabBarScroll}
+            scrollEventThrottle={16}
+          />
+        )}
+        {isLoadingCollections ? (
+          <CollectionsListSkeleton />
+        ) : (
+          <AnimatedLegendList
+            entering={ReanimatedFadeIn.duration(200)}
+            data={collections}
+            renderItem={renderCollection}
+            keyExtractor={(item) => item.id.toString()}
+            ListEmptyComponent={renderCollectionsEmpty}
+            showsVerticalScrollIndicator={false}
+            numColumns={2}
+            contentContainerStyle={styles.collectionsGridContent}
+            columnWrapperStyle={styles.collectionsRow as any}
+            onScroll={onTabBarScroll}
+            scrollEventThrottle={16}
+          />
+        )}
       </SwipeableTabView>
     </SafeAreaView>
   );
@@ -481,4 +502,13 @@ const styles = StyleSheet.create((theme, rt) => ({
     height: 1,
     backgroundColor: theme.colors.border,
   },
+  collectionsGridContent: {
+    paddingHorizontal: GRID_PADDING,
+    paddingBottom: rt.insets.bottom + 48,
+    flexGrow: 1,
+  },
+  collectionsRow: {
+    gap: GRID_GAP,
+    marginBottom: GRID_GAP,
+  } satisfies ViewStyle,
 }));

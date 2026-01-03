@@ -27,16 +27,17 @@ import { useActivityFeed, FeedItem } from "@/api/activity";
 import { useSearchUsers, SearchUser } from "@/api/follows";
 import { useUser, User } from "@/api/user";
 import { EmptyFeedState } from "@/components/EmptyFeedState";
-import { HomeFeedSkeleton } from "@/components/Skeleton";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { SearchBar, SEARCH_BAR_HEIGHT } from "@/components/SearchBar";
 import { SearchEmptyState } from "@/components/SearchEmptyState";
+import { HomeFeedSkeleton, SkeletonContainer } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { UserSearchCard } from "@/components/UserSearchCard";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useTabBarScroll } from "@/lib/tabBarContext";
 
 // ─── Header Component ─────────────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ export const HomeScreen = () => {
   const searchBarRef = useRef<View>(null);
   useScrollToTop(browseScrollRef);
   const navigation = useNavigation();
+  const { onScroll: onTabBarScroll } = useTabBarScroll();
   const insets = UnistylesRuntime.insets;
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -349,11 +351,8 @@ export const HomeScreen = () => {
 
   // ─── Activity Feed Empty State ─────────────────────────────────────────────────
   const renderActivityEmpty = useCallback(() => {
-    if (activityPending) {
-      return <HomeFeedSkeleton />;
-    }
     return <EmptyFeedState onDiscoverPress={handleDiscoverPress} />;
-  }, [activityPending, handleDiscoverPress]);
+  }, [handleDiscoverPress]);
 
   // ─── Activity Feed Footer ──────────────────────────────────────────────────────
   const renderActivityFooter = useCallback(() => {
@@ -440,25 +439,41 @@ export const HomeScreen = () => {
         pointerEvents={showFloatingSearch ? "none" : "auto"}
       >
         <SafeAreaView edges={["top"]} style={styles.feedContainer}>
-          <FlatList
-            ref={browseScrollRef}
-            data={activityFeedItems}
-            renderItem={renderActivityItem}
-            keyExtractor={activityKeyExtractor}
-            ListHeaderComponent={BrowseListHeader}
-            ListEmptyComponent={renderActivityEmpty}
-            ListFooterComponent={renderActivityFooter}
-            onEndReached={handleActivityLoadMore}
-            onEndReachedThreshold={0.5}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.feedContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing && !isSearchActive}
-                onRefresh={handleRefresh}
+          <SkeletonContainer
+            isLoading={activityPending}
+            skeleton={
+              <FlatList
+                ListHeaderComponent={BrowseListHeader}
+                ListEmptyComponent={HomeFeedSkeleton}
+                data={[]}
+                renderItem={() => null}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.feedContent}
               />
             }
-          />
+          >
+            <FlatList
+              ref={browseScrollRef}
+              data={activityFeedItems}
+              renderItem={renderActivityItem}
+              keyExtractor={activityKeyExtractor}
+              ListHeaderComponent={BrowseListHeader}
+              ListEmptyComponent={renderActivityEmpty}
+              ListFooterComponent={renderActivityFooter}
+              onEndReached={handleActivityLoadMore}
+              onEndReachedThreshold={0.5}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.feedContent}
+              onScroll={onTabBarScroll}
+              scrollEventThrottle={16}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefreshing && !isSearchActive}
+                  onRefresh={handleRefresh}
+                />
+              }
+            />
+          </SkeletonContainer>
         </SafeAreaView>
       </Animated.View>
 
