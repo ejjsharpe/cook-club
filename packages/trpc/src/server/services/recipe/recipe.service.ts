@@ -10,6 +10,7 @@ import {
   collections,
   shoppingLists,
   shoppingListRecipes,
+  cookingReviews,
   tags,
   user,
 } from "@repo/db/schemas";
@@ -110,6 +111,8 @@ export type RecipeWithDetails = Omit<typeof recipes.$inferSelect, "ownerId"> & {
   saveCount: number;
   // For recipes imported from another user
   originalOwner: Pick<typeof user.$inferSelect, "id" | "name" | "image"> | null;
+  // User's review rating (1-5) if they've reviewed this recipe, null otherwise
+  userReviewRating: number | null;
 };
 
 // ─── Tag Validation ────────────────────────────────────────────────────────
@@ -459,6 +462,14 @@ export async function getRecipeDetail(
         WHERE ${shoppingListRecipes.recipeId} = ${recipes.id}
         AND ${shoppingLists.userId} = ${userId}
       )`,
+      // Scalar subquery: user's review rating for this recipe (null if not reviewed)
+      userReviewRating: sql<number | null>`(
+        SELECT ${cookingReviews.rating}
+        FROM ${cookingReviews}
+        WHERE ${cookingReviews.recipeId} = ${recipes.id}
+        AND ${cookingReviews.userId} = ${userId}
+        LIMIT 1
+      )`,
     })
     .from(recipes)
     .innerJoin(user, eq(recipes.ownerId, user.id))
@@ -632,6 +643,7 @@ export async function getRecipeDetail(
     isInShoppingList: recipeData.isInShoppingList,
     saveCount: recipeData.saveCount,
     originalOwner,
+    userReviewRating: recipeData.userReviewRating,
   };
 }
 

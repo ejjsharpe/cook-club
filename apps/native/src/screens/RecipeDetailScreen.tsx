@@ -511,12 +511,29 @@ export const RecipeDetailScreen = () => {
                 style={styles.reviewButton}
                 onPress={handleReview}
               >
-                <Ionicons
-                  name="star-outline"
-                  size={18}
-                  style={styles.reviewIcon}
-                />
-                <Text style={styles.reviewText}>Review</Text>
+                {recipe.userReviewRating ? (
+                  <View style={styles.starRatingContainer}>
+                    {Array.from({ length: recipe.userReviewRating }).map(
+                      (_, i) => (
+                        <Ionicons
+                          key={i}
+                          name="star"
+                          size={18}
+                          style={styles.reviewIcon}
+                        />
+                      ),
+                    )}
+                  </View>
+                ) : (
+                  <>
+                    <Ionicons
+                      name="star-outline"
+                      size={18}
+                      style={styles.reviewIcon}
+                    />
+                    <Text style={styles.reviewText}>Review</Text>
+                  </>
+                )}
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -815,6 +832,10 @@ const styles = StyleSheet.create((theme) => ({
     gap: 8,
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.medium,
+  },
+  starRatingContainer: {
+    flexDirection: "row",
+    gap: 2,
   },
   reviewIcon: {
     color: theme.colors.buttonText,
