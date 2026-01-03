@@ -2,10 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useState } from "react";
 import { View, TouchableOpacity, Alert, ScrollView } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { useSignOut } from "@/api/auth";
 import { SafeAreaView } from "@/components/SafeAreaView";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
@@ -56,9 +57,11 @@ const SettingsRow = ({
             {value}
           </Text>
         )}
-        {!destructive && (
-          <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
-        )}
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          style={destructive ? styles.destructiveChevron : styles.chevron}
+        />
       </View>
     </TouchableOpacity>
   );
@@ -97,6 +100,7 @@ const ThemeOption = ({
 export const SettingsScreen = () => {
   const navigation = useNavigation();
   const signOutMutation = useSignOut();
+  const insets = UnistylesRuntime.insets;
   const [currentTheme, setCurrentTheme] =
     useState<ThemePreference>(getThemePreference);
 
@@ -118,113 +122,112 @@ export const SettingsScreen = () => {
   };
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView style={styles.container}>
-        <VSpace size={8} />
+    <SafeAreaView edges={["top"]} style={styles.container}>
+      <VSpace size={8} />
+      <View style={styles.headerRow}>
         <BackButton />
+      </View>
 
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-        >
-          <VSpace size={24} />
-          <Text type="title1">Settings</Text>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+      >
+        <ScreenHeader title="Settings" style={styles.screenHeader} />
 
-          {/* Appearance Section */}
-          <VSpace size={32} />
-          <Text type="heading" style={styles.sectionTitle}>
-            Appearance
-          </Text>
-          <VSpace size={12} />
-          <View style={styles.themeSelector}>
-            <ThemeOption
-              label="Light"
-              value="light"
-              selected={currentTheme === "light"}
-              onPress={() => handleThemeChange("light")}
-            />
-            <ThemeOption
-              label="Dark"
-              value="dark"
-              selected={currentTheme === "dark"}
-              onPress={() => handleThemeChange("dark")}
-            />
-            <ThemeOption
-              label="System"
-              value="system"
-              selected={currentTheme === "system"}
-              onPress={() => handleThemeChange("system")}
-            />
-          </View>
+        {/* Appearance Section */}
+        <VSpace size={32} />
+        <Text type="heading" style={styles.sectionTitle}>
+          Appearance
+        </Text>
+        <VSpace size={12} />
+        <View style={styles.themeSelector}>
+          <ThemeOption
+            label="Light"
+            value="light"
+            selected={currentTheme === "light"}
+            onPress={() => handleThemeChange("light")}
+          />
+          <ThemeOption
+            label="Dark"
+            value="dark"
+            selected={currentTheme === "dark"}
+            onPress={() => handleThemeChange("dark")}
+          />
+          <ThemeOption
+            label="System"
+            value="system"
+            selected={currentTheme === "system"}
+            onPress={() => handleThemeChange("system")}
+          />
+        </View>
 
-          {/* Preferences Section */}
-          <VSpace size={32} />
-          <Text type="heading" style={styles.sectionTitle}>
-            Preferences
-          </Text>
-          <VSpace size={12} />
-          <View style={styles.section}>
-            <SettingsRow
-              icon="restaurant-outline"
-              label="Cuisine Preferences"
-              onPress={() => navigation.navigate("CuisinePreferences")}
-            />
-            <View style={styles.separator} />
-            <SettingsRow
-              icon="leaf-outline"
-              label="Ingredient Preferences"
-              onPress={() => navigation.navigate("IngredientPreferences")}
-            />
-            <View style={styles.separator} />
-            <SettingsRow
-              icon="nutrition-outline"
-              label="Dietary Requirements"
-              onPress={() => navigation.navigate("DietaryPreferences")}
-            />
-          </View>
+        {/* Preferences Section */}
+        <VSpace size={32} />
+        <Text type="heading" style={styles.sectionTitle}>
+          Preferences
+        </Text>
+        <VSpace size={12} />
+        <View style={styles.section}>
+          <SettingsRow
+            icon="restaurant-outline"
+            label="Cuisine Preferences"
+            onPress={() => navigation.navigate("CuisinePreferences")}
+          />
+          <View style={styles.separator} />
+          <SettingsRow
+            icon="leaf-outline"
+            label="Ingredient Preferences"
+            onPress={() => navigation.navigate("IngredientPreferences")}
+          />
+          <View style={styles.separator} />
+          <SettingsRow
+            icon="nutrition-outline"
+            label="Dietary Requirements"
+            onPress={() => navigation.navigate("DietaryPreferences")}
+          />
+        </View>
 
-          {/* Account Section */}
-          <VSpace size={32} />
-          <Text type="heading" style={styles.sectionTitle}>
-            Account
-          </Text>
-          <VSpace size={12} />
-          <View style={styles.section}>
-            <SettingsRow
-              icon="log-out-outline"
-              label="Sign Out"
-              onPress={handleSignOut}
-              destructive
-            />
-          </View>
-
-          <VSpace size={40} />
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+        {/* Account Section */}
+        <VSpace size={32} />
+        <Text type="heading" style={styles.sectionTitle}>
+          Account
+        </Text>
+        <VSpace size={12} />
+        <View style={styles.section}>
+          <SettingsRow
+            icon="log-out-outline"
+            label="Sign Out"
+            onPress={handleSignOut}
+            destructive
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create((theme) => ({
-  screen: {
+  container: {
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  container: {
-    flex: 1,
+  headerRow: {
     paddingHorizontal: 20,
+  },
+  screenHeader: {
+    paddingHorizontal: 0,
   },
   scrollView: {
     flex: 1,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
     marginLeft: 4,
   },
   section: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.large,
     overflow: "hidden",
   },
   row: {
@@ -247,8 +250,8 @@ const styles = StyleSheet.create((theme) => ({
   iconContainer: {
     width: 32,
     height: 32,
-    borderRadius: 8,
-    backgroundColor: theme.colors.primary + "15",
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.primary + "20",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -256,19 +259,22 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.primary,
   },
   destructiveIcon: {
-    backgroundColor: "#FF3B3015",
+    backgroundColor: theme.colors.destructive + "20",
   },
   destructiveIconColor: {
-    color: "#FF3B30",
+    color: theme.colors.destructive,
   },
   destructiveText: {
-    color: "#FF3B30",
+    color: theme.colors.destructive,
+  },
+  destructiveChevron: {
+    color: theme.colors.destructive + "60",
   },
   valueText: {
     fontSize: 15,
   },
   chevron: {
-    color: theme.colors.border,
+    color: theme.colors.textTertiary,
   },
   separator: {
     height: 1,
@@ -284,15 +290,13 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    height: 50,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.inputBackground,
     gap: 6,
   },
   themeOptionSelected: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primary + "10",
+    backgroundColor: theme.colors.primary + "20",
   },
   themeOptionTextSelected: {
     color: theme.colors.primary,

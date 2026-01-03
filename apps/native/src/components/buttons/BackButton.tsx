@@ -1,13 +1,31 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { TouchableOpacity } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
-import { BackIcon } from "@/components/svg/BackIcon";
-
-export const BackButton = ({ color = "black" }) => {
+export const BackButton = () => {
   const { goBack } = useNavigation();
   return (
-    <TouchableOpacity onPress={goBack}>
-      <BackIcon stroke={color} />
+    <TouchableOpacity
+      style={styles.button}
+      onPress={goBack}
+      activeOpacity={0.7}
+    >
+      <Ionicons name="arrow-back" size={22} style={styles.icon} />
     </TouchableOpacity>
   );
 };
+
+const styles = StyleSheet.create((theme) => ({
+  button: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  icon: {
+    color: theme.colors.text,
+  },
+}));

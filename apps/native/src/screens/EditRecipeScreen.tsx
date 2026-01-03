@@ -509,7 +509,7 @@ export default function EditRecipeScreen() {
           <View style={styles.padded}>
             <VSpace size={16} />
             <View style={styles.header}>
-              <BackButton color="black" />
+              <BackButton />
               <Text type="title2">Add your recipe</Text>
               <View style={styles.headerSpacer} />
             </View>

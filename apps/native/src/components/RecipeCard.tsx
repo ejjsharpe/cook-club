@@ -3,7 +3,6 @@ import { Image } from "expo-image";
 import { View, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { TagChip } from "./TagChip";
 import { Text } from "./Text";
 
 import { getImageUrl } from "@/utils/imageUrl";
@@ -40,58 +39,57 @@ interface Props {
 }
 
 export const RecipeCard = ({ recipe, onPress }: Props) => {
-  // Show max 3 tags
-  const maxTags = 3;
-  const visibleTags = recipe.tags?.slice(0, maxTags) || [];
-  const remainingTagsCount = (recipe.tags?.length || 0) - maxTags;
-
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      {/* Thumbnail on the left */}
       <View style={styles.thumbnail}>
         {recipe.coverImage ? (
           <Image
             source={{ uri: getImageUrl(recipe.coverImage, "recipe-thumb") }}
             style={styles.thumbnailImage}
             contentFit="cover"
+            cachePolicy="memory-disk"
           />
         ) : (
-          <View style={styles.thumbnailPlaceholder} />
+          <View style={styles.thumbnailPlaceholder}>
+            <Ionicons
+              name="image-outline"
+              size={32}
+              style={styles.placeholderIcon}
+            />
+          </View>
         )}
       </View>
 
-      {/* Content on the right */}
       <View style={styles.content}>
-        {/* Recipe title */}
-        <Text type="heading" numberOfLines={1} style={styles.title}>
+        <Text type="headline" numberOfLines={2}>
           {recipe.name}
         </Text>
-        {/* Cook time */}
-        {recipe.totalTime && (
-          <View style={styles.cookTimeContainer}>
-            <Ionicons
-              name="time-outline"
-              size={13}
-              style={styles.cookTimeIcon}
-            />
-            <Text type="bodyFaded" style={styles.cookTime}>
-              {formatMinutes(recipe.totalTime)}
-            </Text>
-          </View>
-        )}
-
-        {/* Tags */}
-        {visibleTags.length > 0 && (
-          <View style={styles.tagsContainer}>
-            {visibleTags.map((tag) => (
-              <TagChip key={tag.id} label={tag.name} size="small" />
-            ))}
-            {remainingTagsCount > 0 && (
-              <TagChip label={`+${remainingTagsCount}`} size="small" />
-            )}
-          </View>
-        )}
+        <View style={styles.metaRow}>
+          {recipe.totalTime && (
+            <View style={styles.metaItem}>
+              <Ionicons name="time-outline" size={14} style={styles.metaIcon} />
+              <Text type="subheadline" style={styles.metaText}>
+                {formatMinutes(recipe.totalTime)}
+              </Text>
+            </View>
+          )}
+          {recipe.servings && (
+            <View style={styles.metaItem}>
+              <Ionicons
+                name="people-outline"
+                size={14}
+                style={styles.metaIcon}
+              />
+              <Text type="subheadline" style={styles.metaText}>
+                {recipe.servings}{" "}
+                {recipe.servings === 1 ? "serving" : "servings"}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
+
+      <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
     </TouchableOpacity>
   );
 };
@@ -99,9 +97,11 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
 const styles = StyleSheet.create((theme) => ({
   card: {
     flexDirection: "row",
-    borderRadius: theme.borderRadius.medium,
-    marginHorizontal: 20,
     alignItems: "center",
+    backgroundColor: theme.colors.background,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    gap: 14,
   },
   thumbnail: {
     width: 100,
@@ -116,33 +116,34 @@ const styles = StyleSheet.create((theme) => ({
   thumbnailPlaceholder: {
     width: "100%",
     height: "100%",
-    backgroundColor: theme.colors.border,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderIcon: {
+    color: theme.colors.textTertiary,
   },
   content: {
     flex: 1,
-    height: "100%",
-    justifyContent: "center",
-    padding: 8,
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: 4,
   },
-  title: {
-    fontSize: 17,
-  },
-  tagsContainer: {
+  metaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    gap: 12,
   },
-  cookTimeContainer: {
+  metaItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 4,
   },
-  cookTimeIcon: {
-    color: theme.colors.primary,
+  metaIcon: {
+    color: theme.colors.textSecondary,
   },
-  cookTime: {
-    fontSize: 13,
+  metaText: {
+    color: theme.colors.textSecondary,
+  },
+  chevron: {
+    color: theme.colors.textTertiary,
   },
 }));

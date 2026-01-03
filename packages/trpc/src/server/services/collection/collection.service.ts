@@ -180,6 +180,7 @@ export interface UserCollectionWithMetadata {
     name: string;
     image: string | null;
   };
+  previewImages: string[];
   createdAt: Date;
 }
 
@@ -231,6 +232,38 @@ export async function getUserCollectionsWithMetadata(
     )
     .orderBy(desc(collections.isDefault), collections.createdAt);
 
+  // Get collection IDs
+  const collectionIds = results.map((r) => r.id);
+
+  // Fetch preview images for all collections (up to 4 per collection)
+  let previewImagesMap: Map<number, string[]> = new Map();
+
+  if (collectionIds.length > 0) {
+    // Get the first image for each recipe in each collection (up to 4 recipes per collection)
+    const previewData = await db
+      .select({
+        collectionId: recipeCollections.collectionId,
+        imageUrl: recipeImages.url,
+      })
+      .from(recipeCollections)
+      .innerJoin(recipes, eq(recipeCollections.recipeId, recipes.id))
+      .innerJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
+      .where(inArray(recipeCollections.collectionId, collectionIds))
+      .orderBy(desc(recipeCollections.createdAt));
+
+    // Group images by collection and limit to 4 per collection
+    for (const row of previewData) {
+      const images = previewImagesMap.get(row.collectionId) || [];
+      if (images.length < 4) {
+        // Avoid duplicate images
+        if (!images.includes(row.imageUrl)) {
+          images.push(row.imageUrl);
+          previewImagesMap.set(row.collectionId, images);
+        }
+      }
+    }
+  }
+
   return results.map((row) => ({
     id: row.id,
     name: row.name,
@@ -241,6 +274,7 @@ export async function getUserCollectionsWithMetadata(
       name: row.ownerName,
       image: row.ownerImage,
     },
+    previewImages: previewImagesMap.get(row.id) || [],
     createdAt: row.createdAt,
   }));
 }

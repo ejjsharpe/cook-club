@@ -3,16 +3,16 @@ import { LegendList } from "@legendapp/list";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { useMemo, useCallback, useState } from "react";
 import {
   View,
-  Image,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
   Share,
 } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import type {
   FeedItem,
@@ -212,29 +212,33 @@ export const UserProfileScreen = () => {
     });
   };
 
+  const insets = UnistylesRuntime.insets;
+
   if (isLoading) {
     return (
-      <View style={styles.screen}>
-        <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={["top"]} style={styles.container}>
+        <VSpace size={8} />
+        <View style={styles.headerRow}>
           <BackButton />
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" />
-          </View>
-        </SafeAreaView>
-      </View>
+        </View>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (error || !profile) {
     return (
-      <View style={styles.screen}>
-        <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={["top"]} style={styles.container}>
+        <VSpace size={8} />
+        <View style={styles.headerRow}>
           <BackButton />
-          <View style={styles.centered}>
-            <Text type="bodyFaded">User not found</Text>
-          </View>
-        </SafeAreaView>
-      </View>
+        </View>
+        <View style={styles.centered}>
+          <Text type="bodyFaded">User not found</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -251,6 +255,8 @@ export const UserProfileScreen = () => {
               source={{ uri: profile.user.image }}
               style={styles.avatarImage}
               onError={() => setImageError(true)}
+              cachePolicy="memory-disk"
+              transition={100}
             />
           ) : (
             <View style={styles.avatarPlaceholder}>
@@ -277,7 +283,7 @@ export const UserProfileScreen = () => {
           Joined {formatJoinDate(profile.user.createdAt)}
         </Text>
 
-        <VSpace size={16} />
+        <VSpace size={20} />
 
         {/* Stats */}
         <View style={styles.statsContainer}>
@@ -335,36 +341,36 @@ export const UserProfileScreen = () => {
         {isOwnProfile ? (
           <>
             <TouchableOpacity
-              style={styles.secondaryButton}
+              style={styles.pillButton}
               onPress={handleEditProfile}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="pencil-outline"
                 size={18}
-                style={styles.buttonIcon}
+                style={styles.pillButtonIcon}
               />
-              <Text style={styles.secondaryButtonText}>Edit Profile</Text>
+              <Text style={styles.pillButtonText}>Edit Profile</Text>
             </TouchableOpacity>
             <View style={styles.buttonSpacer} />
             <TouchableOpacity
-              style={styles.secondaryButton}
+              style={styles.pillButton}
               onPress={handleShareProfile}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="share-outline"
                 size={18}
-                style={styles.buttonIcon}
+                style={styles.pillButtonIcon}
               />
-              <Text style={styles.secondaryButtonText}>Share</Text>
+              <Text style={styles.pillButtonText}>Share</Text>
             </TouchableOpacity>
           </>
         ) : (
           <>
             {profile.isFollowing ? (
               <TouchableOpacity
-                style={[styles.secondaryButton, styles.followingButton]}
+                style={[styles.pillButton, styles.followingButton]}
                 onPress={handleUnfollow}
                 disabled={isMutationLoading}
                 activeOpacity={0.7}
@@ -387,16 +393,16 @@ export const UserProfileScreen = () => {
             )}
             <View style={styles.buttonSpacer} />
             <TouchableOpacity
-              style={styles.secondaryButton}
+              style={styles.pillButton}
               onPress={handleShareProfile}
               activeOpacity={0.7}
             >
               <Ionicons
                 name="share-outline"
                 size={18}
-                style={styles.buttonIcon}
+                style={styles.pillButtonIcon}
               />
-              <Text style={styles.secondaryButtonText}>Share</Text>
+              <Text style={styles.pillButtonText}>Share</Text>
             </TouchableOpacity>
           </>
         )}
@@ -404,14 +410,22 @@ export const UserProfileScreen = () => {
 
       {profile.followsMe && !isOwnProfile && (
         <>
-          <VSpace size={8} />
-          <Text type="bodyFaded" style={styles.followsYouText}>
-            Follows you
-          </Text>
+          <VSpace size={12} />
+          <View style={styles.followsYouBadge}>
+            <Text type="caption" style={styles.followsYouText}>
+              Follows you
+            </Text>
+          </View>
         </>
       )}
 
-      <VSpace size={16} />
+      <VSpace size={24} />
+
+      {/* Activity Section Header */}
+      <View style={styles.sectionHeader}>
+        <Text type="heading">Activity</Text>
+      </View>
+      <VSpace size={12} />
     </View>
   );
 
@@ -420,53 +434,63 @@ export const UserProfileScreen = () => {
   };
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={["top"]} style={styles.container}>
-        <VSpace size={8} />
-        <View style={styles.headerRow}>
-          <BackButton />
-          {isOwnProfile && (
-            <TouchableOpacity onPress={handleSettings} activeOpacity={0.7}>
-              <Ionicons
-                name="settings-outline"
-                size={24}
-                style={styles.settingsIcon}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
+    <SafeAreaView edges={["top"]} style={styles.container}>
+      <VSpace size={8} />
+      <View style={styles.headerRow}>
+        <BackButton />
+        {isOwnProfile && (
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={handleSettings}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={22}
+              style={styles.settingsIcon}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
 
-        <LegendList
-          data={activities}
-          renderItem={renderActivityItem}
-          keyExtractor={(item) => item.id}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
-          onEndReached={handleLoadMoreActivities}
-          onEndReachedThreshold={0.5}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <VSpace size={12} />}
-        />
-      </SafeAreaView>
-    </View>
+      <LegendList
+        data={activities}
+        renderItem={renderActivityItem}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMoreActivities}
+        onEndReachedThreshold={0.5}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingBottom: insets.bottom + 20 },
+        ]}
+        ItemSeparatorComponent={() => <VSpace size={12} />}
+      />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
+  },
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   settingsIcon: {
     color: theme.colors.text,
@@ -478,7 +502,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   headerContent: {
     alignItems: "center",
-    paddingTop: 24,
+    paddingTop: 20,
     paddingHorizontal: 20,
   },
   profileHeader: {
@@ -520,7 +544,7 @@ const styles = StyleSheet.create((theme) => ({
   statsContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 32,
+    gap: 40,
   },
   statItem: {
     alignItems: "center",
@@ -536,23 +560,22 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     width: "100%",
   },
-  secondaryButton: {
+  pillButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: 6,
+    height: 50,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.inputBackground,
+    gap: 8,
   },
-  secondaryButtonText: {
-    fontSize: 15,
+  pillButtonText: {
+    fontSize: 16,
     fontWeight: "500",
     color: theme.colors.text,
   },
-  buttonIcon: {
+  pillButtonIcon: {
     color: theme.colors.text,
   },
   buttonSpacer: {
@@ -562,23 +585,30 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
   },
   followingButton: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.primary + "10",
+    backgroundColor: theme.colors.primary + "15",
   },
   followingButtonText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "500",
     color: theme.colors.primary,
   },
   followingIcon: {
     color: theme.colors.primary,
   },
+  followsYouBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.inputBackground,
+  },
   followsYouText: {
-    fontSize: 14,
+    color: theme.colors.textSecondary,
   },
-  listContent: {
-    paddingBottom: 20,
+  sectionHeader: {
+    width: "100%",
+    paddingLeft: 4,
   },
+  listContent: {},
   emptyContainer: {
     paddingVertical: 40,
     paddingHorizontal: 20,

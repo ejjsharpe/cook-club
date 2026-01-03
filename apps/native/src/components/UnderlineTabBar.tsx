@@ -7,10 +7,15 @@ import Animated, {
   SharedValue,
   interpolate,
   useDerivedValue,
+  interpolateColor,
 } from "react-native-reanimated";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+
+import { Text } from "./Text";
 
 // Animated tab text component
+const AnimatedText = Animated.createAnimatedComponent(Text);
+
 const AnimatedTabText = ({
   label,
   index,
@@ -24,29 +29,40 @@ const AnimatedTabText = ({
   activeIndex: number;
   totalTabs: number;
 }) => {
+  const theme = UnistylesRuntime.getTheme();
+
   const animatedStyle = useAnimatedStyle(() => {
     if (scrollProgress) {
       // Create input range for all tabs
       const inputRange = Array.from({ length: totalTabs }, (_, i) => i);
-      // Output range: this tab is active (opacity 1) at its index, inactive (0.4) at others
-      const outputRange = inputRange.map((i) => (i === index ? 1 : 0.4));
+      // Output range: this tab is active (1) at its index, inactive (0) at others
+      const outputRange = inputRange.map((i) => (i === index ? 1 : 0));
 
-      const opacity = interpolate(
+      const progress = interpolate(
         scrollProgress.value,
         inputRange,
         outputRange,
         "clamp",
       );
-      return { opacity };
+
+      return {
+        color: interpolateColor(
+          progress,
+          [0, 1],
+          [theme.colors.textSecondary, theme.colors.text],
+        ),
+      };
     }
-    // Fallback to static opacity when no scrollProgress
-    return { opacity: index === activeIndex ? 1 : 0.4 };
+    // Fallback to static color when no scrollProgress
+    return {
+      color: index === activeIndex ? theme.colors.text : theme.colors.textSecondary,
+    };
   });
 
   return (
-    <Animated.Text style={[tabTextStyles.text, animatedStyle]}>
+    <AnimatedText type="body" style={[tabTextStyles.text, animatedStyle]}>
       {label}
-    </Animated.Text>
+    </AnimatedText>
   );
 };
 
@@ -77,8 +93,8 @@ export function UnderlineTabBar<T extends string>({
   fullWidth = false,
 }: UnderlineTabBarProps<T>) {
   const tabPositions = useRef<{ x: number; width: number }[]>([]);
-  const underlineX = useSharedValue(0);
-  const underlineWidth = useSharedValue(0);
+  const indicatorX = useSharedValue(0);
+  const indicatorWidth = useSharedValue(0);
   const isInitialized = useRef(false);
   const currentIndex = useRef(0);
 
@@ -105,14 +121,14 @@ export function UnderlineTabBar<T extends string>({
 
     // Set initial position without animation when the active tab is laid out
     if (index === activeIndex && !isInitialized.current) {
-      underlineX.value = x;
-      underlineWidth.value = width;
+      indicatorX.value = x;
+      indicatorWidth.value = width;
       currentIndex.current = index;
       isInitialized.current = true;
     }
   };
 
-  // Sync underline position when value changes externally (e.g., from swipe completion)
+  // Sync indicator position when value changes externally (e.g., from swipe completion)
   useEffect(() => {
     if (
       isInitialized.current &&
@@ -121,18 +137,18 @@ export function UnderlineTabBar<T extends string>({
     ) {
       const position = tabPositions.current[activeIndex];
       if (position) {
-        underlineX.value = withSpring(position.x, SPRING_CONFIG);
-        underlineWidth.value = withSpring(position.width, SPRING_CONFIG);
+        indicatorX.value = withSpring(position.x, SPRING_CONFIG);
+        indicatorWidth.value = withSpring(position.width, SPRING_CONFIG);
         currentIndex.current = activeIndex;
       }
     }
-  }, [activeIndex, underlineX, underlineWidth, scrollProgress]);
+  }, [activeIndex, indicatorX, indicatorWidth, scrollProgress]);
 
   const handlePress = (optionValue: T, index: number) => {
     const position = tabPositions.current[index];
     if (position) {
-      underlineX.value = withSpring(position.x, SPRING_CONFIG);
-      underlineWidth.value = withSpring(position.width, SPRING_CONFIG);
+      indicatorX.value = withSpring(position.x, SPRING_CONFIG);
+      indicatorWidth.value = withSpring(position.width, SPRING_CONFIG);
     }
 
     const direction = index > currentIndex.current ? 1 : -1;
@@ -152,7 +168,7 @@ export function UnderlineTabBar<T extends string>({
         "clamp",
       );
     }
-    return underlineX.value;
+    return indicatorX.value;
   });
 
   const interpolatedWidth = useDerivedValue(() => {
@@ -165,11 +181,11 @@ export function UnderlineTabBar<T extends string>({
         "clamp",
       );
     }
-    return underlineWidth.value;
+    return indicatorWidth.value;
   });
 
-  // Animated underline style
-  const underlineStyle = useAnimatedStyle(() => {
+  // Animated indicator style
+  const indicatorStyle = useAnimatedStyle(() => {
     return {
       transform: [{ translateX: interpolatedX.value }],
       width: interpolatedWidth.value,
@@ -178,6 +194,7 @@ export function UnderlineTabBar<T extends string>({
 
   return (
     <View style={[styles.container, fullWidth && styles.containerFullWidth]}>
+      <Animated.View style={[styles.indicator, indicatorStyle]} />
       {options.map((option, index) => (
         <TouchableOpacity
           key={option.value}
@@ -195,42 +212,51 @@ export function UnderlineTabBar<T extends string>({
           />
         </TouchableOpacity>
       ))}
-      <Animated.View style={[styles.underline, underlineStyle]} />
     </View>
   );
 }
 
+const TAB_HEIGHT = 42;
+const CONTAINER_PADDING = 4;
+
 const styles = StyleSheet.create((theme) => ({
   container: {
     flexDirection: "row",
+    alignSelf: "flex-start",
     position: "relative",
-    gap: 24,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: (TAB_HEIGHT + CONTAINER_PADDING * 2) / 2,
+    padding: CONTAINER_PADDING,
   },
   containerFullWidth: {
-    gap: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    alignSelf: "stretch",
   },
   tab: {
-    paddingBottom: 12,
+    height: TAB_HEIGHT,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    zIndex: 1,
   },
   tabFullWidth: {
     flex: 1,
     alignItems: "center",
   },
-  underline: {
+  indicator: {
     position: "absolute",
-    bottom: 0,
-    height: 2,
-    backgroundColor: theme.colors.text,
-    borderRadius: 1,
+    top: CONTAINER_PADDING,
+    bottom: CONTAINER_PADDING,
+    backgroundColor: theme.colors.background,
+    borderRadius: TAB_HEIGHT / 2,
+    shadowColor: theme.colors.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
 }));
 
 const tabTextStyles = StyleSheet.create((theme) => ({
   text: {
-    fontSize: 16,
-    color: theme.colors.text,
-    fontFamily: theme.fonts.albertBold,
+    fontFamily: theme.fonts.albertSemiBold,
   },
 }));

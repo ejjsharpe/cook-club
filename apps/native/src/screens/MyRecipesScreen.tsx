@@ -2,7 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { useNavigation } from "@react-navigation/native";
 import { useState, useMemo, useCallback } from "react";
-import { View, ActivityIndicator, Alert, TouchableOpacity } from "react-native";
+import {
+  View,
+  ActivityIndicator,
+  Alert,
+  TouchableOpacity,
+  Dimensions,
+} from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
   useSharedValue,
@@ -12,7 +18,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import type { Collection } from "@/api/collection";
 import {
   useGetUserCollectionsWithMetadata,
   useCreateCollection,
@@ -20,22 +25,33 @@ import {
 } from "@/api/collection";
 import { useGetUserRecipes, useAllTags } from "@/api/recipe";
 import { CollectionCard } from "@/components/CollectionCard";
+import { CreateCollectionCard } from "@/components/CreateCollectionCard";
 import { SheetManager } from "@/components/FilterBottomSheet";
 import { RecipeCard } from "@/components/RecipeCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SearchBar } from "@/components/SearchBar";
 import { VSpace } from "@/components/Space";
+import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { Text } from "@/components/Text";
 import { UnderlineTabBar, type TabOption } from "@/components/UnderlineTabBar";
-import { PrimaryButton } from "@/components/buttons/PrimaryButton";
-import { useTabSlideAnimation } from "@/hooks/useTabSlideAnimation";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type Recipe = NonNullable<
   ReturnType<typeof useGetUserRecipes>["data"]
 >["pages"][number]["items"][number];
 
+// Collection type from the metadata query
+type CollectionWithMetadata = NonNullable<
+  ReturnType<typeof useGetUserCollectionsWithMetadata>["data"]
+>[number];
+
 type MyRecipesTab = "recipes" | "collections";
+
+// Special item type for the create collection button
+type CreateCollectionItem = { id: "create"; type: "create" };
+type CollectionListItem = CollectionWithMetadata | CreateCollectionItem;
 
 const tabOptions: TabOption<MyRecipesTab>[] = [
   { value: "recipes", label: "Recipes" },
@@ -53,8 +69,7 @@ export const MyRecipesScreen = () => {
 
   const [activeTab, setActiveTab] = useState<MyRecipesTab>("recipes");
   const [searchQuery, setSearchQuery] = useState("");
-  const { animatedStyle: tabContentStyle, triggerSlide } =
-    useTabSlideAnimation();
+  const scrollProgress = useSharedValue(0);
 
   // Filter state
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
@@ -71,9 +86,10 @@ export const MyRecipesScreen = () => {
     marginLeft: 12 * filterButtonProgress.value,
   }));
 
+  const activeTabIndex = activeTab === "recipes" ? 0 : 1;
+
   const handleTabChange = useCallback(
-    (tab: MyRecipesTab, direction: number) => {
-      triggerSlide(direction);
+    (tab: MyRecipesTab) => {
       setActiveTab(tab);
 
       // Animate filter button visibility
@@ -82,7 +98,21 @@ export const MyRecipesScreen = () => {
         animationConfig,
       );
     },
-    [triggerSlide, filterButtonProgress],
+    [filterButtonProgress],
+  );
+
+  const handleSwipeTabChange = useCallback(
+    (index: number) => {
+      const tab = index === 0 ? "recipes" : "collections";
+      setActiveTab(tab);
+
+      // Animate filter button visibility
+      filterButtonProgress.value = withTiming(
+        tab === "recipes" ? 1 : 0,
+        animationConfig,
+      );
+    },
+    [filterButtonProgress],
   );
 
   const handleOpenFilters = useCallback(() => {
@@ -119,7 +149,6 @@ export const MyRecipesScreen = () => {
     data: collectionsData,
     isLoading: isLoadingCollections,
     error: collectionsError,
-    refetch: refetchCollections,
   } = useGetUserCollectionsWithMetadata({
     search: searchQuery,
   });
@@ -132,8 +161,9 @@ export const MyRecipesScreen = () => {
     return recipesData?.pages.flatMap((page) => page?.items ?? []) ?? [];
   }, [recipesData]);
 
-  const collections = useMemo(() => {
-    return collectionsData ?? [];
+  const collections = useMemo((): CollectionListItem[] => {
+    const createItem: CreateCollectionItem = { id: "create", type: "create" };
+    return [createItem, ...(collectionsData ?? [])];
   }, [collectionsData]);
 
   const renderRecipe = ({ item }: { item: Recipe }) => (
@@ -149,7 +179,7 @@ export const MyRecipesScreen = () => {
     </View>
   );
 
-  const handleDeleteCollection = (collection: Collection) => {
+  const handleDeleteCollection = (collection: CollectionWithMetadata) => {
     if (collection.isDefault) {
       Alert.alert(
         "Cannot Delete",
@@ -174,7 +204,7 @@ export const MyRecipesScreen = () => {
     );
   };
 
-  const renderRightActions = (collection: Collection) => {
+  const renderRightActions = (collection: CollectionWithMetadata) => {
     // Don't allow swiping on default collection
     if (collection.isDefault) return null;
 
@@ -188,8 +218,18 @@ export const MyRecipesScreen = () => {
     );
   };
 
-  const renderCollection = ({ item }: { item: Collection }) => {
-    const collection = item;
+  const renderCollection = ({ item }: { item: CollectionListItem }) => {
+    // Handle create collection item
+    if ("type" in item && item.type === "create") {
+      return (
+        <CreateCollectionCard
+          onPress={handleCreateCollection}
+          disabled={createCollectionMutation.isPending}
+        />
+      );
+    }
+
+    const collection = item as CollectionWithMetadata;
     const collectionCard = (
       <CollectionCard
         collection={collection}
@@ -198,7 +238,6 @@ export const MyRecipesScreen = () => {
             collectionId: collection.id,
           })
         }
-        onOwnerPress={() => {}} // Current user, no action needed
       />
     );
 
@@ -212,18 +251,6 @@ export const MyRecipesScreen = () => {
     }
 
     return collectionCard;
-  };
-
-  const renderFooter = () => {
-    if (activeTab === "recipes" && !isFetchingNextRecipes) return null;
-    if (activeTab === "recipes") {
-      return (
-        <View style={styles.footer}>
-          <ActivityIndicator />
-        </View>
-      );
-    }
-    return null;
   };
 
   const handleCreateCollection = () => {
@@ -248,12 +275,8 @@ export const MyRecipesScreen = () => {
     );
   };
 
-  const renderEmpty = () => {
-    const isLoading =
-      activeTab === "recipes" ? isLoadingRecipes : isLoadingCollections;
-    const error = activeTab === "recipes" ? recipesError : collectionsError;
-
-    if (isLoading) {
+  const renderRecipesEmpty = () => {
+    if (isLoadingRecipes) {
       return (
         <View style={styles.centered}>
           <ActivityIndicator size="large" />
@@ -261,31 +284,46 @@ export const MyRecipesScreen = () => {
       );
     }
 
-    if (error) {
+    if (recipesError) {
       return (
         <View style={styles.centered}>
           <Text type="subheadline" style={styles.centeredText}>
-            {activeTab === "recipes"
-              ? "Failed to load recipes"
-              : "Failed to load collections"}
+            Failed to load recipes
           </Text>
         </View>
       );
     }
 
-    if (activeTab === "recipes") {
+    return (
+      <View style={styles.centered}>
+        <Text type="subheadline" style={styles.centeredText}>
+          {searchQuery
+            ? "No recipes found for your search"
+            : "No recipes in your library yet. Import recipes from the feed or add your own!"}
+        </Text>
+      </View>
+    );
+  };
+
+  const renderCollectionsEmpty = () => {
+    if (isLoadingCollections) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+        </View>
+      );
+    }
+
+    if (collectionsError) {
       return (
         <View style={styles.centered}>
           <Text type="subheadline" style={styles.centeredText}>
-            {searchQuery
-              ? "No recipes found for your search"
-              : "No recipes in your library yet. Import recipes from the feed or add your own!"}
+            Failed to load collections
           </Text>
         </View>
       );
     }
 
-    // Collections empty state
     return (
       <View style={styles.centered}>
         <Text type="subheadline" style={styles.centeredText}>
@@ -297,20 +335,24 @@ export const MyRecipesScreen = () => {
     );
   };
 
-  const handleLoadMore = () => {
-    if (activeTab === "recipes" && hasMoreRecipes && !isFetchingNextRecipes) {
+  const handleLoadMoreRecipes = useCallback(() => {
+    if (hasMoreRecipes && !isFetchingNextRecipes) {
       fetchNextRecipes();
     }
+  }, [hasMoreRecipes, isFetchingNextRecipes, fetchNextRecipes]);
+
+  const renderRecipesFooter = () => {
+    if (!isFetchingNextRecipes) return null;
+    return (
+      <View style={styles.footer}>
+        <ActivityIndicator />
+      </View>
+    );
   };
 
-  const listData: any[] = activeTab === "recipes" ? recipes : collections;
-  const renderItem: any =
-    activeTab === "recipes" ? renderRecipe : renderCollection;
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={["top"]} style={styles.container}>
       <ScreenHeader title="My Recipes" style={styles.header}>
-        <VSpace size={20} />
         <View style={styles.searchRow}>
           <View style={styles.searchBarWrapper}>
             <SearchBar
@@ -345,40 +387,38 @@ export const MyRecipesScreen = () => {
           options={tabOptions}
           value={activeTab}
           onValueChange={handleTabChange}
+          scrollProgress={scrollProgress}
         />
       </ScreenHeader>
       <VSpace size={16} />
-      <Animated.View style={[styles.listWrapper, tabContentStyle]}>
-        {activeTab === "collections" && (
-          <>
-            <View style={styles.createButtonContainer}>
-              <PrimaryButton
-                onPress={handleCreateCollection}
-                disabled={createCollectionMutation.isPending}
-              >
-                Create Collection
-              </PrimaryButton>
-            </View>
-            <VSpace size={12} />
-          </>
-        )}
+      <SwipeableTabView
+        activeIndex={activeTabIndex}
+        onIndexChange={handleSwipeTabChange}
+        containerWidth={SCREEN_WIDTH}
+        scrollProgress={scrollProgress}
+      >
         <LegendList
-          data={listData}
-          renderItem={renderItem}
+          data={recipes}
+          renderItem={renderRecipe}
           keyExtractor={(item) => item.id.toString()}
-          onEndReached={handleLoadMore}
+          onEndReached={handleLoadMoreRecipes}
           onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderRecipesFooter}
+          ListEmptyComponent={renderRecipesEmpty}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.listContent]}
-          ItemSeparatorComponent={
-            activeTab === "recipes"
-              ? RecipeSeparator
-              : () => <VSpace size={12} />
-          }
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={RecipeSeparator}
         />
-      </Animated.View>
+        <LegendList
+          data={collections}
+          renderItem={renderCollection}
+          keyExtractor={(item) => item.id.toString()}
+          ListEmptyComponent={renderCollectionsEmpty}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <VSpace size={12} />}
+        />
+      </SwipeableTabView>
     </SafeAreaView>
   );
 };
@@ -418,14 +458,9 @@ const styles = StyleSheet.create((theme, rt) => ({
     borderRadius: 5,
     backgroundColor: theme.colors.primary,
   },
-  listWrapper: {
-    flex: 1,
-  },
-  createButtonContainer: {
-    paddingHorizontal: 20,
-  },
   listContent: {
     paddingBottom: rt.insets.bottom + 48,
+    flexGrow: 1,
   },
   centered: {
     flex: 1,
@@ -453,7 +488,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   separatorContainer: {
     paddingVertical: 8,
-    paddingHorizontal: 28,
+    paddingHorizontal: 20,
   },
   separator: {
     height: 1,
