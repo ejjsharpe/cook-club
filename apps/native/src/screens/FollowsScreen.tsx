@@ -1,7 +1,6 @@
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { useState } from "react";
 import { View, FlatList, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import {
@@ -12,6 +11,7 @@ import {
   useUserFollowing,
 } from "@/api/follows";
 import { Input } from "@/components/Input";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { UserCard } from "@/components/UserCard";

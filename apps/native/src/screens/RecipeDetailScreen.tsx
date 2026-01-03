@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -12,11 +11,19 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from "react-native";
+import { useSharedValue } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useCreateCookingReview } from "@/api/activity";
-import { useRecipeDetail, useImportRecipe } from "@/api/recipe";
+import {
+  useRecipeDetail,
+  useImportRecipe,
+  useDeleteRecipe,
+} from "@/api/recipe";
 import {
   useAddRecipeToShoppingList,
   useRemoveRecipeFromList,
@@ -24,15 +31,18 @@ import {
 import { useUser } from "@/api/user";
 import { CollectionSheetManager } from "@/components/CollectionSelectorSheet";
 import { CookingReviewSheetManager } from "@/components/CookingReviewSheet";
+import { DropdownMenu, DropdownMenuItem } from "@/components/DropdownMenu";
+import { PageIndicator } from "@/components/PageIndicator";
 import { VSpace, HSpace } from "@/components/Space";
+import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { Text } from "@/components/Text";
-import { BackButton } from "@/components/buttons/BackButton";
+import { UnderlineTabBar, TabOption } from "@/components/UnderlineTabBar";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { getImageUrl } from "@/utils/imageUrl";
-import { formatMinutes } from "@/utils/timeUtils";
+import { formatMinutesShort } from "@/utils/timeUtils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const IMAGE_HEIGHT = 360;
+const IMAGE_HEIGHT = 400;
 
 type RecipeDetailScreenParams = {
   RecipeDetail: {
@@ -52,24 +62,37 @@ interface RecipeImage {
 
 type TabType = "ingredients" | "method";
 
+const TAB_OPTIONS: TabOption<TabType>[] = [
+  { value: "ingredients", label: "Ingredients" },
+  { value: "method", label: "Method" },
+];
+
 export const RecipeDetailScreen = () => {
   const route = useRoute<RecipeDetailScreenRouteProp>();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { recipeId } = route.params;
 
   const { data: recipe, isPending, error } = useRecipeDetail({ recipeId });
   const { data: userData } = useUser();
 
   const [activeTab, setActiveTab] = useState<TabType>("ingredients");
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [servings, setServings] = useState(1);
   const hasInitializedServings = useRef(false);
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  // Shared value for syncing tab swipe with underline
+  const scrollProgress = useSharedValue(0);
 
   // Mutations
   const addToShoppingMutation = useAddRecipeToShoppingList();
   const removeFromShoppingMutation = useRemoveRecipeFromList();
   const createReviewMutation = useCreateCookingReview();
   const importMutation = useImportRecipe();
+  const deleteMutation = useDeleteRecipe();
 
   // Check if the current user owns this recipe
   const isOwnRecipe = recipe?.owner.id === userData?.user?.id;
@@ -95,10 +118,8 @@ export const RecipeDetailScreen = () => {
     if (!recipe) return;
 
     if (recipe.isInShoppingList) {
-      // Remove from shopping list
       removeFromShoppingMutation.mutate({ recipeId: recipe.id });
     } else {
-      // Add to shopping list with current servings value for scaling
       addToShoppingMutation.mutate({
         recipeId: recipe.id,
         servings: servings !== recipe.servings ? servings : undefined,
@@ -106,7 +127,7 @@ export const RecipeDetailScreen = () => {
     }
   };
 
-  const handleIMadeThis = () => {
+  const handleReview = () => {
     if (!recipe) return;
 
     CookingReviewSheetManager.show("cooking-review-sheet", {
@@ -131,14 +152,86 @@ export const RecipeDetailScreen = () => {
       const newRecipe = await importMutation.mutateAsync({
         recipeId: recipe.id,
       });
-      // Navigate to the newly imported recipe
       navigation.replace("RecipeDetail", { recipeId: newRecipe.id });
-    } catch (error: any) {
+    } catch (err: any) {
       const message =
-        error?.message || "Something went wrong while importing the recipe.";
+        err?.message || "Something went wrong while importing the recipe.";
       Alert.alert("Import Failed", message);
     }
   };
+
+  const handleDeleteRecipe = () => {
+    Alert.alert(
+      "Delete Recipe",
+      "Are you sure you want to delete this recipe? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteMutation.mutateAsync({ recipeId });
+              navigation.goBack();
+            } catch (err: any) {
+              Alert.alert("Error", err?.message || "Failed to delete recipe");
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleEditRecipe = () => {
+    Alert.alert("Coming Soon", "Edit functionality will be available soon.");
+  };
+
+  const handleImageScroll = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    const page = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    setCurrentImageIndex(page);
+  };
+
+  const handleTabChange = (tab: TabType, _direction: number) => {
+    setActiveTab(tab);
+    setActiveTabIndex(tab === "ingredients" ? 0 : 1);
+  };
+
+  const handleSwipeTabChange = (index: number) => {
+    setActiveTabIndex(index);
+    setActiveTab(index === 0 ? "ingredients" : "method");
+  };
+
+  const menuItems: DropdownMenuItem[] = [
+    {
+      key: "edit",
+      label: "Edit Recipe",
+      icon: "create-outline",
+      onPress: handleEditRecipe,
+    },
+    {
+      key: "shopping",
+      label: recipe?.isInShoppingList
+        ? "Remove from Shopping List"
+        : "Add to Shopping List",
+      icon: recipe?.isInShoppingList ? "cart" : "cart-outline",
+      onPress: handleToggleShoppingList,
+    },
+    {
+      key: "collections",
+      label: "Manage Collections",
+      icon: "bookmark-outline",
+      onPress: handleSaveRecipe,
+    },
+    {
+      key: "delete",
+      label: "Delete Recipe",
+      icon: "trash-outline",
+      destructive: true,
+      onPress: handleDeleteRecipe,
+    },
+  ];
 
   if (isPending) {
     return (
@@ -149,7 +242,6 @@ export const RecipeDetailScreen = () => {
   }
 
   if (error || !recipe) {
-    // Check if it's a FORBIDDEN error (URL-scraped recipe from another user)
     const isForbidden = (error as any)?.data?.code === "FORBIDDEN";
     const sourceUrl = (error as any)?.data?.cause?.sourceUrl as
       | string
@@ -197,137 +289,308 @@ export const RecipeDetailScreen = () => {
     </View>
   );
 
-  const renderUserInfo = () => {
-    // Don't show user section for own recipes
-    if (isOwnRecipe) {
-      // For imported recipes (own recipe with sourceType === "user"), show attribution
-      if (recipe.sourceType === "user" && recipe.originalOwner) {
-        return (
-          <View style={styles.attributionSection}>
-            <Text type="bodyFaded" style={styles.attributionText}>
-              Originally from @{recipe.originalOwner.name}
-            </Text>
-          </View>
-        );
-      }
-      return null;
-    }
+  const renderIngredients = () => (
+    <View style={styles.tabContent}>
+      {recipe.ingredientSections.map((section) => (
+        <View key={section.id}>
+          {section.name && (
+            <View style={styles.sectionHeader}>
+              <Text type="heading" style={styles.sectionTitle}>
+                {section.name}
+              </Text>
+            </View>
+          )}
+
+          {section.ingredients.map((item) => {
+            const adjustedQuantity = item.quantity
+              ? parseFloat(item.quantity) * servingMultiplier
+              : null;
+            const formattedQuantity = adjustedQuantity
+              ? adjustedQuantity % 1 === 0
+                ? adjustedQuantity.toString()
+                : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "")
+              : null;
+
+            return (
+              <View key={item.id} style={styles.ingredientItem}>
+                <View style={styles.ingredientBullet} />
+                <HSpace size={12} />
+                <View style={styles.ingredientContent}>
+                  {(formattedQuantity || item.unit) && (
+                    <Text type="heading" style={styles.ingredientQuantity}>
+                      {formattedQuantity}
+                      {formattedQuantity && item.unit ? " " : ""}
+                      {item.unit}
+                    </Text>
+                  )}
+                  <Text type="body" style={styles.ingredientName}>
+                    {item.name}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+
+  const renderMethod = () => {
+    let globalStepIndex = 0;
 
     return (
-      <View style={styles.userSection}>
-        <View style={styles.userInfo}>
-          <View style={styles.avatar}>
-            {recipe.owner.image ? (
-              <Image
-                source={{ uri: getImageUrl(recipe.owner.image, "avatar-sm") }}
-                style={styles.avatarImage}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text type="heading" style={styles.avatarText}>
-                  {recipe.owner.name.charAt(0).toUpperCase()}
+      <View style={styles.tabContent}>
+        {recipe.instructionSections.map((section) => (
+          <View key={section.id}>
+            {section.name && (
+              <View style={styles.sectionHeader}>
+                <Text type="heading" style={styles.sectionTitle}>
+                  {section.name}
                 </Text>
               </View>
             )}
+
+            {section.instructions.map((item) => {
+              globalStepIndex++;
+              return (
+                <View key={item.id} style={styles.instructionItem}>
+                  <Text style={styles.stepNumber}>{globalStepIndex}</Text>
+                  <VSpace size={8} />
+                  <Text type="body" style={styles.instructionText}>
+                    {item.instruction}
+                  </Text>
+                  {item.imageUrl && (
+                    <>
+                      <VSpace size={16} />
+                      <TouchableOpacity
+                        onPress={() => setExpandedImageUrl(item.imageUrl!)}
+                        style={styles.stepImageThumbnail}
+                      >
+                        <Image
+                          source={{
+                            uri: getImageUrl(item.imageUrl, "step-thumb"),
+                          }}
+                          style={styles.stepImage}
+                          contentFit="cover"
+                        />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              );
+            })}
           </View>
-          <HSpace size={12} />
-          <View>
-            <Text type="heading">{recipe.owner.name}</Text>
-            <Text type="bodyFaded" style={styles.recipeCount}>
-              {recipe.userRecipesCount} recipes
-            </Text>
-          </View>
-        </View>
+        ))}
       </View>
     );
   };
 
-  const isSaved = !!recipe.collectionIds.length;
+  return (
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* Cover Photo Section */}
+        <View style={styles.coverSection}>
+          {recipe.images && recipe.images.length > 0 && (
+            <FlatList
+              data={recipe.images}
+              renderItem={renderImage}
+              keyExtractor={(item) => item.id.toString()}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={handleImageScroll}
+              scrollEventThrottle={16}
+              bounces={false}
+            />
+          )}
 
-  const renderControls = () => (
-    <View style={styles.controlsSection}>
-      {/* Left side - Servings toggler */}
-      <View style={styles.leftControls}>
-        <Text type="bodyFaded" style={styles.servingsLabel}>
-          Servings
-        </Text>
-        <VSpace size={4} />
-        <View style={styles.servingsButtons}>
-          <TouchableOpacity
-            style={styles.servingsButton}
-            onPress={() => {
-              setServings(Math.max(1, servings - 1));
-            }}
-          >
-            <Text type="heading" style={styles.servingsButtonText}>
-              -
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.servingsDisplay}>
-            <Text type="heading" style={styles.servingsNumber}>
-              {servings}
-            </Text>
+          {/* Page Indicator */}
+          <PageIndicator
+            currentPage={currentImageIndex + 1}
+            totalPages={recipe.images.length}
+          />
+
+          {/* Top Buttons */}
+          <View style={[styles.topButtons, { top: insets.top + 8 }]}>
+            <TouchableOpacity
+              style={styles.overlayButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="chevron-back" size={24} color="white" />
+            </TouchableOpacity>
+
+            {isOwnRecipe && (
+              <TouchableOpacity
+                style={styles.overlayButton}
+                onPress={() => setMenuVisible(true)}
+              >
+                <Ionicons name="ellipsis-horizontal" size={24} color="white" />
+              </TouchableOpacity>
+            )}
           </View>
-          <TouchableOpacity
-            style={styles.servingsButton}
-            onPress={() => setServings(servings + 1)}
-          >
-            <Text type="heading" style={styles.servingsButtonText}>
-              +
-            </Text>
-          </TouchableOpacity>
         </View>
-      </View>
 
-      {/* Right side - Context-dependent buttons */}
-      <View style={styles.rightControls}>
-        {isOwnRecipe ? (
-          // Own recipe controls
-          <>
-            {/* Collection/Manage button */}
-            <TouchableOpacity
-              style={[styles.iconButton, isSaved && styles.iconButtonActive]}
-              onPress={handleSaveRecipe}
-            >
-              <Ionicons
-                name={isSaved ? "bookmark" : "bookmark-outline"}
-                size={24}
-                color={isSaved ? "#fff" : undefined}
-                style={styles.iconButtonIcon}
-              />
-            </TouchableOpacity>
+        {/* White Card Section */}
+        <View style={styles.whiteCard}>
+          {/* Title */}
+          <Text type="title1" style={styles.recipeTitle}>
+            {recipe.name}
+          </Text>
 
-            {/* Shopping list button */}
-            <TouchableOpacity
-              style={[
-                styles.iconButton,
-                recipe.isInShoppingList && styles.iconButtonActive,
-              ]}
-              onPress={handleToggleShoppingList}
-            >
-              <Ionicons
-                name={recipe.isInShoppingList ? "cart" : "cart-outline"}
-                size={24}
-                color={recipe.isInShoppingList ? "#fff" : undefined}
-                style={styles.iconButtonIcon}
-              />
-            </TouchableOpacity>
+          <VSpace size={12} />
 
-            {/* I made this button */}
-            <TouchableOpacity
-              style={styles.iMadeThisButton}
-              onPress={handleIMadeThis}
+          {/* Cook Times */}
+          <View style={styles.timesRow}>
+            {recipe.prepTime && (
+              <View style={styles.timeItem}>
+                <Ionicons
+                  name="timer-outline"
+                  size={18}
+                  style={styles.timeIcon}
+                />
+                <Text>Prep: {formatMinutesShort(recipe.prepTime)}</Text>
+              </View>
+            )}
+            {recipe.cookTime && (
+              <View style={styles.timeItem}>
+                <Ionicons
+                  name="flame-outline"
+                  size={18}
+                  style={styles.timeIcon}
+                />
+                <Text>Cook: {formatMinutesShort(recipe.cookTime)}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Attribution for imported recipes */}
+          {isOwnRecipe &&
+            recipe.sourceType === "user" &&
+            recipe.originalOwner && (
+              <>
+                <VSpace size={8} />
+                <Text type="caption" style={styles.attributionText}>
+                  Originally from @{recipe.originalOwner.name}
+                </Text>
+              </>
+            )}
+
+          <VSpace size={24} />
+
+          {/* Servings Row with Review Button or Author Info */}
+          <View style={styles.servingsRow}>
+            <View style={styles.servingsStepper}>
+              <TouchableOpacity
+                style={styles.stepperButton}
+                onPress={() => setServings(Math.max(1, servings - 1))}
+              >
+                <Ionicons name="remove" size={20} style={styles.stepperIcon} />
+              </TouchableOpacity>
+              <View style={styles.servingsDisplay}>
+                <Text type="bodyFaded" style={styles.servingsLabel}>
+                  Servings
+                </Text>
+                <Text type="heading" style={styles.servingsNumber}>
+                  {servings}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.stepperButton}
+                onPress={() => setServings(servings + 1)}
+              >
+                <Ionicons name="add" size={20} style={styles.stepperIcon} />
+              </TouchableOpacity>
+            </View>
+
+            {isOwnRecipe ? (
+              <TouchableOpacity
+                style={styles.reviewButton}
+                onPress={handleReview}
+              >
+                <Ionicons
+                  name="star-outline"
+                  size={18}
+                  style={styles.reviewIcon}
+                />
+                <Text style={styles.reviewText}>Review</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.authorCard}
+                onPress={() =>
+                  navigation.navigate("UserProfile", {
+                    userId: recipe.owner.id,
+                  })
+                }
+                activeOpacity={0.7}
+              >
+                {recipe.owner.image ? (
+                  <Image
+                    source={{
+                      uri: getImageUrl(recipe.owner.image, "avatar-sm"),
+                    }}
+                    style={styles.authorAvatarImage}
+                  />
+                ) : (
+                  <View style={styles.authorAvatarPlaceholder}>
+                    <Text type="heading" style={styles.authorAvatarText}>
+                      {recipe.owner.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.authorInfo}>
+                  <Text
+                    type="heading"
+                    style={styles.authorName}
+                    numberOfLines={1}
+                  >
+                    {recipe.owner.name}
+                  </Text>
+                  <Text type="caption">{recipe.userRecipesCount} recipes</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <VSpace size={24} />
+
+          {/* Full Width Tabs */}
+          <UnderlineTabBar
+            options={TAB_OPTIONS}
+            value={activeTab}
+            onValueChange={handleTabChange}
+            scrollProgress={scrollProgress}
+            fullWidth
+          />
+
+          <VSpace size={24} />
+
+          {/* Swipeable Tab Content - breaks out of card padding for edge-to-edge swipe */}
+          <View style={styles.tabViewWrapper}>
+            <SwipeableTabView
+              activeIndex={activeTabIndex}
+              onIndexChange={handleSwipeTabChange}
+              containerWidth={SCREEN_WIDTH}
+              scrollProgress={scrollProgress}
             >
-              <Ionicons
-                name="checkmark-circle"
-                size={20}
-                style={styles.iMadeThisIcon}
-              />
-              <Text style={styles.iMadeThisText}>I made this!</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          // Someone else's recipe - show import button
+              {renderIngredients()}
+              {renderMethod()}
+            </SwipeableTabView>
+          </View>
+
+          <VSpace size={isOwnRecipe ? 40 : 100} />
+        </View>
+      </ScrollView>
+
+      {/* Sticky Footer - Only for non-owned recipes */}
+      {!isOwnRecipe && (
+        <View
+          style={[styles.stickyFooter, { paddingBottom: insets.bottom + 12 }]}
+        >
           <TouchableOpacity
             style={styles.importButton}
             onPress={handleImportRecipe}
@@ -346,205 +609,16 @@ export const RecipeDetailScreen = () => {
               </>
             )}
           </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
-
-  const renderTabs = () => (
-    <View style={styles.tabsContainer}>
-      <TouchableOpacity
-        style={[styles.tab, activeTab === "ingredients" && styles.activeTab]}
-        onPress={() => setActiveTab("ingredients")}
-      >
-        <Text type={activeTab === "ingredients" ? "highlight" : "bodyFaded"}>
-          Ingredients
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.tab, activeTab === "method" && styles.activeTab]}
-        onPress={() => setActiveTab("method")}
-      >
-        <Text type={activeTab === "method" ? "highlight" : "bodyFaded"}>
-          Method
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderTabContent = () => {
-    if (activeTab === "ingredients") {
-      return (
-        <View style={styles.tabContent}>
-          {recipe.ingredientSections.map((section) => (
-            <View key={section.id}>
-              {/* Section header - only show if not default section */}
-              {section.name && (
-                <View style={styles.sectionHeader}>
-                  <Text type="heading" style={styles.sectionTitle}>
-                    {section.name}
-                  </Text>
-                </View>
-              )}
-
-              {/* Ingredients in this section */}
-              {section.ingredients.map((item) => {
-                const adjustedQuantity = item.quantity
-                  ? parseFloat(item.quantity) * servingMultiplier
-                  : null;
-                const formattedQuantity = adjustedQuantity
-                  ? adjustedQuantity % 1 === 0
-                    ? adjustedQuantity.toString()
-                    : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "")
-                  : null;
-
-                return (
-                  <View key={item.id} style={styles.ingredientItem}>
-                    <Text type="body">
-                      {formattedQuantity && (
-                        <Text type="heading" style={styles.ingredientQuantity}>
-                          {formattedQuantity}
-                        </Text>
-                      )}
-                      {item.unit && (
-                        <Text type="heading" style={styles.ingredientQuantity}>
-                          {formattedQuantity ? " " : ""}
-                          {item.unit}
-                        </Text>
-                      )}
-                      {(formattedQuantity || item.unit) && " "}
-                      {item.name}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          ))}
         </View>
-      );
-    } else {
-      let globalStepIndex = 0;
+      )}
 
-      return (
-        <View style={styles.tabContent}>
-          {recipe.instructionSections.map((section) => (
-            <View key={section.id}>
-              {/* Section header - only show if not default section */}
-              {section.name && (
-                <View style={styles.sectionHeader}>
-                  <Text type="heading" style={styles.sectionTitle}>
-                    {section.name}
-                  </Text>
-                </View>
-              )}
-
-              {/* Instructions in this section */}
-              {section.instructions.map((item) => {
-                globalStepIndex++;
-                return (
-                  <View key={item.id} style={styles.instructionItem}>
-                    <View style={styles.stepNumber}>
-                      <Text type="highlight" style={styles.stepNumberText}>
-                        {globalStepIndex}
-                      </Text>
-                    </View>
-                    <HSpace size={12} />
-                    <View style={styles.instructionTextContainer}>
-                      <Text type="body">{item.instruction}</Text>
-                      {item.imageUrl && (
-                        <>
-                          <VSpace size={12} />
-                          <TouchableOpacity
-                            onPress={() => setExpandedImageUrl(item.imageUrl!)}
-                            style={styles.stepImageThumbnail}
-                          >
-                            <Image
-                              source={{
-                                uri: getImageUrl(item.imageUrl, "step-thumb"),
-                              }}
-                              style={styles.stepImage}
-                              contentFit="cover"
-                            />
-                          </TouchableOpacity>
-                        </>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ))}
-        </View>
-      );
-    }
-  };
-
-  console.log(recipe.images[0]);
-
-  return (
-    <View style={styles.screen}>
-      {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Image Carousel or Header */}
-        <View style={[styles.imageCarousel, styles.imageHeader]}>
-          {recipe.images && recipe.images.length > 0 && (
-            <FlatList
-              data={recipe.images}
-              renderItem={renderImage}
-              keyExtractor={(item) => item.id.toString()}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              style={styles.imageCarousel}
-              bounces={false}
-            />
-          )}
-          <LinearGradient
-            colors={["rgba(0,0,0,0.0)", "rgba(0,0,0,1)"]}
-            style={styles.gradient}
-            pointerEvents="none"
-          />
-          <View style={styles.imageOverlay}>
-            <Text type="title1" style={styles.recipeName}>
-              {recipe.name}
-            </Text>
-            <VSpace size={8} />
-            <View style={styles.timeInfo}>
-              {recipe.prepTime && (
-                <Text type="body" style={styles.timeText}>
-                  Prep: {formatMinutes(recipe.prepTime)}
-                </Text>
-              )}
-              {recipe.cookTime && (
-                <>
-                  <HSpace size={16} />
-                  <Text type="body" style={styles.timeText}>
-                    Cook: {formatMinutes(recipe.cookTime)}
-                  </Text>
-                </>
-              )}
-            </View>
-          </View>
-        </View>
-        {/* Back Button */}
-        <View style={styles.backButtonContainer}>
-          <BackButton />
-        </View>
-        <VSpace size={20} />
-
-        <View style={styles.padded}>
-          {renderUserInfo()}
-          <VSpace size={24} />
-
-          {renderControls()}
-          <VSpace size={24} />
-
-          {renderTabs()}
-          {renderTabContent()}
-
-          <VSpace size={40} />
-        </View>
-      </ScrollView>
+      {/* Dropdown Menu */}
+      <DropdownMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        items={menuItems}
+        anchorPosition={{ top: insets.top + 48, right: 20 }}
+      />
 
       {/* Full-screen image modal */}
       <Modal
@@ -585,273 +659,272 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  imageHeader: {
-    justifyContent: "flex-end",
-  },
-  imageCarousel: {
-    height: IMAGE_HEIGHT,
-  },
-  gradient: {
-    position: "absolute",
-    top: IMAGE_HEIGHT / 2,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  imageContainer: {
-    width: SCREEN_WIDTH,
-    height: IMAGE_HEIGHT,
-    position: "relative",
-  },
-  recipeImage: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: theme.colors.border,
-  },
-
-  imageOverlay: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    right: 20,
-  },
-  padded: { paddingHorizontal: 20 },
-  recipeName: {
-    color: "white",
-  },
-  timeInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  timeText: {
-    color: "white",
-    opacity: 0.9,
-  },
-  backButtonContainer: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    zIndex: 10,
-  },
-  content: {
+  scrollView: {
     flex: 1,
-  },
-  userSection: {
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-  },
-  avatarImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-  },
-  avatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: theme.colors.primary + "20",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    fontSize: 20,
-    color: theme.colors.primary,
-  },
-  recipeCount: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  controlsSection: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  leftControls: {
-    flex: 1,
-  },
-  rightControls: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  iconButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  iconButtonIcon: {
-    color: theme.colors.text,
-  },
-  iMadeThisButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 22,
-  },
-  iMadeThisIcon: {
-    color: theme.colors.buttonText,
-  },
-  iMadeThisText: {
-    color: theme.colors.buttonText,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  importButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 22,
-    minWidth: 140,
-    justifyContent: "center",
-  },
-  importIcon: {
-    color: theme.colors.buttonText,
-  },
-  importText: {
-    color: theme.colors.buttonText,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  attributionSection: {
-    paddingVertical: 12,
-  },
-  attributionText: {
-    fontSize: 14,
   },
   centered: {
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
   },
-  servingsLabel: {
-    fontSize: 14,
+
+  // Cover Section
+  coverSection: {
+    height: IMAGE_HEIGHT,
+    position: "relative",
   },
-  servingsButtons: {
+  imageContainer: {
+    width: SCREEN_WIDTH,
+    height: IMAGE_HEIGHT,
+  },
+  recipeImage: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: theme.colors.border,
+  },
+  topButtons: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    zIndex: 10,
+  },
+  overlayButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // White Card
+  whiteCard: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    paddingTop: 24,
+    paddingHorizontal: 20,
+    minHeight: 400,
+  },
+  recipeTitle: {
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  timesRow: {
+    flexDirection: "row",
+    gap: 20,
+  },
+  timeItem: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: theme.borderRadius.small,
+    gap: 6,
+  },
+  timeIcon: {
+    color: theme.colors.text,
+  },
+
+  // Author Card (in servings row)
+  authorCard: {
+    width: "48%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    height: 52,
+  },
+  authorAvatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    flexShrink: 0,
+  },
+  authorAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primary + "20",
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
+  },
+  authorAvatarText: {
+    fontSize: 14,
+    color: theme.colors.primary,
+  },
+  authorInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  authorName: {
+    fontSize: 14,
+  },
+  attributionText: {
+    opacity: 0.6,
+  },
+
+  // Servings Row
+  servingsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  servingsLabel: {
+    fontSize: 12,
+  },
+  servingsStepper: {
+    width: "48%",
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.border,
     overflow: "hidden",
   },
-  servingsButton: {
-    width: 40,
-    height: 40,
+  stepperButton: {
+    width: 44,
+    height: 52,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: theme.colors.background,
   },
-  servingsButtonText: {
-    fontSize: 18,
+  stepperIcon: {
+    color: theme.colors.text,
   },
   servingsDisplay: {
-    width: 60,
-    height: 40,
+    flex: 1,
+    height: 52,
     justifyContent: "center",
     alignItems: "center",
     borderLeftWidth: 1,
     borderRightWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
   },
   servingsNumber: {
-    fontSize: 16,
+    fontSize: 18,
   },
-  tabsContainer: {
+  reviewButton: {
+    width: "48%",
+    height: 52,
     flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 16,
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.medium,
   },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: theme.colors.primary,
+  reviewIcon: {
+    color: theme.colors.buttonText,
+  },
+  reviewText: {
+    color: theme.colors.buttonText,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // Tab Content
+  tabViewWrapper: {
+    marginHorizontal: -20,
   },
   tabContent: {
-    paddingTop: 20,
+    minHeight: 200,
+    paddingHorizontal: 20,
   },
   sectionHeader: {
-    paddingTop: 16,
-    paddingBottom: 8,
-    marginTop: 8,
+    paddingBottom: 12,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 13,
     textTransform: "uppercase",
-    opacity: 0.6,
-    letterSpacing: 0.5,
+    opacity: 0.5,
+    letterSpacing: 1,
   },
+
+  // Modern Ingredients
   ingredientItem: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + "30",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 12,
+  },
+  ingredientBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.primary,
+    marginTop: 8,
+  },
+  ingredientContent: {
+    flex: 1,
   },
   ingredientQuantity: {
-    fontFamily: theme.fonts.albertBold,
+    fontSize: 15,
+    marginBottom: 2,
   },
+  ingredientName: {
+    fontSize: 16,
+    opacity: 0.8,
+  },
+
+  // Modern Instructions
   instructionItem: {
-    flexDirection: "row",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border + "30",
+    paddingVertical: 20,
   },
   stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: theme.colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  stepNumberText: {
-    color: "white",
-    fontSize: 14,
+    fontSize: 32,
     fontFamily: theme.fonts.albertBold,
+    color: theme.colors.text,
+    opacity: 0.15,
   },
-  instructionTextContainer: {
-    flex: 1,
-    paddingTop: 2,
+  instructionText: {
+    fontSize: 16,
+    lineHeight: 24,
   },
   stepImageThumbnail: {
-    width: 120,
-    height: 90,
-    borderRadius: 8,
+    width: "100%",
+    height: 180,
+    borderRadius: 12,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
   stepImage: {
     width: "100%",
     height: "100%",
   },
+
+  // Sticky Footer
+  stickyFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: theme.colors.background,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  importButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 16,
+    borderRadius: theme.borderRadius.full,
+  },
+  importIcon: {
+    color: theme.colors.buttonText,
+  },
+  importText: {
+    color: theme.colors.buttonText,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.95)",

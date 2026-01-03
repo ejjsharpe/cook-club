@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { View, TouchableOpacity } from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
+
+import { SafeAreaView } from "@/components/SafeAreaView";
 
 import "@/components/ImportRecipeSheet";
 

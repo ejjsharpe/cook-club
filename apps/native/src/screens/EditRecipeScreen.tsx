@@ -119,8 +119,9 @@ export default function EditRecipeScreen() {
   const [servings, setServings] = useState<number>(prefill?.servings || 4);
 
   // Section-aware state for ingredients and method
-  const [ingredientSections, setIngredientSections] =
-    useState<IngredientSection[]>(getIngredientSections);
+  const [ingredientSections, setIngredientSections] = useState<
+    IngredientSection[]
+  >(getIngredientSections);
   const [methodSections, setMethodSections] =
     useState<MethodSection[]>(getMethodSections);
   // Track images with their upload state
@@ -146,7 +147,11 @@ export default function EditRecipeScreen() {
   });
 
   // Ingredient section management
-  const updateIngredient = (sectionIdx: number, itemIdx: number, value: string) => {
+  const updateIngredient = (
+    sectionIdx: number,
+    itemIdx: number,
+    value: string,
+  ) => {
     setIngredientSections((prev) =>
       prev.map((section, si) =>
         si === sectionIdx
@@ -175,7 +180,10 @@ export default function EditRecipeScreen() {
     setIngredientSections((prev) =>
       prev.map((section, si) =>
         si === sectionIdx
-          ? { ...section, items: section.items.filter((_, ii) => ii !== itemIdx) }
+          ? {
+              ...section,
+              items: section.items.filter((_, ii) => ii !== itemIdx),
+            }
           : section,
       ),
     );
@@ -221,7 +229,10 @@ export default function EditRecipeScreen() {
     setMethodSections((prev) =>
       prev.map((section, si) =>
         si === sectionIdx
-          ? { ...section, items: [...section.items, { text: "", imageUrl: null }] }
+          ? {
+              ...section,
+              items: [...section.items, { text: "", imageUrl: null }],
+            }
           : section,
       ),
     );
@@ -231,7 +242,10 @@ export default function EditRecipeScreen() {
     setMethodSections((prev) =>
       prev.map((section, si) =>
         si === sectionIdx
-          ? { ...section, items: section.items.filter((_, ii) => ii !== itemIdx) }
+          ? {
+              ...section,
+              items: section.items.filter((_, ii) => ii !== itemIdx),
+            }
           : section,
       ),
     );
@@ -273,7 +287,9 @@ export default function EditRecipeScreen() {
             ? {
                 ...section,
                 items: section.items.map((item, ii) =>
-                  ii === stepIdx ? { ...item, imageUrl: pickedAsset.uri } : item,
+                  ii === stepIdx
+                    ? { ...item, imageUrl: pickedAsset.uri }
+                    : item,
                 ),
               }
             : section,

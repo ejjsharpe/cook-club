@@ -1,7 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { View } from "react-native";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import startImage1 from "@/assets/images/start-food-1.jpg";
@@ -17,6 +16,7 @@ import startImage7 from "@/assets/images/start-food-7.jpg";
 import startImage8 from "@/assets/images/start-food-8.jpg";
 import startImage9 from "@/assets/images/start-food-9.jpg";
 import { Marquee } from "@/components/Marquee";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";

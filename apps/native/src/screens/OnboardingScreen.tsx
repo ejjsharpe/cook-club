@@ -8,7 +8,6 @@ import {
   Alert,
 } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { OnboardingStepCuisines } from "./onboarding-steps/OnboardingStepCuisines";
@@ -18,6 +17,7 @@ import { OnboardingStepProfile } from "./onboarding-steps/OnboardingStepProfile"
 
 import { useCompleteOnboarding, useUser } from "@/api/user";
 import { OnboardingProgress } from "@/components/OnboardingProgress";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";

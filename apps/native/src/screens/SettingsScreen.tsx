@@ -2,10 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useState } from "react";
 import { View, TouchableOpacity, Alert, ScrollView } from "react-native";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useSignOut } from "@/api/auth";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";

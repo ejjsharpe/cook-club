@@ -1,10 +1,10 @@
 import { useCallback, useState, useEffect } from "react";
 import { View, ScrollView, ActivityIndicator } from "react-native";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useUpdatePreferences, useUser } from "@/api/user";
 import { AutocompleteTagSelector } from "@/components/AutocompleteTagSelector";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";

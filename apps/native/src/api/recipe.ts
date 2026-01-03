@@ -141,3 +141,19 @@ export const useImportRecipe = () => {
     },
   });
 };
+
+// Delete a recipe
+export const useDeleteRecipe = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    ...trpc.recipe.deleteRecipe.mutationOptions(),
+    onSuccess: () => {
+      // Invalidate user's recipe list to remove the deleted recipe
+      queryClient.invalidateQueries({
+        queryKey: trpc.recipe.getUserRecipes.queryKey(),
+      });
+    },
+  });
+};

@@ -8,11 +8,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useSignUpWithEmail, useSignInWithSocial } from "@/api/auth";
 import { Input } from "@/components/Input";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";

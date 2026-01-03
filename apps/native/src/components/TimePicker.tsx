@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { View, TouchableOpacity, Modal, ScrollView } from "react-native";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { StyleSheet } from "react-native-unistyles";
 
 import { VSpace } from "./Space";
 import { Text } from "./Text";
 import { PrimaryButton } from "./buttons/PrimaryButton";
 
+import { SafeAreaView } from "@/components/SafeAreaView";
 import {
   formatMinutes,
   fromTotalMinutes,

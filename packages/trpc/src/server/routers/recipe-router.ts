@@ -543,6 +543,38 @@ export const recipeRouter = router({
       }
     }),
 
+  deleteRecipe: authedProcedure
+    .input(
+      type({
+        recipeId: "number",
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify the recipe exists and is owned by the current user
+      const recipe = await ctx.db.query.recipes.findFirst({
+        where: eq(recipes.id, input.recipeId),
+      });
+
+      if (!recipe) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Recipe not found",
+        });
+      }
+
+      if (recipe.ownerId !== ctx.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only delete your own recipes",
+        });
+      }
+
+      // Delete the recipe (cascading deletes handle related tables)
+      await ctx.db.delete(recipes).where(eq(recipes.id, input.recipeId));
+
+      return { success: true };
+    }),
+
   getUserPreferences: authedProcedure.query(async ({ ctx }) => {
     try {
       // Analyze user's saved recipes to find most frequent tags
