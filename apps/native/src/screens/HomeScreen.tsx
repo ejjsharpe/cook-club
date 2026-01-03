@@ -9,9 +9,9 @@ import {
   TouchableOpacity,
   Pressable,
   RefreshControl,
-  ActivityIndicator,
   FlatList,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import Animated, {
@@ -27,6 +27,7 @@ import { useActivityFeed, FeedItem } from "@/api/activity";
 import { useSearchUsers, SearchUser } from "@/api/follows";
 import { useUser, User } from "@/api/user";
 import { EmptyFeedState } from "@/components/EmptyFeedState";
+import { HomeFeedSkeleton } from "@/components/Skeleton";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
@@ -349,11 +350,7 @@ export const HomeScreen = () => {
   // ─── Activity Feed Empty State ─────────────────────────────────────────────────
   const renderActivityEmpty = useCallback(() => {
     if (activityPending) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" />
-        </View>
-      );
+      return <HomeFeedSkeleton />;
     }
     return <EmptyFeedState onDiscoverPress={handleDiscoverPress} />;
   }, [activityPending, handleDiscoverPress]);
@@ -562,12 +559,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   feedContent: {
     flexGrow: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 60,
   },
   headerContainer: {
     paddingHorizontal: 20,

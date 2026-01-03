@@ -14,6 +14,7 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from "react-native";
+import { RecipeDetailSkeleton } from "@/components/Skeleton";
 import { BlurView } from "expo-blur";
 import { useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -235,11 +236,7 @@ export const RecipeDetailScreen = () => {
   ];
 
   if (isPending) {
-    return (
-      <View style={[styles.screen, styles.centered]}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <RecipeDetailSkeleton />;
   }
 
   if (error || !recipe) {

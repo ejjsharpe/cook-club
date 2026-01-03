@@ -2,13 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { useNavigation } from "@react-navigation/native";
 import { useState, useMemo, useCallback } from "react";
-import {
-  View,
-  ActivityIndicator,
-  Alert,
-  TouchableOpacity,
-  Dimensions,
-} from "react-native";
+import { View, Alert, TouchableOpacity, Dimensions, ActivityIndicator } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
   useSharedValue,
@@ -29,6 +23,7 @@ import { CreateCollectionCard } from "@/components/CreateCollectionCard";
 import { SheetManager } from "@/components/FilterBottomSheet";
 import { RecipeCard } from "@/components/RecipeCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
+import { MyRecipesListSkeleton, CollectionsListSkeleton } from "@/components/Skeleton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { SearchBar } from "@/components/SearchBar";
 import { VSpace } from "@/components/Space";
@@ -277,11 +272,7 @@ export const MyRecipesScreen = () => {
 
   const renderRecipesEmpty = () => {
     if (isLoadingRecipes) {
-      return (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" />
-        </View>
-      );
+      return <MyRecipesListSkeleton />;
     }
 
     if (recipesError) {
@@ -307,11 +298,7 @@ export const MyRecipesScreen = () => {
 
   const renderCollectionsEmpty = () => {
     if (isLoadingCollections) {
-      return (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" />
-        </View>
-      );
+      return <CollectionsListSkeleton />;
     }
 
     if (collectionsError) {

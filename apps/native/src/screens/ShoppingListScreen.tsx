@@ -7,7 +7,6 @@ import {
   View,
   SectionList,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
   TextInput,
   Alert,
@@ -26,6 +25,7 @@ import {
 } from "@/api/shopping";
 import { FLOATING_TAB_BAR_HEIGHT } from "@/components/FloatingTabBar";
 import { SafeAreaView } from "@/components/SafeAreaView";
+import { ShoppingListSkeleton } from "@/components/Skeleton";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -270,11 +270,7 @@ export const ShoppingListScreen = () => {
 
   const renderEmpty = () => {
     if (isLoading) {
-      return (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" />
-        </View>
-      );
+      return <ShoppingListSkeleton />;
     }
 
     if (error) {
