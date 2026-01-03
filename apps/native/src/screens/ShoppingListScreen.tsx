@@ -414,14 +414,14 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 8,
     paddingLeft: 8,
     paddingRight: 12,
-    borderRadius: 14,
+    borderRadius: theme.borderRadius.medium,
     backgroundColor: theme.colors.inputBackground,
     gap: 10,
   },
   recipeChipImage: {
     width: 44,
     height: 44,
-    borderRadius: 10,
+    borderRadius: theme.borderRadius.small,
   },
   recipeChipImagePlaceholder: {
     backgroundColor: theme.colors.border,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     height: 50,
     paddingHorizontal: 20,
-    borderRadius: 25,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.inputBackground,
     fontSize: 17,
     fontFamily: theme.fonts.albertRegular,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.primary,
   },
   checkIcon: {
-    color: "#fff",
+    color: theme.colors.buttonText,
   },
   itemContent: {
     flex: 1,
@@ -566,7 +566,7 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.textSecondary,
   },
   deleteAction: {
-    backgroundColor: "#FF3B30",
+    backgroundColor: theme.colors.destructive,
     justifyContent: "center",
     alignItems: "center",
     width: 80,

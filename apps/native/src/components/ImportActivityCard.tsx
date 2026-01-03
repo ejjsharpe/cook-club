@@ -252,7 +252,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   contentCard: {
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.large,
     overflow: "hidden",
   },
   recipePreview: {
@@ -264,7 +264,7 @@ const styles = StyleSheet.create((theme) => ({
   recipeImage: {
     width: 64,
     height: 64,
-    borderRadius: 10,
+    borderRadius: theme.borderRadius.small,
   },
   recipeInfo: {
     flex: 1,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create((theme) => ({
     height: 44,
     paddingHorizontal: 16,
     backgroundColor: theme.colors.secondaryButtonBackground,
-    borderRadius: 22,
+    borderRadius: theme.borderRadius.full,
   },
   actionIcon: {
     color: theme.colors.text,

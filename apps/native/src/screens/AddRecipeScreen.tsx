@@ -107,7 +107,7 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.large,
     padding: 16,
     gap: 14,
     minHeight: 88,
@@ -115,7 +115,7 @@ const styles = StyleSheet.create((theme) => ({
   iconContainer: {
     width: 50,
     height: 50,
-    borderRadius: 25,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.primary + "20",
     justifyContent: "center",
     alignItems: "center",

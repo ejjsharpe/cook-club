@@ -403,7 +403,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   filterButton: {
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: 25,
+    borderRadius: theme.borderRadius.full,
     width: 50,
     height: 50,
     justifyContent: "center",
@@ -442,14 +442,14 @@ const styles = StyleSheet.create((theme, rt) => ({
     alignItems: "center",
   },
   deleteAction: {
-    backgroundColor: "#FF3B30",
+    backgroundColor: theme.colors.destructive,
     justifyContent: "center",
     alignItems: "center",
     width: 80,
     height: "100%",
     marginVertical: 4,
     marginRight: 20,
-    borderRadius: 14,
+    borderRadius: theme.borderRadius.medium,
   },
   separatorContainer: {
     paddingVertical: 8,
