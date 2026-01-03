@@ -5,6 +5,7 @@ import {
   recipes,
   recipeIngredients,
   recipeImages,
+  ingredientSections,
 } from "@repo/db/schemas";
 import { classifyIngredientAisle } from "@repo/shared";
 import { TRPCError } from "@trpc/server";
@@ -205,7 +206,7 @@ export const shoppingRouter = router({
           .limit(1)
           .then((rows) => rows[0]);
 
-        // Get recipe ingredients
+        // Get recipe ingredients (through ingredient sections)
         const ingredients = await ctx.db
           .select({
             quantity: recipeIngredients.quantity,
@@ -213,8 +214,12 @@ export const shoppingRouter = router({
             name: recipeIngredients.name,
           })
           .from(recipeIngredients)
-          .where(eq(recipeIngredients.recipeId, recipeId))
-          .orderBy(recipeIngredients.index);
+          .innerJoin(
+            ingredientSections,
+            eq(recipeIngredients.sectionId, ingredientSections.id),
+          )
+          .where(eq(ingredientSections.recipeId, recipeId))
+          .orderBy(ingredientSections.index, recipeIngredients.index);
 
         // Calculate scaling factor if custom servings requested
         const scalingFactor =

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { BlurView } from "expo-blur";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import Animated, {
@@ -73,7 +74,7 @@ const TabItem = ({
         <Ionicons
           name={iconName}
           size={26}
-          color={isFocused ? theme.colors.buttonText : `${theme.colors.buttonText}99`}
+          color={isFocused ? theme.colors.primary : theme.colors.textTertiary}
         />
       </View>
     </AnimatedPressable>
@@ -148,11 +149,14 @@ const SlidingIndicator = ({
 
 export const FloatingTabBar = ({ state, navigation }: BottomTabBarProps) => {
   const insets = UnistylesRuntime.insets;
+  const theme = UnistylesRuntime.getTheme();
   const [tabBarWidth, setTabBarWidth] = useState(0);
 
   return (
     <View style={[styles.container, { bottom: Math.max(insets.bottom, 16) }]}>
-      <View
+      <BlurView
+        intensity={80}
+        tint={UnistylesRuntime.themeName === "dark" ? "dark" : "light"}
         style={styles.tabBar}
         onLayout={(e) => {
           setTabBarWidth(e.nativeEvent.layout.width);
@@ -197,7 +201,7 @@ export const FloatingTabBar = ({ state, navigation }: BottomTabBarProps) => {
             />
           );
         })}
-      </View>
+      </BlurView>
     </View>
   );
 };
@@ -211,13 +215,14 @@ const styles = StyleSheet.create((theme) => ({
   },
   tabBar: {
     flexDirection: "row",
-    backgroundColor: theme.colors.primary,
     borderRadius: (TAB_ITEM_SIZE + TAB_BAR_PADDING_VERTICAL * 2) / 2,
     paddingVertical: TAB_BAR_PADDING_VERTICAL,
     paddingHorizontal: TAB_BAR_PADDING_HORIZONTAL,
-    shadowColor: theme.colors.primary,
+    overflow: "hidden",
+    backgroundColor: theme.colors.inputBackground + "CC",
+    shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
   },
@@ -241,6 +246,11 @@ const styles = StyleSheet.create((theme) => ({
     width: TAB_ITEM_SIZE,
     height: TAB_ITEM_SIZE,
     borderRadius: TAB_ITEM_SIZE / 2,
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    backgroundColor: theme.colors.primary + "20",
+    shadowColor: theme.colors.text,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
 }));

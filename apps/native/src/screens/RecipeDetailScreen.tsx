@@ -14,6 +14,7 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from "react-native";
+import { BlurView } from "expo-blur";
 import { useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
@@ -412,7 +413,9 @@ export const RecipeDetailScreen = () => {
               style={styles.overlayButton}
               onPress={() => navigation.goBack()}
             >
-              <Ionicons name="chevron-back" size={24} color="white" />
+              <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
+                <Ionicons name="chevron-back" size={24} color="white" />
+              </BlurView>
             </TouchableOpacity>
 
             {isOwnRecipe && (
@@ -420,7 +423,9 @@ export const RecipeDetailScreen = () => {
                 style={styles.overlayButton}
                 onPress={() => setMenuVisible(true)}
               >
-                <Ionicons name="ellipsis-horizontal" size={24} color="white" />
+                <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
+                  <Ionicons name="ellipsis-horizontal" size={24} color="white" />
+                </BlurView>
               </TouchableOpacity>
             )}
           </View>
@@ -699,9 +704,13 @@ const styles = StyleSheet.create((theme) => ({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    overflow: "hidden",
+  },
+  blurContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
   },
 
   // White Card
@@ -734,9 +743,9 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: 16,
+    borderRadius: 28,
     height: 56,
   },
   authorAvatarImage: {
@@ -782,7 +791,7 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: 16,
+    borderRadius: 28,
     overflow: "hidden",
   },
   stepperButton: {
@@ -812,7 +821,7 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     gap: 8,
     backgroundColor: theme.colors.primary,
-    borderRadius: 16,
+    borderRadius: 28,
   },
   starRatingContainer: {
     flexDirection: "row",

@@ -156,42 +156,63 @@ export const ShoppingListScreen = () => {
     navigation.navigate("RecipeDetail", { recipeId });
   };
 
-  const renderRecipeChip = ({ item }: { item: Recipe }) => (
+  const handleAddRecipePress = () => {
+    navigation.navigate("AddRecipeToShoppingList");
+  };
+
+  const renderRecipeCard = ({ item }: { item: Recipe }) => (
     <TouchableOpacity
-      style={styles.recipeChip}
+      style={styles.recipeCard}
       onPress={() => handleRecipePress(item.id)}
       activeOpacity={0.7}
     >
-      {item.imageUrl ? (
-        <Image
-          source={{ uri: item.imageUrl }}
-          style={styles.recipeChipImage}
-          contentFit="cover"
-        />
-      ) : (
-        <View
-          style={[styles.recipeChipImage, styles.recipeChipImagePlaceholder]}
-        >
-          <Ionicons
-            name="image-outline"
-            size={20}
-            style={styles.placeholderIcon}
+      <View style={styles.recipeCardImageContainer}>
+        {item.imageUrl ? (
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={styles.recipeCardImage}
+            contentFit="cover"
           />
-        </View>
-      )}
-      <Text style={styles.recipeChipText} numberOfLines={1}>
+        ) : (
+          <View
+            style={[styles.recipeCardImage, styles.recipeCardImagePlaceholder]}
+          >
+            <Ionicons
+              name="restaurant-outline"
+              size={32}
+              style={styles.placeholderIcon}
+            />
+          </View>
+        )}
+        <TouchableOpacity
+          style={styles.recipeCardRemove}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleRemoveRecipe(item.id, item.name);
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <View style={styles.removeButtonBackground}>
+            <Ionicons name="close" size={14} style={styles.removeButtonIcon} />
+          </View>
+        </TouchableOpacity>
+      </View>
+      <Text style={styles.recipeCardText} numberOfLines={2}>
         {item.name}
       </Text>
-      <TouchableOpacity
-        style={styles.recipeChipRemove}
-        onPress={(e) => {
-          e.stopPropagation();
-          handleRemoveRecipe(item.id, item.name);
-        }}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Ionicons name="close-circle" size={20} style={styles.removeIcon} />
-      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+
+  const renderAddRecipeCard = () => (
+    <TouchableOpacity
+      style={styles.addRecipeCard}
+      onPress={handleAddRecipePress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.addRecipeImagePlaceholder}>
+        <Ionicons name="add" size={36} style={styles.addRecipeIcon} />
+      </View>
+      <Text style={styles.addRecipeText}>Add Recipe</Text>
     </TouchableOpacity>
   );
 
@@ -300,30 +321,29 @@ export const ShoppingListScreen = () => {
           <VSpace size={16} />
         </ScreenHeader>
 
-        {/* Recipe Chips */}
-        {recipes.length > 0 && (
-          <View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.recipeChipsContainer}
-            >
-              {recipes.map((recipe: Recipe) => (
-                <View key={recipe.id}>
-                  {renderRecipeChip({ item: recipe })}
-                </View>
-              ))}
-            </ScrollView>
-            <VSpace size={12} />
-          </View>
-        )}
-
         {/* Shopping List Items */}
         <SectionList
           sections={sections}
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           keyExtractor={(item) => item.id.toString()}
+          ListHeaderComponent={
+            <View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.recipeCardsContainer}
+              >
+                {recipes.map((recipe: Recipe) => (
+                  <View key={recipe.id}>
+                    {renderRecipeCard({ item: recipe })}
+                  </View>
+                ))}
+                {renderAddRecipeCard()}
+              </ScrollView>
+              <VSpace size={8} />
+            </View>
+          }
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
@@ -402,47 +422,81 @@ const styles = StyleSheet.create((theme) => ({
     fontFamily: theme.fonts.albertSemiBold,
   },
 
-  // Recipe Chips
-  recipeChipsContainer: {
+  // Recipe Cards Carousel
+  recipeCardsContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 4,
-    gap: 10,
+    paddingTop: 8,
+    gap: 14,
   },
-  recipeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingLeft: 8,
-    paddingRight: 12,
-    borderRadius: theme.borderRadius.medium,
+  recipeCard: {
+    width: 110,
+    overflow: "visible",
+  },
+  recipeCardImageContainer: {
+    position: "relative",
+  },
+  recipeCardImage: {
+    width: 110,
+    height: 110,
+    borderRadius: theme.borderRadius.large,
+  },
+  recipeCardImagePlaceholder: {
     backgroundColor: theme.colors.inputBackground,
-    gap: 10,
-  },
-  recipeChipImage: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.borderRadius.small,
-  },
-  recipeChipImagePlaceholder: {
-    backgroundColor: theme.colors.border,
     justifyContent: "center",
     alignItems: "center",
   },
   placeholderIcon: {
     color: theme.colors.textTertiary,
   },
-  recipeChipText: {
-    fontSize: 15,
-    fontFamily: theme.fonts.albertSemiBold,
+  recipeCardText: {
+    fontSize: 13,
+    fontFamily: theme.fonts.albertMedium,
+    color: theme.colors.text,
+    marginTop: 8,
+    lineHeight: 16,
   },
-  recipeChipRemove: {
-    width: 28,
-    height: 28,
+  recipeCardRemove: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    zIndex: 10,
+  },
+  removeButtonBackground: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.destructive,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: theme.colors.text,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  removeButtonIcon: {
+    color: "#fff",
+  },
+  addRecipeCard: {
+    width: 110,
+    alignItems: "center",
+  },
+  addRecipeImagePlaceholder: {
+    width: 110,
+    height: 110,
+    borderRadius: theme.borderRadius.large,
+    backgroundColor: theme.colors.inputBackground,
     justifyContent: "center",
     alignItems: "center",
   },
-  removeIcon: {
-    color: theme.colors.textTertiary,
+  addRecipeIcon: {
+    color: theme.colors.primary,
+  },
+  addRecipeText: {
+    fontSize: 13,
+    fontFamily: theme.fonts.albertMedium,
+    color: theme.colors.primary,
+    marginTop: 8,
   },
 
   // Manual Item Input (positioned at bottom)
@@ -488,16 +542,14 @@ const styles = StyleSheet.create((theme) => ({
   // Section Headers
   sectionHeader: {
     paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 12,
+    paddingTop: 20,
+    paddingBottom: 8,
     backgroundColor: theme.colors.background,
   },
   sectionTitle: {
-    color: theme.colors.textSecondary,
-    textTransform: "uppercase",
-    fontSize: 13,
+    color: theme.colors.text,
+    fontSize: 20,
     fontFamily: theme.fonts.albertSemiBold,
-    letterSpacing: 0.5,
   },
 
   // List Items

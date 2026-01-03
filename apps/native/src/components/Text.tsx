@@ -43,7 +43,7 @@ const styles = StyleSheet.create((theme) => ({
           lineHeight: 34,
           color: theme.colors.text,
           fontFamily: theme.fonts.baskervilleBold,
-          letterSpacing: 0.36,
+          letterSpacing: -1,
         },
         // iOS Title 2: 22pt Regular
         title2: {

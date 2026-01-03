@@ -3,12 +3,13 @@ import { formatDistanceToNow } from "date-fns";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { memo, useMemo, useCallback } from "react";
-import { View, TouchableOpacity, ScrollView } from "react-native";
+import { View, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
 import type { CookingReviewFeedItem } from "@/api/activity";
+import { useImportRecipe } from "@/api/recipe";
 
 interface Props {
   activity: CookingReviewFeedItem;
@@ -62,6 +63,8 @@ const starStyles = StyleSheet.create((theme) => ({
 
 export const ReviewActivityCard = memo(
   ({ activity, onPress, onUserPress, onImportPress }: Props) => {
+    const importMutation = useImportRecipe();
+
     const timeAgo = useMemo(
       () =>
         formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true }),
@@ -81,11 +84,18 @@ export const ReviewActivityCard = memo(
       }
     }, [activity.recipe]);
 
-    const handleImport = useCallback(() => {
+    const handleImport = useCallback(async () => {
       if (activity.recipe.sourceType === "url") {
         onImportPress?.(activity.recipe.sourceUrl);
+      } else {
+        try {
+          await importMutation.mutateAsync({ recipeId: activity.recipe.id });
+          Alert.alert("Success", "Recipe added to your collection!");
+        } catch (err: any) {
+          Alert.alert("Error", err?.message || "Failed to import recipe");
+        }
       }
-    }, [activity.recipe, onImportPress]);
+    }, [activity.recipe, onImportPress, importMutation]);
 
     return (
       <View style={styles.card}>
@@ -164,10 +174,10 @@ export const ReviewActivityCard = memo(
           </View>
 
           {/* Recipe Preview */}
-          {activity.recipe.sourceType === "url" ? (
+          <View style={styles.recipeContainer}>
             <TouchableOpacity
               style={styles.recipePreview}
-              onPress={handleViewSource}
+              onPress={activity.recipe.sourceType === "url" ? handleViewSource : onPress}
               activeOpacity={0.7}
             >
               {activity.recipe.image && (
@@ -179,67 +189,32 @@ export const ReviewActivityCard = memo(
                 />
               )}
               <View style={styles.recipeInfo}>
-                <Text type="subheadline" numberOfLines={1} style={styles.recipeTitle}>
+                <Text type="headline" numberOfLines={2} style={styles.recipeTitle}>
                   {activity.recipe.name}
                 </Text>
                 <Text type="caption" style={styles.recipeSource}>
-                  {activity.recipe.sourceDomain}
+                  {activity.recipe.sourceType === "url"
+                    ? activity.recipe.sourceDomain
+                    : "View recipe"}
                 </Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                style={styles.chevron}
-              />
             </TouchableOpacity>
-          ) : (
             <TouchableOpacity
-              style={styles.recipePreview}
-              onPress={onPress}
-              activeOpacity={0.7}
-            >
-              {activity.recipe.image && (
-                <Image
-                  source={{ uri: activity.recipe.image }}
-                  style={styles.recipeImage}
-                  cachePolicy="memory-disk"
-                  transition={200}
-                />
-              )}
-              <View style={styles.recipeInfo}>
-                <Text type="subheadline" numberOfLines={1} style={styles.recipeTitle}>
-                  {activity.recipe.name}
-                </Text>
-                <Text type="caption">View recipe</Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                style={styles.chevron}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Action Buttons */}
-        {activity.recipe.sourceType === "url" && (
-          <View style={styles.actionRow}>
-            <TouchableOpacity
-              style={styles.actionButton}
+              style={styles.importButton}
               onPress={handleImport}
               activeOpacity={0.7}
             >
               <Ionicons
-                name="add-circle-outline"
-                size={20}
-                style={styles.actionIcon}
+                name="add"
+                size={16}
+                style={styles.importIcon}
               />
-              <Text type="subheadline" style={styles.actionText}>
-                Import recipe
+              <Text type="footnote" style={styles.importText}>
+                Import
               </Text>
             </TouchableOpacity>
           </View>
-        )}
+        </View>
       </View>
     );
   },
@@ -321,7 +296,7 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.textSecondary,
   },
   reviewText: {},
-  recipePreview: {
+  recipeContainer: {
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
@@ -329,41 +304,39 @@ const styles = StyleSheet.create((theme) => ({
     borderTopColor: theme.colors.border,
     gap: 12,
   },
+  recipePreview: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   recipeImage: {
-    width: 48,
-    height: 48,
+    width: 64,
+    height: 64,
     borderRadius: theme.borderRadius.small,
   },
   recipeInfo: {
     flex: 1,
-    gap: 2,
+    gap: 4,
   },
-  recipeTitle: {
-    fontFamily: theme.fonts.albertSemiBold,
-  },
+  recipeTitle: {},
   recipeSource: {
     color: theme.colors.textSecondary,
   },
-  chevron: {
-    color: theme.colors.textTertiary,
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  actionButton: {
+  importButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    height: 44,
-    paddingHorizontal: 16,
-    backgroundColor: theme.colors.secondaryButtonBackground,
+    gap: 4,
+    height: 32,
+    paddingHorizontal: 12,
+    backgroundColor: theme.colors.background,
     borderRadius: theme.borderRadius.full,
   },
-  actionIcon: {
-    color: theme.colors.text,
+  importIcon: {
+    color: theme.colors.primary,
   },
-  actionText: {
+  importText: {
     fontFamily: theme.fonts.albertSemiBold,
+    color: theme.colors.primary,
   },
 }));

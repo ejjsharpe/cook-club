@@ -13,6 +13,7 @@ import {
   useIsSignedOut,
   useNeedsOnboarding,
 } from "@/lib/signedInContext";
+import { AddRecipeToShoppingListScreen } from "@/screens/AddRecipeToShoppingListScreen";
 import { CollectionDetailScreen } from "@/screens/CollectionDetailScreen";
 import { EditProfileScreen } from "@/screens/EditProfileScreen";
 import EditRecipeScreen from "@/screens/EditRecipeScreen";
@@ -81,6 +82,7 @@ const RootStack = createNativeStackNavigator({
         FollowsList: { screen: FollowsScreen },
         RecipeDetail: { screen: RecipeDetailScreen },
         CollectionDetail: { screen: CollectionDetailScreen },
+        AddRecipeToShoppingList: { screen: AddRecipeToShoppingListScreen },
       },
     },
 
