@@ -49,6 +49,7 @@ export const UserProfileScreen = () => {
   const queryClient = useQueryClient();
 
   const [isImporting, setIsImporting] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const { data: currentUser } = useUser();
   const { data: profile, isLoading, error } = useUserProfile({ userId });
@@ -245,10 +246,11 @@ export const UserProfileScreen = () => {
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatar}>
-          {profile.user.image ? (
+          {profile.user.image && !imageError ? (
             <Image
               source={{ uri: profile.user.image }}
               style={styles.avatarImage}
+              onError={() => setImageError(true)}
             />
           ) : (
             <View style={styles.avatarPlaceholder}>
@@ -485,6 +487,8 @@ const styles = StyleSheet.create((theme) => ({
   avatar: {
     width: 100,
     height: 100,
+    borderRadius: 50,
+    overflow: "hidden",
   },
   avatarImage: {
     width: 100,
