@@ -268,20 +268,6 @@ export const MyRecipesScreen = () => {
     );
   };
 
-  const renderRightActions = (collection: CollectionWithMetadata) => {
-    // Don't allow swiping on default collection
-    if (collection.isDefault) return null;
-
-    return (
-      <TouchableOpacity
-        style={styles.deleteAction}
-        onPress={() => handleDeleteCollection(collection)}
-      >
-        <Ionicons name="trash" size={24} color="#fff" />
-      </TouchableOpacity>
-    );
-  };
-
   const renderCollection = ({ item }: { item: CollectionListItem }) => {
     // Handle create collection item
     if ("type" in item && item.type === "create") {
