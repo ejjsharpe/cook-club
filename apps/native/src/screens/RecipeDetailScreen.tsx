@@ -289,42 +289,42 @@ export const RecipeDetailScreen = () => {
     return (
       <View style={styles.tabContent}>
         {recipe.ingredientSections.map((section) => (
-        <View key={section.id}>
-          {section.name && (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{section.name}</Text>
-            </View>
-          )}
-
-          {section.ingredients.map((item) => {
-            const adjustedQuantity = item.quantity
-              ? parseFloat(item.quantity) * servingMultiplier
-              : null;
-            const formattedQuantity = adjustedQuantity
-              ? adjustedQuantity % 1 === 0
-                ? adjustedQuantity.toString()
-                : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "")
-              : null;
-
-            return (
-              <View key={item.id} style={styles.ingredientItem}>
-                <View style={styles.ingredientBullet} />
-                <HSpace size={12} />
-                <View style={styles.ingredientContent}>
-                  {(formattedQuantity || item.unit) && (
-                    <Text style={styles.ingredientQuantity}>
-                      {formattedQuantity}
-                      {formattedQuantity && item.unit ? " " : ""}
-                      {item.unit}
-                    </Text>
-                  )}
-                  <Text style={styles.ingredientName}>{item.name}</Text>
-                </View>
+          <View key={section.id}>
+            {section.name && (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{section.name}</Text>
               </View>
-            );
-          })}
-        </View>
-      ))}
+            )}
+
+            {section.ingredients.map((item) => {
+              const adjustedQuantity = item.quantity
+                ? parseFloat(item.quantity) * servingMultiplier
+                : null;
+              const formattedQuantity = adjustedQuantity
+                ? adjustedQuantity % 1 === 0
+                  ? adjustedQuantity.toString()
+                  : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "")
+                : null;
+
+              return (
+                <View key={item.id} style={styles.ingredientItem}>
+                  <View style={styles.ingredientBullet} />
+                  <HSpace size={12} />
+                  <View style={styles.ingredientContent}>
+                    {(formattedQuantity || item.unit) && (
+                      <Text style={styles.ingredientQuantity}>
+                        {formattedQuantity}
+                        {formattedQuantity && item.unit ? " " : ""}
+                        {item.unit}
+                      </Text>
+                    )}
+                    <Text style={styles.ingredientName}>{item.name}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ))}
       </View>
     );
   };
@@ -392,294 +392,297 @@ export const RecipeDetailScreen = () => {
             <View style={styles.coverSection}>
               {recipe.images && recipe.images.length > 0 && (
                 <FlatList
-                data={recipe.images}
-                renderItem={renderImage}
-                keyExtractor={(item) => item.id.toString()}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={handleImageScroll}
-                scrollEventThrottle={16}
-                bounces={false}
+                  data={recipe.images}
+                  renderItem={renderImage}
+                  keyExtractor={(item) => item.id.toString()}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={handleImageScroll}
+                  scrollEventThrottle={16}
+                  bounces={false}
+                />
+              )}
+
+              {/* Page Indicator */}
+              <PageIndicator
+                currentPage={currentImageIndex + 1}
+                totalPages={recipe.images.length}
               />
-            )}
 
-            {/* Page Indicator */}
-            <PageIndicator
-              currentPage={currentImageIndex + 1}
-              totalPages={recipe.images.length}
-            />
-
-            {/* Top Buttons */}
-            <View style={[styles.topButtons, { top: insets.top + 8 }]}>
-              <TouchableOpacity
-                style={styles.overlayButton}
-                onPress={() => navigation.goBack()}
-              >
-                <BlurView
-                  intensity={80}
-                  tint="dark"
-                  style={styles.blurContainer}
-                >
-                  <Ionicons name="chevron-back" size={24} color="white" />
-                </BlurView>
-              </TouchableOpacity>
-
-              {isOwnRecipe && (
+              {/* Top Buttons */}
+              <View style={[styles.topButtons, { top: insets.top + 8 }]}>
                 <TouchableOpacity
                   style={styles.overlayButton}
-                  onPress={() => setMenuVisible(true)}
+                  onPress={() => navigation.goBack()}
                 >
                   <BlurView
                     intensity={80}
                     tint="dark"
                     style={styles.blurContainer}
                   >
-                    <Ionicons
-                      name="ellipsis-horizontal"
-                      size={24}
-                      color="white"
-                    />
+                    <Ionicons name="chevron-back" size={24} color="white" />
                   </BlurView>
                 </TouchableOpacity>
-              )}
-            </View>
-          </View>
 
-          {/* White Card Section */}
-          <View style={styles.whiteCard}>
-            {/* Title */}
-            <Text type="title1">{recipe.name}</Text>
-
-            <VSpace size={16} />
-
-            {/* Cook Times */}
-            <View style={styles.timesRow}>
-              {recipe.prepTime && (
-                <View style={styles.timeItem}>
-                  <Ionicons
-                    name="timer-outline"
-                    size={18}
-                    style={styles.timeIcon}
-                  />
-                  <Text type="subheadline" style={styles.timeIcon}>
-                    Prep: {formatMinutesShort(recipe.prepTime)}
-                  </Text>
-                </View>
-              )}
-              {recipe.cookTime && (
-                <View style={styles.timeItem}>
-                  <Ionicons
-                    name="flame-outline"
-                    size={18}
-                    style={styles.timeIcon}
-                  />
-                  <Text type="subheadline" style={styles.timeIcon}>
-                    Cook: {formatMinutesShort(recipe.cookTime)}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Attribution for imported recipes */}
-            {isOwnRecipe &&
-              recipe.sourceType === "user" &&
-              recipe.originalOwner && (
-                <>
-                  <VSpace size={8} />
-                  <Text type="footnote" style={styles.attributionText}>
-                    Originally from @{recipe.originalOwner.name}
-                  </Text>
-                </>
-              )}
-
-            <VSpace size={24} />
-
-            {/* Servings Row with Review Button or Author Info */}
-            <View style={styles.servingsRow}>
-              <View style={styles.servingsStepper}>
-                <TouchableOpacity
-                  style={styles.stepperButton}
-                  onPress={() => setServings(Math.max(1, servings - 1))}
-                >
-                  <Ionicons
-                    name="remove"
-                    size={20}
-                    style={styles.stepperIcon}
-                  />
-                </TouchableOpacity>
-                <View style={styles.servingsDisplay}>
-                  <Text type="caption" style={styles.servingsLabel}>
-                    Servings
-                  </Text>
-                  <Text style={styles.servingsNumber}>{servings}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.stepperButton}
-                  onPress={() => setServings(servings + 1)}
-                >
-                  <Ionicons name="add" size={20} style={styles.stepperIcon} />
-                </TouchableOpacity>
-              </View>
-
-              {isOwnRecipe ? (
-                <TouchableOpacity
-                  style={styles.reviewButton}
-                  onPress={handleReview}
-                >
-                  {recipe.userReviewRating ? (
-                    <View style={styles.starRatingContainer}>
-                      {Array.from({ length: recipe.userReviewRating }).map(
-                        (_, i) => (
-                          <Ionicons
-                            key={i}
-                            name="star"
-                            size={18}
-                            style={styles.reviewIcon}
-                          />
-                        ),
-                      )}
-                    </View>
-                  ) : (
-                    <>
+                {isOwnRecipe && (
+                  <TouchableOpacity
+                    style={styles.overlayButton}
+                    onPress={() => setMenuVisible(true)}
+                  >
+                    <BlurView
+                      intensity={80}
+                      tint="dark"
+                      style={styles.blurContainer}
+                    >
                       <Ionicons
-                        name="star-outline"
-                        size={18}
-                        style={styles.reviewIcon}
+                        name="ellipsis-horizontal"
+                        size={24}
+                        color="white"
                       />
-                      <Text style={styles.reviewText}>Review</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.authorCard}
-                  onPress={() =>
-                    navigation.navigate("UserProfile", {
-                      userId: recipe.owner.id,
-                    })
-                  }
-                  activeOpacity={0.7}
-                >
-                  {recipe.owner.image ? (
-                    <Image
-                      source={{
-                        uri: getImageUrl(recipe.owner.image, "avatar-sm"),
-                      }}
-                      style={styles.authorAvatarImage}
+                    </BlurView>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* White Card Section */}
+            <View style={styles.whiteCard}>
+              {/* Title */}
+              <Text type="title1">{recipe.name}</Text>
+
+              <VSpace size={16} />
+
+              {/* Cook Times */}
+              <View style={styles.timesRow}>
+                {recipe.prepTime && (
+                  <View style={styles.timeItem}>
+                    <Ionicons
+                      name="timer-outline"
+                      size={18}
+                      style={styles.timeIcon}
                     />
-                  ) : (
-                    <View style={styles.authorAvatarPlaceholder}>
-                      <Text style={styles.authorAvatarText}>
-                        {recipe.owner.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.authorInfo}>
-                    <Text type="headline" numberOfLines={1}>
-                      {recipe.owner.name}
-                    </Text>
-                    <Text type="caption">
-                      {recipe.userRecipesCount} recipes
+                    <Text type="subheadline" style={styles.timeIcon}>
+                      Prep: {formatMinutesShort(recipe.prepTime)}
                     </Text>
                   </View>
-                </TouchableOpacity>
-              )}
-            </View>
+                )}
+                {recipe.cookTime && (
+                  <View style={styles.timeItem}>
+                    <Ionicons
+                      name="flame-outline"
+                      size={18}
+                      style={styles.timeIcon}
+                    />
+                    <Text type="subheadline" style={styles.timeIcon}>
+                      Cook: {formatMinutesShort(recipe.cookTime)}
+                    </Text>
+                  </View>
+                )}
+              </View>
 
-            <VSpace size={24} />
+              {/* Attribution for imported recipes */}
+              {isOwnRecipe &&
+                recipe.sourceType === "user" &&
+                recipe.originalOwner && (
+                  <>
+                    <VSpace size={8} />
+                    <Text type="footnote" style={styles.attributionText}>
+                      Originally from @{recipe.originalOwner.name}
+                    </Text>
+                  </>
+                )}
 
-            {/* Full Width Tabs */}
-            <UnderlineTabBar
-              options={TAB_OPTIONS}
-              value={activeTab}
-              onValueChange={handleTabChange}
-              scrollProgress={scrollProgress}
-              fullWidth
-            />
+              <VSpace size={24} />
 
-            <VSpace size={24} />
+              {/* Servings Row with Review Button or Author Info */}
+              <View style={styles.servingsRow}>
+                <View style={styles.servingsStepper}>
+                  <TouchableOpacity
+                    style={styles.stepperButton}
+                    onPress={() => setServings(Math.max(1, servings - 1))}
+                  >
+                    <Ionicons
+                      name="remove"
+                      size={20}
+                      style={styles.stepperIcon}
+                    />
+                  </TouchableOpacity>
+                  <View style={styles.servingsDisplay}>
+                    <Text type="caption" style={styles.servingsLabel}>
+                      Servings
+                    </Text>
+                    <Text style={styles.servingsNumber}>{servings}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.stepperButton}
+                    onPress={() => setServings(servings + 1)}
+                  >
+                    <Ionicons name="add" size={20} style={styles.stepperIcon} />
+                  </TouchableOpacity>
+                </View>
 
-            {/* Swipeable Tab Content - breaks out of card padding for edge-to-edge swipe */}
-            <View style={styles.tabViewWrapper}>
-              <SwipeableTabView
-                activeIndex={activeTabIndex}
-                onIndexChange={handleSwipeTabChange}
-                containerWidth={SCREEN_WIDTH}
+                {isOwnRecipe ? (
+                  <TouchableOpacity
+                    style={styles.reviewButton}
+                    onPress={handleReview}
+                  >
+                    {recipe.userReviewRating ? (
+                      <View style={styles.starRatingContainer}>
+                        {Array.from({ length: recipe.userReviewRating }).map(
+                          (_, i) => (
+                            <Ionicons
+                              key={i}
+                              name="star"
+                              size={18}
+                              style={styles.reviewIcon}
+                            />
+                          ),
+                        )}
+                      </View>
+                    ) : (
+                      <>
+                        <Ionicons
+                          name="star-outline"
+                          size={18}
+                          style={styles.reviewIcon}
+                        />
+                        <Text style={styles.reviewText}>Review</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.authorCard}
+                    onPress={() =>
+                      navigation.navigate("UserProfile", {
+                        userId: recipe.owner.id,
+                      })
+                    }
+                    activeOpacity={0.7}
+                  >
+                    {recipe.owner.image ? (
+                      <Image
+                        source={{
+                          uri: getImageUrl(recipe.owner.image, "avatar-sm"),
+                        }}
+                        style={styles.authorAvatarImage}
+                      />
+                    ) : (
+                      <View style={styles.authorAvatarPlaceholder}>
+                        <Text style={styles.authorAvatarText}>
+                          {recipe.owner.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.authorInfo}>
+                      <Text type="headline" numberOfLines={1}>
+                        {recipe.owner.name}
+                      </Text>
+                      <Text type="caption">
+                        {recipe.userRecipesCount} recipes
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <VSpace size={24} />
+
+              {/* Full Width Tabs */}
+              <UnderlineTabBar
+                options={TAB_OPTIONS}
+                value={activeTab}
+                onValueChange={handleTabChange}
                 scrollProgress={scrollProgress}
-              >
-                {renderIngredients()}
-                {renderMethod()}
-              </SwipeableTabView>
+                fullWidth
+              />
+
+              <VSpace size={24} />
+
+              {/* Swipeable Tab Content - breaks out of card padding for edge-to-edge swipe */}
+              <View style={styles.tabViewWrapper}>
+                <SwipeableTabView
+                  activeIndex={activeTabIndex}
+                  onIndexChange={handleSwipeTabChange}
+                  containerWidth={SCREEN_WIDTH}
+                  scrollProgress={scrollProgress}
+                >
+                  {renderIngredients()}
+                  {renderMethod()}
+                </SwipeableTabView>
+              </View>
+
+              <VSpace size={isOwnRecipe ? 40 : 100} />
             </View>
+          </ScrollView>
 
-            <VSpace size={isOwnRecipe ? 40 : 100} />
-          </View>
-        </ScrollView>
+          {/* Sticky Footer - Only for non-owned recipes */}
+          {!isOwnRecipe && (
+            <View
+              style={[
+                styles.stickyFooter,
+                { paddingBottom: insets.bottom + 12 },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.importButton}
+                onPress={handleImportRecipe}
+                disabled={importMutation.isPending}
+              >
+                {importMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name="download-outline"
+                      size={20}
+                      style={styles.importIcon}
+                    />
+                    <Text style={styles.importText}>Import Recipe</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
 
-        {/* Sticky Footer - Only for non-owned recipes */}
-        {!isOwnRecipe && (
-          <View
-            style={[styles.stickyFooter, { paddingBottom: insets.bottom + 12 }]}
+          {/* Dropdown Menu */}
+          <DropdownMenu
+            visible={menuVisible}
+            onClose={() => setMenuVisible(false)}
+            items={menuItems}
+            anchorPosition={{ top: insets.top + 48, right: 20 }}
+          />
+
+          {/* Full-screen image modal */}
+          <Modal
+            visible={expandedImageUrl !== null}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setExpandedImageUrl(null)}
           >
             <TouchableOpacity
-              style={styles.importButton}
-              onPress={handleImportRecipe}
-              disabled={importMutation.isPending}
+              style={styles.modalOverlay}
+              activeOpacity={1}
+              onPress={() => setExpandedImageUrl(null)}
             >
-              {importMutation.isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Ionicons
-                    name="download-outline"
-                    size={20}
-                    style={styles.importIcon}
+              <View style={styles.modalContent}>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setExpandedImageUrl(null)}
+                >
+                  <Ionicons name="close" size={32} color="#fff" />
+                </TouchableOpacity>
+
+                {expandedImageUrl && (
+                  <Image
+                    source={{ uri: getImageUrl(expandedImageUrl, "step-full") }}
+                    style={styles.expandedImage}
+                    contentFit="contain"
                   />
-                  <Text style={styles.importText}>Import Recipe</Text>
-                </>
-              )}
+                )}
+              </View>
             </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Dropdown Menu */}
-        <DropdownMenu
-          visible={menuVisible}
-          onClose={() => setMenuVisible(false)}
-          items={menuItems}
-          anchorPosition={{ top: insets.top + 48, right: 20 }}
-        />
-
-        {/* Full-screen image modal */}
-        <Modal
-          visible={expandedImageUrl !== null}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setExpandedImageUrl(null)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setExpandedImageUrl(null)}
-          >
-            <View style={styles.modalContent}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setExpandedImageUrl(null)}
-              >
-                <Ionicons name="close" size={32} color="#fff" />
-              </TouchableOpacity>
-
-              {expandedImageUrl && (
-                <Image
-                  source={{ uri: getImageUrl(expandedImageUrl, "step-full") }}
-                  style={styles.expandedImage}
-                  contentFit="contain"
-                />
-              )}
-            </View>
-          </TouchableOpacity>
           </Modal>
         </View>
       ) : null}

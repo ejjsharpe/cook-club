@@ -55,7 +55,8 @@ const AnimatedTabText = ({
     }
     // Fallback to static color when no scrollProgress
     return {
-      color: index === activeIndex ? theme.colors.text : theme.colors.textSecondary,
+      color:
+        index === activeIndex ? theme.colors.text : theme.colors.textSecondary,
     };
   });
 

@@ -1,4 +1,10 @@
-import { createContext, useContext, useCallback, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { useSharedValue, type SharedValue } from "react-native-reanimated";
 
@@ -16,7 +22,7 @@ export const TabBarProvider = ({ children }: { children: ReactNode }) => {
     (visible: boolean) => {
       isVisible.value = visible ? 1 : 0;
     },
-    [isVisible]
+    [isVisible],
   );
 
   return (

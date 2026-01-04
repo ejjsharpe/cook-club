@@ -102,69 +102,100 @@ export const Skeleton = ({
   );
 };
 
-interface ActivityCardSkeletonProps {
-  showReviewImage?: boolean;
-}
+// Shared user header skeleton for activity cards
+const ActivityUserHeaderSkeleton = () => (
+  <View style={styles.userHeader}>
+    <Skeleton width={44} height={44} borderRadius={22} />
+    <View style={styles.userInfo}>
+      <View style={styles.userNameRow}>
+        <Skeleton width={120} height={17} borderRadius={4} />
+        <Skeleton width={50} height={13} borderRadius={4} />
+      </View>
+      <Skeleton width={160} height={15} borderRadius={4} />
+    </View>
+  </View>
+);
 
-export const ActivityCardSkeleton = ({
-  showReviewImage = false,
-}: ActivityCardSkeletonProps = {}) => {
+// Shared action row skeleton
+const ActivityActionRowSkeleton = () => (
+  <View style={styles.actionRow}>
+    <Skeleton width={70} height={36} borderRadius={18} />
+    <Skeleton width={95} height={36} borderRadius={18} />
+    <Skeleton width={80} height={36} borderRadius={18} />
+  </View>
+);
+
+// Import Activity Card Skeleton (large image with overlay)
+export const ImportActivityCardSkeleton = () => {
   return (
     <View style={styles.card}>
-      {/* User Header */}
-      <View style={styles.userHeader}>
-        <Skeleton width={44} height={44} borderRadius={22} />
-        <View style={styles.userInfo}>
-          <View style={styles.userNameRow}>
-            <Skeleton width={100} height={17} borderRadius={4} />
-            <Skeleton width={60} height={12} borderRadius={4} />
-          </View>
-          <Skeleton width={140} height={15} borderRadius={4} />
-        </View>
+      <ActivityUserHeaderSkeleton />
+
+      {/* Large recipe image */}
+      <View style={styles.imageWrapper}>
+        <Skeleton width="100%" height={260} borderRadius={16} />
+      </View>
+
+      <ActivityActionRowSkeleton />
+    </View>
+  );
+};
+
+// Review Activity Card Skeleton (carousel + content card)
+export const ReviewActivityCardSkeleton = () => {
+  return (
+    <View style={styles.card}>
+      <ActivityUserHeaderSkeleton />
+
+      {/* Review image carousel */}
+      <View style={styles.imageWrapper}>
+        <Skeleton width="100%" height={260} borderRadius={16} />
       </View>
 
       {/* Content Card */}
-      <View style={styles.contentCard}>
-        {/* Optional review image */}
-        {showReviewImage && (
-          <Skeleton
-            width="100%"
-            height={200}
-            borderRadius={0}
-            style={styles.reviewImageSkeleton}
-          />
-        )}
-
-        {/* Review content (for review cards) */}
-        {showReviewImage && (
+      <View style={styles.contentCardWrapper}>
+        <View style={styles.contentCard}>
+          {/* Rating and review text */}
           <View style={styles.reviewContent}>
-            <Skeleton width={90} height={14} borderRadius={4} />
-            <Skeleton width="80%" height={16} borderRadius={4} />
+            <Skeleton width={100} height={14} borderRadius={4} />
+            <Skeleton width="85%" height={17} borderRadius={4} />
           </View>
-        )}
 
-        {/* Recipe Preview */}
-        <View style={styles.recipeContainer}>
+          {/* Recipe Preview */}
           <View style={styles.recipePreview}>
-            <Skeleton width={64} height={64} borderRadius={8} />
+            <Skeleton width={56} height={56} borderRadius={12} />
             <View style={styles.recipeInfo}>
-              <Skeleton width="70%" height={17} borderRadius={4} />
-              <Skeleton width={80} height={12} borderRadius={4} />
+              <Skeleton width="65%" height={17} borderRadius={4} />
+              <Skeleton width={80} height={13} borderRadius={4} />
             </View>
           </View>
-          <Skeleton width={72} height={32} borderRadius={16} />
         </View>
       </View>
+
+      <ActivityActionRowSkeleton />
     </View>
+  );
+};
+
+// Legacy alias for backwards compatibility
+export const ActivityCardSkeleton = ({
+  showReviewImage = false,
+}: { showReviewImage?: boolean } = {}) => {
+  return showReviewImage ? (
+    <ReviewActivityCardSkeleton />
+  ) : (
+    <ImportActivityCardSkeleton />
   );
 };
 
 export const HomeFeedSkeleton = () => {
   return (
-    <View>
-      <ActivityCardSkeleton />
-      <ActivityCardSkeleton showReviewImage />
-      <ActivityCardSkeleton />
+    <View style={styles.feedSkeletonContainer}>
+      <ImportActivityCardSkeleton />
+      <View style={styles.feedSeparator} />
+      <ReviewActivityCardSkeleton />
+      <View style={styles.feedSeparator} />
+      <ImportActivityCardSkeleton />
     </View>
   );
 };
@@ -354,8 +385,9 @@ export const UserProfileSkeleton = () => {
       <View style={styles.userProfileSpacer12} />
 
       {/* Activity Cards */}
-      <ActivityCardSkeleton />
-      <ActivityCardSkeleton showReviewImage />
+      <ImportActivityCardSkeleton />
+      <View style={styles.feedSeparator} />
+      <ReviewActivityCardSkeleton />
     </View>
   );
 };
@@ -436,52 +468,59 @@ const styles = StyleSheet.create((theme) => ({
   },
   card: {
     backgroundColor: theme.colors.background,
-    paddingTop: 16,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    gap: 12,
+    paddingVertical: 16,
+    gap: 14,
   },
   userHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    paddingHorizontal: 20,
   },
   userInfo: {
     flex: 1,
-    gap: 6,
+    gap: 4,
   },
   userNameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 20,
+  },
+  imageWrapper: {
+    paddingHorizontal: 20,
+  },
+  contentCardWrapper: {
+    paddingHorizontal: 20,
   },
   contentCard: {
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.large,
     overflow: "hidden",
   },
-  reviewImageSkeleton: {
-    borderRadius: 0,
-  },
   reviewContent: {
     padding: 16,
     gap: 8,
   },
-  recipeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    gap: 12,
-  },
   recipePreview: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
     gap: 12,
   },
   recipeInfo: {
     flex: 1,
-    gap: 8,
+    gap: 4,
+  },
+  feedSkeletonContainer: {},
+  feedSeparator: {
+    height: 16,
   },
 
   // Recipe Card styles

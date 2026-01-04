@@ -32,7 +32,11 @@ const ImageGrid = ({ images }: { images: string[] }) => {
     return (
       <View style={gridStyles.container}>
         <View style={gridStyles.placeholder}>
-          <Ionicons name="albums-outline" size={32} style={gridStyles.placeholderIcon} />
+          <Ionicons
+            name="albums-outline"
+            size={32}
+            style={gridStyles.placeholderIcon}
+          />
         </View>
       </View>
     );

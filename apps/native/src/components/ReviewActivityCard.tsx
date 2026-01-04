@@ -3,7 +3,13 @@ import { formatDistanceToNow } from "date-fns";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { memo, useMemo, useCallback } from "react";
-import { View, TouchableOpacity, ScrollView, Alert } from "react-native";
+import {
+  View,
+  TouchableOpacity,
+  Alert,
+  useWindowDimensions,
+} from "react-native";
+import Animated from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
@@ -61,8 +67,12 @@ const starStyles = StyleSheet.create((theme) => ({
   },
 }));
 
+const AnimatedFlatList = Animated.FlatList;
+
 export const ReviewActivityCard = memo(
   ({ activity, onPress, onUserPress, onImportPress }: Props) => {
+    const { width: screenWidth } = useWindowDimensions();
+    const imageWidth = screenWidth - 40; // 20px padding on each side
     const importMutation = useImportRecipe();
 
     const timeAgo = useMemo(
@@ -124,10 +134,9 @@ export const ReviewActivityCard = memo(
               <Text type="headline" style={styles.userName}>
                 {activity.actor.name}
               </Text>
-              <Text type="caption" style={styles.dot}>
-                ·
+              <Text type="footnote" style={styles.timeAgo}>
+                {timeAgo}
               </Text>
-              <Text type="caption">{timeAgo}</Text>
             </View>
             <Text type="subheadline" style={styles.activityText}>
               cooked {activity.recipe.name}
@@ -135,49 +144,61 @@ export const ReviewActivityCard = memo(
           </View>
         </TouchableOpacity>
 
-        {/* Review Content Card */}
-        <View style={styles.contentCard}>
-          {/* Review Images - Full width carousel */}
-          {hasImages && (
-            <ScrollView
+        {/* Review Images Carousel */}
+        {hasImages && (
+          <View style={styles.carouselContainer}>
+            <AnimatedFlatList
+              data={activity.review.images}
               horizontal
-              pagingEnabled
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.imagesContainer}
-            >
-              {activity.review.images.map((imageUrl, index) => (
-                <Image
-                  key={index}
-                  source={{ uri: imageUrl }}
-                  style={styles.reviewImage}
-                  cachePolicy="memory-disk"
-                  transition={200}
-                />
-              ))}
-            </ScrollView>
-          )}
+              keyExtractor={(_, index) => index.toString()}
+              snapToInterval={imageWidth + 8}
+              decelerationRate="fast"
+              contentContainerStyle={styles.carouselContent}
+              ItemSeparatorComponent={() => (
+                <View style={styles.imageSeparator} />
+              )}
+              renderItem={({ item: imageUrl }) => (
+                <View style={styles.imageWrapper}>
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={[styles.reviewImage, { width: imageWidth }]}
+                    cachePolicy="memory-disk"
+                    transition={200}
+                  />
+                </View>
+              )}
+            />
+          </View>
+        )}
 
-          {/* Rating and Review Text */}
-          <View style={styles.reviewContent}>
-            <View style={styles.ratingRow}>
-              <StarRating rating={activity.review.rating} />
-              <Text type="footnote" style={styles.ratingText}>
-                {activity.review.rating}/5
-              </Text>
+        {/* Review Content Card */}
+        <View style={styles.contentCardWrapper}>
+          <View style={styles.contentCard}>
+            {/* Rating and Review Text */}
+            <View style={styles.reviewContent}>
+              <View style={styles.ratingRow}>
+                <StarRating rating={activity.review.rating} />
+                <Text type="footnote" style={styles.ratingText}>
+                  {activity.review.rating}/5
+                </Text>
+              </View>
+
+              {activity.review.text && (
+                <Text type="body" style={styles.reviewText}>
+                  {activity.review.text}
+                </Text>
+              )}
             </View>
 
-            {activity.review.text && (
-              <Text type="body" style={styles.reviewText}>
-                {activity.review.text}
-              </Text>
-            )}
-          </View>
-
-          {/* Recipe Preview */}
-          <View style={styles.recipeContainer}>
+            {/* Recipe Preview */}
             <TouchableOpacity
               style={styles.recipePreview}
-              onPress={activity.recipe.sourceType === "url" ? handleViewSource : onPress}
+              onPress={
+                activity.recipe.sourceType === "url"
+                  ? handleViewSource
+                  : onPress
+              }
               activeOpacity={0.7}
             >
               {activity.recipe.image && (
@@ -189,31 +210,55 @@ export const ReviewActivityCard = memo(
                 />
               )}
               <View style={styles.recipeInfo}>
-                <Text type="headline" numberOfLines={2} style={styles.recipeTitle}>
+                <Text
+                  type="headline"
+                  numberOfLines={2}
+                  style={styles.recipeTitle}
+                >
                   {activity.recipe.name}
                 </Text>
-                <Text type="caption" style={styles.recipeSource}>
+                <Text type="footnote" style={styles.recipeSource}>
                   {activity.recipe.sourceType === "url"
                     ? activity.recipe.sourceDomain
                     : "View recipe"}
                 </Text>
               </View>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.importButton}
-              onPress={handleImport}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="add"
-                size={16}
-                style={styles.importIcon}
-              />
-              <Text type="footnote" style={styles.importText}>
-                Import
-              </Text>
-            </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Action buttons */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.actionPill} activeOpacity={0.7}>
+            <Ionicons
+              name="heart-outline"
+              size={18}
+              style={styles.actionIcon}
+            />
+            <Text type="subheadline" style={styles.actionText}>
+              Like
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionPill} activeOpacity={0.7}>
+            <Ionicons
+              name="chatbubble-outline"
+              size={16}
+              style={styles.actionIcon}
+            />
+            <Text type="subheadline" style={styles.actionText}>
+              Comment
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionPillPrimary}
+            onPress={handleImport}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add" size={18} style={styles.actionIconPrimary} />
+            <Text type="subheadline" style={styles.actionTextPrimary}>
+              Import
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -223,15 +268,14 @@ export const ReviewActivityCard = memo(
 const styles = StyleSheet.create((theme) => ({
   card: {
     backgroundColor: theme.colors.background,
-    paddingTop: 16,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    gap: 12,
+    paddingVertical: 16,
+    gap: 14,
   },
   userHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    paddingHorizontal: 20,
   },
   avatar: {
     width: 44,
@@ -262,26 +306,36 @@ const styles = StyleSheet.create((theme) => ({
   userNameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "space-between",
   },
   userName: {},
-  dot: {
-    opacity: 0.5,
+  timeAgo: {
+    color: theme.colors.textSecondary,
   },
   activityText: {
     color: theme.colors.textSecondary,
+  },
+  carouselContainer: {},
+  carouselContent: {
+    paddingHorizontal: 20,
+  },
+  imageSeparator: {
+    width: 8,
+  },
+  imageWrapper: {
+    borderRadius: theme.borderRadius.large,
+    overflow: "hidden",
+  },
+  reviewImage: {
+    aspectRatio: 4 / 3,
+  },
+  contentCardWrapper: {
+    paddingHorizontal: 20,
   },
   contentCard: {
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.large,
     overflow: "hidden",
-  },
-  imagesContainer: {
-    gap: 2,
-  },
-  reviewImage: {
-    width: 320,
-    height: 240,
   },
   reviewContent: {
     padding: 16,
@@ -296,47 +350,60 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.textSecondary,
   },
   reviewText: {},
-  recipeContainer: {
+  recipePreview: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    padding: 14,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
     gap: 12,
   },
-  recipePreview: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
   recipeImage: {
-    width: 64,
-    height: 64,
-    borderRadius: theme.borderRadius.small,
+    width: 56,
+    height: 56,
+    borderRadius: theme.borderRadius.medium,
   },
   recipeInfo: {
     flex: 1,
-    gap: 4,
+    gap: 2,
   },
   recipeTitle: {},
   recipeSource: {
     color: theme.colors.textSecondary,
   },
-  importButton: {
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 20,
+  },
+  actionPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    height: 32,
-    paddingHorizontal: 12,
+    gap: 6,
+    height: 36,
+    paddingHorizontal: 14,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.full,
+  },
+  actionIcon: {
+    color: theme.colors.text,
+  },
+  actionText: {
+    color: theme.colors.text,
+  },
+  actionPillPrimary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 36,
+    paddingHorizontal: 14,
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.full,
   },
-  importIcon: {
+  actionIconPrimary: {
     color: theme.colors.buttonText,
   },
-  importText: {
-    fontFamily: theme.fonts.albertSemiBold,
+  actionTextPrimary: {
     color: theme.colors.buttonText,
   },
 }));

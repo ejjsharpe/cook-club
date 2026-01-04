@@ -240,182 +240,182 @@ export const UserProfileScreen = () => {
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
             {profile.user.image && !imageError ? (
-            <Image
-              source={{ uri: profile.user.image }}
-              style={styles.avatarImage}
-              onError={() => setImageError(true)}
-              cachePolicy="memory-disk"
-              transition={100}
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text type="largeTitle" style={styles.avatarText}>
-                {profile.user.name.charAt(0).toUpperCase()}
+              <Image
+                source={{ uri: profile.user.image }}
+                style={styles.avatarImage}
+                onError={() => setImageError(true)}
+                cachePolicy="memory-disk"
+                transition={100}
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text type="largeTitle" style={styles.avatarText}>
+                  {profile.user.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <VSpace size={16} />
+
+          <Text type="title1" style={styles.name}>
+            {profile.user.name}
+          </Text>
+
+          <Text type="bodyFaded" style={styles.email}>
+            {profile.user.email}
+          </Text>
+
+          <VSpace size={8} />
+
+          <Text type="bodyFaded" style={styles.joinDate}>
+            Joined {formatJoinDate(profile.user.createdAt)}
+          </Text>
+
+          <VSpace size={20} />
+
+          {/* Stats */}
+          <View style={styles.statsContainer}>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() =>
+                navigation.navigate("FollowsList", {
+                  userId,
+                  activeTab: "followers",
+                  userName: profile.user.name,
+                })
+              }
+              activeOpacity={0.7}
+            >
+              <Text type="heading" style={styles.statNumber}>
+                {profile.followersCount}
+              </Text>
+              <Text type="bodyFaded" style={styles.statLabel}>
+                Followers
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() =>
+                navigation.navigate("FollowsList", {
+                  userId,
+                  activeTab: "following",
+                  userName: profile.user.name,
+                })
+              }
+              activeOpacity={0.7}
+            >
+              <Text type="heading" style={styles.statNumber}>
+                {profile.followingCount}
+              </Text>
+              <Text type="bodyFaded" style={styles.statLabel}>
+                Following
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.statItem}>
+              <Text type="heading" style={styles.statNumber}>
+                {profile.recipeCount}
+              </Text>
+              <Text type="bodyFaded" style={styles.statLabel}>
+                Recipes
               </Text>
             </View>
-          )}
-        </View>
-
-        <VSpace size={16} />
-
-        <Text type="title1" style={styles.name}>
-          {profile.user.name}
-        </Text>
-
-        <Text type="bodyFaded" style={styles.email}>
-          {profile.user.email}
-        </Text>
-
-        <VSpace size={8} />
-
-        <Text type="bodyFaded" style={styles.joinDate}>
-          Joined {formatJoinDate(profile.user.createdAt)}
-        </Text>
-
-        <VSpace size={20} />
-
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={() =>
-              navigation.navigate("FollowsList", {
-                userId,
-                activeTab: "followers",
-                userName: profile.user.name,
-              })
-            }
-            activeOpacity={0.7}
-          >
-            <Text type="heading" style={styles.statNumber}>
-              {profile.followersCount}
-            </Text>
-            <Text type="bodyFaded" style={styles.statLabel}>
-              Followers
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.statItem}
-            onPress={() =>
-              navigation.navigate("FollowsList", {
-                userId,
-                activeTab: "following",
-                userName: profile.user.name,
-              })
-            }
-            activeOpacity={0.7}
-          >
-            <Text type="heading" style={styles.statNumber}>
-              {profile.followingCount}
-            </Text>
-            <Text type="bodyFaded" style={styles.statLabel}>
-              Following
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.statItem}>
-            <Text type="heading" style={styles.statNumber}>
-              {profile.recipeCount}
-            </Text>
-            <Text type="bodyFaded" style={styles.statLabel}>
-              Recipes
-            </Text>
           </View>
         </View>
-      </View>
 
-      <VSpace size={24} />
+        <VSpace size={24} />
 
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        {isOwnProfile ? (
-          <>
-            <TouchableOpacity
-              style={styles.pillButton}
-              onPress={handleEditProfile}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="pencil-outline"
-                size={18}
-                style={styles.pillButtonIcon}
-              />
-              <Text style={styles.pillButtonText}>Edit Profile</Text>
-            </TouchableOpacity>
-            <View style={styles.buttonSpacer} />
-            <TouchableOpacity
-              style={styles.pillButton}
-              onPress={handleShareProfile}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="share-outline"
-                size={18}
-                style={styles.pillButtonIcon}
-              />
-              <Text style={styles.pillButtonText}>Share</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            {profile.isFollowing ? (
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          {isOwnProfile ? (
+            <>
               <TouchableOpacity
-                style={[styles.pillButton, styles.followingButton]}
-                onPress={handleUnfollow}
-                disabled={isMutationLoading}
+                style={styles.pillButton}
+                onPress={handleEditProfile}
                 activeOpacity={0.7}
               >
                 <Ionicons
-                  name="checkmark"
+                  name="pencil-outline"
                   size={18}
-                  style={styles.followingIcon}
+                  style={styles.pillButtonIcon}
                 />
-                <Text style={styles.followingButtonText}>Following</Text>
+                <Text style={styles.pillButtonText}>Edit Profile</Text>
               </TouchableOpacity>
-            ) : (
-              <PrimaryButton
-                onPress={handleFollow}
-                disabled={isMutationLoading}
-                style={styles.followButton}
+              <View style={styles.buttonSpacer} />
+              <TouchableOpacity
+                style={styles.pillButton}
+                onPress={handleShareProfile}
+                activeOpacity={0.7}
               >
-                Follow
-              </PrimaryButton>
-            )}
-            <View style={styles.buttonSpacer} />
-            <TouchableOpacity
-              style={styles.pillButton}
-              onPress={handleShareProfile}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="share-outline"
-                size={18}
-                style={styles.pillButtonIcon}
-              />
-              <Text style={styles.pillButtonText}>Share</Text>
-            </TouchableOpacity>
+                <Ionicons
+                  name="share-outline"
+                  size={18}
+                  style={styles.pillButtonIcon}
+                />
+                <Text style={styles.pillButtonText}>Share</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {profile.isFollowing ? (
+                <TouchableOpacity
+                  style={[styles.pillButton, styles.followingButton]}
+                  onPress={handleUnfollow}
+                  disabled={isMutationLoading}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="checkmark"
+                    size={18}
+                    style={styles.followingIcon}
+                  />
+                  <Text style={styles.followingButtonText}>Following</Text>
+                </TouchableOpacity>
+              ) : (
+                <PrimaryButton
+                  onPress={handleFollow}
+                  disabled={isMutationLoading}
+                  style={styles.followButton}
+                >
+                  Follow
+                </PrimaryButton>
+              )}
+              <View style={styles.buttonSpacer} />
+              <TouchableOpacity
+                style={styles.pillButton}
+                onPress={handleShareProfile}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="share-outline"
+                  size={18}
+                  style={styles.pillButtonIcon}
+                />
+                <Text style={styles.pillButtonText}>Share</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        {profile.followsMe && !isOwnProfile && (
+          <>
+            <VSpace size={12} />
+            <View style={styles.followsYouBadge}>
+              <Text type="caption" style={styles.followsYouText}>
+                Follows you
+              </Text>
+            </View>
           </>
         )}
+
+        <VSpace size={24} />
+
+        {/* Activity Section Header */}
+        <View style={styles.sectionHeader}>
+          <Text type="heading">Activity</Text>
+        </View>
+        <VSpace size={12} />
       </View>
-
-      {profile.followsMe && !isOwnProfile && (
-        <>
-          <VSpace size={12} />
-          <View style={styles.followsYouBadge}>
-            <Text type="caption" style={styles.followsYouText}>
-              Follows you
-            </Text>
-          </View>
-        </>
-      )}
-
-      <VSpace size={24} />
-
-      {/* Activity Section Header */}
-      <View style={styles.sectionHeader}>
-        <Text type="heading">Activity</Text>
-      </View>
-      <VSpace size={12} />
-    </View>
     );
   };
 
@@ -461,7 +461,7 @@ export const UserProfileScreen = () => {
             styles.listContent,
             { paddingBottom: insets.bottom + 20 },
           ]}
-          ItemSeparatorComponent={() => <VSpace size={12} />}
+          ItemSeparatorComponent={() => <VSpace size={16} />}
         />
       </SkeletonContainer>
     </SafeAreaView>

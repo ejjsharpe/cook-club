@@ -732,7 +732,31 @@ async function seedActivityFeed(
     null, // Some reviews are rating-only
   ];
 
+  // Sample review images (food photos from Unsplash)
+  const reviewImageSets = [
+    [
+      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800",
+      "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800",
+    ],
+    [
+      "https://images.unsplash.com/photo-1482049016823-2e42b83c6cf3?w=800",
+    ],
+    [
+      "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800",
+      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800",
+      "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=800",
+    ],
+    [
+      "https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?w=800",
+    ],
+    [
+      "https://images.unsplash.com/photo-1499028344343-cd173ffc68a9?w=800",
+      "https://images.unsplash.com/photo-1432139555190-58524dae6a55?w=800",
+    ],
+  ];
+
   // Create cooking reviews
+  let imageSetIndex = 0;
   for (const user of users) {
     // Each user reviews 1-3 recipes they own
     const userRecipes = allRecipes.filter((r) => r.ownerId === user.id);
@@ -742,6 +766,11 @@ async function seedActivityFeed(
       const reviewCreatedAt = randomDate(20);
       const rating = randomInt(3, 5);
       const reviewText = randomChoice(reviewTexts);
+
+      // About 40% of reviews have images
+      const hasImages = Math.random() < 0.4;
+      const images = hasImages ? reviewImageSets[imageSetIndex % reviewImageSets.length]! : [];
+      if (hasImages) imageSetIndex++;
 
       const [activityEvent] = await db
         .insert(schema.activityEvents)
@@ -755,7 +784,7 @@ async function seedActivityFeed(
 
       if (!activityEvent) continue;
 
-      await db.insert(schema.cookingReviews).values({
+      const [review] = await db.insert(schema.cookingReviews).values({
         userId: user.id,
         recipeId: recipe.id,
         activityEventId: activityEvent.id,
@@ -763,7 +792,18 @@ async function seedActivityFeed(
         reviewText,
         createdAt: reviewCreatedAt,
         updatedAt: reviewCreatedAt,
-      });
+      }).returning();
+
+      // Add review images
+      if (review && images.length > 0) {
+        for (let i = 0; i < images.length; i++) {
+          await db.insert(schema.cookingReviewImages).values({
+            reviewId: review.id,
+            url: images[i]!,
+            index: i,
+          });
+        }
+      }
 
       reviewCount++;
     }

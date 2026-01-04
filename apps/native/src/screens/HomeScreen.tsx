@@ -460,6 +460,7 @@ export const HomeScreen = () => {
               ListHeaderComponent={BrowseListHeader}
               ListEmptyComponent={renderActivityEmpty}
               ListFooterComponent={renderActivityFooter}
+              ItemSeparatorComponent={() => <VSpace size={16} />}
               onEndReached={handleActivityLoadMore}
               onEndReachedThreshold={0.5}
               showsVerticalScrollIndicator={false}
