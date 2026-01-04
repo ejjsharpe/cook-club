@@ -4,7 +4,6 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
-
 interface Props {
   onPress: () => void;
   disabled?: boolean;
@@ -72,9 +71,9 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: theme.colors.background,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    gap: 14,
+    // paddingVertical: 12,
+    // paddingHorizontal: 20,
+    // gap: 14,
   },
   cardDisabled: {
     opacity: 0.5,

@@ -10,13 +10,16 @@ import {
   ActivityIndicator,
 } from "react-native";
 import type { ViewStyle } from "react-native";
-import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   Easing,
   FadeIn as ReanimatedFadeIn,
+  useAnimatedScrollHandler,
+  interpolate,
+  Extrapolation,
+  runOnJS,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -35,7 +38,6 @@ import { CreateCollectionCard } from "@/components/CreateCollectionCard";
 import { SheetManager } from "@/components/FilterBottomSheet";
 import { RecipeCard } from "@/components/RecipeCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
-import { ScreenHeader } from "@/components/ScreenHeader";
 import { SearchBar } from "@/components/SearchBar";
 import {
   MyRecipesListSkeleton,
@@ -52,6 +54,12 @@ const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
 ) => React.ReactElement;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// Header height constants
+const TITLE_HEIGHT = 24 + 40; // VSpace + title row
+const SEARCH_ROW_HEIGHT = 20 + 50; // VSpace + search bar height
+const TABS_HEIGHT = 16 + 50 + 16; // VSpace + tabs + VSpace
+const HEADER_HEIGHT = TITLE_HEIGHT + SEARCH_ROW_HEIGHT + TABS_HEIGHT;
 
 type Recipe = NonNullable<
   ReturnType<typeof useGetUserRecipes>["data"]
@@ -86,6 +94,44 @@ export const MyRecipesScreen = () => {
   const [activeTab, setActiveTab] = useState<MyRecipesTab>("recipes");
   const [searchQuery, setSearchQuery] = useState("");
   const scrollProgress = useSharedValue(0);
+  const scrollY = useSharedValue(0);
+
+  // Header collapse animation
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(
+      scrollY.value,
+      [0, HEADER_HEIGHT],
+      [0, -HEADER_HEIGHT],
+      Extrapolation.CLAMP,
+    );
+    return {
+      transform: [{ translateY }],
+    };
+  });
+
+  const handleScrollEvent = useCallback(
+    (offsetY: number, contentHeight: number, layoutHeight: number) => {
+      onTabBarScroll({
+        nativeEvent: {
+          contentOffset: { y: offsetY },
+          contentSize: { height: contentHeight },
+          layoutMeasurement: { height: layoutHeight },
+        },
+      } as any);
+    },
+    [onTabBarScroll],
+  );
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+      runOnJS(handleScrollEvent)(
+        event.contentOffset.y,
+        event.contentSize.height,
+        event.layoutMeasurement.height,
+      );
+    },
+  });
 
   // Filter state
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
@@ -342,48 +388,13 @@ export const MyRecipesScreen = () => {
     );
   };
 
+  const ListSpacer = useCallback(
+    () => <View style={{ height: HEADER_HEIGHT }} />,
+    [],
+  );
+
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
-      <ScreenHeader title="My Recipes" style={styles.header}>
-        <View style={styles.searchRow}>
-          <View style={styles.searchBarWrapper}>
-            <SearchBar
-              placeholder={
-                activeTab === "recipes"
-                  ? "Search recipes..."
-                  : "Search collections..."
-              }
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-          <Animated.View
-            style={[styles.filterButtonWrapper, filterButtonStyle]}
-            pointerEvents={activeTab === "recipes" ? "auto" : "none"}
-          >
-            <TouchableOpacity
-              style={styles.filterButton}
-              onPress={handleOpenFilters}
-            >
-              <Ionicons
-                name="options-outline"
-                size={22}
-                color={theme.colors.text}
-              />
-              {hasActiveFilters && <View style={styles.filterBadge} />}
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-        <VSpace size={16} />
-        <UnderlineTabBar
-          options={tabOptions}
-          value={activeTab}
-          onValueChange={handleTabChange}
-          scrollProgress={scrollProgress}
-          fullWidth
-        />
-      </ScreenHeader>
-      <VSpace size={16} />
       <SwipeableTabView
         activeIndex={activeTabIndex}
         onIndexChange={handleSwipeTabChange}
@@ -391,7 +402,10 @@ export const MyRecipesScreen = () => {
         scrollProgress={scrollProgress}
       >
         {isLoadingRecipes ? (
-          <MyRecipesListSkeleton />
+          <View style={styles.skeletonContainer}>
+            <View style={{ height: HEADER_HEIGHT }} />
+            <MyRecipesListSkeleton />
+          </View>
         ) : (
           <AnimatedLegendList
             entering={ReanimatedFadeIn.duration(200)}
@@ -400,33 +414,87 @@ export const MyRecipesScreen = () => {
             keyExtractor={(item) => item.id.toString()}
             onEndReached={handleLoadMoreRecipes}
             onEndReachedThreshold={0.5}
+            ListHeaderComponent={ListSpacer}
             ListFooterComponent={renderRecipesFooter}
             ListEmptyComponent={renderRecipesEmpty}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={RecipeSeparator}
-            onScroll={onTabBarScroll}
+            onScroll={scrollHandler}
             scrollEventThrottle={16}
           />
         )}
         {isLoadingCollections ? (
-          <CollectionsListSkeleton />
+          <View style={styles.skeletonContainer}>
+            <View style={{ height: HEADER_HEIGHT }} />
+            <CollectionsListSkeleton />
+          </View>
         ) : (
           <AnimatedLegendList
             entering={ReanimatedFadeIn.duration(200)}
             data={collections}
             renderItem={renderCollection}
             keyExtractor={(item) => item.id.toString()}
+            ListHeaderComponent={ListSpacer}
             ListEmptyComponent={renderCollectionsEmpty}
             showsVerticalScrollIndicator={false}
             numColumns={2}
             contentContainerStyle={styles.collectionsGridContent}
             columnWrapperStyle={styles.collectionsRow as any}
-            onScroll={onTabBarScroll}
+            onScroll={scrollHandler}
             scrollEventThrottle={16}
           />
         )}
       </SwipeableTabView>
+
+      {/* Collapsing header - positioned above the lists */}
+      <Animated.View style={[styles.headerContainer, headerAnimatedStyle]}>
+        <View style={styles.header}>
+          <VSpace size={24} />
+          <View style={styles.titleRow}>
+            <Text type="title1">My Recipes</Text>
+          </View>
+          <VSpace size={20} />
+          <View style={styles.searchRow}>
+            <View style={styles.searchBarWrapper}>
+              <SearchBar
+                placeholder={
+                  activeTab === "recipes"
+                    ? "Search recipes..."
+                    : "Search collections..."
+                }
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+            <Animated.View
+              style={[styles.filterButtonWrapper, filterButtonStyle]}
+              pointerEvents={activeTab === "recipes" ? "auto" : "none"}
+            >
+              <TouchableOpacity
+                style={styles.filterButton}
+                onPress={handleOpenFilters}
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={22}
+                  color={theme.colors.text}
+                />
+                {hasActiveFilters && <View style={styles.filterBadge} />}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+          <VSpace size={16} />
+          <UnderlineTabBar
+            options={tabOptions}
+            value={activeTab}
+            onValueChange={handleTabChange}
+            scrollProgress={scrollProgress}
+            fullWidth
+          />
+          <VSpace size={16} />
+        </View>
+      </Animated.View>
     </SafeAreaView>
   );
 };
@@ -436,8 +504,24 @@ const styles = StyleSheet.create((theme, rt) => ({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  headerContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: rt.insets.top,
+    backgroundColor: theme.colors.background,
+    zIndex: 10,
+  },
+  skeletonContainer: {
+    flex: 1,
+  },
   header: {
     paddingHorizontal: 20,
+  },
+  titleRow: {
+    minHeight: 40,
+    justifyContent: "center",
   },
   searchRow: {
     flexDirection: "row",

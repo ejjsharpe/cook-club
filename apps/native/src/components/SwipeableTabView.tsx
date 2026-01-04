@@ -150,6 +150,7 @@ const styles = StyleSheet.create(() => ({
   },
   tabsContainer: {
     flexDirection: "row",
+    flex: 1,
   },
   tabContent: {
     flex: 1,

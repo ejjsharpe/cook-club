@@ -6,7 +6,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { Text } from "./Text";
 
 const GRID_PADDING = 20;
-const GRID_GAP = 12;
+const GRID_GAP = 20;
 
 interface Collection {
   id: number;

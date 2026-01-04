@@ -368,7 +368,7 @@ export const ShoppingListScreen = () => {
       {/* Large Title */}
       <View style={styles.largeTitleContainer}>
         <Animated.View style={largeTitleStyle}>
-          <Text type="largeTitle">Shopping List</Text>
+          <Text type="title1">Shopping List</Text>
         </Animated.View>
         {checkedCount > 0 && (
           <TouchableOpacity
