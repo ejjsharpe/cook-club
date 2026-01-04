@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { getAisleOrder } from "@repo/shared";
 import { Image } from "expo-image";
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import {
   View,
   SectionList,
@@ -21,12 +21,18 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   useSharedValue,
+  useAnimatedReaction,
   interpolate,
+  interpolateColor,
   Extrapolation,
   LinearTransition,
-  useAnimatedReaction,
+  type SharedValue,
 } from "react-native-reanimated";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import {
+  useUnistyles,
+  StyleSheet,
+  UnistylesRuntime,
+} from "react-native-unistyles";
 
 import {
   useGetShoppingList,
@@ -73,6 +79,149 @@ const INPUT_SECTION_HEIGHT = 68;
 const SCROLL_THRESHOLD = 50;
 const HEADER_HEIGHT = 44;
 
+interface SwipeableItemProps {
+  item: ShoppingListItem;
+  onToggle: (id: number) => void;
+  onRemove: (id: number) => void;
+}
+
+const DeleteAction = ({
+  swipeProgress,
+  onRemove,
+}: {
+  swipeProgress: SharedValue<number>;
+  onRemove: () => void;
+}) => {
+  const deleteButtonStyle = useAnimatedStyle(() => {
+    const scale = interpolate(swipeProgress.value, [0.5, 0.7, 1], [0, 0.8, 1], {
+      extrapolateLeft: Extrapolation.CLAMP,
+      extrapolateRight: Extrapolation.CLAMP,
+    });
+    return {
+      transform: [{ scale }],
+      opacity: interpolate(swipeProgress.value, [0.5, 0.6], [0, 1], {
+        extrapolateLeft: Extrapolation.CLAMP,
+        extrapolateRight: Extrapolation.CLAMP,
+      }),
+    };
+  });
+
+  return (
+    <View style={styles.deleteActionContainer}>
+      <Animated.View style={deleteButtonStyle}>
+        <TouchableOpacity style={styles.deleteActionPill} onPress={onRemove}>
+          <Ionicons name="trash" size={20} color="#fff" />
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
+};
+
+const ItemContent = ({
+  item,
+  swipeProgress,
+  onToggle,
+}: {
+  item: ShoppingListItem;
+  swipeProgress: SharedValue<number>;
+  onToggle: () => void;
+}) => {
+  const { theme } = useUnistyles();
+
+  const backgroundStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      swipeProgress.value,
+      [0, 1],
+      ["transparent", theme.colors.inputBackground],
+    ),
+  }));
+
+  return (
+    <TouchableOpacity
+      style={[styles.itemRowOuter, item.isChecked && styles.itemRowChecked]}
+      onPress={onToggle}
+      activeOpacity={0.7}
+    >
+      <Animated.View style={[styles.itemRowInner, backgroundStyle]}>
+        <View
+          style={[styles.checkbox, item.isChecked && styles.checkboxChecked]}
+        >
+          {item.isChecked && (
+            <Ionicons name="checkmark" size={18} style={styles.checkIcon} />
+          )}
+        </View>
+        <View style={styles.itemContent}>
+          <Text
+            style={[styles.itemText, item.isChecked && styles.itemTextChecked]}
+          >
+            {item.displayText}
+          </Text>
+          {item.sourceItems.length > 0 &&
+            item.sourceItems.some((si) => si.sourceRecipeName) && (
+              <Text style={styles.recipeTag}>
+                from{" "}
+                {item.sourceItems
+                  .filter((si) => si.sourceRecipeName)
+                  .map((si) => si.sourceRecipeName)
+                  .join(", ")}
+              </Text>
+            )}
+        </View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+const ProgressSyncer = ({
+  source,
+  target,
+}: {
+  source: SharedValue<number>;
+  target: SharedValue<number>;
+}) => {
+  useAnimatedReaction(
+    () => source.value,
+    (value) => {
+      target.value = value;
+    },
+  );
+  return null;
+};
+
+const SwipeableItem = ({ item, onToggle, onRemove }: SwipeableItemProps) => {
+  const swipeProgress = useSharedValue(0);
+
+  const renderRightActions = useCallback(
+    (progress: SharedValue<number>) => (
+      <>
+        <ProgressSyncer source={progress} target={swipeProgress} />
+        <DeleteAction
+          swipeProgress={progress}
+          onRemove={() => onRemove(item.id)}
+        />
+      </>
+    ),
+    [item.id, onRemove, swipeProgress],
+  );
+
+  return (
+    <Animated.View layout={LinearTransition}>
+      <Swipeable
+        renderRightActions={renderRightActions}
+        overshootRight
+        overshootLeft
+        friction={2}
+      >
+        <ItemContent
+          item={item}
+          swipeProgress={swipeProgress}
+          onToggle={() => onToggle(item.id)}
+        />
+      </Swipeable>
+    </Animated.View>
+  );
+};
+
 const SectionCheck = ({ isComplete }: { isComplete: boolean }) => {
   const scale = useSharedValue(isComplete ? 1 : 0);
 
@@ -109,7 +258,7 @@ export const ShoppingListScreen = () => {
   const { onScroll: onTabBarScroll } = useTabBarScroll();
   const [manualItemText, setManualItemText] = useState("");
   const scrollY = useSharedValue(0);
-  const { progress: keyboardProgress } = useReanimatedKeyboardAnimation();
+  const { progress: keyboardswipeProgress } = useReanimatedKeyboardAnimation();
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -150,7 +299,7 @@ export const ShoppingListScreen = () => {
 
   const inputPaddingAnimatedStyle = useAnimatedStyle(() => {
     // When keyboard is open, no extra padding needed (keyboard covers tab bar)
-    const isKeyboardOpen = keyboardProgress.value > 0;
+    const isKeyboardOpen = keyboardswipeProgress.value > 0;
     if (isKeyboardOpen) {
       return { paddingBottom: 0 };
     }
@@ -318,55 +467,12 @@ export const ShoppingListScreen = () => {
     </TouchableOpacity>
   );
 
-  const renderRightActions = (itemId: number) => {
-    return (
-      <TouchableOpacity
-        style={styles.deleteAction}
-        onPress={() => handleRemoveItem(itemId)}
-      >
-        <Ionicons name="trash" size={24} color="#fff" />
-      </TouchableOpacity>
-    );
-  };
-
   const renderItem = ({ item }: { item: ShoppingListItem }) => (
-    <Animated.View layout={LinearTransition}>
-      <Swipeable renderRightActions={() => renderRightActions(item.id)}>
-        <TouchableOpacity
-          style={[styles.itemRow, item.isChecked && styles.itemRowChecked]}
-          onPress={() => handleToggleCheck(item.id)}
-          activeOpacity={0.7}
-        >
-          <View
-            style={[styles.checkbox, item.isChecked && styles.checkboxChecked]}
-          >
-            {item.isChecked && (
-              <Ionicons name="checkmark" size={18} style={styles.checkIcon} />
-            )}
-          </View>
-          <View style={styles.itemContent}>
-            <Text
-              style={[
-                styles.itemText,
-                item.isChecked && styles.itemTextChecked,
-              ]}
-            >
-              {item.displayText}
-            </Text>
-            {item.sourceItems.length > 0 &&
-              item.sourceItems.some((si) => si.sourceRecipeName) && (
-                <Text style={styles.recipeTag}>
-                  from{" "}
-                  {item.sourceItems
-                    .filter((si) => si.sourceRecipeName)
-                    .map((si) => si.sourceRecipeName)
-                    .join(", ")}
-                </Text>
-              )}
-          </View>
-        </TouchableOpacity>
-      </Swipeable>
-    </Animated.View>
+    <SwipeableItem
+      item={item}
+      onToggle={handleToggleCheck}
+      onRemove={handleRemoveItem}
+    />
   );
 
   const renderSectionHeader = ({ section }: { section: Section }) => {
@@ -764,13 +870,18 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: "center",
     color: theme.colors.textSecondary,
   },
-  itemRow: {
+  itemRowOuter: {
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+  },
+  itemRowInner: {
     flexDirection: "row",
     alignItems: "center",
     minHeight: 56,
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    backgroundColor: theme.colors.background,
+    paddingHorizontal: 16,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.large,
   },
   itemRowChecked: {
     opacity: 0.5,
@@ -806,10 +917,17 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: 4,
     color: theme.colors.textSecondary,
   },
-  deleteAction: {
+  deleteActionContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingRight: 20,
+  },
+  deleteActionPill: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.destructive,
     justifyContent: "center",
     alignItems: "center",
-    width: 80,
   },
 }));
