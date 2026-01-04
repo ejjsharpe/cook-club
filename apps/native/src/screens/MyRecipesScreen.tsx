@@ -29,11 +29,7 @@ import {
   useDeleteCollection,
 } from "@/api/collection";
 import { useGetUserRecipes, useAllTags } from "@/api/recipe";
-import {
-  CollectionGridCard,
-  GRID_GAP,
-  GRID_PADDING,
-} from "@/components/CollectionGridCard";
+import { CollectionGridCard, GRID_GAP } from "@/components/CollectionGridCard";
 import { CreateCollectionCard } from "@/components/CreateCollectionCard";
 import { SheetManager } from "@/components/FilterBottomSheet";
 import { RecipeCard } from "@/components/RecipeCard";
@@ -56,9 +52,9 @@ const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Header height constants
-const TITLE_HEIGHT = 20 + 34; // VSpace + title row (title1 font)
-const SEARCH_ROW_HEIGHT = 20 + 50; // VSpace + search bar height
-const TABS_HEIGHT = 16 + 50 + 16; // VSpace + tabs + VSpace
+const TITLE_HEIGHT = 32 + 34; // VSpace(32) + title row (title1 font)
+const SEARCH_ROW_HEIGHT = 20 + 50; // VSpace(20) + search bar height
+const TABS_HEIGHT = 16 + 50 + 16; // VSpace(16) + tabs + VSpace(16)
 const HEADER_HEIGHT = TITLE_HEIGHT + SEARCH_ROW_HEIGHT + TABS_HEIGHT;
 
 type Recipe = NonNullable<
@@ -143,10 +139,8 @@ export const MyRecipesScreen = () => {
   const filterButtonStyle = useAnimatedStyle(() => ({
     opacity: filterButtonProgress.value,
     transform: [{ scale: 0.8 + 0.2 * filterButtonProgress.value }],
-    width: (50 + 20) * filterButtonProgress.value,
+    width: 50 * filterButtonProgress.value,
     marginLeft: 12 * filterButtonProgress.value,
-    marginRight: -20 * filterButtonProgress.value,
-    paddingRight: 20 * filterButtonProgress.value,
   }));
 
   const activeTabIndex = activeTab === "recipes" ? 0 : 1;
@@ -436,9 +430,11 @@ export const MyRecipesScreen = () => {
       <Animated.View style={[styles.headerContainer, headerAnimatedStyle]}>
         <View style={styles.header}>
           <VSpace size={32} />
-          <Text type="title1">My Recipes</Text>
+          <View style={styles.headerPadded}>
+            <Text type="title1">My Recipes</Text>
+          </View>
           <VSpace size={20} />
-          <View style={styles.searchRow}>
+          <View style={[styles.searchRow, styles.headerPadded]}>
             <View style={styles.searchBarWrapper}>
               <SearchBar
                 placeholder={
@@ -468,13 +464,15 @@ export const MyRecipesScreen = () => {
             </Animated.View>
           </View>
           <VSpace size={16} />
-          <UnderlineTabBar
-            options={tabOptions}
-            value={activeTab}
-            onValueChange={handleTabChange}
-            scrollProgress={scrollProgress}
-            fullWidth
-          />
+          <View style={styles.headerPadded}>
+            <UnderlineTabBar
+              options={tabOptions}
+              value={activeTab}
+              onValueChange={handleTabChange}
+              scrollProgress={scrollProgress}
+              fullWidth
+            />
+          </View>
           <VSpace size={16} />
         </View>
       </Animated.View>
@@ -499,7 +497,8 @@ const styles = StyleSheet.create((theme, rt) => ({
   skeletonContainer: {
     flex: 1,
   },
-  header: {
+  header: {},
+  headerPadded: {
     paddingHorizontal: 20,
   },
   searchRow: {
@@ -566,12 +565,11 @@ const styles = StyleSheet.create((theme, rt) => ({
     backgroundColor: theme.colors.border,
   },
   collectionsGridContent: {
-    paddingHorizontal: GRID_PADDING,
+    paddingHorizontal: 30,
     paddingBottom: rt.insets.bottom + 48,
-    flexGrow: 1,
   },
   collectionsRow: {
     gap: GRID_GAP,
     marginBottom: GRID_GAP,
-  } satisfies ViewStyle,
+  },
 }));

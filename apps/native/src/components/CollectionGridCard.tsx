@@ -5,7 +5,6 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
-const GRID_PADDING = 20;
 const GRID_GAP = 20;
 
 interface Collection {
@@ -217,7 +216,7 @@ export const CollectionGridCard = ({ collection, onPress }: Props) => {
   );
 };
 
-export { GRID_GAP, GRID_PADDING };
+export { GRID_GAP };
 
 const styles = StyleSheet.create((theme) => ({
   card: {
