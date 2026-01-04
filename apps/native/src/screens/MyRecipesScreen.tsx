@@ -435,7 +435,7 @@ export const MyRecipesScreen = () => {
       {/* Collapsing header - positioned above the lists */}
       <Animated.View style={[styles.headerContainer, headerAnimatedStyle]}>
         <View style={styles.header}>
-          <VSpace size={20} />
+          <VSpace size={32} />
           <Text type="title1">My Recipes</Text>
           <VSpace size={20} />
           <View style={styles.searchRow}>
