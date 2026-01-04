@@ -588,13 +588,13 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.primary,
   },
   avatar: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
   },
   avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.full,
   },
   avatarPlaceholder: {
     width: 40,

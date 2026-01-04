@@ -118,7 +118,7 @@ export const AddRecipeScreen = () => {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.container,
-          { paddingTop: insets.top + 44 },
+          { paddingTop: insets.top + 32 },
         ]}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
@@ -176,7 +176,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
   },
   headerContent: {
-    height: 44,
+    height: 32,
     justifyContent: "center",
     alignItems: "center",
   },

@@ -77,7 +77,7 @@ interface Recipe {
 
 const INPUT_SECTION_HEIGHT = 68;
 const SCROLL_THRESHOLD = 50;
-const HEADER_HEIGHT = 44;
+const HEADER_HEIGHT = 32;
 
 interface SwipeableItemProps {
   item: ShoppingListItem;
@@ -663,7 +663,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
   },
   headerContent: {
-    height: HEADER_HEIGHT,
+    height: 32,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -696,7 +696,7 @@ const styles = StyleSheet.create((theme) => ({
   recipeCardsContainer: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    gap: 14,
+    gap: 12,
   },
   recipeCard: {
     width: 110,
@@ -871,8 +871,8 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.textSecondary,
   },
   itemRowOuter: {
-    paddingHorizontal: 20,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 1,
   },
   itemRowInner: {
     flexDirection: "row",

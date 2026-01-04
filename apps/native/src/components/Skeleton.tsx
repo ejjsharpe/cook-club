@@ -280,11 +280,15 @@ export const CollectionsListSkeleton = () => {
 
 const ShoppingItemSkeleton = () => {
   return (
-    <View style={styles.shoppingItem}>
-      <Skeleton width={26} height={26} borderRadius={13} />
-      <View style={styles.shoppingItemContent}>
-        <Skeleton width="60%" height={17} borderRadius={4} />
-        <Skeleton width={100} height={13} borderRadius={4} />
+    <View style={styles.shoppingItemOuter}>
+      <View style={styles.shoppingItemInner}>
+        <View style={styles.shoppingCheckbox}>
+          <Skeleton width={26} height={26} borderRadius={13} />
+        </View>
+        <View style={styles.shoppingItemContent}>
+          <Skeleton width="70%" height={17} borderRadius={4} />
+          <Skeleton width={120} height={13} borderRadius={4} />
+        </View>
       </View>
     </View>
   );
@@ -576,13 +580,19 @@ const styles = StyleSheet.create((theme) => ({
     paddingTop: 20,
     paddingBottom: 8,
   },
-  shoppingItem: {
+  shoppingItemOuter: {
+    paddingHorizontal: 12,
+    paddingVertical: 1,
+  },
+  shoppingItemInner: {
     flexDirection: "row",
     alignItems: "center",
     minHeight: 56,
     paddingVertical: 14,
-    paddingHorizontal: 20,
-    gap: 14,
+    paddingHorizontal: 16,
+  },
+  shoppingCheckbox: {
+    marginRight: 14,
   },
   shoppingItemContent: {
     flex: 1,

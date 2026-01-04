@@ -237,7 +237,6 @@ export const AddRecipeToShoppingListScreen = () => {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
-      <VSpace size={8} />
       <View style={styles.header}>
         <BackButton />
         <Text type="title2" style={styles.headerTitle}>
@@ -246,7 +245,7 @@ export const AddRecipeToShoppingListScreen = () => {
         <View style={styles.headerSpacer} />
       </View>
 
-      <VSpace size={20} />
+      <VSpace size={16} />
 
       <View style={styles.searchSection}>
         <View style={styles.searchRow}>
