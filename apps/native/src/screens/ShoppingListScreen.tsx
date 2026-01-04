@@ -23,6 +23,8 @@ import Animated, {
   useSharedValue,
   interpolate,
   Extrapolation,
+  LinearTransition,
+  useAnimatedReaction,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -70,6 +72,35 @@ interface Recipe {
 const INPUT_SECTION_HEIGHT = 68;
 const SCROLL_THRESHOLD = 50;
 const HEADER_HEIGHT = 44;
+
+const SectionCheck = ({ isComplete }: { isComplete: boolean }) => {
+  const scale = useSharedValue(isComplete ? 1 : 0);
+
+  useAnimatedReaction(
+    () => isComplete,
+    (current, previous) => {
+      if (current !== previous) {
+        scale.value = withSpring(current ? 1 : 0, {
+          damping: 12,
+          stiffness: 300,
+          mass: 1,
+        });
+      }
+    },
+    [isComplete],
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: scale.value,
+  }));
+
+  return (
+    <Animated.View style={[styles.sectionCheck, animatedStyle]}>
+      <Ionicons name="checkmark" size={14} style={styles.sectionCheckIcon} />
+    </Animated.View>
+  );
+};
 
 export const ShoppingListScreen = () => {
   const navigation = useNavigation();
@@ -299,45 +330,56 @@ export const ShoppingListScreen = () => {
   };
 
   const renderItem = ({ item }: { item: ShoppingListItem }) => (
-    <Swipeable renderRightActions={() => renderRightActions(item.id)}>
-      <TouchableOpacity
-        style={[styles.itemRow, item.isChecked && styles.itemRowChecked]}
-        onPress={() => handleToggleCheck(item.id)}
-        activeOpacity={0.7}
-      >
-        <View
-          style={[styles.checkbox, item.isChecked && styles.checkboxChecked]}
+    <Animated.View layout={LinearTransition}>
+      <Swipeable renderRightActions={() => renderRightActions(item.id)}>
+        <TouchableOpacity
+          style={[styles.itemRow, item.isChecked && styles.itemRowChecked]}
+          onPress={() => handleToggleCheck(item.id)}
+          activeOpacity={0.7}
         >
-          {item.isChecked && (
-            <Ionicons name="checkmark" size={18} style={styles.checkIcon} />
-          )}
-        </View>
-        <View style={styles.itemContent}>
-          <Text
-            style={[styles.itemText, item.isChecked && styles.itemTextChecked]}
+          <View
+            style={[styles.checkbox, item.isChecked && styles.checkboxChecked]}
           >
-            {item.displayText}
-          </Text>
-          {item.sourceItems.length > 0 &&
-            item.sourceItems.some((si) => si.sourceRecipeName) && (
-              <Text style={styles.recipeTag}>
-                from{" "}
-                {item.sourceItems
-                  .filter((si) => si.sourceRecipeName)
-                  .map((si) => si.sourceRecipeName)
-                  .join(", ")}
-              </Text>
+            {item.isChecked && (
+              <Ionicons name="checkmark" size={18} style={styles.checkIcon} />
             )}
-        </View>
-      </TouchableOpacity>
-    </Swipeable>
+          </View>
+          <View style={styles.itemContent}>
+            <Text
+              style={[
+                styles.itemText,
+                item.isChecked && styles.itemTextChecked,
+              ]}
+            >
+              {item.displayText}
+            </Text>
+            {item.sourceItems.length > 0 &&
+              item.sourceItems.some((si) => si.sourceRecipeName) && (
+                <Text style={styles.recipeTag}>
+                  from{" "}
+                  {item.sourceItems
+                    .filter((si) => si.sourceRecipeName)
+                    .map((si) => si.sourceRecipeName)
+                    .join(", ")}
+                </Text>
+              )}
+          </View>
+        </TouchableOpacity>
+      </Swipeable>
+    </Animated.View>
   );
 
-  const renderSectionHeader = ({ section }: { section: Section }) => (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{section.title}</Text>
-    </View>
-  );
+  const renderSectionHeader = ({ section }: { section: Section }) => {
+    const allChecked =
+      section.data.length > 0 && section.data.every((item) => item.isChecked);
+
+    return (
+      <Animated.View layout={LinearTransition} style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{section.title}</Text>
+        <SectionCheck isComplete={allChecked} />
+      </Animated.View>
+    );
+  };
 
   const renderEmpty = () => {
     if (error) {
@@ -674,6 +716,9 @@ const styles = StyleSheet.create((theme) => ({
 
   // Section Headers
   sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 8,
@@ -683,6 +728,17 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.text,
     fontSize: 20,
     fontFamily: theme.fonts.albertSemiBold,
+  },
+  sectionCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: theme.colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sectionCheckIcon: {
+    color: theme.colors.buttonText,
   },
 
   // List Items
