@@ -56,7 +56,7 @@ const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Header height constants
-const TITLE_HEIGHT = 24 + 40; // VSpace + title row
+const TITLE_HEIGHT = 20 + 34; // VSpace + title row (title1 font)
 const SEARCH_ROW_HEIGHT = 20 + 50; // VSpace + search bar height
 const TABS_HEIGHT = 16 + 50 + 16; // VSpace + tabs + VSpace
 const HEADER_HEIGHT = TITLE_HEIGHT + SEARCH_ROW_HEIGHT + TABS_HEIGHT;
@@ -96,13 +96,12 @@ export const MyRecipesScreen = () => {
   const scrollProgress = useSharedValue(0);
   const scrollY = useSharedValue(0);
 
-  // Header collapse animation
+  // Header collapse animation - EXTEND allows overscroll bounce
   const headerAnimatedStyle = useAnimatedStyle(() => {
     const translateY = interpolate(
       scrollY.value,
       [0, HEADER_HEIGHT],
       [0, -HEADER_HEIGHT],
-      Extrapolation.CLAMP,
     );
     return {
       transform: [{ translateY }],
@@ -436,10 +435,8 @@ export const MyRecipesScreen = () => {
       {/* Collapsing header - positioned above the lists */}
       <Animated.View style={[styles.headerContainer, headerAnimatedStyle]}>
         <View style={styles.header}>
-          <VSpace size={24} />
-          <View style={styles.titleRow}>
-            <Text type="title1">My Recipes</Text>
-          </View>
+          <VSpace size={20} />
+          <Text type="title1">My Recipes</Text>
           <VSpace size={20} />
           <View style={styles.searchRow}>
             <View style={styles.searchBarWrapper}>
@@ -504,10 +501,6 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   header: {
     paddingHorizontal: 20,
-  },
-  titleRow: {
-    minHeight: 40,
-    justifyContent: "center",
   },
   searchRow: {
     flexDirection: "row",
