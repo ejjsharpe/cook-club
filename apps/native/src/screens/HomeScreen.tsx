@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Image } from "expo-image";
 import { useState, useCallback, useMemo, useRef, memo, useEffect } from "react";
 import {
   View,
@@ -26,6 +25,7 @@ import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 import { useActivityFeed, FeedItem } from "@/api/activity";
 import { useSearchUsers, SearchUser } from "@/api/follows";
 import { useUser, User } from "@/api/user";
+import { Avatar } from "@/components/Avatar";
 import { EmptyFeedState } from "@/components/EmptyFeedState";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
@@ -46,47 +46,26 @@ interface HeaderProps {
   onAvatarPress: () => void;
 }
 
-const Header = memo(({ user, onAvatarPress }: HeaderProps) => {
-  const renderAvatar = () => {
-    if (!user) return null;
-    return (
-      <TouchableOpacity
-        style={styles.avatar}
-        onPress={onAvatarPress}
-        activeOpacity={0.7}
-      >
-        {user.image ? (
-          <Image
-            source={{ uri: user.image }}
-            style={styles.avatarImage}
-            cachePolicy="memory-disk"
-            transition={100}
-          />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Text type="heading" style={styles.avatarText}>
-              {user.name.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  return (
-    <View style={styles.headerContainer}>
-      <View style={styles.headerRow}>
-        <Text type="title1">
-          cook
-          <Text type="title1" style={styles.clubText}>
-            club
-          </Text>
+const Header = memo(({ user, onAvatarPress }: HeaderProps) => (
+  <View style={styles.headerContainer}>
+    <View style={styles.headerRow}>
+      <Text type="title1">
+        cook
+        <Text type="title1" style={styles.clubText}>
+          club
         </Text>
-        {renderAvatar()}
-      </View>
+      </Text>
+      {user && (
+        <Avatar
+          imageUrl={user.image}
+          name={user.name}
+          size={44}
+          onPress={onAvatarPress}
+        />
+      )}
     </View>
-  );
-});
+  </View>
+));
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const HORIZONTAL_PADDING = 20;
@@ -585,27 +564,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
   },
   clubText: {
-    color: theme.colors.primary,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-  },
-  avatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.borderRadius.full,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary + "20",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    fontSize: 16,
     color: theme.colors.primary,
   },
   searchContainer: {

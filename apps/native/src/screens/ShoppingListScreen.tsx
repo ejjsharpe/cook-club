@@ -544,23 +544,6 @@ export const ShoppingListScreen = () => {
     </View>
   );
 
-  const skeletonListHeader = (
-    <View style={{ paddingTop: insets.top + HEADER_HEIGHT }}>
-      <View style={styles.largeTitleContainer}>
-        <Text type="largeTitle">Shopping List</Text>
-      </View>
-      <VSpace size={16} />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.recipeCardsContainer}
-      >
-        {renderAddRecipeCard()}
-      </ScrollView>
-      <VSpace size={8} />
-    </View>
-  );
-
   return (
     <View style={styles.screen}>
       {/* Fixed Header */}
@@ -579,7 +562,7 @@ export const ShoppingListScreen = () => {
           <SectionList
             sections={[]}
             renderItem={() => null}
-            ListHeaderComponent={skeletonListHeader}
+            ListHeaderComponent={listHeaderComponent}
             ListEmptyComponent={ShoppingListSkeleton}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
