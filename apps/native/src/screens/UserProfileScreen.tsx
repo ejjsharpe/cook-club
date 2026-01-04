@@ -25,6 +25,7 @@ import { useUser } from "@/api/user";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
+import { SkeletonContainer, UserProfileSkeleton } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
@@ -214,21 +215,7 @@ export const UserProfileScreen = () => {
 
   const insets = UnistylesRuntime.insets;
 
-  if (isLoading) {
-    return (
-      <SafeAreaView edges={["top"]} style={styles.container}>
-        <VSpace size={8} />
-        <View style={styles.headerRow}>
-          <BackButton />
-        </View>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error || !profile) {
+  if (error) {
     return (
       <SafeAreaView edges={["top"]} style={styles.container}>
         <VSpace size={8} />
@@ -245,12 +232,14 @@ export const UserProfileScreen = () => {
   const isMutationLoading =
     followMutation.isPending || unfollowMutation.isPending;
 
-  const renderHeader = () => (
-    <View style={styles.headerContent}>
-      {/* Profile Header */}
-      <View style={styles.profileHeader}>
-        <View style={styles.avatar}>
-          {profile.user.image && !imageError ? (
+  const renderHeader = () => {
+    if (!profile) return null;
+    return (
+      <View style={styles.headerContent}>
+        {/* Profile Header */}
+        <View style={styles.profileHeader}>
+          <View style={styles.avatar}>
+            {profile.user.image && !imageError ? (
             <Image
               source={{ uri: profile.user.image }}
               style={styles.avatarImage}
@@ -427,7 +416,8 @@ export const UserProfileScreen = () => {
       </View>
       <VSpace size={12} />
     </View>
-  );
+    );
+  };
 
   const handleSettings = () => {
     navigation.navigate("Settings");
@@ -438,7 +428,7 @@ export const UserProfileScreen = () => {
       <VSpace size={8} />
       <View style={styles.headerRow}>
         <BackButton />
-        {isOwnProfile && (
+        {isOwnProfile && profile && (
           <TouchableOpacity
             style={styles.settingsButton}
             onPress={handleSettings}
@@ -453,22 +443,27 @@ export const UserProfileScreen = () => {
         )}
       </View>
 
-      <LegendList
-        data={activities}
-        renderItem={renderActivityItem}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmpty}
-        ListFooterComponent={renderFooter}
-        onEndReached={handleLoadMoreActivities}
-        onEndReachedThreshold={0.5}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: insets.bottom + 20 },
-        ]}
-        ItemSeparatorComponent={() => <VSpace size={12} />}
-      />
+      <SkeletonContainer
+        isLoading={isLoading || !profile}
+        skeleton={<UserProfileSkeleton />}
+      >
+        <LegendList
+          data={activities}
+          renderItem={renderActivityItem}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmpty}
+          ListFooterComponent={renderFooter}
+          onEndReached={handleLoadMoreActivities}
+          onEndReachedThreshold={0.5}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + 20 },
+          ]}
+          ItemSeparatorComponent={() => <VSpace size={12} />}
+        />
+      </SkeletonContainer>
     </SafeAreaView>
   );
 };

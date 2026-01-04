@@ -42,7 +42,7 @@ export const SkeletonContainer = ({
   isLoading,
   skeleton,
   children,
-  duration = 200,
+  duration = 300,
 }: SkeletonContainerProps) => {
   return (
     <View style={styles.skeletonContainer}>
@@ -292,6 +292,74 @@ export const ShoppingListSkeleton = () => {
   );
 };
 
+// ─── User Profile Skeleton ───────────────────────────────────────────────────
+
+export const UserProfileSkeleton = () => {
+  return (
+    <View style={styles.userProfileContainer}>
+      {/* Profile Header */}
+      <View style={styles.userProfileHeader}>
+        {/* Avatar */}
+        <Skeleton width={100} height={100} borderRadius={50} />
+
+        <View style={styles.userProfileSpacer16} />
+
+        {/* Name */}
+        <Skeleton width={160} height={28} borderRadius={6} />
+
+        <View style={styles.userProfileSpacer8} />
+
+        {/* Email */}
+        <Skeleton width={200} height={17} borderRadius={4} />
+
+        <View style={styles.userProfileSpacer8} />
+
+        {/* Join date */}
+        <Skeleton width={120} height={14} borderRadius={4} />
+
+        <View style={styles.userProfileSpacer20} />
+
+        {/* Stats */}
+        <View style={styles.userProfileStats}>
+          <View style={styles.userProfileStatItem}>
+            <Skeleton width={40} height={24} borderRadius={4} />
+            <Skeleton width={70} height={14} borderRadius={4} />
+          </View>
+          <View style={styles.userProfileStatItem}>
+            <Skeleton width={40} height={24} borderRadius={4} />
+            <Skeleton width={70} height={14} borderRadius={4} />
+          </View>
+          <View style={styles.userProfileStatItem}>
+            <Skeleton width={40} height={24} borderRadius={4} />
+            <Skeleton width={60} height={14} borderRadius={4} />
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.userProfileSpacer24} />
+
+      {/* Action Buttons */}
+      <View style={styles.userProfileActions}>
+        <Skeleton width="48%" height={50} borderRadius={25} />
+        <Skeleton width="48%" height={50} borderRadius={25} />
+      </View>
+
+      <View style={styles.userProfileSpacer24} />
+
+      {/* Activity Section Header */}
+      <View style={styles.userProfileSectionHeader}>
+        <Skeleton width={80} height={22} borderRadius={4} />
+      </View>
+
+      <View style={styles.userProfileSpacer12} />
+
+      {/* Activity Cards */}
+      <ActivityCardSkeleton />
+      <ActivityCardSkeleton showReviewImage />
+    </View>
+  );
+};
+
 // ─── Recipe Detail Skeleton ──────────────────────────────────────────────────
 
 const IMAGE_HEIGHT = 400;
@@ -528,5 +596,46 @@ const styles = StyleSheet.create((theme) => ({
   ingredientContent: {
     flex: 1,
     gap: 6,
+  },
+
+  // User Profile styles
+  userProfileContainer: {
+    paddingTop: 20,
+  },
+  userProfileHeader: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  userProfileSpacer8: {
+    height: 8,
+  },
+  userProfileSpacer12: {
+    height: 12,
+  },
+  userProfileSpacer16: {
+    height: 16,
+  },
+  userProfileSpacer20: {
+    height: 20,
+  },
+  userProfileSpacer24: {
+    height: 24,
+  },
+  userProfileStats: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 40,
+  },
+  userProfileStatItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  userProfileActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+  },
+  userProfileSectionHeader: {
+    paddingHorizontal: 24,
   },
 }));
