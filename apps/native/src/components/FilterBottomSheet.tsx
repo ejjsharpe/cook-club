@@ -3,8 +3,6 @@ import { useState, useEffect } from "react";
 import { View, TouchableOpacity } from "react-native";
 import ActionSheet, {
   SheetManager,
-  registerSheet,
-  SheetDefinition,
   SheetProps,
   ScrollView,
 } from "react-native-actions-sheet";
@@ -29,15 +27,6 @@ interface FilterSheetPayload {
   allTags?: Tag[];
 }
 
-// Extend the Sheets interface for TypeScript
-declare module "react-native-actions-sheet" {
-  interface Sheets {
-    "filter-sheet": SheetDefinition<{
-      payload: FilterSheetPayload;
-    }>;
-  }
-}
-
 const TIME_OPTIONS = [
   { label: "15 min", value: "15" },
   { label: "30 min", value: "30" },
@@ -45,7 +34,7 @@ const TIME_OPTIONS = [
   { label: "2+ hours", value: "120" },
 ];
 
-const FilterSheet = (props: SheetProps<"filter-sheet">) => {
+export const FilterSheet = (props: SheetProps<"filter-sheet">) => {
   const {
     selectedTagIds: initialSelectedTagIds = [],
     onTagsChange = () => {},
@@ -168,10 +157,6 @@ const FilterSheet = (props: SheetProps<"filter-sheet">) => {
     </ActionSheet>
   );
 };
-
-registerSheet("filter-sheet", FilterSheet);
-
-export { SheetManager };
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {

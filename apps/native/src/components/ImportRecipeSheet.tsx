@@ -11,8 +11,6 @@ import {
 } from "react-native";
 import ActionSheet, {
   SheetManager,
-  registerSheet,
-  SheetDefinition,
   SheetProps,
   ScrollView,
 } from "react-native-actions-sheet";
@@ -41,15 +39,7 @@ interface ImportRecipeSheetPayload {
   onRecipeParsed: (result: ParsedRecipeResult) => void;
 }
 
-declare module "react-native-actions-sheet" {
-  interface Sheets {
-    "import-recipe-sheet": SheetDefinition<{
-      payload: ImportRecipeSheetPayload;
-    }>;
-  }
-}
-
-const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
+export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
   const { onRecipeParsed } = props.payload || {};
 
   const [mode, setMode] = useState<ImportMode>("url");
@@ -282,10 +272,6 @@ const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
     </ActionSheet>
   );
 };
-
-registerSheet("import-recipe-sheet", ImportRecipeSheet);
-
-export { SheetManager };
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {

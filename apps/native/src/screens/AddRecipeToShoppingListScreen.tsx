@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from "react-native";
+import { SheetManager } from "react-native-actions-sheet";
 import { useSharedValue } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -16,7 +17,6 @@ import { useGetUserCollectionsWithMetadata } from "@/api/collection";
 import { useGetUserRecipes, useAllTags } from "@/api/recipe";
 import { useAddRecipeToShoppingList } from "@/api/shopping";
 import { CollectionCard } from "@/components/CollectionCard";
-import { SheetManager } from "@/components/FilterBottomSheet";
 import { RecipeCard } from "@/components/RecipeCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { SearchBar } from "@/components/SearchBar";

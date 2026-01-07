@@ -776,7 +776,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   input: {
     flex: 1,
-    height: 50,
+    minHeight: 50,
     paddingHorizontal: 20,
     borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.inputBackground,

@@ -12,8 +12,6 @@ import {
 } from "react-native";
 import ActionSheet, {
   SheetManager,
-  registerSheet,
-  SheetDefinition,
   SheetProps,
   ScrollView,
 } from "react-native-actions-sheet";
@@ -31,17 +29,11 @@ interface CookingReviewSheetPayload {
   }) => Promise<void>;
 }
 
-declare module "react-native-actions-sheet" {
-  interface Sheets {
-    "cooking-review-sheet": SheetDefinition<{
-      payload: CookingReviewSheetPayload;
-    }>;
-  }
-}
-
 const MAX_IMAGES = 5;
 
-const CookingReviewSheet = (props: SheetProps<"cooking-review-sheet">) => {
+export const CookingReviewSheet = (
+  props: SheetProps<"cooking-review-sheet">,
+) => {
   const { recipeName = "", onSubmit } = props.payload || {};
 
   const [rating, setRating] = useState(0);
@@ -250,10 +242,6 @@ const CookingReviewSheet = (props: SheetProps<"cooking-review-sheet">) => {
     </ActionSheet>
   );
 };
-
-registerSheet("cooking-review-sheet", CookingReviewSheet);
-
-export { SheetManager as CookingReviewSheetManager };
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {

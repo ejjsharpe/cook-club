@@ -8,8 +8,6 @@ import {
 } from "react-native";
 import ActionSheet, {
   SheetManager,
-  registerSheet,
-  SheetDefinition,
   SheetProps,
   ScrollView,
 } from "react-native-actions-sheet";
@@ -27,16 +25,7 @@ interface CollectionSelectorPayload {
   recipeId: number;
 }
 
-// Extend the Sheets interface for TypeScript
-declare module "react-native-actions-sheet" {
-  interface Sheets {
-    "collection-selector-sheet": SheetDefinition<{
-      payload: CollectionSelectorPayload;
-    }>;
-  }
-}
-
-const CollectionSelectorSheet = (
+export const CollectionSelectorSheet = (
   props: SheetProps<"collection-selector-sheet">,
 ) => {
   const { recipeId } = props.payload || {};
@@ -241,10 +230,6 @@ const CollectionSelectorSheet = (
     </ActionSheet>
   );
 };
-
-registerSheet("collection-selector-sheet", CollectionSelectorSheet);
-
-export { SheetManager as CollectionSheetManager };
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {

@@ -36,10 +36,9 @@ import startImage7 from "@/assets/images/start-food-7.jpg";
 import startImage8 from "@/assets/images/start-food-8.jpg";
 import startImage9 from "@/assets/images/start-food-9.jpg";
 import { ShareIntentStorageHandler } from "@/components/ShareIntentStorageHandler";
-import "@/components/SignInSheet";
-import "@/components/SignUpSheet";
 import { ReactQueryProvider } from "@/lib/reactQuery";
 import { SessionProvider } from "@/lib/sessionContext";
+import { Sheets } from "@/lib/sheets";
 import { SignedInProvider } from "@/lib/signedInContext";
 import { TRPCProvider } from "@/lib/trpc";
 import { Navigation } from "@/navigation/RootStack";
@@ -121,6 +120,7 @@ export default function App() {
                   <ShareIntentStorageHandler />
                   <GestureHandlerRootView>
                     <SheetProvider>
+                      <Sheets />
                       <Navigation
                         onReady={onNavigationReady}
                         linking={linking}

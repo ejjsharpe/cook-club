@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { memo, useMemo, useCallback } from "react";
 import { View, TouchableOpacity, Alert } from "react-native";
+import { SheetManager } from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
@@ -68,6 +69,12 @@ export const ImportActivityCard = memo(
         }
       }
     }, [activity.recipe, onImportPress, importMutation]);
+
+    const handleComment = useCallback(() => {
+      SheetManager.show("comments-sheet", {
+        payload: { activityEventId: parseInt(activity.id, 10) },
+      });
+    }, [activity.id]);
 
     const getSourceDescription = () => {
       if (activity.recipe.sourceType === "url") {
@@ -169,7 +176,11 @@ export const ImportActivityCard = memo(
               Like
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionPill} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionPill}
+            activeOpacity={0.7}
+            onPress={handleComment}
+          >
             <Ionicons
               name="chatbubble-outline"
               size={16}

@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import type { ViewStyle } from "react-native";
+import { SheetManager } from "react-native-actions-sheet";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,7 +32,6 @@ import {
 import { useGetUserRecipes, useAllTags } from "@/api/recipe";
 import { CollectionGridCard, GRID_GAP } from "@/components/CollectionGridCard";
 import { CreateCollectionCard } from "@/components/CreateCollectionCard";
-import { SheetManager } from "@/components/FilterBottomSheet";
 import { RecipeCard } from "@/components/RecipeCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { SearchBar } from "@/components/SearchBar";

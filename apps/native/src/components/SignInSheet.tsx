@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Platform, View } from "react-native";
 import ActionSheet, {
   SheetManager,
-  registerSheet,
-  SheetDefinition,
   SheetProps,
 } from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
@@ -17,13 +15,7 @@ import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { SignInWithAppleButton } from "@/components/buttons/SignInWithAppleButton";
 import { SignInWithGoogleButton } from "@/components/buttons/SignInWithGoogleButton";
 
-declare module "react-native-actions-sheet" {
-  interface Sheets {
-    "sign-in-sheet": SheetDefinition;
-  }
-}
-
-const SignInSheet = (props: SheetProps<"sign-in-sheet">) => {
+export const SignInSheet = (props: SheetProps<"sign-in-sheet">) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { mutate: signInWithEmail } = useSignInWithEmail();
@@ -89,10 +81,6 @@ const SignInSheet = (props: SheetProps<"sign-in-sheet">) => {
     </ActionSheet>
   );
 };
-
-registerSheet("sign-in-sheet", SignInSheet);
-
-export { SignInSheet };
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {

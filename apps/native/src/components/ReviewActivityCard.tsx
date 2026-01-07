@@ -9,6 +9,7 @@ import {
   Alert,
   useWindowDimensions,
 } from "react-native";
+import { SheetManager } from "react-native-actions-sheet";
 import Animated from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -106,6 +107,12 @@ export const ReviewActivityCard = memo(
         }
       }
     }, [activity.recipe, onImportPress, importMutation]);
+
+    const handleComment = useCallback(() => {
+      SheetManager.show("comments-sheet", {
+        payload: { activityEventId: parseInt(activity.id, 10) },
+      });
+    }, [activity.id]);
 
     return (
       <View style={styles.card}>
@@ -239,7 +246,11 @@ export const ReviewActivityCard = memo(
               Like
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionPill} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionPill}
+            activeOpacity={0.7}
+            onPress={handleComment}
+          >
             <Ionicons
               name="chatbubble-outline"
               size={16}

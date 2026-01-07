@@ -1,6 +1,7 @@
 import { createContext } from "./context";
 import { activityRouter } from "./routers/activity-router";
 import { collectionRouter } from "./routers/collection-router";
+import { commentRouter } from "./routers/comment-router";
 import { followsRouter } from "./routers/follows-router";
 import { recipeRouter } from "./routers/recipe-router";
 import { shoppingRouter } from "./routers/shopping-router";
@@ -19,6 +20,7 @@ export const appRouter = router({
   shopping: shoppingRouter,
   activity: activityRouter,
   upload: uploadRouter,
+  comment: commentRouter,
 });
 
 export type AppRouter = typeof appRouter;

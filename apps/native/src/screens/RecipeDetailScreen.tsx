@@ -15,6 +15,7 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from "react-native";
+import { SheetManager } from "react-native-actions-sheet";
 import { useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
@@ -30,8 +31,6 @@ import {
   useRemoveRecipeFromList,
 } from "@/api/shopping";
 import { useUser } from "@/api/user";
-import { CollectionSheetManager } from "@/components/CollectionSelectorSheet";
-import { CookingReviewSheetManager } from "@/components/CookingReviewSheet";
 import { DropdownMenu, DropdownMenuItem } from "@/components/DropdownMenu";
 import { PageIndicator } from "@/components/PageIndicator";
 import { RecipeDetailSkeleton, SkeletonContainer } from "@/components/Skeleton";
@@ -111,7 +110,7 @@ export const RecipeDetailScreen = () => {
   const handleSaveRecipe = () => {
     if (!recipe) return;
 
-    CollectionSheetManager.show("collection-selector-sheet", {
+    SheetManager.show("collection-selector-sheet", {
       payload: { recipeId: recipe.id },
     });
   };
@@ -132,7 +131,7 @@ export const RecipeDetailScreen = () => {
   const handleReview = () => {
     if (!recipe) return;
 
-    CookingReviewSheetManager.show("cooking-review-sheet", {
+    SheetManager.show("cooking-review-sheet", {
       payload: {
         recipeName: recipe.name,
         onSubmit: async (data) => {
