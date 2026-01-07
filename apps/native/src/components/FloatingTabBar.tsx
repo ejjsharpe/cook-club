@@ -174,7 +174,7 @@ export const FloatingTabBar = ({ state, navigation }: BottomTabBarProps) => {
         translateY: withSpring(isVisible.value === 1 ? 0 : 100, {
           damping: 50,
           stiffness: 400,
-          mass: 4,
+          mass: 3,
         }),
       },
     ],

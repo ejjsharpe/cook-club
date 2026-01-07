@@ -310,7 +310,7 @@ export const ShoppingListScreen = () => {
         isVisible.value === 1
           ? FLOATING_TAB_BAR_HEIGHT + insets.bottom
           : insets.bottom + 16,
-        { damping: 50, stiffness: 400, mass: 4.5 },
+        { damping: 50, stiffness: 400, mass: 3 },
       ),
     };
   });
