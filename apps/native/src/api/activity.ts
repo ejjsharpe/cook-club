@@ -104,3 +104,132 @@ export const useUserActivities = ({
     staleTime: 0,
   });
 };
+
+// Infinite query data structure
+interface InfiniteData<T> {
+  pages: T[];
+  pageParams: unknown[];
+}
+
+type FeedPage = { items: FeedItem[]; nextCursor: string | null };
+type UserActivitiesPage = { items: FeedItem[]; nextCursor: number | null };
+
+// Toggle like mutation with optimistic updates on feed items
+export const useToggleActivityLike = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    trpc.activity.toggleLike.mutationOptions({
+      onMutate: async ({ activityEventId }) => {
+        // Cancel outgoing feed refetches
+        await queryClient.cancelQueries(trpc.activity.getFeed.pathFilter());
+        await queryClient.cancelQueries(
+          trpc.activity.getUserActivities.pathFilter(),
+        );
+
+        // Snapshot previous feed data
+        const previousFeedData = queryClient.getQueriesData<
+          InfiniteData<FeedPage>
+        >(trpc.activity.getFeed.pathFilter());
+        const previousUserActivitiesData = queryClient.getQueriesData<
+          InfiniteData<UserActivitiesPage>
+        >(trpc.activity.getUserActivities.pathFilter());
+
+        // Helper to update feed items
+        const updateFeedItem = (item: FeedItem): FeedItem => {
+          if (item.id !== String(activityEventId)) return item;
+          return {
+            ...item,
+            isLiked: !item.isLiked,
+            likeCount: item.isLiked ? item.likeCount - 1 : item.likeCount + 1,
+          };
+        };
+
+        // Optimistically update getFeed queries
+        queryClient.setQueriesData<InfiniteData<FeedPage>>(
+          trpc.activity.getFeed.pathFilter(),
+          (old) => {
+            if (!old?.pages) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                items: page.items.map(updateFeedItem),
+              })),
+            };
+          },
+        );
+
+        // Optimistically update getUserActivities queries
+        queryClient.setQueriesData<InfiniteData<UserActivitiesPage>>(
+          trpc.activity.getUserActivities.pathFilter(),
+          (old) => {
+            if (!old?.pages) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                items: page.items.map(updateFeedItem),
+              })),
+            };
+          },
+        );
+
+        return { previousFeedData, previousUserActivitiesData };
+      },
+      onError: (_err, _variables, context) => {
+        // Rollback on error
+        if (context?.previousFeedData) {
+          for (const [queryKey, data] of context.previousFeedData) {
+            queryClient.setQueryData(queryKey, data);
+          }
+        }
+        if (context?.previousUserActivitiesData) {
+          for (const [queryKey, data] of context.previousUserActivitiesData) {
+            queryClient.setQueryData(queryKey, data);
+          }
+        }
+      },
+      onSuccess: (data, { activityEventId }) => {
+        // Sync server-returned count with cache (in case of race conditions)
+        const updateWithServerData = (item: FeedItem): FeedItem => {
+          if (item.id !== String(activityEventId)) return item;
+          return {
+            ...item,
+            isLiked: data.liked,
+            likeCount: data.likeCount,
+          };
+        };
+
+        queryClient.setQueriesData<InfiniteData<FeedPage>>(
+          trpc.activity.getFeed.pathFilter(),
+          (old) => {
+            if (!old?.pages) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                items: page.items.map(updateWithServerData),
+              })),
+            };
+          },
+        );
+
+        queryClient.setQueriesData<InfiniteData<UserActivitiesPage>>(
+          trpc.activity.getUserActivities.pathFilter(),
+          (old) => {
+            if (!old?.pages) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                items: page.items.map(updateWithServerData),
+              })),
+            };
+          },
+        );
+      },
+    }),
+  );
+};

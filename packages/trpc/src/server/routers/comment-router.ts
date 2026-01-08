@@ -1,7 +1,7 @@
-import { comments, user } from "@repo/db/schemas";
+import { activityEvents, comments, user } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, and, isNull, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 
 import { router, authedProcedure, publicProcedure } from "../trpc";
 
@@ -90,6 +90,14 @@ export const commentRouter = router({
           })
           .returning();
 
+        // Increment commentCount on activity_events only for top-level comments
+        if (!parentCommentId) {
+          await ctx.db
+            .update(activityEvents)
+            .set({ commentCount: sql`${activityEvents.commentCount} + 1` })
+            .where(eq(activityEvents.id, activityEventId));
+        }
+
         return {
           ...newComment,
           user: {
@@ -139,6 +147,14 @@ export const commentRouter = router({
 
         // Delete comment (cascades to replies)
         await ctx.db.delete(comments).where(eq(comments.id, commentId));
+
+        // Decrement commentCount on activity_events only for top-level comments
+        if (comment.parentCommentId === null) {
+          await ctx.db
+            .update(activityEvents)
+            .set({ commentCount: sql`GREATEST(${activityEvents.commentCount} - 1, 0)` })
+            .where(eq(activityEvents.id, comment.activityEventId));
+        }
 
         return { success: true };
       } catch (err) {

@@ -1,6 +1,7 @@
 import type { DbType } from "@repo/db";
 import {
   activityEvents,
+  activityLikes,
   cookingReviews,
   cookingReviewImages,
   follows,
@@ -8,7 +9,7 @@ import {
   recipes,
   recipeImages,
 } from "@repo/db/schemas";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray, and } from "drizzle-orm";
 
 import type { TRPCEnv } from "../../env";
 import type { FeedItem, RecipeMetadata, SourceType } from "../../types/feed";
@@ -26,158 +27,19 @@ function extractDomain(url: string | null): string | null {
   }
 }
 
-/**
- * Build a feed item from an activity event for propagation.
- */
-export async function buildFeedItem(
-  db: DbType,
-  activityEventId: number,
-): Promise<FeedItem | null> {
-  // Fetch the activity event
-  const activity = await db
-    .select({
-      id: activityEvents.id,
-      type: activityEvents.type,
-      userId: activityEvents.userId,
-      recipeId: activityEvents.recipeId,
-      createdAt: activityEvents.createdAt,
-    })
-    .from(activityEvents)
-    .where(eq(activityEvents.id, activityEventId))
-    .then((rows) => rows[0]);
-
-  if (!activity) return null;
-
-  // Fetch actor (user) info
-  const actor = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      image: user.image,
-    })
-    .from(user)
-    .where(eq(user.id, activity.userId))
-    .then((rows) => rows[0]);
-
-  if (!actor) return null;
-
-  // Recipe is required for current activity types
-  if (!activity.recipeId) return null;
-
-  // Fetch recipe info
-  const recipe = await db
-    .select({
-      id: recipes.id,
-      name: recipes.name,
-      sourceUrl: recipes.sourceUrl,
-      sourceType: recipes.sourceType,
-    })
-    .from(recipes)
-    .where(eq(recipes.id, activity.recipeId))
-    .then((rows) => rows[0]);
-
-  if (!recipe) return null;
-
-  // Filter out image-sourced recipes from feed
-  if (recipe.sourceType === "image") {
-    return null;
-  }
-
-  // Get first image
-  const image = await db
-    .select({ url: recipeImages.url })
-    .from(recipeImages)
-    .where(eq(recipeImages.recipeId, recipe.id))
-    .limit(1)
-    .then((rows) => rows[0]);
-
-  // Build recipe metadata based on source type
-  const sourceType = recipe.sourceType as SourceType;
-  let recipeMetadata: RecipeMetadata;
-
-  if (sourceType === "url" && recipe.sourceUrl) {
-    const sourceDomain = extractDomain(recipe.sourceUrl);
-    recipeMetadata = {
-      id: recipe.id,
-      name: recipe.name,
-      image: image?.url ?? null,
-      sourceType: "url",
-      sourceUrl: recipe.sourceUrl,
-      sourceDomain: sourceDomain ?? recipe.sourceUrl,
-    };
-  } else {
-    recipeMetadata = {
-      id: recipe.id,
-      name: recipe.name,
-      image: image?.url ?? null,
-      sourceType: sourceType === "url" ? "manual" : sourceType,
-    };
-  }
-
-  // Build base item
-  const baseItem = {
-    id: activity.id.toString(),
-    actor: {
-      id: actor.id,
-      name: actor.name,
-      image: actor.image ?? null,
-    },
-    createdAt: activity.createdAt.getTime(),
-  };
-
-  // Return type-specific item
-  if (activity.type === "cooking_review") {
-    // Fetch review data
-    const review = await db
-      .select({
-        id: cookingReviews.id,
-        rating: cookingReviews.rating,
-        reviewText: cookingReviews.reviewText,
-      })
-      .from(cookingReviews)
-      .where(eq(cookingReviews.activityEventId, activityEventId))
-      .then((rows) => rows[0]);
-
-    if (!review) return null;
-
-    const reviewImages = await db
-      .select({ url: cookingReviewImages.url })
-      .from(cookingReviewImages)
-      .where(eq(cookingReviewImages.reviewId, review.id))
-      .orderBy(cookingReviewImages.index);
-
-    return {
-      ...baseItem,
-      type: "cooking_review",
-      recipe: recipeMetadata,
-      review: {
-        rating: review.rating,
-        text: review.reviewText,
-        images: reviewImages.map((img) => img.url),
-      },
-    };
-  } else {
-    return {
-      ...baseItem,
-      type: "recipe_import",
-      recipe: recipeMetadata,
-    };
-  }
-}
+// ─── Propagation Functions (send IDs to DOs) ─────────────────────────────────
 
 /**
- * Propagate an activity to all followers of the user and to the user's own feed.
+ * Propagate an activity ID to all followers and the user's own feed.
+ * Now sends only the activity ID, not the full item.
  */
 export async function propagateActivityToFollowers(
   db: DbType,
   env: TRPCEnv,
   activityEventId: number,
   userId: string,
+  createdAt: Date,
 ): Promise<void> {
-  // Build the feed item
-  const feedItem = await buildFeedItem(db, activityEventId);
-  if (!feedItem) return;
-
   // Get all followers of the user
   const followers = await db
     .select({ followerId: follows.followerId })
@@ -187,13 +49,18 @@ export async function propagateActivityToFollowers(
   // Fan out to each follower's Feed DO and to the user's own feed
   const targetUserIds = [userId, ...followers.map((f) => f.followerId)];
 
+  const entry = {
+    activityEventId,
+    createdAt: createdAt.getTime(),
+  };
+
   await Promise.all(
     targetUserIds.map(async (targetUserId) => {
       const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(targetUserId));
       await feedDO.fetch(
-        new Request("http://do/addFeedItem", {
+        new Request("http://do/addActivityId", {
           method: "POST",
-          body: JSON.stringify(feedItem),
+          body: JSON.stringify(entry),
           headers: { "Content-Type": "application/json" },
         }),
       );
@@ -202,7 +69,7 @@ export async function propagateActivityToFollowers(
 }
 
 /**
- * Backfill a user's feed with recent activities from a newly followed user.
+ * Backfill a user's feed with activity IDs from a newly followed user.
  */
 export async function backfillFeedFromUser(
   db: DbType,
@@ -213,54 +80,64 @@ export async function backfillFeedFromUser(
 ): Promise<void> {
   // Get recent activities from the followed user
   const recentActivities = await db
-    .select({ id: activityEvents.id })
+    .select({
+      id: activityEvents.id,
+      createdAt: activityEvents.createdAt,
+    })
     .from(activityEvents)
     .where(eq(activityEvents.userId, followedUserId))
     .orderBy(desc(activityEvents.createdAt))
     .limit(limit);
 
-  // Build feed items
-  const feedItems: FeedItem[] = [];
-  for (const activity of recentActivities) {
-    const feedItem = await buildFeedItem(db, activity.id);
-    if (feedItem) {
-      feedItems.push(feedItem);
-    }
-  }
+  if (recentActivities.length === 0) return;
 
-  if (feedItems.length > 0) {
-    // Add to the current user's feed
-    const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(currentUserId));
-    await feedDO.fetch(
-      new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(feedItems),
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
-  }
-}
+  const entries = recentActivities.map((a) => ({
+    activityEventId: a.id,
+    createdAt: a.createdAt.getTime(),
+  }));
 
-/**
- * Remove all items from a user after unfollowing.
- */
-export async function removeUserFromFeed(
-  env: TRPCEnv,
-  currentUserId: string,
-  unfollowedUserId: string,
-): Promise<void> {
   const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(currentUserId));
   await feedDO.fetch(
-    new Request("http://do/removeItemsFromUser", {
+    new Request("http://do/addActivityIds", {
       method: "POST",
-      body: JSON.stringify({ userId: unfollowedUserId }),
+      body: JSON.stringify(entries),
       headers: { "Content-Type": "application/json" },
     }),
   );
 }
 
 /**
- * Hydrate a user's feed from scratch based on who they follow and their own activities.
+ * Remove all activities from a user after unfollowing.
+ * Now looks up activity IDs from DB since DO no longer stores user info.
+ */
+export async function removeUserFromFeed(
+  db: DbType,
+  env: TRPCEnv,
+  currentUserId: string,
+  unfollowedUserId: string,
+): Promise<void> {
+  // Get activity IDs for the unfollowed user
+  const activities = await db
+    .select({ id: activityEvents.id })
+    .from(activityEvents)
+    .where(eq(activityEvents.userId, unfollowedUserId));
+
+  const activityIds = activities.map((a) => a.id);
+
+  if (activityIds.length === 0) return;
+
+  const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(currentUserId));
+  await feedDO.fetch(
+    new Request("http://do/removeActivityIds", {
+      method: "POST",
+      body: JSON.stringify({ activityIds }),
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
+}
+
+/**
+ * Hydrate a user's feed from scratch with activity IDs.
  * Useful for development/seeding or when DO state is lost.
  */
 export async function hydrateFeed(
@@ -275,39 +152,283 @@ export async function hydrateFeed(
     .from(follows)
     .where(eq(follows.followerId, userId));
 
-  // Include the user's own activities plus followed users' activities
   const userIdsToFetch = [userId, ...following.map((f) => f.followingId)];
 
-  // Collect all feed items from the user and followed users
-  const allFeedItems: FeedItem[] = [];
+  const allEntries: { activityEventId: number; createdAt: number }[] = [];
 
   for (const targetUserId of userIdsToFetch) {
     const recentActivities = await db
-      .select({ id: activityEvents.id })
+      .select({
+        id: activityEvents.id,
+        createdAt: activityEvents.createdAt,
+      })
       .from(activityEvents)
       .where(eq(activityEvents.userId, targetUserId))
       .orderBy(desc(activityEvents.createdAt))
       .limit(limitPerUser);
 
     for (const activity of recentActivities) {
-      const feedItem = await buildFeedItem(db, activity.id);
-      if (feedItem) {
-        allFeedItems.push(feedItem);
-      }
+      allEntries.push({
+        activityEventId: activity.id,
+        createdAt: activity.createdAt.getTime(),
+      });
     }
   }
 
-  if (allFeedItems.length > 0) {
-    // Add all items to the user's feed DO
+  if (allEntries.length > 0) {
     const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(userId));
     await feedDO.fetch(
-      new Request("http://do/addFeedItems", {
+      new Request("http://do/addActivityIds", {
         method: "POST",
-        body: JSON.stringify(allFeedItems),
+        body: JSON.stringify(allEntries),
         headers: { "Content-Type": "application/json" },
       }),
     );
   }
 
-  return allFeedItems.length;
+  return allEntries.length;
+}
+
+// ─── Hydration Functions (convert IDs to FeedItems) ──────────────────────────
+
+/**
+ * Hydrate activity IDs into full FeedItem objects.
+ * This is the new read path - DO returns IDs, we hydrate from DB.
+ */
+export async function hydrateActivityIds(
+  db: DbType,
+  activityIds: number[],
+  currentUserId: string,
+): Promise<FeedItem[]> {
+  if (activityIds.length === 0) return [];
+
+  // Batch fetch all activity events
+  const activities = await db
+    .select({
+      id: activityEvents.id,
+      type: activityEvents.type,
+      userId: activityEvents.userId,
+      recipeId: activityEvents.recipeId,
+      likeCount: activityEvents.likeCount,
+      commentCount: activityEvents.commentCount,
+      createdAt: activityEvents.createdAt,
+    })
+    .from(activityEvents)
+    .where(inArray(activityEvents.id, activityIds));
+
+  if (activities.length === 0) return [];
+
+  // Batch fetch users
+  const userIds = [...new Set(activities.map((a) => a.userId))];
+  const users = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      image: user.image,
+    })
+    .from(user)
+    .where(inArray(user.id, userIds));
+  const userMap = new Map(users.map((u) => [u.id, u]));
+
+  // Batch fetch recipes
+  const recipeIds = [
+    ...new Set(
+      activities.filter((a) => a.recipeId).map((a) => a.recipeId as number)
+    ),
+  ];
+
+  const recipesData =
+    recipeIds.length > 0
+      ? await db
+          .select({
+            id: recipes.id,
+            name: recipes.name,
+            sourceUrl: recipes.sourceUrl,
+            sourceType: recipes.sourceType,
+          })
+          .from(recipes)
+          .where(inArray(recipes.id, recipeIds))
+      : [];
+  const recipeMap = new Map(recipesData.map((r) => [r.id, r]));
+
+  // Batch fetch recipe images (first image per recipe)
+  const recipeImagesData =
+    recipeIds.length > 0
+      ? await db
+          .select({
+            recipeId: recipeImages.recipeId,
+            url: recipeImages.url,
+          })
+          .from(recipeImages)
+          .where(inArray(recipeImages.recipeId, recipeIds))
+      : [];
+
+  const recipeImageMap = new Map<number, string>();
+  for (const img of recipeImagesData) {
+    if (!recipeImageMap.has(img.recipeId)) {
+      recipeImageMap.set(img.recipeId, img.url);
+    }
+  }
+
+  // Batch fetch cooking reviews for review activities
+  const reviewActivityIds = activities
+    .filter((a) => a.type === "cooking_review")
+    .map((a) => a.id);
+
+  const reviewsData =
+    reviewActivityIds.length > 0
+      ? await db
+          .select({
+            activityEventId: cookingReviews.activityEventId,
+            id: cookingReviews.id,
+            rating: cookingReviews.rating,
+            reviewText: cookingReviews.reviewText,
+          })
+          .from(cookingReviews)
+          .where(inArray(cookingReviews.activityEventId, reviewActivityIds))
+      : [];
+
+  const reviewMap = new Map(
+    reviewsData.map((r) => [r.activityEventId as number, r])
+  );
+
+  // Batch fetch review images
+  const reviewIds = reviewsData.map((r) => r.id);
+  const reviewImagesData =
+    reviewIds.length > 0
+      ? await db
+          .select({
+            reviewId: cookingReviewImages.reviewId,
+            url: cookingReviewImages.url,
+            index: cookingReviewImages.index,
+          })
+          .from(cookingReviewImages)
+          .where(inArray(cookingReviewImages.reviewId, reviewIds))
+          .orderBy(cookingReviewImages.index)
+      : [];
+
+  const reviewImageMap = new Map<number, string[]>();
+  for (const img of reviewImagesData) {
+    if (!reviewImageMap.has(img.reviewId)) {
+      reviewImageMap.set(img.reviewId, []);
+    }
+    reviewImageMap.get(img.reviewId)!.push(img.url);
+  }
+
+  // Batch fetch like status for current user
+  const likesData = await db
+    .select({ activityEventId: activityLikes.activityEventId })
+    .from(activityLikes)
+    .where(
+      and(
+        inArray(activityLikes.activityEventId, activityIds),
+        eq(activityLikes.userId, currentUserId)
+      )
+    );
+  const likedSet = new Set(likesData.map((l) => l.activityEventId));
+
+  // Build feed items
+  const feedItems: FeedItem[] = [];
+
+  for (const activity of activities) {
+    const actor = userMap.get(activity.userId);
+    if (!actor) continue;
+
+    if (!activity.recipeId) continue;
+    const recipe = recipeMap.get(activity.recipeId);
+    if (!recipe) continue;
+
+    // Filter out image-sourced recipes from feed
+    if (recipe.sourceType === "image") continue;
+
+    const recipeImage = recipeImageMap.get(recipe.id) ?? null;
+
+    // Build recipe metadata
+    const sourceType = recipe.sourceType as SourceType;
+    let recipeMetadata: RecipeMetadata;
+
+    if (sourceType === "url" && recipe.sourceUrl) {
+      const sourceDomain = extractDomain(recipe.sourceUrl);
+      recipeMetadata = {
+        id: recipe.id,
+        name: recipe.name,
+        image: recipeImage,
+        sourceType: "url",
+        sourceUrl: recipe.sourceUrl,
+        sourceDomain: sourceDomain ?? recipe.sourceUrl,
+      };
+    } else {
+      recipeMetadata = {
+        id: recipe.id,
+        name: recipe.name,
+        image: recipeImage,
+        sourceType: sourceType === "url" ? "manual" : sourceType,
+      };
+    }
+
+    const baseItem = {
+      id: activity.id.toString(),
+      actor: {
+        id: actor.id,
+        name: actor.name,
+        image: actor.image ?? null,
+      },
+      createdAt: activity.createdAt.getTime(),
+      likeCount: activity.likeCount,
+      commentCount: activity.commentCount,
+      isLiked: likedSet.has(activity.id),
+    };
+
+    if (activity.type === "cooking_review") {
+      const review = reviewMap.get(activity.id);
+      if (!review) continue;
+
+      const reviewImages = reviewImageMap.get(review.id) ?? [];
+
+      feedItems.push({
+        ...baseItem,
+        type: "cooking_review",
+        recipe: recipeMetadata,
+        review: {
+          rating: review.rating,
+          text: review.reviewText,
+          images: reviewImages,
+        },
+      });
+    } else {
+      feedItems.push({
+        ...baseItem,
+        type: "recipe_import",
+        recipe: recipeMetadata,
+      });
+    }
+  }
+
+  // Sort by original order (activityIds array order for pagination consistency)
+  const idOrder = new Map(activityIds.map((id, idx) => [id, idx]));
+  feedItems.sort(
+    (a, b) =>
+      (idOrder.get(parseInt(a.id)) ?? 0) - (idOrder.get(parseInt(b.id)) ?? 0)
+  );
+
+  return feedItems;
+}
+
+// ─── Legacy buildFeedItem (kept for getUserActivities) ───────────────────────
+
+/**
+ * Build a single feed item from an activity event.
+ * Used by getUserActivities which doesn't go through the DO.
+ */
+export async function buildFeedItem(
+  db: DbType,
+  activityEventId: number,
+  currentUserId?: string,
+): Promise<FeedItem | null> {
+  const items = await hydrateActivityIds(
+    db,
+    [activityEventId],
+    currentUserId ?? ""
+  );
+  return items[0] ?? null;
 }

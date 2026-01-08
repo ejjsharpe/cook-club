@@ -22,7 +22,11 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { useActivityFeed, FeedItem } from "@/api/activity";
+import {
+  useActivityFeed,
+  useToggleActivityLike,
+  FeedItem,
+} from "@/api/activity";
 import { useSearchUsers, SearchUser } from "@/api/follows";
 import { useUser, User } from "@/api/user";
 import { Avatar } from "@/components/Avatar";
@@ -173,6 +177,8 @@ export const HomeScreen = () => {
     return activityData?.pages.flatMap((page) => page?.items ?? []) ?? [];
   }, [activityData]);
 
+  const toggleLike = useToggleActivityLike();
+
   const users: SearchUser[] = useMemo(() => {
     if (!shouldFetchUsers) return [];
     return usersData ?? [];
@@ -261,6 +267,13 @@ export const HomeScreen = () => {
     [isImporting, queryClient, trpc, navigation],
   );
 
+  const handleLikePress = useCallback(
+    (activityEventId: number) => {
+      toggleLike.mutate({ activityEventId });
+    },
+    [toggleLike],
+  );
+
   // ─── Render Functions ─────────────────────────────────────────────────────────
   const renderUser = ({ item }: { item: SearchUser }) => (
     <View style={styles.userCardWrapper}>
@@ -274,12 +287,15 @@ export const HomeScreen = () => {
   // ─── Activity Feed Render Function ────────────────────────────────────────────
   const renderActivityItem = useCallback(
     ({ item }: { item: FeedItem }) => {
+      const activityId = parseInt(item.id, 10);
+
       if (item.type === "cooking_review") {
         return (
           <ReviewActivityCard
             activity={item}
             onPress={() => handleRecipePress(item.recipe.id)}
             onUserPress={() => handleUserPress(item.actor.id)}
+            onLikePress={() => handleLikePress(activityId)}
             onImportPress={handleImportRecipe}
           />
         );
@@ -290,11 +306,12 @@ export const HomeScreen = () => {
           activity={item}
           onPress={() => handleRecipePress(item.recipe.id)}
           onUserPress={() => handleUserPress(item.actor.id)}
+          onLikePress={() => handleLikePress(activityId)}
           onImportPress={handleImportRecipe}
         />
       );
     },
-    [handleRecipePress, handleUserPress, handleImportRecipe],
+    [handleRecipePress, handleUserPress, handleLikePress, handleImportRecipe],
   );
 
   const activityKeyExtractor = useCallback((item: FeedItem) => item.id, []);
@@ -526,7 +543,7 @@ export const HomeScreen = () => {
   );
 };
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -548,12 +565,14 @@ const styles = StyleSheet.create((theme) => ({
   },
   searchResultsContent: {
     flexGrow: 1,
+    paddingBottom: rt.insets.bottom,
   },
   feedContainer: {
     flex: 1,
   },
   feedContent: {
     flexGrow: 1,
+    paddingBottom: rt.insets.bottom,
   },
   headerContainer: {
     paddingHorizontal: 20,

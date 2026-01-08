@@ -253,6 +253,7 @@ export const recipeRouter = router({
             ctx.env,
             activityEvent.id,
             ctx.user.id,
+            activityEvent.createdAt,
           ).catch((err) => {
             console.error("Error propagating activity to followers:", err);
           });
@@ -527,6 +528,7 @@ export const recipeRouter = router({
             ctx.env,
             activityEvent.id,
             ctx.user.id,
+            activityEvent.createdAt,
           ).catch((err) =>
             console.error("Failed to propagate activity to followers:", err),
           );

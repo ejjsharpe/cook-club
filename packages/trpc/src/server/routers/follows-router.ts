@@ -67,9 +67,11 @@ export const followsRouter = router({
         );
 
         // Remove unfollowed user's items from feed
-        removeUserFromFeed(ctx.env, ctx.user.id, input.userId).catch((err) => {
-          console.error("Error removing user from feed:", err);
-        });
+        removeUserFromFeed(ctx.db, ctx.env, ctx.user.id, input.userId).catch(
+          (err) => {
+            console.error("Error removing user from feed:", err);
+          },
+        );
 
         return result;
       } catch (err) {

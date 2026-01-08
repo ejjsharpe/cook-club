@@ -22,6 +22,7 @@ interface Props {
   activity: CookingReviewFeedItem;
   onPress?: () => void;
   onUserPress?: () => void;
+  onLikePress?: () => void;
   onImportPress?: (sourceUrl: string) => void;
 }
 
@@ -71,7 +72,7 @@ const starStyles = StyleSheet.create((theme) => ({
 const AnimatedFlatList = Animated.FlatList;
 
 export const ReviewActivityCard = memo(
-  ({ activity, onPress, onUserPress, onImportPress }: Props) => {
+  ({ activity, onPress, onUserPress, onLikePress, onImportPress }: Props) => {
     const { width: screenWidth } = useWindowDimensions();
     const imageWidth = screenWidth - 40; // 20px padding on each side
     const importMutation = useImportRecipe();
@@ -236,14 +237,21 @@ export const ReviewActivityCard = memo(
 
         {/* Action buttons */}
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionPill} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.actionPill}
+            activeOpacity={0.7}
+            onPress={onLikePress}
+          >
             <Ionicons
-              name="heart-outline"
+              name={activity.isLiked ? "heart" : "heart-outline"}
               size={18}
-              style={styles.actionIcon}
+              style={[
+                styles.actionIcon,
+                activity.isLiked && styles.actionIconLiked,
+              ]}
             />
             <Text type="subheadline" style={styles.actionText}>
-              Like
+              {activity.likeCount || "Like"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -398,6 +406,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   actionIcon: {
     color: theme.colors.text,
+  },
+  actionIconLiked: {
+    color: theme.colors.primary,
   },
   actionText: {
     color: theme.colors.text,

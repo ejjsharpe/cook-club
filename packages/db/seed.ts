@@ -104,6 +104,8 @@ async function clearDatabase(db: DbClient) {
   console.log("🗑️  Clearing existing data...");
 
   // Delete in order respecting foreign keys
+  await db.delete(schema.comments);
+  await db.delete(schema.activityLikes);
   await db.delete(schema.cookingReviewImages);
   await db.delete(schema.cookingReviews);
   await db.delete(schema.activityEvents);

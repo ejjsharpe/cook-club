@@ -5,6 +5,7 @@ import {
   serial,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
 import { recipes } from "./recipe-schema";
@@ -21,6 +22,9 @@ export const activityEvents = pgTable(
     recipeId: integer("recipe_id").references(() => recipes.id, {
       onDelete: "cascade",
     }),
+    // Denormalized engagement counts
+    likeCount: integer("like_count").notNull().default(0),
+    commentCount: integer("comment_count").notNull().default(0),
     createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
@@ -76,6 +80,29 @@ export const cookingReviewImages = pgTable(
     index("cooking_review_images_review_id_index_idx").on(
       table.reviewId,
       table.index
+    ),
+  ]
+);
+
+// ─── Activity Likes - user likes on activity feed items ─────────────────────
+export const activityLikes = pgTable(
+  "activity_likes",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    activityEventId: integer("activity_event_id")
+      .notNull()
+      .references(() => activityEvents.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("activity_likes_activity_event_id_idx").on(table.activityEventId),
+    index("activity_likes_user_id_idx").on(table.userId),
+    uniqueIndex("activity_likes_user_activity_unique_idx").on(
+      table.userId,
+      table.activityEventId
     ),
   ]
 );

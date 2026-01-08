@@ -1,5 +1,6 @@
 import {
   activityEvents,
+  activityLikes,
   cookingReviews,
   cookingReviewImages,
   recipes,
@@ -7,15 +8,19 @@ import {
 } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, desc, lt, and } from "drizzle-orm";
+import { eq, desc, lt, and, sql } from "drizzle-orm";
 
 import {
   propagateActivityToFollowers,
   hydrateFeed,
-  buildFeedItem,
+  hydrateActivityIds,
 } from "../services/activity/activity-propagation.service";
 import { router, authedProcedure } from "../trpc";
-import type { GetFeedResponse } from "../types/feed";
+
+interface GetFeedIdsResponse {
+  activityIds: number[];
+  nextCursor: string | null;
+}
 
 export const activityRouter = router({
   // Get the user's activity feed from their Durable Object
@@ -34,28 +39,36 @@ export const activityRouter = router({
           ctx.env.USER_FEED.idFromName(ctx.user.id),
         );
 
-        const url = new URL("http://do/getFeed");
+        const url = new URL("http://do/getFeedIds");
         if (cursor) url.searchParams.set("cursor", cursor);
         url.searchParams.set("limit", limit.toString());
 
         const response = await feedDO.fetch(new Request(url.toString()));
-        let result = (await response.json()) as GetFeedResponse;
+        let result = (await response.json()) as GetFeedIdsResponse;
 
         // Auto-hydrate feed if empty and no cursor (first page request)
-        if (result.items.length === 0 && !cursor) {
+        if (result.activityIds.length === 0 && !cursor) {
           await hydrateFeed(ctx.db, ctx.env, ctx.user.id);
           // Re-fetch after hydration
           const hydratedResponse = await feedDO.fetch(
             new Request(url.toString()),
           );
-          result = (await hydratedResponse.json()) as GetFeedResponse;
+          result = (await hydratedResponse.json()) as GetFeedIdsResponse;
         }
 
+        // Hydrate activity IDs into full FeedItems
+        const items = await hydrateActivityIds(
+          ctx.db,
+          result.activityIds,
+          ctx.user.id,
+        );
+
         return {
-          items: result.items,
+          items,
           nextCursor: result.nextCursor,
         };
-      } catch {
+      } catch (err) {
+        console.error("getFeed error:", err);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch activity feed",
@@ -151,6 +164,7 @@ export const activityRouter = router({
           ctx.env,
           activityEvent.id,
           ctx.user.id,
+          now,
         );
 
         return {
@@ -326,14 +340,9 @@ export const activityRouter = router({
         const hasMore = activities.length > limit;
         const activitySlice = hasMore ? activities.slice(0, limit) : activities;
 
-        // Build feed items for each activity
-        const items = [];
-        for (const activity of activitySlice) {
-          const feedItem = await buildFeedItem(ctx.db, activity.id);
-          if (feedItem) {
-            items.push(feedItem);
-          }
-        }
+        // Hydrate activity IDs into full FeedItems
+        const activityIds = activitySlice.map((a) => a.id);
+        const items = await hydrateActivityIds(ctx.db, activityIds, ctx.user.id);
 
         // Get next cursor from the last item
         const lastActivity = activitySlice[activitySlice.length - 1];
@@ -347,6 +356,86 @@ export const activityRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch user activities",
+        });
+      }
+    }),
+
+  // Toggle like on an activity (like/unlike)
+  toggleLike: authedProcedure
+    .input(
+      type({
+        activityEventId: "number",
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { activityEventId } = input;
+
+      try {
+        // Check if activity exists
+        const activity = await ctx.db
+          .select({ id: activityEvents.id, likeCount: activityEvents.likeCount })
+          .from(activityEvents)
+          .where(eq(activityEvents.id, activityEventId))
+          .then((rows) => rows[0]);
+
+        if (!activity) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Activity not found",
+          });
+        }
+
+        // Check if user already liked
+        const existingLike = await ctx.db
+          .select({ id: activityLikes.id })
+          .from(activityLikes)
+          .where(
+            and(
+              eq(activityLikes.userId, ctx.user.id),
+              eq(activityLikes.activityEventId, activityEventId),
+            ),
+          )
+          .then((rows) => rows[0]);
+
+        if (existingLike) {
+          // Unlike - delete the like and decrement count
+          await ctx.db
+            .delete(activityLikes)
+            .where(eq(activityLikes.id, existingLike.id));
+
+          const updated = await ctx.db
+            .update(activityEvents)
+            .set({ likeCount: sql`GREATEST(${activityEvents.likeCount} - 1, 0)` })
+            .where(eq(activityEvents.id, activityEventId))
+            .returning({ likeCount: activityEvents.likeCount });
+
+          return {
+            liked: false,
+            likeCount: updated[0]?.likeCount ?? Math.max(activity.likeCount - 1, 0),
+          };
+        } else {
+          // Like - insert new like and increment count
+          await ctx.db.insert(activityLikes).values({
+            userId: ctx.user.id,
+            activityEventId,
+          });
+
+          const updated = await ctx.db
+            .update(activityEvents)
+            .set({ likeCount: sql`${activityEvents.likeCount} + 1` })
+            .where(eq(activityEvents.id, activityEventId))
+            .returning({ likeCount: activityEvents.likeCount });
+
+          return {
+            liked: true,
+            likeCount: updated[0]?.likeCount ?? activity.likeCount + 1,
+          };
+        }
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to toggle like",
         });
       }
     }),

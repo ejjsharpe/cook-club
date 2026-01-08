@@ -45,6 +45,10 @@ interface BaseFeedItem {
   id: string;
   actor: Actor;
   createdAt: number;
+  // Engagement data (denormalized from DB)
+  likeCount: number;
+  commentCount: number;
+  isLiked: boolean;
 }
 
 // ─── Recipe Import Activity ───────────────────────────────────────────────────

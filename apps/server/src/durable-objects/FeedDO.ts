@@ -1,9 +1,15 @@
-import type { FeedItem, GetFeedResponse } from "@repo/trpc/server/types/feed";
-
-export type { FeedItem };
-
 const MAX_FEED_ITEMS = 500;
 const ITEMS_PREFIX = "item:";
+
+interface FeedEntry {
+  activityEventId: number;
+  createdAt: number;
+}
+
+interface GetFeedIdsResponse {
+  activityIds: number[];
+  nextCursor: string | null;
+}
 
 export class FeedDO implements DurableObject {
   private state: DurableObjectState;
@@ -16,79 +22,91 @@ export class FeedDO implements DurableObject {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    if (request.method === "POST" && path === "/addFeedItem") {
-      const item = (await request.json()) as FeedItem;
-      await this.addFeedItem(item);
+    // POST /addActivityId - add single activity ID
+    if (request.method === "POST" && path === "/addActivityId") {
+      const entry = (await request.json()) as FeedEntry;
+      await this.addActivityId(entry);
       return new Response("OK");
     }
 
-    if (request.method === "POST" && path === "/addFeedItems") {
-      const items = (await request.json()) as FeedItem[];
-      await this.addFeedItems(items);
+    // POST /addActivityIds - bulk add (for backfill on follow)
+    if (request.method === "POST" && path === "/addActivityIds") {
+      const entries = (await request.json()) as FeedEntry[];
+      await this.addActivityIds(entries);
       return new Response("OK");
     }
 
-    if (request.method === "GET" && path === "/getFeed") {
+    // GET /getFeedIds - get paginated activity IDs
+    if (request.method === "GET" && path === "/getFeedIds") {
       const cursor = url.searchParams.get("cursor") ?? undefined;
       const limit = parseInt(url.searchParams.get("limit") ?? "20", 10);
-      const result = await this.getFeed(cursor, limit);
+      const result = await this.getFeedIds(cursor, limit);
       return new Response(JSON.stringify(result), {
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    if (request.method === "POST" && path === "/removeItemsFromUser") {
-      const { userId } = (await request.json()) as { userId: string };
-      await this.removeItemsFromUser(userId);
+    // POST /removeActivityIds - remove specific activity IDs
+    if (request.method === "POST" && path === "/removeActivityIds") {
+      const { activityIds } = (await request.json()) as {
+        activityIds: number[];
+      };
+      await this.removeActivityIds(activityIds);
+      return new Response("OK");
+    }
+
+    // POST /clear - clear all items (for migration/dev)
+    if (request.method === "POST" && path === "/clear") {
+      await this.clear();
       return new Response("OK");
     }
 
     return new Response("Not Found", { status: 404 });
   }
-  /**
-   * Add a feed item to this user's feed.
-   * Called when someone they follow does something.
-   */
-  async addFeedItem(item: FeedItem): Promise<void> {
-    // Store item with timestamp-based key for ordering
-    const key = `${ITEMS_PREFIX}${item.createdAt}-${item.id}`;
-    await this.state.storage.put(key, item);
 
-    // Prune old items if we have too many
+  /**
+   * Add a single activity ID to this user's feed.
+   */
+  async addActivityId(entry: FeedEntry): Promise<void> {
+    const key = `${ITEMS_PREFIX}${entry.createdAt}-${entry.activityEventId}`;
+    await this.state.storage.put(key, entry.activityEventId);
     await this.maybePrune();
   }
 
   /**
-   * Add multiple feed items at once (for backfill on follow).
+   * Add multiple activity IDs at once (for backfill on follow).
    */
-  async addFeedItems(items: FeedItem[]): Promise<void> {
-    const entries: Record<string, FeedItem> = {};
-    for (const item of items) {
-      const key = `${ITEMS_PREFIX}${item.createdAt}-${item.id}`;
-      entries[key] = item;
+  async addActivityIds(entries: FeedEntry[]): Promise<void> {
+    if (entries.length === 0) return;
+
+    const puts: Record<string, number> = {};
+    for (const entry of entries) {
+      const key = `${ITEMS_PREFIX}${entry.createdAt}-${entry.activityEventId}`;
+      puts[key] = entry.activityEventId;
     }
-    await this.state.storage.put(entries);
+    await this.state.storage.put(puts);
     await this.maybePrune();
   }
 
   /**
-   * Get paginated feed items.
-   * Items are returned in reverse chronological order (newest first).
+   * Get paginated activity IDs.
+   * IDs are returned in reverse chronological order (newest first).
    */
-  async getFeed(cursor?: string, limit: number = 20): Promise<GetFeedResponse> {
-    // Get all items with the prefix
-    const allItems = await this.state.storage.list<FeedItem>({
+  async getFeedIds(
+    cursor?: string,
+    limit: number = 20
+  ): Promise<GetFeedIdsResponse> {
+    const allItems = await this.state.storage.list<number>({
       prefix: ITEMS_PREFIX,
       reverse: true, // Newest first
     });
 
-    const items: FeedItem[] = [];
-    let foundCursor = !cursor; // If no cursor, start from beginning
+    const activityIds: number[] = [];
+    let foundCursor = !cursor;
     let nextCursor: string | null = null;
     let count = 0;
 
-    for (const [key, item] of allItems) {
-      // Skip items until we find the cursor
+    for (const [key, activityId] of allItems) {
       if (!foundCursor) {
         if (key === cursor) {
           foundCursor = true;
@@ -96,31 +114,32 @@ export class FeedDO implements DurableObject {
         continue;
       }
 
-      // Collect items up to the limit
       if (count < limit) {
-        items.push(item);
+        activityIds.push(activityId);
         count++;
       } else {
-        // We have one more item, so there's a next page
         nextCursor = key;
         break;
       }
     }
 
-    return { items, nextCursor };
+    return { activityIds, nextCursor };
   }
 
   /**
-   * Remove all items from a specific user (e.g., when unfollowed).
+   * Remove specific activity IDs (e.g., when user unfollows someone).
    */
-  async removeItemsFromUser(userId: string): Promise<void> {
-    const allItems = await this.state.storage.list<FeedItem>({
+  async removeActivityIds(activityIds: number[]): Promise<void> {
+    if (activityIds.length === 0) return;
+
+    const activityIdSet = new Set(activityIds);
+    const allItems = await this.state.storage.list<number>({
       prefix: ITEMS_PREFIX,
     });
 
     const keysToDelete: string[] = [];
-    for (const [key, item] of allItems) {
-      if (item.actor.id === userId) {
+    for (const [key, activityId] of allItems) {
+      if (activityIdSet.has(activityId)) {
         keysToDelete.push(key);
       }
     }
@@ -131,10 +150,23 @@ export class FeedDO implements DurableObject {
   }
 
   /**
+   * Clear all items from the feed (for migration/dev).
+   */
+  async clear(): Promise<void> {
+    const allItems = await this.state.storage.list<number>({
+      prefix: ITEMS_PREFIX,
+    });
+    const keys = Array.from(allItems.keys());
+    if (keys.length > 0) {
+      await this.state.storage.delete(keys);
+    }
+  }
+
+  /**
    * Prune old items if we exceed the maximum.
    */
   private async maybePrune(): Promise<void> {
-    const allItems = await this.state.storage.list<FeedItem>({
+    const allItems = await this.state.storage.list<number>({
       prefix: ITEMS_PREFIX,
     });
 
@@ -142,7 +174,6 @@ export class FeedDO implements DurableObject {
       return;
     }
 
-    // Get keys sorted by timestamp (oldest first)
     const keys = Array.from(allItems.keys()).sort();
     const keysToDelete = keys.slice(0, keys.length - MAX_FEED_ITEMS);
 
