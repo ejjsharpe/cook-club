@@ -320,7 +320,7 @@ export const HomeScreen = () => {
   const BrowseListHeader = useMemo(
     () => (
       <>
-        <VSpace size={24} />
+        <VSpace size={8} />
         <Header user={user} onAvatarPress={handleAvatarPress} />
         <VSpace size={20} />
         <Pressable

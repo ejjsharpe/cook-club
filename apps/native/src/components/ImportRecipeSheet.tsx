@@ -39,6 +39,78 @@ interface ImportRecipeSheetPayload {
   onRecipeParsed: (result: ParsedRecipeResult) => void;
 }
 
+const ModeOption = ({
+  icon,
+  label,
+  selected,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    style={[modeStyles.option, selected && modeStyles.optionSelected]}
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <View style={[modeStyles.iconContainer, selected && modeStyles.iconContainerSelected]}>
+      <Ionicons
+        name={icon}
+        size={18}
+        style={selected ? modeStyles.iconSelected : modeStyles.icon}
+      />
+    </View>
+    <Text
+      type="subheadline"
+      style={selected ? modeStyles.labelSelected : modeStyles.label}
+    >
+      {label}
+    </Text>
+  </TouchableOpacity>
+);
+
+const modeStyles = StyleSheet.create((theme) => ({
+  option: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 50,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.inputBackground,
+    gap: 8,
+  },
+  optionSelected: {
+    backgroundColor: theme.colors.primary + "20",
+  },
+  iconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconContainerSelected: {
+    backgroundColor: theme.colors.primary + "30",
+  },
+  icon: {
+    color: theme.colors.textSecondary,
+  },
+  iconSelected: {
+    color: theme.colors.primary,
+  },
+  label: {
+    color: theme.colors.textSecondary,
+  },
+  labelSelected: {
+    color: theme.colors.primary,
+    fontWeight: "500",
+  },
+}));
+
 export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
   const { onRecipeParsed } = props.payload || {};
 
@@ -125,22 +197,17 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
     }
   };
 
-  const renderModeButton = (m: ImportMode, icon: string, label: string) => (
-    <TouchableOpacity
-      key={m}
-      style={[styles.modeButton, mode === m && styles.modeButtonActive]}
-      onPress={() => setMode(m)}
-    >
-      <Ionicons
-        name={icon as keyof typeof Ionicons.glyphMap}
-        size={20}
-        style={[styles.modeIcon, mode === m && styles.modeIconActive]}
-      />
-      <Text style={[styles.modeLabel, mode === m && styles.modeLabelActive]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
+  const getButtonLabel = () => {
+    if (isLoading) return "Processing...";
+    switch (mode) {
+      case "url":
+        return "Import from URL";
+      case "text":
+        return "Import from Text";
+      case "image":
+        return "Import from Image";
+    }
+  };
 
   return (
     <ActionSheet
@@ -154,17 +221,17 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
       <View>
         {/* Header */}
         <View style={styles.header}>
-          <Text type="title2">Import Recipe</Text>
-          <TouchableOpacity onPress={handleClose} disabled={isLoading}>
-            <Ionicons name="close" size={28} style={styles.closeIcon} />
+          <View style={styles.headerSpacer} />
+          <Text type="headline">Smart Import</Text>
+          <TouchableOpacity
+            onPress={handleClose}
+            disabled={isLoading}
+            style={styles.closeButton}
+          >
+            <View style={styles.closeButtonCircle}>
+              <Ionicons name="close" size={16} style={styles.closeIcon} />
+            </View>
           </TouchableOpacity>
-        </View>
-
-        {/* Mode Selector */}
-        <View style={styles.modeSelector}>
-          {renderModeButton("url", "globe-outline", "URL")}
-          {renderModeButton("text", "document-text-outline", "Text")}
-          {renderModeButton("image", "camera-outline", "Image")}
         </View>
 
         <ScrollView
@@ -172,12 +239,36 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.content}>
+            {/* Mode Selector */}
+            <View style={styles.modeSelector}>
+              <ModeOption
+                icon="link-outline"
+                label="URL"
+                selected={mode === "url"}
+                onPress={() => setMode("url")}
+              />
+              <ModeOption
+                icon="document-text-outline"
+                label="Text"
+                selected={mode === "text"}
+                onPress={() => setMode("text")}
+              />
+              <ModeOption
+                icon="image-outline"
+                label="Image"
+                selected={mode === "image"}
+                onPress={() => setMode("image")}
+              />
+            </View>
+
+            <VSpace size={24} />
+
             {mode === "url" && (
               <>
-                <Text type="body" style={styles.description}>
-                  Enter the URL of a recipe from any website
+                <Text type="subheadline" style={styles.label}>
+                  Recipe URL
                 </Text>
-                <VSpace size={16} />
+                <VSpace size={8} />
                 <Input
                   placeholder="https://example.com/recipe"
                   value={url}
@@ -187,18 +278,23 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
                   autoCorrect={false}
                   editable={!isLoading}
                 />
+                <VSpace size={8} />
+                <Text type="caption" style={styles.hint}>
+                  Works with most recipe websites and social media links
+                </Text>
               </>
             )}
 
             {mode === "text" && (
               <>
-                <Text type="body" style={styles.description}>
-                  Paste your recipe text (ingredients, instructions, etc.)
+                <Text type="subheadline" style={styles.label}>
+                  Recipe Text
                 </Text>
-                <VSpace size={16} />
+                <VSpace size={8} />
                 <TextInput
                   style={styles.textArea}
-                  placeholder="Paste your recipe here..."
+                  placeholder="Paste ingredients, instructions, or a full recipe..."
+                  placeholderTextColor="rgba(0,0,0,0.35)"
                   value={text}
                   onChangeText={setText}
                   multiline
@@ -206,18 +302,19 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
                   textAlignVertical="top"
                   editable={!isLoading}
                 />
-                <Text type="bodyFaded" style={styles.charCount}>
-                  {text.length} / 10,000 characters (min 50)
+                <VSpace size={8} />
+                <Text type="caption" style={styles.hint}>
+                  {text.length} characters (minimum 50)
                 </Text>
               </>
             )}
 
             {mode === "image" && (
               <>
-                <Text type="body" style={styles.description}>
-                  Take a photo or select an image of a recipe
+                <Text type="subheadline" style={styles.label}>
+                  Recipe Image
                 </Text>
-                <VSpace size={16} />
+                <VSpace size={8} />
                 {imageUri ? (
                   <View style={styles.imagePreviewContainer}>
                     <Image
@@ -225,11 +322,13 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
                       style={styles.imagePreview}
                     />
                     <TouchableOpacity
-                      style={styles.removeImageButton}
-                      onPress={() => setImageUri(null)}
+                      style={styles.changeImageButton}
+                      onPress={handlePickImage}
                       disabled={isLoading}
                     >
-                      <Ionicons name="close-circle" size={28} color="#fff" />
+                      <Text type="subheadline" style={styles.changeImageText}>
+                        Change
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -240,28 +339,36 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
                   >
                     <Ionicons
                       name="image-outline"
-                      size={48}
+                      size={32}
                       style={styles.imagePickerIcon}
                     />
                     <VSpace size={8} />
-                    <Text type="bodyFaded">Tap to select an image</Text>
+                    <Text type="subheadline" style={styles.imagePickerText}>
+                      Select Image
+                    </Text>
                   </TouchableOpacity>
                 )}
+                <VSpace size={8} />
+                <Text type="caption" style={styles.hint}>
+                  Upload a photo of a recipe card, cookbook page, or screenshot
+                </Text>
               </>
             )}
 
             <VSpace size={24} />
 
             <PrimaryButton onPress={handleImport} disabled={isLoading}>
-              {isLoading ? "Processing..." : "Import Recipe"}
+              {getButtonLabel()}
             </PrimaryButton>
 
             {isLoading && (
-              <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" />
-                <VSpace size={12} />
-                <Text type="body">Analyzing recipe with AI...</Text>
-                <Text type="bodyFaded">This may take a few seconds</Text>
+              <View style={styles.loadingContainer}>
+                <VSpace size={16} />
+                <ActivityIndicator size="small" />
+                <VSpace size={8} />
+                <Text type="caption" style={styles.loadingText}>
+                  Analyzing with AI...
+                </Text>
               </View>
             )}
 
@@ -276,117 +383,103 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
 const styles = StyleSheet.create((theme) => ({
   indicator: {
     backgroundColor: theme.colors.border,
+    width: 36,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   closeIcon: {
-    color: theme.colors.text,
-  },
-  modeSelector: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  modeButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: 6,
-  },
-  modeButtonActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: `${theme.colors.primary}15`,
-  },
-  modeIcon: {
-    color: `${theme.colors.text}80`,
-  },
-  modeIconActive: {
-    color: theme.colors.primary,
-  },
-  modeLabel: {
-    fontSize: 14,
-    color: `${theme.colors.text}80`,
-  },
-  modeLabelActive: {
-    color: theme.colors.primary,
-    fontWeight: "600",
+    color: theme.colors.textSecondary,
   },
   scrollView: {
-    maxHeight: 450,
+    maxHeight: 500,
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 20,
   },
-  description: {
-    textAlign: "center",
+  modeSelector: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  label: {
+    color: theme.colors.textSecondary,
+    marginLeft: 4,
+  },
+  hint: {
+    color: theme.colors.textTertiary,
+    marginLeft: 4,
   },
   textArea: {
     width: "100%",
-    height: 200,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: theme.borderRadius.medium,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
+    height: 180,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: theme.borderRadius.large,
+    backgroundColor: theme.colors.inputBackground,
     fontFamily: theme.fonts.albertRegular,
     fontSize: 16,
-  },
-  charCount: {
-    textAlign: "right",
-    marginTop: 8,
-    fontSize: 12,
+    color: theme.colors.text,
   },
   imagePicker: {
     width: "100%",
-    height: 200,
-    borderRadius: theme.borderRadius.medium,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    borderStyle: "dashed",
+    height: 160,
+    borderRadius: theme.borderRadius.large,
+    backgroundColor: theme.colors.inputBackground,
     alignItems: "center",
     justifyContent: "center",
   },
   imagePickerIcon: {
-    color: `${theme.colors.text}80`,
+    color: theme.colors.textTertiary,
+  },
+  imagePickerText: {
+    color: theme.colors.textSecondary,
   },
   imagePreviewContainer: {
     position: "relative",
     width: "100%",
-    height: 250,
-    borderRadius: theme.borderRadius.medium,
+    height: 200,
+    borderRadius: theme.borderRadius.large,
     overflow: "hidden",
   },
   imagePreview: {
     width: "100%",
     height: "100%",
   },
-  removeImageButton: {
+  changeImageButton: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 14,
+    bottom: 12,
+    right: 12,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: theme.borderRadius.full,
   },
-  loadingOverlay: {
-    marginTop: 20,
+  changeImageText: {
+    color: "white",
+  },
+  loadingContainer: {
     alignItems: "center",
+  },
+  loadingText: {
+    color: theme.colors.textSecondary,
   },
 }));

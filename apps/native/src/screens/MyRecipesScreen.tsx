@@ -50,7 +50,7 @@ const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Header height constants
-const TITLE_HEIGHT = 32 + 34; // VSpace(32) + title row (title1 font)
+const TITLE_HEIGHT = 8 + 34; // VSpace(8) + title row (title1 font)
 const SEARCH_ROW_HEIGHT = 20 + 50; // VSpace(20) + search bar height
 const TABS_HEIGHT = 16 + 50 + 16; // VSpace(16) + tabs + VSpace(16)
 const HEADER_HEIGHT = TITLE_HEIGHT + SEARCH_ROW_HEIGHT + TABS_HEIGHT;
@@ -106,7 +106,7 @@ export const MyRecipesScreen = () => {
       recipesScrollY.current = offsetY;
 
       // Update header
-      if (offsetY <= 66) {
+      if (offsetY <= TITLE_HEIGHT) {
         headerTranslateY.value = withSpring(0, {
           damping: 30,
           stiffness: 200,
@@ -141,7 +141,7 @@ export const MyRecipesScreen = () => {
       collectionsScrollY.current = offsetY;
 
       // Update header
-      if (offsetY <= 66) {
+      if (offsetY <= TITLE_HEIGHT) {
         headerTranslateY.value = withSpring(0, {
           damping: 30,
           stiffness: 200,
@@ -223,7 +223,7 @@ export const MyRecipesScreen = () => {
       // Animate header based on new tab's scroll position
       const newTabScrollY =
         tab === "recipes" ? recipesScrollY.current : collectionsScrollY.current;
-      if (newTabScrollY <= 66) {
+      if (newTabScrollY <= TITLE_HEIGHT) {
         headerTranslateY.value = withSpring(0, {
           damping: 30,
           stiffness: 200,
@@ -432,7 +432,7 @@ export const MyRecipesScreen = () => {
       <Animated.View style={[styles.headerContainer, headerAnimatedStyle]}>
         <View style={styles.header}>
           <Animated.View style={titleAnimatedStyle}>
-            <VSpace size={32} />
+            <VSpace size={8} />
             <View style={styles.headerPadded}>
               <Text type="title1">My Recipes</Text>
             </View>

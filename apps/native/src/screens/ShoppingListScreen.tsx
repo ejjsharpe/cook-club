@@ -472,7 +472,7 @@ export const ShoppingListScreen = () => {
 
   const listHeaderComponent = (
     <View style={{ paddingTop: insets.top }}>
-      <VSpace size={32} />
+      <VSpace size={8} />
       {/* Title */}
       <View style={styles.largeTitleContainer}>
         <Text type="title1">Shopping List</Text>
