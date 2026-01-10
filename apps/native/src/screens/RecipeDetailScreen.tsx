@@ -33,11 +33,11 @@ import {
 import { useUser } from "@/api/user";
 import { DropdownMenu, DropdownMenuItem } from "@/components/DropdownMenu";
 import { PageIndicator } from "@/components/PageIndicator";
+import { SegmentedControl, TabOption } from "@/components/SegmentedControl";
 import { RecipeDetailSkeleton, SkeletonContainer } from "@/components/Skeleton";
 import { VSpace, HSpace } from "@/components/Space";
 import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { Text } from "@/components/Text";
-import { UnderlineTabBar, TabOption } from "@/components/UnderlineTabBar";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { getImageUrl } from "@/utils/imageUrl";
 import { formatMinutesShort } from "@/utils/timeUtils";
@@ -589,7 +589,7 @@ export const RecipeDetailScreen = () => {
               <VSpace size={24} />
 
               {/* Full Width Tabs */}
-              <UnderlineTabBar
+              <SegmentedControl
                 options={TAB_OPTIONS}
                 value={activeTab}
                 onValueChange={handleTabChange}

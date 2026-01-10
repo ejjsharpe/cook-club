@@ -72,7 +72,7 @@ export interface TabOption<T extends string> {
   label: string;
 }
 
-interface UnderlineTabBarProps<T extends string> {
+interface SegmentedControlProps<T extends string> {
   options: TabOption<T>[];
   value: T;
   onValueChange: (value: T, direction: number) => void;
@@ -86,13 +86,13 @@ const SPRING_CONFIG = {
   mass: 0.5,
 };
 
-export function UnderlineTabBar<T extends string>({
+export function SegmentedControl<T extends string>({
   options,
   value,
   onValueChange,
   scrollProgress,
   fullWidth = false,
-}: UnderlineTabBarProps<T>) {
+}: SegmentedControlProps<T>) {
   const tabPositions = useRef<{ x: number; width: number }[]>([]);
   const indicatorX = useSharedValue(0);
   const indicatorWidth = useSharedValue(0);

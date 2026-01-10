@@ -101,7 +101,7 @@ export const AddRecipeScreen = () => {
       >
         <VSpace size={8} />
         <View style={styles.headerPadded}>
-          <Text type="title1">Add a recipe</Text>
+          <Text type="title1">Add recipe</Text>
         </View>
 
         <VSpace size={24} />
