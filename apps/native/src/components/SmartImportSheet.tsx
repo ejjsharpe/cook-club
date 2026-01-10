@@ -14,6 +14,11 @@ import ActionSheet, {
   SheetProps,
   ScrollView,
 } from "react-native-actions-sheet";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Input } from "./Input";
@@ -107,7 +112,7 @@ const modeStyles = StyleSheet.create((theme) => ({
   },
 }));
 
-export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
+export const SmartImportSheet = (props: SheetProps<"smart-import-sheet">) => {
   const { onRecipeParsed } = props.payload || {};
 
   const [mode, setMode] = useState<ImportMode>("url");
@@ -121,12 +126,32 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
   const parseFromImage = useParseRecipeFromImage();
 
   const handleClose = () => {
-    SheetManager.hide("import-recipe-sheet");
+    SheetManager.hide("smart-import-sheet");
   };
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Permission Required",
+        "Please allow camera access to take photos",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       quality: 0.8,
     });
@@ -260,7 +285,10 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
             <VSpace size={24} />
 
             {mode === "url" && (
-              <>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                exiting={FadeOut.duration(150)}
+              >
                 <Text type="subheadline" style={styles.label}>
                   Recipe URL
                 </Text>
@@ -278,11 +306,14 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
                 <Text type="caption" style={styles.hint}>
                   Works with most recipe websites and social media links
                 </Text>
-              </>
+              </Animated.View>
             )}
 
             {mode === "text" && (
-              <>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                exiting={FadeOut.duration(150)}
+              >
                 <Text type="subheadline" style={styles.label}>
                   Recipe Text
                 </Text>
@@ -302,11 +333,14 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
                 <Text type="caption" style={styles.hint}>
                   {text.length} characters (minimum 50)
                 </Text>
-              </>
+              </Animated.View>
             )}
 
             {mode === "image" && (
-              <>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                exiting={FadeOut.duration(150)}
+              >
                 <Text type="subheadline" style={styles.label}>
                   Recipe Image
                 </Text>
@@ -317,45 +351,71 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
                       source={{ uri: imageUri }}
                       style={styles.imagePreview}
                     />
+                    <View style={styles.changeImageButtons}>
+                      <TouchableOpacity
+                        style={styles.changeImageButton}
+                        onPress={handleTakePhoto}
+                        disabled={isLoading}
+                      >
+                        <Ionicons name="camera" size={16} color="white" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.changeImageButton}
+                        onPress={handlePickImage}
+                        disabled={isLoading}
+                      >
+                        <Ionicons name="images" size={16} color="white" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.imagePickerOptions}>
                     <TouchableOpacity
-                      style={styles.changeImageButton}
+                      style={styles.imagePickerOption}
+                      onPress={handleTakePhoto}
+                      disabled={isLoading}
+                    >
+                      <Ionicons
+                        name="camera-outline"
+                        size={28}
+                        style={styles.imagePickerIcon}
+                      />
+                      <VSpace size={6} />
+                      <Text type="subheadline" style={styles.imagePickerText}>
+                        Take Photo
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.imagePickerOption}
                       onPress={handlePickImage}
                       disabled={isLoading}
                     >
-                      <Text type="subheadline" style={styles.changeImageText}>
-                        Change
+                      <Ionicons
+                        name="images-outline"
+                        size={28}
+                        style={styles.imagePickerIcon}
+                      />
+                      <VSpace size={6} />
+                      <Text type="subheadline" style={styles.imagePickerText}>
+                        Choose Photo
                       </Text>
                     </TouchableOpacity>
                   </View>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.imagePicker}
-                    onPress={handlePickImage}
-                    disabled={isLoading}
-                  >
-                    <Ionicons
-                      name="image-outline"
-                      size={32}
-                      style={styles.imagePickerIcon}
-                    />
-                    <VSpace size={8} />
-                    <Text type="subheadline" style={styles.imagePickerText}>
-                      Select Image
-                    </Text>
-                  </TouchableOpacity>
                 )}
                 <VSpace size={8} />
                 <Text type="caption" style={styles.hint}>
                   Upload a photo of a recipe card, cookbook page, or screenshot
                 </Text>
-              </>
+              </Animated.View>
             )}
 
-            <VSpace size={24} />
+            <Animated.View layout={LinearTransition.duration(200)}>
+              <VSpace size={24} />
 
-            <PrimaryButton onPress={handleImport} disabled={isLoading}>
-              {getButtonLabel()}
-            </PrimaryButton>
+              <PrimaryButton onPress={handleImport} disabled={isLoading}>
+                {getButtonLabel()}
+              </PrimaryButton>
+            </Animated.View>
 
             {isLoading && (
               <View style={styles.loadingContainer}>
@@ -367,8 +427,6 @@ export const ImportRecipeSheet = (props: SheetProps<"import-recipe-sheet">) => {
                 </Text>
               </View>
             )}
-
-            <VSpace size={20} />
           </View>
         </ScrollView>
       </View>
@@ -435,9 +493,13 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 16,
     color: theme.colors.text,
   },
-  imagePicker: {
-    width: "100%",
-    height: 160,
+  imagePickerOptions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  imagePickerOption: {
+    flex: 1,
+    height: 120,
     borderRadius: theme.borderRadius.large,
     backgroundColor: theme.colors.inputBackground,
     alignItems: "center",
@@ -460,17 +522,20 @@ const styles = StyleSheet.create((theme) => ({
     width: "100%",
     height: "100%",
   },
-  changeImageButton: {
+  changeImageButtons: {
     position: "absolute",
     bottom: 12,
     right: 12,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: theme.borderRadius.full,
+    flexDirection: "row",
+    gap: 8,
   },
-  changeImageText: {
-    color: "white",
+  changeImageButton: {
+    backgroundColor: "rgba(0,0,0,0.6)",
+    width: 36,
+    height: 36,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingContainer: {
     alignItems: "center",

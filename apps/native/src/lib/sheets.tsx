@@ -4,7 +4,7 @@ import { CollectionSelectorSheet } from "@/components/CollectionSelectorSheet";
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { CookingReviewSheet } from "@/components/CookingReviewSheet";
 import { FilterSheet } from "@/components/FilterBottomSheet";
-import { ImportRecipeSheet } from "@/components/ImportRecipeSheet";
+import { SmartImportSheet } from "@/components/SmartImportSheet";
 import { SignInSheet } from "@/components/SignInSheet";
 import { SignUpSheet } from "@/components/SignUpSheet";
 
@@ -38,7 +38,7 @@ declare module "react-native-actions-sheet" {
         }) => Promise<void>;
       };
     }>;
-    "import-recipe-sheet": SheetDefinition<{
+    "smart-import-sheet": SheetDefinition<{
       payload: {
         onRecipeParsed: (
           result: NonNullable<
@@ -60,7 +60,7 @@ export const Sheets = () => {
         "filter-sheet": FilterSheet,
         "collection-selector-sheet": CollectionSelectorSheet,
         "cooking-review-sheet": CookingReviewSheet,
-        "import-recipe-sheet": ImportRecipeSheet,
+        "smart-import-sheet": SmartImportSheet,
       }}
     />
   );

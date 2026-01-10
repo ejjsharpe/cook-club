@@ -71,7 +71,7 @@ export const AddRecipeScreen = () => {
   };
 
   const onPressSmartImport = () => {
-    SheetManager.show("import-recipe-sheet", {
+    SheetManager.show("smart-import-sheet", {
       payload: { onRecipeParsed: handleRecipeParsed },
     });
   };
