@@ -11,7 +11,7 @@ import {
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 const VALID_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct" as const;
+const VISION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 
 interface AiIngredientsResult {
   ingredients: string[];
@@ -59,33 +59,32 @@ export async function identifyIngredients(
   }
 
   try {
-    // Convert base64 to Uint8Array for the AI model
-    const binaryString = atob(input.imageBase64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
+    // Build data URI for the image
+    const dataUri = `data:${input.mimeType};base64,${input.imageBase64}`;
 
-    const response = await env.AI.run(VISION_MODEL, {
+    const response = await (env.AI as any).run(VISION_MODEL, {
       messages: [
         { role: "system", content: INGREDIENT_IDENTIFICATION_SYSTEM_PROMPT },
         {
           role: "user",
           content: [
-            { type: "text", text: createIngredientIdentificationPrompt() },
             {
-              type: "image",
-              image: bytes,
+              type: "image_url",
+              image_url: { url: dataUri },
             },
+            { type: "text", text: createIngredientIdentificationPrompt() },
           ],
         },
       ],
-      max_tokens: 2048,
+      max_tokens: 1024,
+      temperature: 0.1, // Low temperature for more focused output
     });
 
-    const responseText = response.response;
+    console.log("Vision AI response:", JSON.stringify(response, null, 2));
 
-    if (!responseText) {
+    const aiResponse = (response as { response?: unknown }).response;
+
+    if (!aiResponse) {
       return {
         success: false,
         error: {
@@ -95,7 +94,14 @@ export async function identifyIngredients(
       };
     }
 
-    const result = parseAiJsonResponse<AiIngredientsResult>(responseText);
+    // Handle both string and object responses
+    let result: AiIngredientsResult;
+    if (typeof aiResponse === "string") {
+      result = parseAiJsonResponse<AiIngredientsResult>(aiResponse);
+    } else {
+      // AI returned parsed JSON directly
+      result = aiResponse as AiIngredientsResult;
+    }
 
     // Validate and normalize ingredients
     const ingredients = result.ingredients

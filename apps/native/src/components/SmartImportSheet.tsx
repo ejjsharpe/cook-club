@@ -31,7 +31,7 @@ import {
   useParseRecipeFromText,
   useParseRecipeFromImage,
 } from "@/api/recipe";
-import { imageToBase64, getMimeTypeFromUri } from "@/utils/imageUtils";
+import { imageToBase64 } from "@/utils/imageUtils";
 
 type ImportMode = "url" | "text" | "image";
 
@@ -197,8 +197,7 @@ export const SmartImportSheet = (props: SheetProps<"smart-import-sheet">) => {
           Alert.alert("Error", "Please select an image");
           return;
         }
-        const base64 = await imageToBase64(imageUri);
-        const mimeType = getMimeTypeFromUri(imageUri);
+        const { base64, mimeType } = await imageToBase64(imageUri);
         const result = await parseFromImage.mutateAsync({
           imageBase64: base64,
           mimeType,

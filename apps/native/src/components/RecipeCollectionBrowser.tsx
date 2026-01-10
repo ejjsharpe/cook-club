@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import Animated, { FadeIn as ReanimatedFadeIn } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
@@ -88,11 +89,15 @@ export const RecipeCollectionBrowser = ({
     collectionsScrollHandler,
     recipes,
     isLoadingRecipes,
+    isRefetchingRecipes,
+    refetchRecipes,
     recipesError,
     isFetchingNextRecipes,
     handleLoadMoreRecipes,
     collections,
     isLoadingCollections,
+    isRefetchingCollections,
+    refetchCollections,
     collectionsError,
   } = useRecipeCollectionBrowser({
     titleSectionHeight,
@@ -276,6 +281,14 @@ export const RecipeCollectionBrowser = ({
             ItemSeparatorComponent={RecipeSeparator}
             onScroll={recipesScrollHandler}
             scrollEventThrottle={32}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefetchingRecipes}
+                onRefresh={refetchRecipes}
+                progressViewOffset={headerHeight}
+                tintColor={theme.colors.primary}
+              />
+            }
           />
         )}
         {isLoadingCollections ? (
@@ -299,6 +312,14 @@ export const RecipeCollectionBrowser = ({
             columnWrapperStyle={styles.collectionsRow as any}
             onScroll={collectionsScrollHandler}
             scrollEventThrottle={20}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefetchingCollections}
+                onRefresh={refetchCollections}
+                progressViewOffset={headerHeight}
+                tintColor={theme.colors.primary}
+              />
+            }
           />
         )}
       </SwipeableTabView>

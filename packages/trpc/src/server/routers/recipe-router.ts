@@ -147,6 +147,35 @@ export const recipeRouter = router({
       throw new Error();
     }),
 
+  // Parse recipe from URL using structured data only (no AI) - for Basic Import
+  parseRecipeFromUrlBasic: authedProcedure
+    .input(UrlValidator)
+    .query(async ({ ctx, input }) => {
+      try {
+        const result = await ctx.env.RECIPE_PARSER.parse({
+          type: "url",
+          data: input.url,
+          structuredOnly: true,
+        });
+
+        if (!result.success) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: result.error.message,
+          });
+        }
+
+        return result;
+      } catch (e) {
+        if (e instanceof TRPCError) throw e;
+        console.log(e, "ERROR");
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to parse recipe",
+        });
+      }
+    }),
+
   // Parse recipe from text using AI
   parseRecipeFromText: authedProcedure
     .input(type({ text: "string" }))
@@ -225,6 +254,7 @@ export const recipeRouter = router({
       });
 
       if (!result.success) {
+        console.log({ result });
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: result.error.message,

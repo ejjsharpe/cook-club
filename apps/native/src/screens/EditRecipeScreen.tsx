@@ -357,6 +357,13 @@ export default function EditRecipeScreen() {
   const saveRecipeMutation = useMutation({
     ...trpc.recipe.postRecipe.mutationOptions(),
     onSuccess: ({ id }) => {
+      // Invalidate user's recipes and collections so they appear in My Recipes immediately
+      queryClient.invalidateQueries({
+        queryKey: trpc.recipe.getUserRecipes.queryKey(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: trpc.collection.getUserCollections.queryKey(),
+      });
       navigation.navigate("RecipeDetail", { recipeId: id });
     },
   });

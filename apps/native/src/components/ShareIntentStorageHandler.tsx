@@ -7,7 +7,7 @@ import {
   type PendingShareIntent,
 } from "@/lib/pendingShareIntent";
 import { useIsSignedIn } from "@/lib/signedInContext";
-import { imageToBase64, getMimeTypeFromUri } from "@/utils/imageUtils";
+import { imageToBase64 } from "@/utils/imageUtils";
 
 /**
  * This component handles share intents when the user is NOT signed in.
@@ -80,8 +80,7 @@ export function ShareIntentStorageHandler() {
       // For images, we need to convert to base64 before storing
       (async () => {
         try {
-          const base64 = await imageToBase64(detectedIntent.content);
-          const mimeType = getMimeTypeFromUri(detectedIntent.content);
+          const { base64, mimeType } = await imageToBase64(detectedIntent.content);
           setPendingShareIntent({
             ...detectedIntent,
             content: base64,

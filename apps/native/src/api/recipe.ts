@@ -14,12 +14,23 @@ export type RecipeListItem =
 export type ParsedRecipe = Outputs["recipe"]["parseRecipeFromUrl"];
 export type Tag = RecipeListItem["tags"][number];
 
-// Parse recipe from URL using AI
+// Parse recipe from URL using AI (Smart Import)
 export const useParseRecipeFromUrl = ({ url }: { url: string }) => {
   const trpc = useTRPC();
 
   return useQuery({
     ...trpc.recipe.parseRecipeFromUrl.queryOptions({ url }),
+    enabled: false, // Manual fetch
+    retry: false,
+  });
+};
+
+// Parse recipe from URL using structured data only (Basic Import - no AI)
+export const useParseRecipeFromUrlBasic = ({ url }: { url: string }) => {
+  const trpc = useTRPC();
+
+  return useQuery({
+    ...trpc.recipe.parseRecipeFromUrlBasic.queryOptions({ url }),
     enabled: false, // Manual fetch
     retry: false,
   });

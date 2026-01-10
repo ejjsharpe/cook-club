@@ -17,7 +17,7 @@ import {
   clearPendingShareIntent,
   type PendingShareIntent,
 } from "@/lib/pendingShareIntent";
-import { imageToBase64, getMimeTypeFromUri } from "@/utils/imageUtils";
+import { imageToBase64 } from "@/utils/imageUtils";
 
 type ParsedRecipeResult = NonNullable<
   ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"]
@@ -177,8 +177,9 @@ export function ShareIntentHandler() {
     if (detectedIntent.type === "image") {
       (async () => {
         try {
-          const base64 = await imageToBase64(detectedIntent.content);
-          const mimeType = getMimeTypeFromUri(detectedIntent.content);
+          const { base64, mimeType } = await imageToBase64(
+            detectedIntent.content,
+          );
           await processShareIntent({
             ...detectedIntent,
             content: base64,

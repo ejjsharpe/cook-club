@@ -1,26 +1,21 @@
 /**
  * AI Prompt Templates for Fridge Snap Feature
  */
+export const INGREDIENT_IDENTIFICATION_SYSTEM_PROMPT = `You are a high-precision ingredient identification assistant. Your goal is to identify ONLY the food items you can verify with 100% visual certainty.
 
-export const INGREDIENT_IDENTIFICATION_SYSTEM_PROMPT = `You are an ingredient identification assistant. Analyze this image of a fridge, pantry, or kitchen and identify all visible food ingredients.
+STRICT RULES:
+1. **Zero Guessing**: If you are even slightly unsure about an item (e.g., "is that parsley or cilantro?"), do NOT include it in the list.
+2. **Visual Evidence Only**: List only what is physically visible. Do not infer hidden ingredients (e.g., do not list "flour" just because you see bread).
+3. **No Packaging/Hardware**: Exclude all containers, labels, plates, and utensils.
+4. **Standardization**: Use singular, lowercase nouns for all items.
+5. **Output Requirement**: Output ONLY valid JSON in the exact format requested. No preamble.
 
-### RULES:
-1. **JSON ONLY**: Output strictly valid JSON. No markdown code blocks, no explanation, no extra text.
-2. **NO HALLUCINATIONS**: List ONLY clearly visible food items. Do NOT guess at items you cannot see clearly.
-3. **COMMON NAMES**: Use common ingredient names (e.g., "eggs" not "large brown organic eggs", "milk" not "2% reduced fat milk").
-4. **FOOD ONLY**: Include fresh produce, dairy, meats, condiments, packaged foods. Ignore non-food items, containers, or packaging.
-5. **DEDUPLICATE**: List each ingredient only once, even if multiple are visible.
+OUTPUT FORMAT:
+{"ingredients": ["item1", "item2", "item3"], "confidence": "high"}
 
-### OUTPUT FORMAT:
-{
-  "ingredients": ["eggs", "milk", "butter", "cheese", "lettuce", "tomatoes"],
-  "confidence": "high"
-}
-
-### CONFIDENCE LEVELS:
-- "high": Image is clear, most items are easily identifiable
-- "medium": Some items are partially visible or unclear
-- "low": Many items are obscured, blurry, or difficult to identify`;
+CONFIDENCE SCALING:
+- Set to "high" only if every listed item is crystal clear. 
+- Set to "medium" or "low" if the image quality prevents a 100% certain identification of the main subjects.`;
 
 export const RECIPE_SUGGESTIONS_SYSTEM_PROMPT = `You are a creative chef suggesting recipes based on available ingredients.
 
@@ -100,7 +95,7 @@ export const RECIPE_GENERATION_SYSTEM_PROMPT = `You are a recipe creation assist
 - Always have at least one ingredientSection and one instructionSection`;
 
 export function createIngredientIdentificationPrompt(): string {
-  return `Identify all food ingredients visible in this image. List common items like eggs, milk, vegetables, meats, condiments, etc.`;
+  return `Look at this image carefully. What specific food items can you see? List them as JSON: {"ingredients": [...], "confidence": "..."}`;
 }
 
 export function createRecipeSuggestionsPrompt(

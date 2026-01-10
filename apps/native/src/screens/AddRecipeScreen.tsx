@@ -85,7 +85,9 @@ export const AddRecipeScreen = () => {
   };
 
   const onPressBasicImport = () => {
-    // TODO: Implement basic import
+    SheetManager.show("basic-import-sheet", {
+      payload: { onRecipeParsed: handleRecipeParsed },
+    });
   };
 
   const onPressFridgeSnap = () => {
@@ -115,7 +117,6 @@ export const AddRecipeScreen = () => {
             label="Basic import"
             subtitle="Import from URL. Works for most recipe websites."
             onPress={onPressBasicImport}
-            disabled
           />
           <View style={styles.separator} />
           <ActionRow

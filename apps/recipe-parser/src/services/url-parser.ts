@@ -71,6 +71,11 @@ function aiResultToRecipe(
   };
 }
 
+export interface ParseUrlOptions {
+  /** If true, only use structured data extraction (no AI). For Basic Import. */
+  structuredOnly?: boolean;
+}
+
 /**
  * Parse a recipe from a URL
  *
@@ -78,10 +83,16 @@ function aiResultToRecipe(
  * 1. Check cache
  * 2. Fetch HTML (using browser rendering for JS-heavy sites)
  * 3. Try structured data extraction (JSON-LD, microdata)
- * 4. Fall back to AI parsing if needed
- * 5. Cache successful result
+ * 4. If structuredOnly: return error if no structured data
+ * 5. Otherwise: enhance with AI (always) or extract with AI (if no structured data)
+ * 6. Cache successful result
  */
-export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
+export async function parseUrl(
+  env: Env,
+  url: string,
+  options?: ParseUrlOptions,
+): Promise<ParseResult> {
+  const { structuredOnly = false } = options ?? {};
   // const cached = await getCachedRecipe(env.RECIPE_CACHE, url);
   // if (cached) {
   //   return {
@@ -98,6 +109,26 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
 
   // Check if this URL requires browser rendering (Instagram, TikTok, etc.)
   const needsBrowser = requiresBrowserRendering(url);
+
+  // Social media URLs don't have structured data - reject early for structuredOnly
+  if (structuredOnly && needsBrowser) {
+    const isSocialMedia =
+      url.includes("instagram.com") ||
+      url.includes("tiktok.com") ||
+      url.includes("facebook.com") ||
+      url.includes("fb.com");
+
+    if (isSocialMedia) {
+      return {
+        success: false,
+        error: {
+          code: "UNSUPPORTED_URL",
+          message:
+            "Social media links don't contain structured recipe data. They require AI-powered Smart Import.",
+        },
+      };
+    }
+  }
 
   // Handle Instagram URLs specially
   if (needsBrowser && url.includes("instagram.com")) {
@@ -130,9 +161,15 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
   }
 
   // Try structured data extraction first (JSON-LD, microdata)
+  let structuredRecipe: ParsedRecipe | null = null;
   try {
-    const structuredRecipe = extractStructuredRecipe(html, url);
+    structuredRecipe = extractStructuredRecipe(html, url);
+  } catch (error) {
+    console.error("Structured data extraction error:", error);
+  }
 
+  // For Basic Import (structuredOnly): return structured data or error
+  if (structuredOnly) {
     if (structuredRecipe) {
       const validation = ParsedRecipeSchema(structuredRecipe);
 
@@ -151,12 +188,19 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
         };
       }
     }
-  } catch (error) {
-    console.error("Structured data extraction error:", error);
-    // Fall through to AI parsing
+
+    // No structured data found - return error for Basic Import
+    return {
+      success: false,
+      error: {
+        code: "NO_STRUCTURED_DATA",
+        message:
+          "This website doesn't have structured recipe data that we can read.",
+      },
+    };
   }
 
-  // Fall back to AI parsing
+  // For Smart Import: always use AI (enhance structured data or extract from scratch)
   try {
     const cleanedContent = cleanHtml(html);
 
@@ -197,13 +241,16 @@ export async function parseUrl(env: Env, url: string): Promise<ParseResult> {
 
     await cacheRecipe(env.RECIPE_CACHE, url, recipe);
 
+    // Determine parse method based on whether we had structured data
+    const parseMethod = structuredRecipe ? "ai_enhanced" : "ai_only";
+
     return {
       success: true,
       data: recipe,
       metadata: {
         source: "url",
-        parseMethod: "ai_only",
-        confidence: "medium",
+        parseMethod,
+        confidence: structuredRecipe ? "high" : "medium",
         cached: false,
       },
     };

@@ -1,5 +1,6 @@
 import { SheetDefinition, SheetRegister } from "react-native-actions-sheet";
 
+import { BasicImportSheet } from "@/components/BasicImportSheet";
 import { CollectionSelectorSheet } from "@/components/CollectionSelectorSheet";
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { CookingReviewSheet } from "@/components/CookingReviewSheet";
@@ -47,6 +48,15 @@ declare module "react-native-actions-sheet" {
         ) => void;
       };
     }>;
+    "basic-import-sheet": SheetDefinition<{
+      payload: {
+        onRecipeParsed: (
+          result: NonNullable<
+            ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"]
+          >,
+        ) => void;
+      };
+    }>;
   }
 }
 
@@ -61,6 +71,7 @@ export const Sheets = () => {
         "collection-selector-sheet": CollectionSelectorSheet,
         "cooking-review-sheet": CookingReviewSheet,
         "smart-import-sheet": SmartImportSheet,
+        "basic-import-sheet": BasicImportSheet,
       }}
     />
   );

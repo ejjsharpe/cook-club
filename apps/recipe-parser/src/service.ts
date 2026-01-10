@@ -7,7 +7,7 @@
 import type { ParsedRecipe } from "./schema";
 
 export type ParseInput =
-  | { type: "url"; data: string }
+  | { type: "url"; data: string; structuredOnly?: boolean }
   | { type: "text"; data: string }
   | {
       type: "image";

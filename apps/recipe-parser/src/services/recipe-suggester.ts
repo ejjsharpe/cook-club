@@ -58,6 +58,35 @@ interface AiRecipeResult {
 }
 
 /**
+ * Extract text from various AI response formats
+ */
+function extractResponseText(response: unknown): string {
+  if (typeof response === "string") return response;
+  if (!response || typeof response !== "object") return "";
+
+  const r = response as Record<string, unknown>;
+
+  // OpenAI Responses API format: output[0].content[0].text
+  if (Array.isArray(r.output) && r.output[0]) {
+    const firstOutput = r.output[0] as Record<string, unknown>;
+    if (Array.isArray(firstOutput.content) && firstOutput.content[0]) {
+      const firstContent = firstOutput.content[0] as Record<string, unknown>;
+      if (typeof firstContent.text === "string") {
+        return firstContent.text;
+      }
+    }
+  }
+
+  // Fallback to common field names
+  if (typeof r.response === "string") return r.response;
+  if (typeof r.output_text === "string") return r.output_text;
+  if (typeof r.generated_text === "string") return r.generated_text;
+  if (typeof r.text === "string") return r.text;
+
+  return "";
+}
+
+/**
  * Generate a unique ID for a suggestion
  */
 function generateId(): string {
@@ -95,20 +124,12 @@ export async function suggestRecipes(
 
   try {
     const response = await (env.AI as any).run(TEXT_MODEL, {
-      messages: [
-        { role: "system", content: RECIPE_SUGGESTIONS_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: createRecipeSuggestionsPrompt(input.ingredients, count),
-        },
-      ],
-      max_tokens: 4096,
+      instructions: RECIPE_SUGGESTIONS_SYSTEM_PROMPT,
+      input: createRecipeSuggestionsPrompt(input.ingredients, count),
+      reasoning: { effort: "none" }, // Disable reasoning to get direct JSON output
     });
 
-    const responseText =
-      typeof response === "string"
-        ? response
-        : (response?.response ?? response?.generated_text ?? "");
+    const responseText = extractResponseText(response);
 
     if (!responseText) {
       return {
@@ -212,25 +233,17 @@ export async function generateFromSuggestion(
 ): Promise<ParseResponse> {
   try {
     const response = await (env.AI as any).run(TEXT_MODEL, {
-      messages: [
-        { role: "system", content: RECIPE_GENERATION_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: createRecipeGenerationPrompt(
-            input.suggestion.name,
-            input.suggestion.description,
-            input.availableIngredients,
-            input.suggestion.additionalIngredients,
-          ),
-        },
-      ],
-      max_tokens: 4096,
+      instructions: RECIPE_GENERATION_SYSTEM_PROMPT,
+      input: createRecipeGenerationPrompt(
+        input.suggestion.name,
+        input.suggestion.description,
+        input.availableIngredients,
+        input.suggestion.additionalIngredients,
+      ),
+      reasoning: { effort: "none" }, // Disable reasoning to get direct JSON output
     });
 
-    const responseText =
-      typeof response === "string"
-        ? response
-        : (response?.response ?? response?.generated_text ?? "");
+    const responseText = extractResponseText(response);
 
     if (!responseText) {
       return {

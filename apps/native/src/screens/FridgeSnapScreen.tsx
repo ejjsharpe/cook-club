@@ -26,7 +26,7 @@ import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
-import { imageToBase64, getMimeTypeFromUri } from "@/utils/imageUtils";
+import { imageToBase64 } from "@/utils/imageUtils";
 
 type Step =
   | "capture"
@@ -68,8 +68,7 @@ export const FridgeSnapScreen = () => {
     setState((s) => ({ ...s, imageUri: uri, step: "identifying" }));
 
     try {
-      const base64 = await imageToBase64(uri);
-      const mimeType = getMimeTypeFromUri(uri);
+      const { base64, mimeType } = await imageToBase64(uri);
 
       const result = await identifyMutation.mutateAsync({
         imageBase64: base64,

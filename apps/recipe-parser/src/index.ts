@@ -81,7 +81,9 @@ export class RecipeParser extends WorkerEntrypoint<Env> {
     try {
       switch (input.type) {
         case "url":
-          return await parseUrl(this.env, input.data);
+          return await parseUrl(this.env, input.data, {
+            structuredOnly: input.structuredOnly,
+          });
 
         case "text":
           return await parseText(this.env, input.data);
@@ -204,7 +206,9 @@ export default {
         let result;
         switch (input.type) {
           case "url":
-            result = await parseUrl(env, input.data);
+            result = await parseUrl(env, input.data, {
+              structuredOnly: input.structuredOnly,
+            });
             break;
           case "text":
             result = await parseText(env, input.data);
