@@ -67,7 +67,10 @@ export const AddRecipeScreen = () => {
   const handleRecipeParsed = (
     result: ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"],
   ) => {
-    navigate("EditRecipe", { parsedRecipe: result });
+    // Navigate to preview mode - user can save directly or edit first
+    if (result) {
+      navigate("RecipeDetail", { parsedRecipe: result });
+    }
   };
 
   const onPressSmartImport = () => {

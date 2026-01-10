@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { useTRPC } from "@repo/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -25,12 +27,18 @@ import {
   useRecipeDetail,
   useImportRecipe,
   useDeleteRecipe,
+  type ParsedRecipe,
 } from "@/api/recipe";
 import {
   useAddRecipeToShoppingList,
   useRemoveRecipeFromList,
 } from "@/api/shopping";
 import { useUser } from "@/api/user";
+import {
+  transformParsedRecipeForPreview,
+  transformParsedRecipeForSave,
+  validateRecipeForSave,
+} from "@/utils/recipeTransform";
 import { DropdownMenu, DropdownMenuItem } from "@/components/DropdownMenu";
 import { PageIndicator } from "@/components/PageIndicator";
 import { SegmentedControl, TabOption } from "@/components/SegmentedControl";
@@ -46,15 +54,20 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const IMAGE_HEIGHT = 400;
 
 type RecipeDetailScreenParams = {
-  RecipeDetail: {
-    recipeId: number;
-  };
+  RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
 };
 
 type RecipeDetailScreenRouteProp = RouteProp<
   RecipeDetailScreenParams,
   "RecipeDetail"
 >;
+
+// Type guard for preview mode
+function isPreviewParams(
+  params: RecipeDetailScreenParams["RecipeDetail"],
+): params is { parsedRecipe: ParsedRecipe } {
+  return "parsedRecipe" in params;
+}
 
 interface RecipeImage {
   id: number;
@@ -72,10 +85,49 @@ export const RecipeDetailScreen = () => {
   const route = useRoute<RecipeDetailScreenRouteProp>();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { recipeId } = route.params;
+  const params = route.params;
 
-  const { data: recipe, isPending, error } = useRecipeDetail({ recipeId });
+  // Determine if we're in preview mode
+  const isPreviewMode = isPreviewParams(params);
+  const parsedRecipe = isPreviewMode ? params.parsedRecipe : null;
+  const recipeId = isPreviewMode ? null : params.recipeId;
+
+  // Only fetch if we have a recipeId (not preview mode)
+  const {
+    data: fetchedRecipe,
+    isPending,
+    error,
+  } = useRecipeDetail({ recipeId: recipeId ?? -1 });
+
+  // Transform parsed recipe for display in preview mode
+  const previewRecipe = useMemo(() => {
+    if (isPreviewMode && parsedRecipe) {
+      return transformParsedRecipeForPreview(parsedRecipe);
+    }
+    return null;
+  }, [isPreviewMode, parsedRecipe]);
+
+  // Use either fetched or preview recipe
+  const recipe = isPreviewMode ? previewRecipe : fetchedRecipe;
+
   const { data: userData } = useUser();
+
+  // For preview mode: save recipe mutation
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const saveRecipeMutation = useMutation({
+    ...trpc.recipe.postRecipe.mutationOptions(),
+    onSuccess: ({ id }) => {
+      queryClient.invalidateQueries({
+        queryKey: trpc.recipe.getUserRecipes.queryKey(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: trpc.collection.getUserCollections.queryKey(),
+      });
+      // Navigate to the saved recipe (replace to prevent going back to preview)
+      navigation.replace("RecipeDetail", { recipeId: id });
+    },
+  });
 
   const [activeTab, setActiveTab] = useState<TabType>("ingredients");
   const [activeTabIndex, setActiveTabIndex] = useState(0);
@@ -187,6 +239,35 @@ export const RecipeDetailScreen = () => {
     Alert.alert("Coming Soon", "Edit functionality will be available soon.");
   };
 
+  // Preview mode handlers
+  const handleSavePreviewRecipe = async () => {
+    if (!parsedRecipe) return;
+
+    // Validate required fields
+    const validation = validateRecipeForSave(parsedRecipe);
+    if (!validation.isValid) {
+      Alert.alert("Cannot Save Recipe", validation.errors.join("\n"), [
+        { text: "OK" },
+      ]);
+      return;
+    }
+
+    try {
+      const recipeData = transformParsedRecipeForSave(parsedRecipe);
+      await saveRecipeMutation.mutateAsync(recipeData);
+    } catch (err: any) {
+      Alert.alert(
+        "Save Failed",
+        err?.message || "Something went wrong while saving the recipe.",
+      );
+    }
+  };
+
+  const handleEditPreviewRecipe = () => {
+    if (!parsedRecipe) return;
+    navigation.navigate("EditRecipe", { parsedRecipe });
+  };
+
   const handleImageScroll = (
     event: NativeSyntheticEvent<NativeScrollEvent>,
   ) => {
@@ -234,8 +315,8 @@ export const RecipeDetailScreen = () => {
     },
   ];
 
-  // Show error state only when not loading and there's an error or no recipe
-  if (!isPending && (error || !recipe)) {
+  // Show error state only when not loading, not in preview mode, and there's an error or no recipe
+  if (!isPreviewMode && !isPending && (error || !recipe)) {
     const isForbidden = (error as any)?.data?.code === "FORBIDDEN";
     const sourceUrl = (error as any)?.data?.cause?.sourceUrl as
       | string
@@ -377,7 +458,7 @@ export const RecipeDetailScreen = () => {
 
   return (
     <SkeletonContainer
-      isLoading={isPending || !recipe}
+      isLoading={!isPreviewMode && (isPending || !recipe)}
       skeleton={<RecipeDetailSkeleton />}
     >
       {recipe ? (
@@ -387,6 +468,19 @@ export const RecipeDetailScreen = () => {
             showsVerticalScrollIndicator={false}
             bounces={false}
           >
+            {/* Preview Banner */}
+            {isPreviewMode && (
+              <View style={styles.previewBanner}>
+                <Ionicons
+                  name="eye-outline"
+                  size={18}
+                  style={styles.previewBannerIcon}
+                />
+                <Text style={styles.previewBannerText}>Recipe Preview</Text>
+                <Text style={styles.previewBannerSubtext}>Not saved yet</Text>
+              </View>
+            )}
+
             {/* Cover Photo Section */}
             <View style={styles.coverSection}>
               {recipe.images && recipe.images.length > 0 && (
@@ -424,7 +518,8 @@ export const RecipeDetailScreen = () => {
                   </BlurView>
                 </TouchableOpacity>
 
-                {isOwnRecipe && (
+                {/* Hide menu in preview mode */}
+                {!isPreviewMode && isOwnRecipe && (
                   <TouchableOpacity
                     style={styles.overlayButton}
                     onPress={() => setMenuVisible(true)}
@@ -521,7 +616,19 @@ export const RecipeDetailScreen = () => {
                   </TouchableOpacity>
                 </View>
 
-                {isOwnRecipe ? (
+                {isPreviewMode ? (
+                  // Preview mode: show placeholder
+                  <View style={styles.previewAuthorPlaceholder}>
+                    <Ionicons
+                      name="bookmark-outline"
+                      size={20}
+                      style={styles.previewPlaceholderIcon}
+                    />
+                    <Text type="caption" style={styles.previewPlaceholderText}>
+                      Will be saved to your recipes
+                    </Text>
+                  </View>
+                ) : isOwnRecipe ? (
                   <TouchableOpacity
                     style={styles.reviewButton}
                     onPress={handleReview}
@@ -612,12 +719,52 @@ export const RecipeDetailScreen = () => {
                 </SwipeableTabView>
               </View>
 
-              <VSpace size={isOwnRecipe ? 40 : 100} />
+              <VSpace size={isPreviewMode || !isOwnRecipe ? 100 : 40} />
             </View>
           </ScrollView>
 
-          {/* Sticky Footer - Only for non-owned recipes */}
-          {!isOwnRecipe && (
+          {/* Sticky Footer */}
+          {isPreviewMode ? (
+            // Preview mode: Save and Edit buttons
+            <View
+              style={[
+                styles.stickyFooter,
+                styles.previewFooter,
+                { paddingBottom: insets.bottom + 12 },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={handleEditPreviewRecipe}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={20}
+                  style={styles.editButtonIcon}
+                />
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSavePreviewRecipe}
+                disabled={saveRecipeMutation.isPending}
+              >
+                {saveRecipeMutation.isPending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name="checkmark"
+                      size={20}
+                      style={styles.saveButtonIcon}
+                    />
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : !isOwnRecipe ? (
+            // Non-owned recipe: Import button
             <View
               style={[
                 styles.stickyFooter,
@@ -643,7 +790,7 @@ export const RecipeDetailScreen = () => {
                 )}
               </TouchableOpacity>
             </View>
-          )}
+          ) : null}
 
           {/* Dropdown Menu */}
           <DropdownMenu
@@ -964,6 +1111,88 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.buttonText,
     fontSize: 17,
     fontFamily: theme.fonts.albertSemiBold,
+  },
+
+  // Preview Mode
+  previewBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.primary + "15",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  previewBannerIcon: {
+    color: theme.colors.primary,
+  },
+  previewBannerText: {
+    color: theme.colors.primary,
+    fontFamily: theme.fonts.albertSemiBold,
+    fontSize: 15,
+  },
+  previewBannerSubtext: {
+    color: theme.colors.primary + "80",
+    fontSize: 13,
+  },
+  previewFooter: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  editButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 50,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  editButtonIcon: {
+    color: theme.colors.text,
+  },
+  editButtonText: {
+    color: theme.colors.text,
+    fontSize: 17,
+    fontFamily: theme.fonts.albertSemiBold,
+  },
+  saveButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 50,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 25,
+  },
+  saveButtonIcon: {
+    color: theme.colors.buttonText,
+  },
+  saveButtonText: {
+    color: theme.colors.buttonText,
+    fontSize: 17,
+    fontFamily: theme.fonts.albertSemiBold,
+  },
+  previewAuthorPlaceholder: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 28,
+    height: 56,
+  },
+  previewPlaceholderIcon: {
+    color: theme.colors.textSecondary,
+  },
+  previewPlaceholderText: {
+    color: theme.colors.textSecondary,
   },
 
   // Modal

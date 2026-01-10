@@ -44,7 +44,7 @@ declare global {
         activeTab: "following" | "followers";
         userName: string;
       };
-      RecipeDetail: { recipeId: number };
+      RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
       CollectionDetail: { collectionId: number };
       [key: string]: undefined;
     }
