@@ -40,7 +40,7 @@ const styles = StyleSheet.create((theme) => ({
         // iOS Title 1: 28pt Regular
         title1: {
           fontSize: 28,
-          lineHeight: 34,
+          lineHeight: 40,
           color: theme.colors.text,
           fontFamily: theme.fonts.baskervilleBold,
           letterSpacing: -1,

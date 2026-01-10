@@ -50,10 +50,10 @@ const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Header height constants
-const TITLE_HEIGHT = 8 + 34; // VSpace(8) + title row (title1 font)
-const SEARCH_ROW_HEIGHT = 20 + 50; // VSpace(20) + search bar height
+const TITLE_SECTION_HEIGHT = 8 + 34 + 20; // VSpace(8) + title row + VSpace(20) before search
+const SEARCH_ROW_HEIGHT = 50; // search bar height
 const TABS_HEIGHT = 16 + 50 + 16; // VSpace(16) + tabs + VSpace(16)
-const HEADER_HEIGHT = TITLE_HEIGHT + SEARCH_ROW_HEIGHT + TABS_HEIGHT;
+const HEADER_HEIGHT = TITLE_SECTION_HEIGHT + SEARCH_ROW_HEIGHT + TABS_HEIGHT;
 
 type Recipe = NonNullable<
   ReturnType<typeof useGetUserRecipes>["data"]
@@ -106,14 +106,14 @@ export const MyRecipesScreen = () => {
       recipesScrollY.current = offsetY;
 
       // Update header
-      if (offsetY <= TITLE_HEIGHT) {
+      if (offsetY <= TITLE_SECTION_HEIGHT) {
         headerTranslateY.value = withSpring(0, {
           damping: 30,
           stiffness: 200,
           mass: 1,
         });
       } else {
-        headerTranslateY.value = withSpring(-TITLE_HEIGHT, {
+        headerTranslateY.value = withSpring(-TITLE_SECTION_HEIGHT, {
           damping: 30,
           stiffness: 200,
           mass: 1,
@@ -141,14 +141,14 @@ export const MyRecipesScreen = () => {
       collectionsScrollY.current = offsetY;
 
       // Update header
-      if (offsetY <= TITLE_HEIGHT) {
+      if (offsetY <= TITLE_SECTION_HEIGHT) {
         headerTranslateY.value = withSpring(0, {
           damping: 30,
           stiffness: 200,
           mass: 1,
         });
       } else {
-        headerTranslateY.value = withSpring(-TITLE_HEIGHT, {
+        headerTranslateY.value = withSpring(-TITLE_SECTION_HEIGHT, {
           damping: 30,
           stiffness: 200,
           mass: 1,
@@ -208,7 +208,7 @@ export const MyRecipesScreen = () => {
   const titleAnimatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       headerTranslateY.value,
-      [0, -TITLE_HEIGHT],
+      [0, -TITLE_SECTION_HEIGHT],
       [1, 0],
       "clamp",
     ),
@@ -223,14 +223,14 @@ export const MyRecipesScreen = () => {
       // Animate header based on new tab's scroll position
       const newTabScrollY =
         tab === "recipes" ? recipesScrollY.current : collectionsScrollY.current;
-      if (newTabScrollY <= TITLE_HEIGHT) {
+      if (newTabScrollY <= TITLE_SECTION_HEIGHT) {
         headerTranslateY.value = withSpring(0, {
           damping: 30,
           stiffness: 200,
           mass: 1,
         });
       } else {
-        headerTranslateY.value = withSpring(-TITLE_HEIGHT, {
+        headerTranslateY.value = withSpring(-TITLE_SECTION_HEIGHT, {
           damping: 30,
           stiffness: 200,
           mass: 1,

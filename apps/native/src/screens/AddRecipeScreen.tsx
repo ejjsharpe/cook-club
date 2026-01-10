@@ -14,27 +14,44 @@ const ActionRow = ({
   subtitle,
   onPress,
   disabled,
+  featured,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   subtitle: string;
   onPress: () => void;
   disabled?: boolean;
+  featured?: boolean;
 }) => {
   const theme = UnistylesRuntime.getTheme();
 
   return (
     <TouchableOpacity
-      style={[styles.row, disabled && styles.rowDisabled]}
+      style={[
+        styles.row,
+        disabled && styles.rowDisabled,
+        featured && styles.rowFeatured,
+      ]}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.7}
     >
-      <View style={styles.iconContainer}>
+      <View
+        style={[styles.iconContainer, featured && styles.iconContainerFeatured]}
+      >
         <Ionicons name={icon} size={24} color={theme.colors.primary} />
       </View>
       <View style={styles.textContainer}>
-        <Text type="body">{label}</Text>
+        <View style={styles.labelRow}>
+          <Text type="body">{label}</Text>
+          {featured && (
+            <View style={styles.badge}>
+              <Text type="caption" style={styles.badgeText}>
+                Recommended
+              </Text>
+            </View>
+          )}
+        </View>
         <Text type="subheadline" style={styles.subtitle}>
           {subtitle}
         </Text>
@@ -63,12 +80,16 @@ export const AddRecipeScreen = () => {
     navigate("EditRecipe", {});
   };
 
-  const onPressGenerate = () => {
+  const onPressAIChef = () => {
     navigate("GenerateRecipe", {});
   };
 
   const onPressBasicImport = () => {
     // TODO: Implement basic import
+  };
+
+  const onPressFridgeSnap = () => {
+    // TODO: Implement fridge snap
   };
 
   return (
@@ -85,6 +106,9 @@ export const AddRecipeScreen = () => {
 
         <VSpace size={24} />
 
+        {/* Import Section */}
+        <Text style={styles.sectionTitle}>Import</Text>
+        <VSpace size={8} />
         <View style={styles.section}>
           <ActionRow
             icon="link"
@@ -99,20 +123,43 @@ export const AddRecipeScreen = () => {
             label="Smart import"
             subtitle="Import from anywhere including social media using AI."
             onPress={onPressSmartImport}
+            featured
+          />
+        </View>
+
+        <VSpace size={24} />
+
+        {/* AI Section */}
+        <Text style={styles.sectionTitle}>AI Tools</Text>
+        <VSpace size={8} />
+        <View style={styles.section}>
+          <ActionRow
+            icon="restaurant"
+            label="AI Chef"
+            subtitle="Describe what you want and AI will create a recipe."
+            onPress={onPressAIChef}
           />
           <View style={styles.separator} />
+          <ActionRow
+            icon="camera"
+            label="Fridge Snap"
+            subtitle="Take a photo of your fridge and get recipe ideas."
+            onPress={onPressFridgeSnap}
+            disabled
+          />
+        </View>
+
+        <VSpace size={24} />
+
+        {/* Manual Section */}
+        <Text style={styles.sectionTitle}>Manual</Text>
+        <VSpace size={8} />
+        <View style={styles.section}>
           <ActionRow
             icon="create"
             label="Create from scratch"
             subtitle="Build your own recipe step by step."
             onPress={onPressCreate}
-          />
-          <View style={styles.separator} />
-          <ActionRow
-            icon="color-wand"
-            label="Generate with AI"
-            subtitle="Describe what you want and AI will create a recipe."
-            onPress={onPressGenerate}
           />
         </View>
       </ScrollView>
@@ -134,6 +181,12 @@ const styles = StyleSheet.create((theme) => ({
   headerPadded: {
     paddingHorizontal: 20,
   },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontSize: 20,
+    fontFamily: theme.fonts.albertSemiBold,
+    marginLeft: 24,
+  },
   section: {
     marginHorizontal: 20,
     backgroundColor: theme.colors.inputBackground,
@@ -149,6 +202,9 @@ const styles = StyleSheet.create((theme) => ({
   rowDisabled: {
     opacity: 0.5,
   },
+  rowFeatured: {
+    backgroundColor: theme.colors.primary + "10",
+  },
   iconContainer: {
     width: 40,
     height: 40,
@@ -157,9 +213,27 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     alignItems: "center",
   },
+  iconContainerFeatured: {
+    backgroundColor: theme.colors.primary + "25",
+  },
   textContainer: {
     flex: 1,
     gap: 2,
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  badge: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.full,
+  },
+  badgeText: {
+    color: "white",
+    fontWeight: "600",
   },
   subtitle: {
     color: theme.colors.textSecondary,
