@@ -20,15 +20,6 @@ import { StyleSheet } from "react-native-unistyles";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
 
-interface CookingReviewSheetPayload {
-  recipeName: string;
-  onSubmit: (data: {
-    rating: number;
-    reviewText?: string;
-    imageUrls?: string[];
-  }) => Promise<void>;
-}
-
 const MAX_IMAGES = 5;
 
 export const CookingReviewSheet = (
@@ -93,7 +84,7 @@ export const CookingReviewSheet = (
         imageUrls: images.length > 0 ? images : undefined,
       });
       SheetManager.hide("cooking-review-sheet");
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to submit review. Please try again.");
     } finally {
       setIsSubmitting(false);

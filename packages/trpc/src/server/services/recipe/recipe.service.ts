@@ -7,6 +7,7 @@ import {
   instructionSections,
   recipeCollections,
   recipeTags,
+  recipeNutrition,
   collections,
   shoppingLists,
   shoppingListRecipes,
@@ -709,7 +710,6 @@ export async function importRecipe(
         cookTime: sourceRecipe.cookTime,
         totalTime: sourceRecipe.totalTime,
         servings: sourceRecipe.servings,
-        nutrition: sourceRecipe.nutrition,
         sourceUrl: null, // Clear URL since it's user-imported
         sourceType: "user",
         originalRecipeId: sourceRecipeId,
@@ -724,6 +724,33 @@ export async function importRecipe(
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to create recipe copy",
+      });
+    }
+
+    // Copy nutrition data if exists
+    const sourceNutrition = await tx
+      .select()
+      .from(recipeNutrition)
+      .where(eq(recipeNutrition.recipeId, sourceRecipeId))
+      .then((rows) => rows[0]);
+
+    if (sourceNutrition) {
+      await tx.insert(recipeNutrition).values({
+        recipeId: newRecipe.id,
+        calories: sourceNutrition.calories,
+        protein: sourceNutrition.protein,
+        carbohydrates: sourceNutrition.carbohydrates,
+        fat: sourceNutrition.fat,
+        saturatedFat: sourceNutrition.saturatedFat,
+        fiber: sourceNutrition.fiber,
+        sugar: sourceNutrition.sugar,
+        sodium: sourceNutrition.sodium,
+        cholesterol: sourceNutrition.cholesterol,
+        potassium: sourceNutrition.potassium,
+        vitaminA: sourceNutrition.vitaminA,
+        vitaminC: sourceNutrition.vitaminC,
+        calcium: sourceNutrition.calcium,
+        iron: sourceNutrition.iron,
       });
     }
 

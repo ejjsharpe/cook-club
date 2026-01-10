@@ -178,10 +178,10 @@ export function detectMeasurement(ingredientText: string): DetectedMeasurement {
         match[4]
       ) {
         // Mixed number pattern (e.g., "2 1/2")
-        const wholeNumber = parseInt(match[1]);
+        const wholeNumber = parseInt(match[1], 10);
         const fractionParts = match[2].split("/");
         const fractionValue =
-          parseInt(fractionParts[0]!) / parseInt(fractionParts[1]!);
+          parseInt(fractionParts[0]!, 10) / parseInt(fractionParts[1]!, 10);
         amount = wholeNumber + fractionValue;
         unitText = match[3].toLowerCase().trim();
         ingredient = match[4];
@@ -428,14 +428,16 @@ export function convertMethodText(
         if (amountStr.includes(" ")) {
           // Mixed number like "2 1/2"
           const parts = amountStr.split(" ");
-          const whole = parseInt(parts[0]);
+          const whole = parseInt(parts[0], 10);
           const fractionParts = parts[1].split("/");
           amount =
-            whole + parseInt(fractionParts[0]) / parseInt(fractionParts[1]);
+            whole +
+            parseInt(fractionParts[0], 10) / parseInt(fractionParts[1], 10);
         } else {
           // Simple fraction like "1/2"
           const fractionParts = amountStr.split("/");
-          amount = parseInt(fractionParts[0]) / parseInt(fractionParts[1]);
+          amount =
+            parseInt(fractionParts[0], 10) / parseInt(fractionParts[1], 10);
         }
       } else {
         amount = parseFloat(amountStr.replace(",", "."));

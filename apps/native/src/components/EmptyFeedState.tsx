@@ -1,9 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { memo } from "react";
-import { View, TouchableOpacity } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { View } from "react-native";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
+import { FLOATING_TAB_BAR_HEIGHT } from "./FloatingTabBar";
+import { SEARCH_BAR_HEIGHT } from "./SearchBar";
+import { VSpace } from "./Space";
 import { Text } from "./Text";
+import { BaseButton } from "./buttons/BaseButton";
+
+// Header height: VSpace(8) + HeaderRow(44) + VSpace(20) + SearchBar + VSpace(16)
+const HEADER_HEIGHT = 8 + 44 + 20 + SEARCH_BAR_HEIGHT + 16;
 
 interface Props {
   onDiscoverPress?: () => void;
@@ -12,69 +19,55 @@ interface Props {
 export const EmptyFeedState = memo(({ onDiscoverPress }: Props) => {
   return (
     <View style={styles.container}>
-      <View style={styles.iconContainer}>
-        <Ionicons name="people-outline" size={64} style={styles.icon} />
-      </View>
+      <Ionicons name="people-outline" size={56} style={styles.icon} />
+      <VSpace size={20} />
       <Text type="title2" style={styles.title}>
         Your feed is empty
       </Text>
+      <VSpace size={8} />
       <Text type="bodyFaded" style={styles.subtitle}>
-        Follow friends to see their cooking activity and recipe discoveries
+        Follow friends to see their cooking activity
       </Text>
       {onDiscoverPress && (
-        <TouchableOpacity
-          style={styles.button}
-          onPress={onDiscoverPress}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="search" size={20} style={styles.buttonIcon} />
-          <Text style={styles.buttonText}>Find people to follow</Text>
-        </TouchableOpacity>
+        <>
+          <VSpace size={24} />
+          <BaseButton onPress={onDiscoverPress} style={styles.button}>
+            <Text style={styles.buttonText}>Find people to follow</Text>
+          </BaseButton>
+        </>
       )}
     </View>
   );
 });
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   container: {
-    flex: 1,
+    // Use minHeight instead of flex: 1 to prevent layout jump on initial render
+    minHeight:
+      rt.screen.height -
+      rt.insets.top -
+      HEADER_HEIGHT -
+      FLOATING_TAB_BAR_HEIGHT -
+      rt.insets.bottom,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 32,
-    paddingVertical: 64,
-  },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "#f5f5f5",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
+    paddingHorizontal: 40,
   },
   icon: {
     color: theme.colors.border,
   },
   title: {
     textAlign: "center",
-    marginBottom: 8,
   },
   subtitle: {
     textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: 24,
   },
   button: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     backgroundColor: theme.colors.primary,
-    borderRadius: 12,
-  },
-  buttonIcon: {
-    color: theme.colors.buttonText,
+    borderRadius: 100,
   },
   buttonText: {
     color: theme.colors.buttonText,

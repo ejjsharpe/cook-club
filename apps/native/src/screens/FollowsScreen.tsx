@@ -4,8 +4,6 @@ import { View, FlatList, ActivityIndicator } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import {
-  useFollowing,
-  useFollowers,
   useSearchUsers,
   useUserFollowers,
   useUserFollowing,

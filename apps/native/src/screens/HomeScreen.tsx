@@ -238,9 +238,13 @@ export const HomeScreen = () => {
   }, [activityHasNext, activityFetchingNext, activityFetchNext]);
 
   const handleDiscoverPress = useCallback(() => {
-    // Activate search mode
-    setIsSearchActive(true);
-  }, []);
+    // Measure the search bar position before transitioning (same as handleSearchFocus)
+    searchBarRef.current?.measureInWindow((_x, y) => {
+      searchBarMeasuredY.current = y;
+      searchBarY.value = y;
+      setIsSearchActive(true);
+    });
+  }, [searchBarY]);
 
   const handleImportRecipe = useCallback(
     async (sourceUrl: string) => {

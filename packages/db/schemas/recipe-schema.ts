@@ -7,6 +7,7 @@ import {
   index,
   boolean,
   numeric,
+  uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -18,13 +19,14 @@ export const recipes = pgTable(
   {
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
-    ownerId: text("owner_id").notNull(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
     description: text("description"),
     prepTime: integer("prep_time"), // minutes
     cookTime: integer("cook_time"), // minutes
     totalTime: integer("total_time"), // minutes
     servings: integer("servings"),
-    nutrition: text("nutrition"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
 
@@ -46,6 +48,11 @@ export const recipes = pgTable(
     index("recipes_owner_id_idx").on(table.ownerId),
     index("recipes_created_at_idx").on(table.createdAt),
     index("recipes_name_idx").on(table.name),
+    // Full-text search index for recipe name queries
+    index("recipes_name_search_idx").using(
+      "gin",
+      sql`to_tsvector('english', ${table.name})`
+    ),
   ]
 );
 
@@ -220,5 +227,39 @@ export const recipeTags = pgTable(
   (table) => [
     index("recipe_tags_recipe_id_idx").on(table.recipeId),
     index("recipe_tags_tag_id_idx").on(table.tagId),
+  ]
+);
+
+// ─── Recipe nutrition (1:1 with recipes) ──────────────────────────────────────
+export const recipeNutrition = pgTable(
+  "recipe_nutrition",
+  {
+    id: serial("id").primaryKey(),
+    recipeId: integer("recipe_id")
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+
+    // Per serving values
+    calories: integer("calories"), // kcal
+    protein: numeric("protein", { precision: 6, scale: 2 }), // grams
+    carbohydrates: numeric("carbohydrates", { precision: 6, scale: 2 }), // grams
+    fat: numeric("fat", { precision: 6, scale: 2 }), // grams
+    saturatedFat: numeric("saturated_fat", { precision: 6, scale: 2 }), // grams
+    fiber: numeric("fiber", { precision: 6, scale: 2 }), // grams
+    sugar: numeric("sugar", { precision: 6, scale: 2 }), // grams
+    sodium: integer("sodium"), // mg
+
+    // Optional extended nutrition
+    cholesterol: integer("cholesterol"), // mg
+    potassium: integer("potassium"), // mg
+    vitaminA: integer("vitamin_a"), // % daily value
+    vitaminC: integer("vitamin_c"), // % daily value
+    calcium: integer("calcium"), // % daily value
+    iron: integer("iron"), // % daily value
+  },
+  (table) => [
+    uniqueIndex("recipe_nutrition_recipe_id_unique_idx").on(table.recipeId),
+    index("recipe_nutrition_calories_idx").on(table.calories),
+    index("recipe_nutrition_protein_idx").on(table.protein),
   ]
 );

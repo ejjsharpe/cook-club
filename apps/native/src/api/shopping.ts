@@ -200,7 +200,7 @@ export const useRemoveRecipeFromList = () => {
       const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
       queryClient.invalidateQueries(shoppingListFilter);
     },
-    onError: (error, variables, context) => {
+    onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousRecipeDetail && context?.recipeDetailQueryKey) {
         queryClient.setQueryData(

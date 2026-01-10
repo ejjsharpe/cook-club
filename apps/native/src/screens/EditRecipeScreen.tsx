@@ -388,7 +388,7 @@ export default function EditRecipeScreen() {
           "Parsing service unavailable. Please try again later.",
         );
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to parse ingredients. Please try again.");
     }
   };

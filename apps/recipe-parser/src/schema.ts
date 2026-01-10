@@ -29,7 +29,7 @@ export const TagSchema = type({
 });
 
 export const SourceTypeSchema = type(
-  "'url' | 'image' | 'text' | 'ai' | 'manual'"
+  "'url' | 'image' | 'text' | 'ai' | 'manual'",
 );
 
 export const ParsedRecipeSchema = type({

@@ -30,15 +30,6 @@ import { imageToBase64, getMimeTypeFromUri } from "@/utils/imageUtils";
 
 type ImportMode = "url" | "text" | "image";
 
-// Use the navigation param type for the result
-type ParsedRecipeResult = NonNullable<
-  ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"]
->;
-
-interface ImportRecipeSheetPayload {
-  onRecipeParsed: (result: ParsedRecipeResult) => void;
-}
-
 const ModeOption = ({
   icon,
   label,
@@ -55,7 +46,12 @@ const ModeOption = ({
     onPress={onPress}
     activeOpacity={0.7}
   >
-    <View style={[modeStyles.iconContainer, selected && modeStyles.iconContainerSelected]}>
+    <View
+      style={[
+        modeStyles.iconContainer,
+        selected && modeStyles.iconContainerSelected,
+      ]}
+    >
       <Ionicons
         name={icon}
         size={18}

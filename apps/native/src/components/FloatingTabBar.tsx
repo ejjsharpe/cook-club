@@ -91,9 +91,6 @@ interface SlidingIndicatorProps {
   tabBarWidth: number;
 }
 
-const TAB_ITEM_HORIZONTAL_PADDING = 6;
-const TAB_TOTAL_WIDTH = TAB_ITEM_SIZE + TAB_ITEM_HORIZONTAL_PADDING * 2;
-
 const SlidingIndicator = ({
   activeIndex,
   tabCount,

@@ -89,7 +89,7 @@ export const AddRecipeScreen = () => {
   };
 
   const onPressFridgeSnap = () => {
-    // TODO: Implement fridge snap
+    navigate("FridgeSnap", {});
   };
 
   return (
@@ -145,7 +145,6 @@ export const AddRecipeScreen = () => {
             label="Fridge Snap"
             subtitle="Take a photo of your fridge and get recipe ideas."
             onPress={onPressFridgeSnap}
-            disabled
           />
         </View>
 

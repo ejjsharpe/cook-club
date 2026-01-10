@@ -8,7 +8,7 @@ import {
 } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, desc, lt, and, sql } from "drizzle-orm";
+import { eq, desc, lt, and, sql, inArray } from "drizzle-orm";
 
 import {
   propagateActivityToFollowers,
@@ -193,8 +193,15 @@ export const activityRouter = router({
       const { recipeId, cursor, limit } = input;
 
       try {
-        // Build base query with cursor support
-        const baseQuery = ctx.db
+        // Build query with proper SQL cursor pagination
+        const conditions = cursor
+          ? and(
+              eq(cookingReviews.recipeId, recipeId),
+              lt(cookingReviews.id, cursor)
+            )
+          : eq(cookingReviews.recipeId, recipeId);
+
+        const results = await ctx.db
           .select({
             review: cookingReviews,
             user: {
@@ -205,46 +212,47 @@ export const activityRouter = router({
           })
           .from(cookingReviews)
           .innerJoin(user, eq(cookingReviews.userId, user.id))
-          .where(eq(cookingReviews.recipeId, recipeId))
-          .orderBy(desc(cookingReviews.createdAt))
+          .where(conditions)
+          .orderBy(desc(cookingReviews.id))
           .limit(limit + 1);
 
-        const results = await baseQuery;
+        // Check if there's a next page
+        const hasMore = results.length > limit;
+        const items = hasMore ? results.slice(0, limit) : results;
 
-        // If cursor is provided, filter results (simple approach)
-        let filteredResults = results;
-        if (cursor) {
-          const cursorIndex = results.findIndex((r) => r.review.id === cursor);
-          if (cursorIndex !== -1) {
-            filteredResults = results.slice(cursorIndex + 1);
-          }
+        // Batch fetch all images in one query (fixes N+1)
+        const reviewIds = items.map((item) => item.review.id);
+        const allImages =
+          reviewIds.length > 0
+            ? await ctx.db
+                .select({
+                  reviewId: cookingReviewImages.reviewId,
+                  url: cookingReviewImages.url,
+                })
+                .from(cookingReviewImages)
+                .where(inArray(cookingReviewImages.reviewId, reviewIds))
+                .orderBy(cookingReviewImages.reviewId, cookingReviewImages.index)
+            : [];
+
+        // Group images by reviewId
+        const imagesByReview = new Map<number, typeof allImages>();
+        for (const img of allImages) {
+          const existing = imagesByReview.get(img.reviewId) ?? [];
+          existing.push(img);
+          imagesByReview.set(img.reviewId, existing);
         }
 
-        // Check if there's a next page
-        const hasMore = filteredResults.length > limit;
-        const items = hasMore
-          ? filteredResults.slice(0, limit)
-          : filteredResults;
-
-        // Fetch images for each review
-        const reviewsWithImages = await Promise.all(
-          items.map(async (item) => {
-            const images = await ctx.db
-              .select({ url: cookingReviewImages.url })
-              .from(cookingReviewImages)
-              .where(eq(cookingReviewImages.reviewId, item.review.id))
-              .orderBy(cookingReviewImages.index);
-
-            return {
-              id: item.review.id,
-              rating: item.review.rating,
-              reviewText: item.review.reviewText,
-              images: images.map((img) => img.url),
-              createdAt: item.review.createdAt,
-              user: item.user,
-            };
-          }),
-        );
+        // Map to results with images
+        const reviewsWithImages = items.map((item) => ({
+          id: item.review.id,
+          rating: item.review.rating,
+          reviewText: item.review.reviewText,
+          images: (imagesByReview.get(item.review.id) ?? []).map(
+            (img) => img.url
+          ),
+          createdAt: item.review.createdAt,
+          user: item.user,
+        }));
 
         const lastItem = items[items.length - 1];
         return {

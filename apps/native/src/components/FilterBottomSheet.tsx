@@ -12,21 +12,6 @@ import { VSpace } from "./Space";
 import { TagChip } from "./TagChip";
 import { Text } from "./Text";
 
-interface Tag {
-  id: number;
-  name: string;
-  type: string;
-  count?: number;
-}
-
-interface FilterSheetPayload {
-  selectedTagIds: number[];
-  onTagsChange: (tagIds: number[]) => void;
-  maxTotalTime?: string;
-  onTimeChange: (time: string | undefined) => void;
-  allTags?: Tag[];
-}
-
 const TIME_OPTIONS = [
   { label: "15 min", value: "15" },
   { label: "30 min", value: "30" },

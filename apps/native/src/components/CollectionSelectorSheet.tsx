@@ -21,10 +21,6 @@ import {
   useCreateCollection,
 } from "../api/collection";
 
-interface CollectionSelectorPayload {
-  recipeId: number;
-}
-
 export const CollectionSelectorSheet = (
   props: SheetProps<"collection-selector-sheet">,
 ) => {
@@ -58,7 +54,7 @@ export const CollectionSelectorSheet = (
 
       setNewCollectionName("");
       setIsCreatingCollection(false);
-    } catch (error) {
+    } catch {
       // Error handling is done in the mutation
     }
   };

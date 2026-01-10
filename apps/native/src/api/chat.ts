@@ -1,7 +1,7 @@
 import { useTRPC } from "@repo/trpc/client";
 import { useMutation } from "@tanstack/react-query";
 
-import type { ConversationState, ChatMessage } from "@/types/chat";
+import type { ConversationState } from "@/types/chat";
 
 // Generate recipe via AI chat conversation
 export const useGenerateRecipeChat = () => {

@@ -4,3 +4,4 @@ export * from "./follows-schema";
 export * from "./shopping-schema";
 export * from "./activity-schema";
 export * from "./comments-schema";
+export * from "./user-preferences-schema";

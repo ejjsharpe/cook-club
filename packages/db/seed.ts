@@ -113,6 +113,7 @@ async function clearDatabase(db: DbClient) {
   await db.delete(schema.recipeCollections);
   await db.delete(schema.collections);
   await db.delete(schema.recipeTags);
+  await db.delete(schema.recipeNutrition);
   // Delete ingredients/instructions first, then their sections
   await db.delete(schema.recipeInstructions);
   await db.delete(schema.recipeIngredients);
@@ -120,6 +121,7 @@ async function clearDatabase(db: DbClient) {
   await db.delete(schema.ingredientSections);
   await db.delete(schema.recipeImages);
   await db.delete(schema.recipes);
+  await db.delete(schema.userTagPreferences);
   await db.delete(schema.tags);
   await db.delete(schema.verification);
   await db.delete(schema.session);
@@ -210,6 +212,63 @@ async function seedUsers(db: DbClient) {
 
   console.log(`✅ Seeded ${users.length} users`);
   return users;
+}
+
+async function seedUserPreferences(
+  db: DbClient,
+  users: (typeof schema.user.$inferSelect)[],
+  allTags: (typeof schema.tags.$inferSelect)[]
+) {
+  console.log("🎯 Seeding user preferences...");
+
+  const cuisineTags = allTags.filter((t) => t.type === "cuisine");
+  const dietaryTags = allTags.filter((t) => t.type === "dietary");
+
+  let preferencesCount = 0;
+
+  for (const user of users) {
+    // Give each user 2-4 cuisine likes
+    const cuisineLikes = shuffle(cuisineTags).slice(0, randomInt(2, 4));
+    for (const tag of cuisineLikes) {
+      await db.insert(schema.userTagPreferences).values({
+        userId: user.id,
+        tagId: tag.id,
+        preferenceType: "cuisine_like",
+      });
+      preferencesCount++;
+    }
+
+    // Give some users 1-2 cuisine dislikes
+    if (Math.random() < 0.3) {
+      const availableCuisines = cuisineTags.filter(
+        (t) => !cuisineLikes.some((cl) => cl.id === t.id)
+      );
+      const cuisineDislikes = shuffle(availableCuisines).slice(0, randomInt(1, 2));
+      for (const tag of cuisineDislikes) {
+        await db.insert(schema.userTagPreferences).values({
+          userId: user.id,
+          tagId: tag.id,
+          preferenceType: "cuisine_dislike",
+        });
+        preferencesCount++;
+      }
+    }
+
+    // Give some users dietary requirements (0-2)
+    if (Math.random() < 0.4) {
+      const dietaryPrefs = shuffle(dietaryTags).slice(0, randomInt(1, 2));
+      for (const tag of dietaryPrefs) {
+        await db.insert(schema.userTagPreferences).values({
+          userId: user.id,
+          tagId: tag.id,
+          preferenceType: "dietary",
+        });
+        preferencesCount++;
+      }
+    }
+  }
+
+  console.log(`✅ Seeded ${preferencesCount} user preferences`);
 }
 
 async function seedRecipes(
@@ -574,7 +633,6 @@ async function seedImportedRecipes(
           cookTime: sourceRecipe.cookTime,
           totalTime: sourceRecipe.totalTime,
           servings: sourceRecipe.servings,
-          nutrition: sourceRecipe.nutrition,
           sourceUrl: null,
           sourceType: "user",
           originalRecipeId: sourceRecipe.id,
@@ -816,6 +874,35 @@ async function seedActivityFeed(
   );
 }
 
+async function seedNutrition(
+  db: DbClient,
+  recipes: (typeof schema.recipes.$inferSelect)[]
+) {
+  console.log("🥗 Seeding nutrition data...");
+
+  let nutritionCount = 0;
+
+  // Add nutrition data to about 60% of recipes
+  for (const recipe of recipes) {
+    if (Math.random() < 0.6) {
+      await db.insert(schema.recipeNutrition).values({
+        recipeId: recipe.id,
+        calories: randomInt(150, 800),
+        protein: String(randomInt(5, 45)),
+        carbohydrates: String(randomInt(10, 80)),
+        fat: String(randomInt(5, 40)),
+        saturatedFat: String(randomInt(1, 15)),
+        fiber: String(randomInt(1, 12)),
+        sugar: String(randomInt(1, 25)),
+        sodium: randomInt(100, 1200),
+      });
+      nutritionCount++;
+    }
+  }
+
+  console.log(`✅ Seeded nutrition for ${nutritionCount} recipes`);
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -849,6 +936,9 @@ async function main() {
     const users = await seedUsers(db);
     console.log("");
 
+    await seedUserPreferences(db, users, allTags);
+    console.log("");
+
     const originalRecipes = await seedRecipes(db, users, allTags);
     console.log("");
 
@@ -871,6 +961,9 @@ async function main() {
 
     const allRecipes = [...originalRecipes, ...socialMediaRecipes, ...importedRecipes];
     await seedActivityFeed(db, users, allRecipes);
+    console.log("");
+
+    await seedNutrition(db, allRecipes);
     console.log("");
 
     console.log("✨ Database seeded successfully!");

@@ -71,7 +71,61 @@ export type ChatResponse =
       error: { code: string; message: string };
     };
 
+// Fridge Snap types
+export interface IdentifyIngredientsInput {
+  imageBase64: string;
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+}
+
+export type IdentifyIngredientsResponse =
+  | {
+      success: true;
+      ingredients: string[];
+      confidence: "high" | "medium" | "low";
+    }
+  | {
+      success: false;
+      error: { code: string; message: string };
+    };
+
+export interface RecipeSuggestion {
+  id: string;
+  name: string;
+  description: string;
+  estimatedTime: number;
+  difficulty: "easy" | "medium" | "hard";
+  matchedIngredients: string[];
+  additionalIngredients: string[];
+}
+
+export interface SuggestRecipesInput {
+  ingredients: string[];
+  count: number;
+}
+
+export type SuggestRecipesResponse =
+  | {
+      success: true;
+      suggestions: RecipeSuggestion[];
+    }
+  | {
+      success: false;
+      error: { code: string; message: string };
+    };
+
+export interface GenerateFromSuggestionInput {
+  suggestion: RecipeSuggestion;
+  availableIngredients: string[];
+}
+
 export interface RecipeParserService {
   parse(input: ParseInput): Promise<ParseResponse>;
   chat(input: ChatInput): Promise<ChatResponse>;
+  identifyIngredients(
+    input: IdentifyIngredientsInput,
+  ): Promise<IdentifyIngredientsResponse>;
+  suggestRecipes(input: SuggestRecipesInput): Promise<SuggestRecipesResponse>;
+  generateFromSuggestion(
+    input: GenerateFromSuggestionInput,
+  ): Promise<ParseResponse>;
 }

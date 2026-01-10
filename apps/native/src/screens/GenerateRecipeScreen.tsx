@@ -15,7 +15,7 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { useGenerateRecipeChat } from "@/api/chat";
 import { SafeAreaView } from "@/components/SafeAreaView";
-import { HSpace, VSpace } from "@/components/Space";
+import { HSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
 import type { ChatMessage, ConversationState, ChatStatus } from "@/types/chat";
@@ -101,7 +101,7 @@ export const GenerateRecipeScreen = () => {
             },
           });
         }
-      } catch (error) {
+      } catch {
         const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: "assistant",

@@ -1,7 +1,7 @@
 import { follows, user, recipes } from "@repo/db/schemas";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, and, or, ne, like, count } from "drizzle-orm";
+import { eq, and, or, ne, like, sql } from "drizzle-orm";
 
 import {
   backfillFeedFromUser,
@@ -166,78 +166,59 @@ export const followsRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const { userId } = input;
+      const currentUserId = ctx.user.id;
 
       try {
-        // Get user info
-        const targetUser = await ctx.db
+        // Single query with subqueries for all profile data
+        const profileData = await ctx.db
           .select({
             id: user.id,
             name: user.name,
             email: user.email,
             image: user.image,
             createdAt: user.createdAt,
+            followersCount: sql<number>`(
+              SELECT COUNT(*)::int FROM follows WHERE following_id = ${user.id}
+            )`,
+            followingCount: sql<number>`(
+              SELECT COUNT(*)::int FROM follows WHERE follower_id = ${user.id}
+            )`,
+            recipeCount: sql<number>`(
+              SELECT COUNT(*)::int FROM recipes WHERE owner_id = ${user.id}
+            )`,
+            isFollowing: sql<boolean>`EXISTS(
+              SELECT 1 FROM follows
+              WHERE follower_id = ${currentUserId} AND following_id = ${user.id}
+            )`,
+            followsMe: sql<boolean>`EXISTS(
+              SELECT 1 FROM follows
+              WHERE follower_id = ${user.id} AND following_id = ${currentUserId}
+            )`,
           })
           .from(user)
           .where(eq(user.id, userId))
           .then((rows) => rows[0]);
 
-        if (!targetUser) {
+        if (!profileData) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "User not found",
           });
         }
 
-        // Check if I'm following this user
-        const followRelation = await ctx.db
-          .select()
-          .from(follows)
-          .where(
-            and(
-              eq(follows.followerId, ctx.user.id),
-              eq(follows.followingId, userId),
-            ),
-          )
-          .then((rows) => rows[0]);
-
-        // Check if they're following me
-        const followsMe = await ctx.db
-          .select()
-          .from(follows)
-          .where(
-            and(
-              eq(follows.followerId, userId),
-              eq(follows.followingId, ctx.user.id),
-            ),
-          )
-          .then((rows) => rows[0]);
-
-        // Get follower/following counts and recipe count
-        const [followersCount, followingCount, recipeCount] = await Promise.all(
-          [
-            ctx.db
-              .select({ count: follows.id })
-              .from(follows)
-              .where(eq(follows.followingId, userId)),
-            ctx.db
-              .select({ count: follows.id })
-              .from(follows)
-              .where(eq(follows.followerId, userId)),
-            ctx.db
-              .select({ count: count(recipes.id) })
-              .from(recipes)
-              .where(eq(recipes.ownerId, userId))
-              .then((rows) => rows[0]?.count ?? 0),
-          ],
-        );
-
         return {
-          user: targetUser,
-          isFollowing: !!followRelation,
-          followsMe: !!followsMe,
-          followersCount: followersCount.length,
-          followingCount: followingCount.length,
-          recipeCount: Number(recipeCount),
+          user: {
+            id: profileData.id,
+            name: profileData.name,
+            email: profileData.email,
+            image: profileData.image,
+            createdAt: profileData.createdAt,
+          },
+          isFollowing: profileData.isFollowing,
+          followsMe: profileData.followsMe,
+          followersCount: profileData.followersCount,
+          followingCount: profileData.followingCount,
+          recipeCount: profileData.recipeCount,
         };
       } catch (err) {
         if (err instanceof TRPCError) throw err;

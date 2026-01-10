@@ -1,4 +1,4 @@
-import { Pressable, PressableProps, ViewStyle } from "react-native";
+import { Pressable, PressableProps } from "react-native";
 import Animated, {
   interpolate,
   useAnimatedStyle,

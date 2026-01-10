@@ -18,6 +18,7 @@ import { CollectionDetailScreen } from "@/screens/CollectionDetailScreen";
 import { EditProfileScreen } from "@/screens/EditProfileScreen";
 import EditRecipeScreen from "@/screens/EditRecipeScreen";
 import { FollowsScreen } from "@/screens/FollowsScreen";
+import FridgeSnapScreen from "@/screens/FridgeSnapScreen";
 import GenerateRecipeScreen from "@/screens/GenerateRecipeScreen";
 import { RecipeDetailScreen } from "@/screens/RecipeDetailScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
@@ -36,6 +37,7 @@ declare global {
     interface RootParamList extends RootStackParamList {
       EditRecipe: { parsedRecipe?: ParsedRecipe };
       GenerateRecipe: Record<string, never>;
+      FridgeSnap: Record<string, never>;
       UserProfile: { userId: string };
       FollowsList: {
         userId: string;
@@ -73,6 +75,7 @@ const RootStack = createNativeStackNavigator({
         Tabs: TabNavigator,
         EditRecipe: { screen: EditRecipeScreen },
         GenerateRecipe: { screen: GenerateRecipeScreen },
+        FridgeSnap: { screen: FridgeSnapScreen },
         EditProfile: { screen: EditProfileScreen },
         Settings: { screen: SettingsScreen },
         CuisinePreferences: { screen: CuisinePreferencesScreen },
