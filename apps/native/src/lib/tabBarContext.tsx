@@ -52,6 +52,15 @@ export const useTabBarScroll = () => {
       const scrollY = contentOffset.y;
       const threshold = 10;
 
+      // If content is too short to scroll, always show tab bar
+      const isScrollable = contentSize.height > layoutMeasurement.height;
+      if (!isScrollable) {
+        if (isVisible.value !== 1) {
+          setVisible(true);
+        }
+        return;
+      }
+
       // Ignore top overscroll (negative values during bounce)
       if (scrollY < 0) {
         return;
