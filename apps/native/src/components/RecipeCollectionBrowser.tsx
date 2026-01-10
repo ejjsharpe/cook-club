@@ -275,7 +275,7 @@ export const RecipeCollectionBrowser = ({
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={RecipeSeparator}
             onScroll={recipesScrollHandler}
-            scrollEventThrottle={20}
+            scrollEventThrottle={32}
           />
         )}
         {isLoadingCollections ? (
