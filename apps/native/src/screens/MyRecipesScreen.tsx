@@ -14,11 +14,11 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withSpring,
   Easing,
   FadeIn as ReanimatedFadeIn,
   useAnimatedScrollHandler,
   runOnJS,
-  withSpring,
   interpolate,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
@@ -96,29 +96,30 @@ export const MyRecipesScreen = () => {
   const recipesScrollY = useRef(0);
   const collectionsScrollY = useRef(0);
 
+  // Track when tab was switched to delay scroll handling
+  const tabSwitchedAt = useRef(0);
+  const TAB_SWITCH_DELAY = 250; // ms to let spring animation settle
+
   const handleRecipesScroll = useCallback(
     (offsetY: number, contentHeight: number, layoutHeight: number) => {
-      // Only process scroll events when on recipes tab
+      // Always track scroll position even when not active (for tab switching)
+      recipesScrollY.current = offsetY;
+
+      // Only update header when this tab is active
       if (activeTab !== "recipes") {
         return;
       }
 
-      recipesScrollY.current = offsetY;
-
-      // Update header
-      if (offsetY <= TITLE_SECTION_HEIGHT) {
-        headerTranslateY.value = withSpring(0, {
-          damping: 30,
-          stiffness: 200,
-          mass: 1,
-        });
-      } else {
-        headerTranslateY.value = withSpring(-TITLE_SECTION_HEIGHT, {
-          damping: 30,
-          stiffness: 200,
-          mass: 1,
-        });
+      // Skip header updates during tab switch animation
+      if (Date.now() - tabSwitchedAt.current < TAB_SWITCH_DELAY) {
+        return;
       }
+
+      // Update header - follow scroll 1:1
+      headerTranslateY.value = -Math.min(
+        Math.max(offsetY, 0),
+        TITLE_SECTION_HEIGHT,
+      );
 
       onTabBarScroll({
         nativeEvent: {
@@ -133,27 +134,24 @@ export const MyRecipesScreen = () => {
 
   const handleCollectionsScroll = useCallback(
     (offsetY: number, contentHeight: number, layoutHeight: number) => {
-      // Only process scroll events when on collections tab
+      // Always track scroll position even when not active (for tab switching)
+      collectionsScrollY.current = offsetY;
+
+      // Only update header when this tab is active
       if (activeTab !== "collections") {
         return;
       }
 
-      collectionsScrollY.current = offsetY;
-
-      // Update header
-      if (offsetY <= TITLE_SECTION_HEIGHT) {
-        headerTranslateY.value = withSpring(0, {
-          damping: 30,
-          stiffness: 200,
-          mass: 1,
-        });
-      } else {
-        headerTranslateY.value = withSpring(-TITLE_SECTION_HEIGHT, {
-          damping: 30,
-          stiffness: 200,
-          mass: 1,
-        });
+      // Skip header updates during tab switch animation
+      if (Date.now() - tabSwitchedAt.current < TAB_SWITCH_DELAY) {
+        return;
       }
+
+      // Update header - follow scroll 1:1
+      headerTranslateY.value = -Math.min(
+        Math.max(offsetY, 0),
+        TITLE_SECTION_HEIGHT,
+      );
 
       onTabBarScroll({
         nativeEvent: {
@@ -218,24 +216,21 @@ export const MyRecipesScreen = () => {
 
   const switchTab = useCallback(
     (tab: MyRecipesTab) => {
+      tabSwitchedAt.current = Date.now();
       setActiveTab(tab);
 
-      // Animate header based on new tab's scroll position
+      // Spring animate header to new tab's scroll position
       const newTabScrollY =
         tab === "recipes" ? recipesScrollY.current : collectionsScrollY.current;
-      if (newTabScrollY <= TITLE_SECTION_HEIGHT) {
-        headerTranslateY.value = withSpring(0, {
-          damping: 30,
-          stiffness: 200,
-          mass: 1,
-        });
-      } else {
-        headerTranslateY.value = withSpring(-TITLE_SECTION_HEIGHT, {
-          damping: 30,
-          stiffness: 200,
-          mass: 1,
-        });
-      }
+      const targetY = -Math.min(
+        Math.max(newTabScrollY, 0),
+        TITLE_SECTION_HEIGHT,
+      );
+      headerTranslateY.value = withSpring(targetY, {
+        damping: 30,
+        stiffness: 200,
+        mass: 1,
+      });
 
       // Animate filter button visibility
       filterButtonProgress.value = withTiming(
@@ -506,7 +501,7 @@ export const MyRecipesScreen = () => {
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={RecipeSeparator}
             onScroll={recipesScrollHandler}
-            scrollEventThrottle={16}
+            scrollEventThrottle={20}
           />
         )}
         {isLoadingCollections ? (
@@ -527,7 +522,7 @@ export const MyRecipesScreen = () => {
             contentContainerStyle={styles.collectionsGridContent}
             columnWrapperStyle={styles.collectionsRow as any}
             onScroll={collectionsScrollHandler}
-            scrollEventThrottle={16}
+            scrollEventThrottle={20}
           />
         )}
       </SwipeableTabView>
