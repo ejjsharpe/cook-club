@@ -50,7 +50,7 @@ const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Header height constants
-const TITLE_SECTION_HEIGHT = 8 + 34 + 20; // VSpace(8) + title row + VSpace(20) before search
+const TITLE_SECTION_HEIGHT = 8 + 40 + 20; // VSpace(8) + title1 lineHeight(40) + VSpace(20) before search
 const SEARCH_ROW_HEIGHT = 50; // search bar height
 const TABS_HEIGHT = 16 + 50 + 16; // VSpace(16) + tabs + VSpace(16)
 const HEADER_HEIGHT = TITLE_SECTION_HEIGHT + SEARCH_ROW_HEIGHT + TABS_HEIGHT;

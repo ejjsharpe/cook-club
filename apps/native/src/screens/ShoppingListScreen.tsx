@@ -267,8 +267,8 @@ export const ShoppingListScreen = () => {
     return {
       paddingBottom: withSpring(
         isVisible.value === 1
-          ? FLOATING_TAB_BAR_HEIGHT + insets.bottom
-          : insets.bottom + 16,
+          ? FLOATING_TAB_BAR_HEIGHT + insets.bottom - 8
+          : insets.bottom + 8,
         { damping: 50, stiffness: 400, mass: 3 },
       ),
     };

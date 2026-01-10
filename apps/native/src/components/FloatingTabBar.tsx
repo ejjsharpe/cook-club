@@ -185,12 +185,12 @@ export const FloatingTabBar = ({ state, navigation }: BottomTabBarProps) => {
     <Animated.View
       style={[
         styles.container,
-        { bottom: Math.max(insets.bottom, 16) },
+        { bottom: Math.max(insets.bottom - 8, 8) },
         animatedContainerStyle,
       ]}
     >
       <BlurView
-        intensity={60}
+        intensity={80}
         tint={UnistylesRuntime.themeName === "dark" ? "dark" : "light"}
         style={styles.tabBar}
         onLayout={(e) => {
