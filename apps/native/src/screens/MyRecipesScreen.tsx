@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { useNavigation } from "@react-navigation/native";
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   View,
   Alert,
@@ -14,12 +14,10 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
   Easing,
   FadeIn as ReanimatedFadeIn,
   useAnimatedScrollHandler,
   runOnJS,
-  interpolate,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -41,6 +39,7 @@ import { VSpace } from "@/components/Space";
 import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { Text } from "@/components/Text";
 import { UnderlineTabBar, type TabOption } from "@/components/UnderlineTabBar";
+import { useAnimatedHeaderScroll } from "@/hooks/useAnimatedHeaderScroll";
 import { useTabBarScroll } from "@/lib/tabBarContext";
 
 const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
@@ -89,84 +88,28 @@ export const MyRecipesScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const scrollProgress = useSharedValue(0);
 
-  // Header title collapse on scroll
-  const headerTranslateY = useSharedValue(0);
+  const activeTabIndex = activeTab === "recipes" ? 0 : 1;
 
-  // Track scroll positions for each tab
-  const recipesScrollY = useRef(0);
-  const collectionsScrollY = useRef(0);
+  const {
+    headerAnimatedStyle,
+    titleAnimatedStyle,
+    createScrollCallback,
+    handleTabSwitch,
+  } = useAnimatedHeaderScroll({
+    titleSectionHeight: TITLE_SECTION_HEIGHT,
+    headerHeight: HEADER_HEIGHT,
+    tabCount: 2,
+    activeTabIndex,
+    onScroll: onTabBarScroll,
+  });
 
-  // Track when tab was switched to delay scroll handling
-  const tabSwitchedAt = useRef(0);
-  const TAB_SWITCH_DELAY = 250; // ms to let spring animation settle
-
-  const handleRecipesScroll = useCallback(
-    (offsetY: number, contentHeight: number, layoutHeight: number) => {
-      // Always track scroll position even when not active (for tab switching)
-      recipesScrollY.current = offsetY;
-
-      // Only update header when this tab is active
-      if (activeTab !== "recipes") {
-        return;
-      }
-
-      // Skip header updates during tab switch animation
-      if (Date.now() - tabSwitchedAt.current < TAB_SWITCH_DELAY) {
-        return;
-      }
-
-      // Update header - follow scroll 1:1
-      headerTranslateY.value = -Math.min(
-        Math.max(offsetY, 0),
-        TITLE_SECTION_HEIGHT,
-      );
-
-      onTabBarScroll({
-        nativeEvent: {
-          contentOffset: { y: offsetY },
-          contentSize: { height: contentHeight },
-          layoutMeasurement: { height: layoutHeight },
-        },
-      } as any);
-    },
-    [onTabBarScroll, activeTab, headerTranslateY],
-  );
-
-  const handleCollectionsScroll = useCallback(
-    (offsetY: number, contentHeight: number, layoutHeight: number) => {
-      // Always track scroll position even when not active (for tab switching)
-      collectionsScrollY.current = offsetY;
-
-      // Only update header when this tab is active
-      if (activeTab !== "collections") {
-        return;
-      }
-
-      // Skip header updates during tab switch animation
-      if (Date.now() - tabSwitchedAt.current < TAB_SWITCH_DELAY) {
-        return;
-      }
-
-      // Update header - follow scroll 1:1
-      headerTranslateY.value = -Math.min(
-        Math.max(offsetY, 0),
-        TITLE_SECTION_HEIGHT,
-      );
-
-      onTabBarScroll({
-        nativeEvent: {
-          contentOffset: { y: offsetY },
-          contentSize: { height: contentHeight },
-          layoutMeasurement: { height: layoutHeight },
-        },
-      } as any);
-    },
-    [onTabBarScroll, activeTab, headerTranslateY],
-  );
+  // Create scroll callbacks for each tab
+  const handleRecipesScrollCallback = createScrollCallback(0);
+  const handleCollectionsScrollCallback = createScrollCallback(1);
 
   const recipesScrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      runOnJS(handleRecipesScroll)(
+      runOnJS(handleRecipesScrollCallback)(
         event.contentOffset.y,
         event.contentSize.height,
         event.layoutMeasurement.height,
@@ -176,7 +119,7 @@ export const MyRecipesScreen = () => {
 
   const collectionsScrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      runOnJS(handleCollectionsScroll)(
+      runOnJS(handleCollectionsScrollCallback)(
         event.contentOffset.y,
         event.contentSize.height,
         event.layoutMeasurement.height,
@@ -199,38 +142,11 @@ export const MyRecipesScreen = () => {
     marginLeft: 12 * filterButtonProgress.value,
   }));
 
-  const headerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: headerTranslateY.value }],
-  }));
-
-  const titleAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      headerTranslateY.value,
-      [0, -TITLE_SECTION_HEIGHT],
-      [1, 0],
-      "clamp",
-    ),
-  }));
-
-  const activeTabIndex = activeTab === "recipes" ? 0 : 1;
-
   const switchTab = useCallback(
     (tab: MyRecipesTab) => {
-      tabSwitchedAt.current = Date.now();
+      const newTabIndex = tab === "recipes" ? 0 : 1;
       setActiveTab(tab);
-
-      // Spring animate header to new tab's scroll position
-      const newTabScrollY =
-        tab === "recipes" ? recipesScrollY.current : collectionsScrollY.current;
-      const targetY = -Math.min(
-        Math.max(newTabScrollY, 0),
-        TITLE_SECTION_HEIGHT,
-      );
-      headerTranslateY.value = withSpring(targetY, {
-        damping: 30,
-        stiffness: 200,
-        mass: 1,
-      });
+      handleTabSwitch(newTabIndex);
 
       // Animate filter button visibility
       filterButtonProgress.value = withTiming(
@@ -238,7 +154,7 @@ export const MyRecipesScreen = () => {
         animationConfig,
       );
     },
-    [filterButtonProgress, headerTranslateY],
+    [handleTabSwitch, filterButtonProgress],
   );
 
   const handleSwipeTabChange = useCallback(
