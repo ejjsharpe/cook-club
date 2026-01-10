@@ -11,7 +11,6 @@ import {
   TextInput,
   Alert,
 } from "react-native";
-import type { NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import {
   KeyboardStickyView,
@@ -76,8 +75,6 @@ interface Recipe {
 }
 
 const INPUT_SECTION_HEIGHT = 68;
-const SCROLL_THRESHOLD = 50;
-const HEADER_HEIGHT = 32;
 
 interface SwipeableItemProps {
   item: ShoppingListItem;
@@ -257,45 +254,7 @@ export const ShoppingListScreen = () => {
   const { isVisible } = useTabBar();
   const { onScroll: onTabBarScroll } = useTabBarScroll();
   const [manualItemText, setManualItemText] = useState("");
-  const scrollY = useSharedValue(0);
   const { progress: keyboardswipeProgress } = useReanimatedKeyboardAnimation();
-
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      // Clamp to prevent glitchy animations during bounce
-      scrollY.value = Math.max(0, event.nativeEvent.contentOffset.y);
-      onTabBarScroll(event);
-    },
-    [scrollY, onTabBarScroll],
-  );
-
-  const largeTitleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      scrollY.value,
-      [0, SCROLL_THRESHOLD],
-      [1, 0],
-      Extrapolation.CLAMP,
-    ),
-    transform: [
-      {
-        translateY: interpolate(
-          scrollY.value,
-          [0, SCROLL_THRESHOLD],
-          [0, -10],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
-  }));
-
-  const headerTitleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      scrollY.value,
-      [SCROLL_THRESHOLD - 20, SCROLL_THRESHOLD],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
-  }));
 
   const inputPaddingAnimatedStyle = useAnimatedStyle(() => {
     // When keyboard is open, no extra padding needed (keyboard covers tab bar)
@@ -512,12 +471,11 @@ export const ShoppingListScreen = () => {
   };
 
   const listHeaderComponent = (
-    <View style={{ paddingTop: insets.top + HEADER_HEIGHT }}>
-      {/* Large Title */}
+    <View style={{ paddingTop: insets.top }}>
+      <VSpace size={32} />
+      {/* Title */}
       <View style={styles.largeTitleContainer}>
-        <Animated.View style={largeTitleStyle}>
-          <Text type="title1">Shopping List</Text>
-        </Animated.View>
+        <Text type="title1">Shopping List</Text>
         {checkedCount > 0 && (
           <TouchableOpacity
             onPress={handleClearChecked}
@@ -546,15 +504,6 @@ export const ShoppingListScreen = () => {
 
   return (
     <View style={styles.screen}>
-      {/* Fixed Header */}
-      <View style={[styles.fixedHeader, { paddingTop: insets.top }]}>
-        <View style={styles.headerContent}>
-          <Animated.Text style={[styles.headerTitle, headerTitleStyle]}>
-            Shopping List
-          </Animated.Text>
-        </View>
-      </View>
-
       {/* Shopping List Items */}
       <SkeletonContainer
         isLoading={isLoading}
@@ -586,7 +535,7 @@ export const ShoppingListScreen = () => {
             { paddingBottom: INPUT_SECTION_HEIGHT + insets.bottom },
             sections.length === 0 && styles.emptyListContent,
           ]}
-          onScroll={handleScroll}
+          onScroll={onTabBarScroll}
           scrollEventThrottle={16}
         />
       </SkeletonContainer>
@@ -636,24 +585,6 @@ const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  fixedHeader: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    backgroundColor: theme.colors.background,
-  },
-  headerContent: {
-    height: 32,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontFamily: theme.fonts.albertSemiBold,
-    color: theme.colors.text,
   },
   largeTitleContainer: {
     flexDirection: "row",

@@ -2,22 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { View, TouchableOpacity, ScrollView } from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
-import Animated, {
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  interpolate,
-  Extrapolation,
-} from "react-native-reanimated";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
 
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-
-const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
-
-const SCROLL_THRESHOLD = 50;
 
 const OptionCard = ({
   icon,
@@ -46,42 +35,6 @@ const OptionCard = ({
 
 export const AddRecipeScreen = () => {
   const { navigate } = useNavigation();
-  const insets = UnistylesRuntime.insets;
-  const scrollY = useSharedValue(0);
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
-
-  const largeTitleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      scrollY.value,
-      [0, SCROLL_THRESHOLD],
-      [1, 0],
-      Extrapolation.CLAMP,
-    ),
-    transform: [
-      {
-        translateY: interpolate(
-          scrollY.value,
-          [0, SCROLL_THRESHOLD],
-          [0, -10],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
-  }));
-
-  const headerTitleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      scrollY.value,
-      [SCROLL_THRESHOLD - 20, SCROLL_THRESHOLD],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
-  }));
 
   const handleRecipeParsed = (
     result: ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"],
@@ -104,30 +57,15 @@ export const AddRecipeScreen = () => {
   };
 
   return (
-    <View style={styles.screen}>
-      {/* Fixed Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <View style={styles.headerContent}>
-          <Animated.Text style={[styles.headerTitle, headerTitleStyle]}>
-            Add a recipe
-          </Animated.Text>
-        </View>
-      </View>
-
-      <AnimatedScrollView
+    <SafeAreaView edges={["top"]} style={styles.screen}>
+      <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.container,
-          { paddingTop: insets.top + 32 },
-        ]}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
+        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
+        <VSpace size={32} />
         {/* Title */}
-        <Animated.View style={largeTitleStyle}>
-          <Text type="title1">Add a recipe</Text>
-        </Animated.View>
+        <Text type="title1">Add a recipe</Text>
 
         <VSpace size={28} />
 
@@ -157,8 +95,8 @@ export const AddRecipeScreen = () => {
         />
 
         <VSpace size={40} />
-      </AnimatedScrollView>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -166,24 +104,6 @@ const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  header: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    backgroundColor: theme.colors.background,
-  },
-  headerContent: {
-    height: 32,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontFamily: theme.fonts.albertSemiBold,
-    color: theme.colors.text,
   },
   scrollView: {
     flex: 1,

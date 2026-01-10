@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
 import { useNavigation } from "@react-navigation/native";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import {
   View,
   Alert,
@@ -9,7 +9,6 @@ import {
   Dimensions,
   ActivityIndicator,
 } from "react-native";
-import type { ViewStyle } from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
 import Animated, {
   useSharedValue,
@@ -18,16 +17,15 @@ import Animated, {
   Easing,
   FadeIn as ReanimatedFadeIn,
   useAnimatedScrollHandler,
-  interpolate,
-  Extrapolation,
   runOnJS,
+  withSpring,
+  interpolate,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
   useGetUserCollectionsWithMetadata,
   useCreateCollection,
-  useDeleteCollection,
 } from "@/api/collection";
 import { useGetUserRecipes, useAllTags } from "@/api/recipe";
 import { CollectionGridCard, GRID_GAP } from "@/components/CollectionGridCard";
@@ -90,22 +88,38 @@ export const MyRecipesScreen = () => {
   const [activeTab, setActiveTab] = useState<MyRecipesTab>("recipes");
   const [searchQuery, setSearchQuery] = useState("");
   const scrollProgress = useSharedValue(0);
-  const scrollY = useSharedValue(0);
 
-  // Header collapse animation - EXTEND allows overscroll bounce
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(
-      scrollY.value,
-      [0, HEADER_HEIGHT],
-      [0, -HEADER_HEIGHT],
-    );
-    return {
-      transform: [{ translateY }],
-    };
-  });
+  // Header title collapse on scroll
+  const headerTranslateY = useSharedValue(0);
 
-  const handleScrollEvent = useCallback(
+  // Track scroll positions for each tab
+  const recipesScrollY = useRef(0);
+  const collectionsScrollY = useRef(0);
+
+  const handleRecipesScroll = useCallback(
     (offsetY: number, contentHeight: number, layoutHeight: number) => {
+      // Only process scroll events when on recipes tab
+      if (activeTab !== "recipes") {
+        return;
+      }
+
+      recipesScrollY.current = offsetY;
+
+      // Update header
+      if (offsetY <= 66) {
+        headerTranslateY.value = withSpring(0, {
+          damping: 30,
+          stiffness: 200,
+          mass: 1,
+        });
+      } else {
+        headerTranslateY.value = withSpring(-TITLE_HEIGHT, {
+          damping: 30,
+          stiffness: 200,
+          mass: 1,
+        });
+      }
+
       onTabBarScroll({
         nativeEvent: {
           contentOffset: { y: offsetY },
@@ -114,13 +128,57 @@ export const MyRecipesScreen = () => {
         },
       } as any);
     },
-    [onTabBarScroll],
+    [onTabBarScroll, activeTab, headerTranslateY],
   );
 
-  const scrollHandler = useAnimatedScrollHandler({
+  const handleCollectionsScroll = useCallback(
+    (offsetY: number, contentHeight: number, layoutHeight: number) => {
+      // Only process scroll events when on collections tab
+      if (activeTab !== "collections") {
+        return;
+      }
+
+      collectionsScrollY.current = offsetY;
+
+      // Update header
+      if (offsetY <= 66) {
+        headerTranslateY.value = withSpring(0, {
+          damping: 30,
+          stiffness: 200,
+          mass: 1,
+        });
+      } else {
+        headerTranslateY.value = withSpring(-TITLE_HEIGHT, {
+          damping: 30,
+          stiffness: 200,
+          mass: 1,
+        });
+      }
+
+      onTabBarScroll({
+        nativeEvent: {
+          contentOffset: { y: offsetY },
+          contentSize: { height: contentHeight },
+          layoutMeasurement: { height: layoutHeight },
+        },
+      } as any);
+    },
+    [onTabBarScroll, activeTab, headerTranslateY],
+  );
+
+  const recipesScrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-      runOnJS(handleScrollEvent)(
+      runOnJS(handleRecipesScroll)(
+        event.contentOffset.y,
+        event.contentSize.height,
+        event.layoutMeasurement.height,
+      );
+    },
+  });
+
+  const collectionsScrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      runOnJS(handleCollectionsScroll)(
         event.contentOffset.y,
         event.contentSize.height,
         event.layoutMeasurement.height,
@@ -143,11 +201,41 @@ export const MyRecipesScreen = () => {
     marginLeft: 12 * filterButtonProgress.value,
   }));
 
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
+
+  const titleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      headerTranslateY.value,
+      [0, -TITLE_HEIGHT],
+      [1, 0],
+      "clamp",
+    ),
+  }));
+
   const activeTabIndex = activeTab === "recipes" ? 0 : 1;
 
-  const handleTabChange = useCallback(
+  const switchTab = useCallback(
     (tab: MyRecipesTab) => {
       setActiveTab(tab);
+
+      // Animate header based on new tab's scroll position
+      const newTabScrollY =
+        tab === "recipes" ? recipesScrollY.current : collectionsScrollY.current;
+      if (newTabScrollY <= 66) {
+        headerTranslateY.value = withSpring(0, {
+          damping: 30,
+          stiffness: 200,
+          mass: 1,
+        });
+      } else {
+        headerTranslateY.value = withSpring(-TITLE_HEIGHT, {
+          damping: 30,
+          stiffness: 200,
+          mass: 1,
+        });
+      }
 
       // Animate filter button visibility
       filterButtonProgress.value = withTiming(
@@ -155,21 +243,14 @@ export const MyRecipesScreen = () => {
         animationConfig,
       );
     },
-    [filterButtonProgress],
+    [filterButtonProgress, headerTranslateY],
   );
 
   const handleSwipeTabChange = useCallback(
     (index: number) => {
-      const tab = index === 0 ? "recipes" : "collections";
-      setActiveTab(tab);
-
-      // Animate filter button visibility
-      filterButtonProgress.value = withTiming(
-        tab === "recipes" ? 1 : 0,
-        animationConfig,
-      );
+      switchTab(index === 0 ? "recipes" : "collections");
     },
-    [filterButtonProgress],
+    [switchTab],
   );
 
   const handleOpenFilters = useCallback(() => {
@@ -212,7 +293,6 @@ export const MyRecipesScreen = () => {
 
   // Mutations
   const createCollectionMutation = useCreateCollection();
-  const deleteCollectionMutation = useDeleteCollection();
 
   const recipes = useMemo(() => {
     return recipesData?.pages.flatMap((page) => page?.items ?? []) ?? [];
@@ -235,31 +315,6 @@ export const MyRecipesScreen = () => {
       <View style={styles.separator} />
     </View>
   );
-
-  const handleDeleteCollection = (collection: CollectionWithMetadata) => {
-    if (collection.isDefault) {
-      Alert.alert(
-        "Cannot Delete",
-        "Your default collection cannot be deleted.",
-      );
-      return;
-    }
-
-    Alert.alert(
-      "Delete Collection",
-      `Are you sure you want to delete "${collection.name}"? This cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            deleteCollectionMutation.mutate({ collectionId: collection.id });
-          },
-        },
-      ],
-    );
-  };
 
   const renderCollection = ({ item }: { item: CollectionListItem }) => {
     // Handle create collection item
@@ -374,66 +429,15 @@ export const MyRecipesScreen = () => {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
-      <SwipeableTabView
-        activeIndex={activeTabIndex}
-        onIndexChange={handleSwipeTabChange}
-        containerWidth={SCREEN_WIDTH}
-        scrollProgress={scrollProgress}
-      >
-        {isLoadingRecipes ? (
-          <View style={styles.skeletonContainer}>
-            <View style={{ height: HEADER_HEIGHT }} />
-            <MyRecipesListSkeleton />
-          </View>
-        ) : (
-          <AnimatedLegendList
-            entering={ReanimatedFadeIn.duration(200)}
-            data={recipes}
-            renderItem={renderRecipe}
-            keyExtractor={(item) => item.id.toString()}
-            onEndReached={handleLoadMoreRecipes}
-            onEndReachedThreshold={0.5}
-            ListHeaderComponent={ListSpacer}
-            ListFooterComponent={renderRecipesFooter}
-            ListEmptyComponent={renderRecipesEmpty}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={RecipeSeparator}
-            onScroll={scrollHandler}
-            scrollEventThrottle={16}
-          />
-        )}
-        {isLoadingCollections ? (
-          <View style={styles.skeletonContainer}>
-            <View style={{ height: HEADER_HEIGHT }} />
-            <CollectionsListSkeleton />
-          </View>
-        ) : (
-          <AnimatedLegendList
-            entering={ReanimatedFadeIn.duration(200)}
-            data={collections}
-            renderItem={renderCollection}
-            keyExtractor={(item) => item.id.toString()}
-            ListHeaderComponent={ListSpacer}
-            ListEmptyComponent={renderCollectionsEmpty}
-            showsVerticalScrollIndicator={false}
-            numColumns={2}
-            contentContainerStyle={styles.collectionsGridContent}
-            columnWrapperStyle={styles.collectionsRow as any}
-            onScroll={scrollHandler}
-            scrollEventThrottle={16}
-          />
-        )}
-      </SwipeableTabView>
-
-      {/* Collapsing header - positioned above the lists */}
       <Animated.View style={[styles.headerContainer, headerAnimatedStyle]}>
         <View style={styles.header}>
-          <VSpace size={32} />
-          <View style={styles.headerPadded}>
-            <Text type="title1">My Recipes</Text>
-          </View>
-          <VSpace size={20} />
+          <Animated.View style={titleAnimatedStyle}>
+            <VSpace size={32} />
+            <View style={styles.headerPadded}>
+              <Text type="title1">My Recipes</Text>
+            </View>
+            <VSpace size={20} />
+          </Animated.View>
           <View style={[styles.searchRow, styles.headerPadded]}>
             <View style={styles.searchBarWrapper}>
               <SearchBar
@@ -468,7 +472,7 @@ export const MyRecipesScreen = () => {
             <UnderlineTabBar
               options={tabOptions}
               value={activeTab}
-              onValueChange={handleTabChange}
+              onValueChange={(tab) => switchTab(tab)}
               scrollProgress={scrollProgress}
               fullWidth
             />
@@ -476,6 +480,57 @@ export const MyRecipesScreen = () => {
           <VSpace size={16} />
         </View>
       </Animated.View>
+      <SwipeableTabView
+        activeIndex={activeTabIndex}
+        onIndexChange={handleSwipeTabChange}
+        containerWidth={SCREEN_WIDTH}
+        scrollProgress={scrollProgress}
+      >
+        {isLoadingRecipes ? (
+          <View style={styles.skeletonContainer}>
+            <View style={{ height: HEADER_HEIGHT }} />
+            <MyRecipesListSkeleton />
+          </View>
+        ) : (
+          <AnimatedLegendList
+            entering={ReanimatedFadeIn.duration(200)}
+            data={recipes}
+            renderItem={renderRecipe}
+            keyExtractor={(item) => item.id.toString()}
+            onEndReached={handleLoadMoreRecipes}
+            onEndReachedThreshold={0.5}
+            ListHeaderComponent={ListSpacer}
+            ListFooterComponent={renderRecipesFooter}
+            ListEmptyComponent={renderRecipesEmpty}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={RecipeSeparator}
+            onScroll={recipesScrollHandler}
+            scrollEventThrottle={16}
+          />
+        )}
+        {isLoadingCollections ? (
+          <View style={styles.skeletonContainer}>
+            <View style={{ height: HEADER_HEIGHT }} />
+            <CollectionsListSkeleton />
+          </View>
+        ) : (
+          <AnimatedLegendList
+            entering={ReanimatedFadeIn.duration(200)}
+            data={collections}
+            renderItem={renderCollection}
+            keyExtractor={(item) => item.id.toString()}
+            ListHeaderComponent={ListSpacer}
+            ListEmptyComponent={renderCollectionsEmpty}
+            showsVerticalScrollIndicator={false}
+            numColumns={2}
+            contentContainerStyle={styles.collectionsGridContent}
+            columnWrapperStyle={styles.collectionsRow as any}
+            onScroll={collectionsScrollHandler}
+            scrollEventThrottle={16}
+          />
+        )}
+      </SwipeableTabView>
     </SafeAreaView>
   );
 };
