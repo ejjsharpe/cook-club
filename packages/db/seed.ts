@@ -874,6 +874,150 @@ async function seedActivityFeed(
   );
 }
 
+async function seedLikesAndComments(
+  db: DbClient,
+  users: (typeof schema.user.$inferSelect)[]
+) {
+  console.log("💬 Seeding likes and comments...");
+
+  // Get all activity events
+  const activityEvents = await db.select().from(schema.activityEvents);
+
+  // Sample comments for cooking reviews
+  const reviewComments = [
+    "This looks amazing! 😍",
+    "I need to try this recipe!",
+    "How long did it take you?",
+    "Saving this for later!",
+    "Your plating is beautiful!",
+    "Did you make any substitutions?",
+    "This is going on my meal plan!",
+    "Looks delicious! Well done 👏",
+    "I made this last week too - so good!",
+    "What sides did you serve with this?",
+    "Perfect for a weeknight dinner",
+    "The colors look incredible",
+    "My family would love this",
+    "Great job! Looks restaurant quality",
+    "Adding to my must-try list",
+  ];
+
+  // Sample comments for recipe imports
+  const importComments = [
+    "Great find!",
+    "I've been looking for a recipe like this",
+    "Thanks for sharing! 🙌",
+    "Looks like a keeper",
+    "Adding this to my collection too",
+    "Perfect timing, I have all these ingredients",
+    "This website has such good recipes",
+    "Bookmarked!",
+    "Can't wait to try this",
+    "Looks straightforward and delicious",
+  ];
+
+  // Sample reply comments
+  const replyComments = [
+    "Thanks so much! 🙏",
+    "It was actually pretty easy!",
+    "No substitutions, followed it exactly",
+    "About 45 minutes total",
+    "Highly recommend it!",
+    "Let me know how it turns out!",
+    "I served it with rice",
+    "Thanks for the kind words!",
+  ];
+
+  let likesCount = 0;
+  let commentsCount = 0;
+
+  for (const event of activityEvents) {
+    // Each activity gets 0-8 likes from random users
+    const numLikes = randomInt(0, 8);
+    const likers = shuffle(users.filter((u) => u.id !== event.userId)).slice(
+      0,
+      numLikes
+    );
+
+    for (const liker of likers) {
+      try {
+        await db.insert(schema.activityLikes).values({
+          userId: liker.id,
+          activityEventId: event.id,
+          createdAt: randomDate(14),
+        });
+        likesCount++;
+      } catch {
+        // Skip duplicates
+      }
+    }
+
+    // Each activity gets 0-4 comments
+    const numComments = randomInt(0, 4);
+    const commenters = shuffle(users.filter((u) => u.id !== event.userId)).slice(
+      0,
+      numComments
+    );
+
+    const commentPool =
+      event.type === "cooking_review" ? reviewComments : importComments;
+
+    const insertedComments: { id: number; userId: string }[] = [];
+
+    for (const commenter of commenters) {
+      const [comment] = await db
+        .insert(schema.comments)
+        .values({
+          userId: commenter.id,
+          activityEventId: event.id,
+          content: randomChoice(commentPool),
+          createdAt: randomDate(14),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      if (comment) {
+        insertedComments.push({ id: comment.id, userId: commenter.id });
+        commentsCount++;
+      }
+    }
+
+    // Add some replies to comments (about 30% chance per comment)
+    for (const parentComment of insertedComments) {
+      if (Math.random() < 0.3) {
+        // Reply from the activity owner or another user
+        const replier =
+          Math.random() < 0.6
+            ? users.find((u) => u.id === event.userId)
+            : randomChoice(users.filter((u) => u.id !== parentComment.userId));
+
+        if (replier) {
+          await db.insert(schema.comments).values({
+            userId: replier.id,
+            activityEventId: event.id,
+            parentCommentId: parentComment.id,
+            content: randomChoice(replyComments),
+            createdAt: randomDate(7),
+            updatedAt: new Date(),
+          });
+          commentsCount++;
+        }
+      }
+    }
+
+    // Update denormalized counts on activity event
+    await db
+      .update(schema.activityEvents)
+      .set({
+        likeCount: likers.length,
+        commentCount: insertedComments.length,
+      })
+      .where(eq(schema.activityEvents.id, event.id));
+  }
+
+  console.log(`✅ Seeded ${likesCount} likes and ${commentsCount} comments`);
+}
+
 async function seedNutrition(
   db: DbClient,
   recipes: (typeof schema.recipes.$inferSelect)[]
@@ -961,6 +1105,9 @@ async function main() {
 
     const allRecipes = [...originalRecipes, ...socialMediaRecipes, ...importedRecipes];
     await seedActivityFeed(db, users, allRecipes);
+    console.log("");
+
+    await seedLikesAndComments(db, users);
     console.log("");
 
     await seedNutrition(db, allRecipes);

@@ -37,9 +37,8 @@ export const SignedInProvider = ({
   children: React.ReactNode;
 }) => {
   const session = useSessionContext();
-  const { data: userData, isPending } = useUser();
-
   const isSignedIn = !!session;
+  const { data: userData, isPending } = useUser({ enabled: isSignedIn });
 
   if (isSignedIn && isPending) {
     return null;

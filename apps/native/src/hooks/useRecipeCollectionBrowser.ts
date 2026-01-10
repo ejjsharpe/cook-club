@@ -12,7 +12,10 @@ import {
 
 import { useGetUserCollectionsWithMetadata } from "@/api/collection";
 import { useGetUserRecipes, useAllTags } from "@/api/recipe";
-import { useAnimatedHeaderScroll } from "@/hooks/useAnimatedHeaderScroll";
+import {
+  useAnimatedHeaderScroll,
+  TAB_SWITCH_DELAY,
+} from "@/hooks/useAnimatedHeaderScroll";
 
 const SEARCH_ROW_HEIGHT = 50;
 const TABS_HEIGHT = 16 + 50 + 16; // VSpace(16) + tabs + VSpace(16)
@@ -48,43 +51,86 @@ export const useRecipeCollectionBrowser = ({
   const [searchQuery, setSearchQuery] = useState("");
   const scrollProgress = useSharedValue(0);
 
-  const activeTabIndex = activeTab === "recipes" ? 0 : 1;
-
   // Animated header
   const {
+    headerTranslateY,
+    activeTabIndex,
+    scrollPositions,
+    tabSwitchedAt,
     headerAnimatedStyle,
     titleAnimatedStyle,
-    createScrollCallback,
     handleTabSwitch,
   } = useAnimatedHeaderScroll({
     titleSectionHeight,
     headerHeight,
     tabCount: 2,
-    activeTabIndex,
-    onScroll: onTabBarScroll,
   });
-
-  // Create scroll callbacks for each tab
-  const handleRecipesScrollCallback = createScrollCallback(0);
-  const handleCollectionsScrollCallback = createScrollCallback(1);
 
   const recipesScrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      runOnJS(handleRecipesScrollCallback)(
-        event.contentOffset.y,
-        event.contentSize.height,
-        event.layoutMeasurement.height,
+      "worklet";
+      const tabIndex = 0;
+      const offsetY = event.contentOffset.y;
+
+      // Always track scroll position
+      scrollPositions.value[tabIndex] = offsetY;
+
+      // Only update header if this is the active tab
+      if (activeTabIndex.value !== tabIndex) return;
+
+      // Ignore scroll events shortly after tab switch
+      if (Date.now() - tabSwitchedAt.value < TAB_SWITCH_DELAY) return;
+
+      // Update header position
+      headerTranslateY.value = -Math.min(
+        Math.max(offsetY, 0),
+        titleSectionHeight,
       );
+
+      // Call external scroll handler if provided
+      if (onTabBarScroll) {
+        runOnJS(onTabBarScroll)({
+          nativeEvent: {
+            contentOffset: { y: offsetY },
+            contentSize: { height: event.contentSize.height },
+            layoutMeasurement: { height: event.layoutMeasurement.height },
+          },
+        } as NativeSyntheticEvent<NativeScrollEvent>);
+      }
     },
   });
 
   const collectionsScrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      runOnJS(handleCollectionsScrollCallback)(
-        event.contentOffset.y,
-        event.contentSize.height,
-        event.layoutMeasurement.height,
+      "worklet";
+      const tabIndex = 1;
+      const offsetY = event.contentOffset.y;
+
+      // Always track scroll position
+      scrollPositions.value[tabIndex] = offsetY;
+
+      // Only update header if this is the active tab
+      if (activeTabIndex.value !== tabIndex) return;
+
+      // Ignore scroll events shortly after tab switch
+      if (Date.now() - tabSwitchedAt.value < TAB_SWITCH_DELAY) return;
+
+      // Update header position
+      headerTranslateY.value = -Math.min(
+        Math.max(offsetY, 0),
+        titleSectionHeight,
       );
+
+      // Call external scroll handler if provided
+      if (onTabBarScroll) {
+        runOnJS(onTabBarScroll)({
+          nativeEvent: {
+            contentOffset: { y: offsetY },
+            contentSize: { height: event.contentSize.height },
+            layoutMeasurement: { height: event.layoutMeasurement.height },
+          },
+        } as NativeSyntheticEvent<NativeScrollEvent>);
+      }
     },
   });
 
@@ -117,6 +163,9 @@ export const useRecipeCollectionBrowser = ({
     },
     [handleTabSwitch, filterButtonProgress],
   );
+
+  // Derive activeTabIndex for consumers that need it as a number
+  const activeTabIndexValue = activeTab === "recipes" ? 0 : 1;
 
   const handleSwipeTabChange = useCallback(
     (index: number) => {
@@ -180,7 +229,7 @@ export const useRecipeCollectionBrowser = ({
   return {
     // Tab state
     activeTab,
-    activeTabIndex,
+    activeTabIndex: activeTabIndexValue,
     scrollProgress,
     switchTab,
     handleSwipeTabChange,

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { memo } from "react";
 import { View } from "react-native";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
 
 import { FLOATING_TAB_BAR_HEIGHT } from "./FloatingTabBar";
 import { SEARCH_BAR_HEIGHT } from "./SearchBar";

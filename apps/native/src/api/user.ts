@@ -5,10 +5,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 // API Response Types
 export type User = Outputs["user"]["getUser"]["user"];
 
-export const useUser = () => {
+export const useUser = (
+  { enabled = true }: { enabled?: boolean } = { enabled: true },
+) => {
   const trpc = useTRPC();
 
-  return useQuery(trpc.user.getUser.queryOptions());
+  return useQuery({ ...trpc.user.getUser.queryOptions(), enabled });
 };
 
 export const useUpdateProfile = () => {

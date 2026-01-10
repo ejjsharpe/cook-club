@@ -170,6 +170,8 @@ export const followsRouter = router({
 
       try {
         // Single query with subqueries for all profile data
+        // Note: We use "user"."id" explicitly in subqueries because Drizzle's ${user.id}
+        // emits just "id" which would resolve to the subquery's table (e.g., follows.id)
         const profileData = await ctx.db
           .select({
             id: user.id,
@@ -178,21 +180,21 @@ export const followsRouter = router({
             image: user.image,
             createdAt: user.createdAt,
             followersCount: sql<number>`(
-              SELECT COUNT(*)::int FROM follows WHERE following_id = ${user.id}
+              SELECT COUNT(*)::int FROM follows WHERE following_id = "user"."id"
             )`,
             followingCount: sql<number>`(
-              SELECT COUNT(*)::int FROM follows WHERE follower_id = ${user.id}
+              SELECT COUNT(*)::int FROM follows WHERE follower_id = "user"."id"
             )`,
             recipeCount: sql<number>`(
-              SELECT COUNT(*)::int FROM recipes WHERE owner_id = ${user.id}
+              SELECT COUNT(*)::int FROM recipes WHERE owner_id = "user"."id"
             )`,
             isFollowing: sql<boolean>`EXISTS(
               SELECT 1 FROM follows
-              WHERE follower_id = ${currentUserId} AND following_id = ${user.id}
+              WHERE follower_id = ${currentUserId} AND following_id = "user"."id"
             )`,
             followsMe: sql<boolean>`EXISTS(
               SELECT 1 FROM follows
-              WHERE follower_id = ${user.id} AND following_id = ${currentUserId}
+              WHERE follower_id = "user"."id" AND following_id = ${currentUserId}
             )`,
           })
           .from(user)

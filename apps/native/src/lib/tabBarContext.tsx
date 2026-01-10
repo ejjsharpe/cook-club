@@ -66,6 +66,17 @@ export const useTabBarScroll = () => {
         return;
       }
 
+      // Near the top, always show tab bar (check FIRST before isNearBottom)
+      const topThreshold = 100;
+      if (scrollY < topThreshold) {
+        if (isVisible.value !== 1) {
+          setVisible(true);
+        }
+        lastScrollY.current = scrollY;
+        lastDirection.current = 0;
+        return;
+      }
+
       const diff = scrollY - lastScrollY.current;
 
       // Detect if we're in the bottom bounce zone (or overscrolling past bottom)
@@ -76,16 +87,6 @@ export const useTabBarScroll = () => {
       // Ignore upward scroll events during bottom bounce/overscroll
       if ((isNearBottom || isOverscrolling) && diff < 0) {
         lastScrollY.current = scrollY;
-        return;
-      }
-
-      // Near the top, always show tab bar
-      if (scrollY < 50) {
-        if (isVisible.value !== 1) {
-          setVisible(true);
-        }
-        lastScrollY.current = scrollY;
-        lastDirection.current = 0;
         return;
       }
 
