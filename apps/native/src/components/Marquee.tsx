@@ -4,7 +4,6 @@ import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import type { SharedValue } from "react-native-reanimated";
 import Animated, {
-  runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
   useDerivedValue,
@@ -12,6 +11,7 @@ import Animated, {
   useSharedValue,
   withDecay,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 
 type MarqueeDirection = "horizontal" | "vertical";
 export type MarqueeProps = React.PropsWithChildren<{
@@ -159,7 +159,7 @@ export const Marquee = React.memo(
           // Double this to cover the entire screen twice, in this way we can
           // reset the position of the first element when its going to move out
           // of the screen without any noticible glitch
-          runOnJS(setCloneTimes)(v + 2);
+          scheduleOnRN(setCloneTimes, v + 2);
         },
         [direction],
       );
@@ -181,7 +181,7 @@ export const Marquee = React.memo(
       const pan = Gesture.Pan()
         .enabled(withGesture)
         .onBegin(() => {
-          runOnJS(stop)();
+          scheduleOnRN(stop);
         })
         .onChange((e) => {
           anim.value += -(direction === "horizontal" ? e.changeX : e.changeY);
@@ -196,7 +196,7 @@ export const Marquee = React.memo(
             },
             (finished) => {
               if (finished) {
-                runOnJS(start)();
+                scheduleOnRN(start);
               }
             },
           );

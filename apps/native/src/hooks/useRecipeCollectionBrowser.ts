@@ -7,8 +7,8 @@ import {
   withTiming,
   Easing,
   useAnimatedScrollHandler,
-  runOnJS,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 
 import { useGetUserCollectionsWithMetadata } from "@/api/collection";
 import { useGetUserRecipes, useAllTags } from "@/api/recipe";
@@ -89,7 +89,7 @@ export const useRecipeCollectionBrowser = ({
 
       // Call external scroll handler if provided
       if (onTabBarScroll) {
-        runOnJS(onTabBarScroll)({
+        scheduleOnRN(onTabBarScroll, {
           nativeEvent: {
             contentOffset: { y: offsetY },
             contentSize: { height: event.contentSize.height },
@@ -123,7 +123,7 @@ export const useRecipeCollectionBrowser = ({
 
       // Call external scroll handler if provided
       if (onTabBarScroll) {
-        runOnJS(onTabBarScroll)({
+        scheduleOnRN(onTabBarScroll, {
           nativeEvent: {
             contentOffset: { y: offsetY },
             contentSize: { height: event.contentSize.height },
