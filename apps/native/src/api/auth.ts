@@ -58,7 +58,6 @@ export const useSignOut = () => {
     mutationFn: () => authClient.signOut(),
     onSuccess: () => {
       queryClient.invalidateQueries();
-      queryClient.clear();
     },
   });
 };

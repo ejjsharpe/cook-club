@@ -29,13 +29,13 @@ export const SessionProvider = ({
     queryKey: ["session"],
     queryFn: async () => {
       const result = await authClient.getSession();
-      console.log({ result });
+
       return result.data;
     },
   });
 
   // Only block on initial load, don't block forever on error
-  if (isPending && !isError) return null;
+  if (isPending) return null;
 
   return (
     <SessionContext.Provider value={data ?? null}>
