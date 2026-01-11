@@ -29,12 +29,12 @@ import {
   useDeleteComment,
   type Comment,
 } from "@/api/comment";
-import { useSessionContext } from "@/lib/sessionContext";
+import { useUser } from "@/api/user";
 
 export const CommentsSheet = (props: SheetProps<"comments-sheet">) => {
   const { activityEventId } = props.payload || { activityEventId: 0 };
-  const session = useSessionContext();
-  const currentUserId = session?.user?.id;
+  const { data: currentUser } = useUser();
+  const currentUserId = currentUser?.user?.id;
   const unistyles = useUnistyles();
 
   const [commentText, setCommentText] = useState("");

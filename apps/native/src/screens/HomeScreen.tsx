@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LegendList, type LegendListRef } from "@legendapp/list";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -79,7 +80,7 @@ const HEADER_GAP = 12;
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const HomeScreen = () => {
-  const browseScrollRef = useRef<FlatList>(null);
+  const browseScrollRef = useRef<LegendListRef>(null);
   const searchListRef = useRef<FlatList>(null);
   const searchBarRef = useRef<View>(null);
   useScrollToTop(browseScrollRef);
@@ -289,6 +290,8 @@ export const HomeScreen = () => {
   );
 
   // ─── Activity Feed Render Function ────────────────────────────────────────────
+  const getActivityItemType = useCallback((item: FeedItem) => item.type, []);
+
   const renderActivityItem = useCallback(
     ({ item }: { item: FeedItem }) => {
       const activityId = parseInt(item.id, 10);
@@ -397,6 +400,8 @@ export const HomeScreen = () => {
     opacity: searchProgress.value,
   }));
 
+  console.log("test");
+
   // Floating search bar animates from its scroll position to fixed position
   const floatingSearchBarStyle = useAnimatedStyle(() => {
     return {
@@ -452,10 +457,11 @@ export const HomeScreen = () => {
               />
             }
           >
-            <FlatList
+            <LegendList
               ref={browseScrollRef}
               data={activityFeedItems}
               renderItem={renderActivityItem}
+              getItemType={getActivityItemType}
               keyExtractor={activityKeyExtractor}
               ListHeaderComponent={BrowseListHeader}
               ListEmptyComponent={renderActivityEmpty}

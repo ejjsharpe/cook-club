@@ -9,10 +9,10 @@ import type { AppRouter } from "./server";
 
 export const createTRPCClient = ({
   apiUrl,
-  cookie,
+  getCookie,
 }: {
   apiUrl: string;
-  cookie: string | undefined;
+  getCookie: () => string | undefined;
 }) => {
   return _createTRPCClient<AppRouter>({
     links: [
@@ -20,7 +20,7 @@ export const createTRPCClient = ({
         url: apiUrl,
         headers() {
           return {
-            cookie,
+            cookie: getCookie(),
           };
         },
       }),
