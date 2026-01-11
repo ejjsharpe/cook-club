@@ -21,7 +21,7 @@ import {
 } from "../utils/fridge-snap-prompts";
 import { normalizeUnit } from "../utils/unit-normalizer";
 
-const TEXT_MODEL = "@cf/openai/gpt-oss-20b" as const;
+const TEXT_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct" as const;
 
 interface AiSuggestionsResult {
   suggestions: RecipeSuggestion[];
@@ -58,32 +58,32 @@ interface AiRecipeResult {
 }
 
 /**
- * Extract text from various AI response formats
+ * Extract response from AI - returns string or parsed object
  */
-function extractResponseText(response: unknown): string {
+function extractAiResponse(response: unknown): unknown {
   if (typeof response === "string") return response;
-  if (!response || typeof response !== "object") return "";
+  if (!response || typeof response !== "object") return null;
 
   const r = response as Record<string, unknown>;
+  return r?.response ?? null;
+}
 
-  // OpenAI Responses API format: output[0].content[0].text
-  if (Array.isArray(r.output) && r.output[0]) {
-    const firstOutput = r.output[0] as Record<string, unknown>;
-    if (Array.isArray(firstOutput.content) && firstOutput.content[0]) {
-      const firstContent = firstOutput.content[0] as Record<string, unknown>;
-      if (typeof firstContent.text === "string") {
-        return firstContent.text;
-      }
-    }
+/**
+ * Parse AI response - handles both string and pre-parsed object
+ */
+function parseAiResponse<T>(response: unknown): T {
+  const aiResponse = extractAiResponse(response);
+
+  if (!aiResponse) {
+    throw new Error("Empty response from AI");
   }
 
-  // Fallback to common field names
-  if (typeof r.response === "string") return r.response;
-  if (typeof r.output_text === "string") return r.output_text;
-  if (typeof r.generated_text === "string") return r.generated_text;
-  if (typeof r.text === "string") return r.text;
+  if (typeof aiResponse === "string") {
+    return parseAiJsonResponse<T>(aiResponse);
+  }
 
-  return "";
+  // AI returned parsed JSON directly
+  return aiResponse as T;
 }
 
 /**
@@ -124,24 +124,17 @@ export async function suggestRecipes(
 
   try {
     const response = await (env.AI as any).run(TEXT_MODEL, {
-      instructions: RECIPE_SUGGESTIONS_SYSTEM_PROMPT,
-      input: createRecipeSuggestionsPrompt(input.ingredients, count),
-      reasoning: { effort: "none" }, // Disable reasoning to get direct JSON output
+      messages: [
+        { role: "system", content: RECIPE_SUGGESTIONS_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: createRecipeSuggestionsPrompt(input.ingredients, count),
+        },
+      ],
+      max_tokens: 4096,
     });
 
-    const responseText = extractResponseText(response);
-
-    if (!responseText) {
-      return {
-        success: false,
-        error: {
-          code: "AI_RESPONSE_EMPTY",
-          message: "AI returned empty response",
-        },
-      };
-    }
-
-    const result = parseAiJsonResponse<AiSuggestionsResult>(responseText);
+    const result = parseAiResponse<AiSuggestionsResult>(response);
 
     // Validate and ensure IDs
     const suggestions = result.suggestions.map((s) => ({
@@ -233,29 +226,22 @@ export async function generateFromSuggestion(
 ): Promise<ParseResponse> {
   try {
     const response = await (env.AI as any).run(TEXT_MODEL, {
-      instructions: RECIPE_GENERATION_SYSTEM_PROMPT,
-      input: createRecipeGenerationPrompt(
-        input.suggestion.name,
-        input.suggestion.description,
-        input.availableIngredients,
-        input.suggestion.additionalIngredients,
-      ),
-      reasoning: { effort: "none" }, // Disable reasoning to get direct JSON output
+      messages: [
+        { role: "system", content: RECIPE_GENERATION_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: createRecipeGenerationPrompt(
+            input.suggestion.name,
+            input.suggestion.description,
+            input.availableIngredients,
+            input.suggestion.additionalIngredients,
+          ),
+        },
+      ],
+      max_tokens: 4096,
     });
 
-    const responseText = extractResponseText(response);
-
-    if (!responseText) {
-      return {
-        success: false,
-        error: {
-          code: "AI_RESPONSE_EMPTY",
-          message: "AI returned empty response",
-        },
-      };
-    }
-
-    const aiResult = parseAiJsonResponse<AiRecipeResult>(responseText);
+    const aiResult = parseAiResponse<AiRecipeResult>(response);
     const recipe = aiResultToRecipe(aiResult);
 
     // Validate against schema

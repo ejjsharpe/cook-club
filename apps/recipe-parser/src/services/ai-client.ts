@@ -8,7 +8,7 @@ import {
 } from "../utils/prompts";
 
 // Cloudflare Workers AI models
-const TEXT_MODEL = "@cf/openai/gpt-oss-20b" as const;
+const TEXT_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct" as const;
 const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct" as const;
 
 export interface AiIngredient {
@@ -50,9 +50,9 @@ export interface AiRecipeResult {
 }
 
 /**
- * Parse JSON from AI response, handling potential markdown code blocks
+ * Parse JSON string, handling potential markdown code blocks
  */
-function parseAiResponse(response: string): AiRecipeResult {
+function parseJsonString(response: string): AiRecipeResult {
   let jsonStr = response.trim();
 
   // Remove markdown code blocks if present
@@ -76,13 +76,34 @@ function parseAiResponse(response: string): AiRecipeResult {
 }
 
 /**
+ * Extract and parse AI response - handles both string and pre-parsed object
+ */
+function parseAiResponse(response: unknown): AiRecipeResult {
+  // Extract the response field if it's an object
+  const aiResponse =
+    typeof response === "string"
+      ? response
+      : (response as Record<string, unknown>)?.response;
+
+  if (!aiResponse) {
+    throw new Error("Invalid AI response format");
+  }
+
+  // If already an object, return directly
+  if (typeof aiResponse !== "string") {
+    return aiResponse as AiRecipeResult;
+  }
+
+  return parseJsonString(aiResponse);
+}
+
+/**
  * Extract recipe from text using AI
  */
 export async function parseRecipeFromText(
   ai: Env["AI"],
   text: string,
 ): Promise<AiRecipeResult> {
-  // Use type assertion as the model name may not be in the types yet
   const response = await (ai as any).run(TEXT_MODEL, {
     messages: [
       { role: "system", content: RECIPE_EXTRACTION_SYSTEM_PROMPT },
@@ -91,16 +112,7 @@ export async function parseRecipeFromText(
     max_tokens: 4096,
   });
 
-  const responseText =
-    typeof response === "string"
-      ? response
-      : (response?.response ?? response?.generated_text ?? "");
-
-  if (!responseText) {
-    throw new Error("Invalid AI response format");
-  }
-
-  return parseAiResponse(responseText);
+  return parseAiResponse(response);
 }
 
 /**
@@ -111,17 +123,14 @@ export async function parseRecipeFromHtml(
   cleanedHtml: string,
 ): Promise<AiRecipeResult> {
   const response = await (ai as any).run(TEXT_MODEL, {
-    instructions: RECIPE_EXTRACTION_SYSTEM_PROMPT,
-    input: createHtmlExtractionPrompt(cleanedHtml),
+    messages: [
+      { role: "system", content: RECIPE_EXTRACTION_SYSTEM_PROMPT },
+      { role: "user", content: createHtmlExtractionPrompt(cleanedHtml) },
+    ],
+    max_tokens: 4096,
   });
 
-  const responseContent = response.output.find(
-    (item: { type: string }) => item.type === "message",
-  );
-
-  const responseText = responseContent.content[0].text as string;
-
-  return parseAiResponse(responseText);
+  return parseAiResponse(response);
 }
 
 /**

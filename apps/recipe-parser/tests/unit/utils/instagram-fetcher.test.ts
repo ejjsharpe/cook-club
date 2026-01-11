@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
 import {
   extractInstagramContent,
   normalizeInstagramUrl,
@@ -89,9 +90,7 @@ describe("instagram-fetcher", () => {
 
     it("should extract shortcode from URL with query params", () => {
       expect(
-        extractShortcode(
-          "https://www.instagram.com/reel/ABC123/?igsh=test123",
-        ),
+        extractShortcode("https://www.instagram.com/reel/ABC123/?igsh=test123"),
       ).toBe("ABC123");
     });
 

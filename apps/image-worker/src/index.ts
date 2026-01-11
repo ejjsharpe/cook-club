@@ -203,7 +203,7 @@ export class ImageWorker extends WorkerEntrypoint<Env> {
 
       // Check content length if available
       const contentLength = response.headers.get("content-length");
-      if (contentLength && parseInt(contentLength) > MAX_FILE_SIZE) {
+      if (contentLength && parseInt(contentLength, 10) > MAX_FILE_SIZE) {
         return {
           success: false,
           error: `Image too large: ${contentLength} bytes (max ${MAX_FILE_SIZE})`,

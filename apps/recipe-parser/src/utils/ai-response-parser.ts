@@ -51,6 +51,8 @@ export function parseAiJsonResponse<T>(response: string): T {
       }
     }
 
-    throw new Error(`Failed to parse AI response as JSON: ${jsonStr.slice(0, 500)}`);
+    throw new Error(
+      `Failed to parse AI response as JSON: ${jsonStr.slice(0, 500)}`,
+    );
   }
 }

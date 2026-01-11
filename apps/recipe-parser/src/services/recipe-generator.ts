@@ -18,7 +18,7 @@ import {
 } from "../utils/generation-prompts";
 
 // Cloudflare Workers AI model
-const TEXT_MODEL = "@cf/openai/gpt-oss-20b" as const;
+const TEXT_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct" as const;
 
 interface ConversationAiResponse {
   message: string;
@@ -95,25 +95,33 @@ function isConversationComplete(state: RecipeConversationState): boolean {
 }
 
 /**
- * Extract text from Responses API output
+ * Extract response from AI - returns string or parsed object
  */
-function extractResponseText(response: any): string {
-  // Handle Responses API format
-  if (response?.output) {
-    const messageOutput = response.output.find(
-      (item: { type: string }) => item.type === "message",
-    );
-    if (messageOutput?.content?.[0]?.text) {
-      return messageOutput.content[0].text;
-    }
-  }
-
-  // Fallback to other formats
+function extractAiResponse(response: unknown): unknown {
   if (typeof response === "string") {
     return response;
   }
 
-  return response?.response ?? response?.generated_text ?? "";
+  const r = response as Record<string, unknown>;
+  return r?.response ?? null;
+}
+
+/**
+ * Parse AI response - handles both string and pre-parsed object
+ */
+function parseResponse<T>(response: unknown): T {
+  const aiResponse = extractAiResponse(response);
+
+  if (!aiResponse) {
+    throw new Error("Empty response from AI");
+  }
+
+  if (typeof aiResponse === "string") {
+    return parseAiJsonResponse<T>(aiResponse);
+  }
+
+  // AI returned parsed JSON directly
+  return aiResponse as T;
 }
 
 /**
@@ -124,22 +132,15 @@ async function generateRecipe(
   state: RecipeConversationState,
 ): Promise<ChatResponse> {
   try {
-    // Use Responses API format with 'input' array
     const response = await (ai as any).run(TEXT_MODEL, {
-      input: [
+      messages: [
         { role: "system", content: RECIPE_GENERATION_SYSTEM_PROMPT },
         { role: "user", content: createRecipeGenerationPrompt(state) },
       ],
+      max_tokens: 4096,
     });
 
-    const responseText = extractResponseText(response);
-
-    if (!responseText) {
-      throw new Error("Empty response from AI");
-    }
-
-    const generated =
-      parseAiJsonResponse<GeneratedRecipeAiResponse>(responseText);
+    const generated = parseResponse<GeneratedRecipeAiResponse>(response);
 
     // Transform to ParsedRecipe format with sections
     const recipe: ParsedRecipe = {
@@ -233,21 +234,16 @@ export async function processChat(
       return await generateRecipe(ai, state);
     }
 
-    // Continue the conversation using Responses API format
+    // Continue the conversation
     const response = await (ai as any).run(TEXT_MODEL, {
-      input: [
+      messages: [
         { role: "system", content: RECIPE_CONVERSATION_SYSTEM_PROMPT },
         { role: "user", content: createConversationPrompt(messages, state) },
       ],
+      max_tokens: 4096,
     });
 
-    const responseText = extractResponseText(response);
-
-    if (!responseText) {
-      throw new Error("Empty response from AI");
-    }
-
-    const parsed = parseAiJsonResponse<ConversationAiResponse>(responseText);
+    const parsed = parseResponse<ConversationAiResponse>(response);
 
     // If AI indicates ready to generate, do it
     if (parsed.readyToGenerate && isConversationComplete(parsed.updatedState)) {
