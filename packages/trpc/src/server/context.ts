@@ -1,8 +1,8 @@
 import { getDb } from "@repo/db";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 
-import { getAuth } from "../../../../apps/server/src/lib/auth";
 import type { TRPCEnv } from "./env";
+import { getAuth } from "../../../../apps/server/src/lib/auth";
 
 export async function createContext(
   opts: FetchCreateContextFnOptions,

@@ -25,7 +25,7 @@ export const SessionProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const { data, isPending, isError } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
       const result = await authClient.getSession();

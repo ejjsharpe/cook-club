@@ -16,13 +16,13 @@ const getApiUrl = () => {
   return `http://${localhost}:8787/api/trpc`;
 };
 
-const trpcClient = createTRPCClient({
-  apiUrl: getApiUrl(),
-  getCookie: () => authClient.getCookie(),
-});
-
 export const TRPCProvider = ({ children }: { children: React.ReactNode }) => {
   const queryClient = useQueryClient();
+
+  const trpcClient = createTRPCClient({
+    apiUrl: getApiUrl(),
+    getCookie: () => authClient.getCookie(),
+  });
 
   return (
     <_TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
