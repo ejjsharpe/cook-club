@@ -8,6 +8,7 @@ import {
   generateTempKey,
   validateKey,
 } from "./presign";
+import type { UploadFromUrlResponse } from "./service";
 import { buildCfImageOptions, parseTransformOptions } from "./transform";
 import type {
   Env,
@@ -24,6 +25,7 @@ export type {
   MoveResult,
   MoveResponse,
 } from "./types";
+export type { UploadFromUrlResponse } from "./service";
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -151,6 +153,94 @@ export class ImageWorker extends WorkerEntrypoint<Env> {
    */
   async delete(keys: string[]): Promise<void> {
     await Promise.all(keys.map((key) => this.env.IMAGES.delete(key)));
+  }
+
+  /**
+   * Download an image from a URL and upload it to R2.
+   * Used for re-hosting external images (e.g., from Instagram CDN).
+   *
+   * @param sourceUrl - The URL to download the image from
+   * @param destinationKey - The R2 key to store the image at
+   * @returns Upload result with public URL
+   */
+  async uploadFromUrl(
+    sourceUrl: string,
+    destinationKey: string,
+  ): Promise<UploadFromUrlResponse> {
+    try {
+      // Validate destination key
+      if (!validateKey(destinationKey)) {
+        return {
+          success: false,
+          error: "Invalid destination key",
+        };
+      }
+
+      // Fetch the image from the source URL
+      const response = await fetch(sourceUrl, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "image/*",
+        },
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `Failed to fetch image: ${response.status} ${response.statusText}`,
+        };
+      }
+
+      // Validate content type
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.startsWith("image/")) {
+        return {
+          success: false,
+          error: `Invalid content type: ${contentType}`,
+        };
+      }
+
+      // Check content length if available
+      const contentLength = response.headers.get("content-length");
+      if (contentLength && parseInt(contentLength) > MAX_FILE_SIZE) {
+        return {
+          success: false,
+          error: `Image too large: ${contentLength} bytes (max ${MAX_FILE_SIZE})`,
+        };
+      }
+
+      // Read the image data
+      const imageData = await response.arrayBuffer();
+
+      if (imageData.byteLength > MAX_FILE_SIZE) {
+        return {
+          success: false,
+          error: `Image too large: ${imageData.byteLength} bytes (max ${MAX_FILE_SIZE})`,
+        };
+      }
+
+      // Upload to R2
+      await this.env.IMAGES.put(destinationKey, imageData, {
+        httpMetadata: {
+          contentType,
+        },
+      });
+
+      // Generate public URL
+      const publicUrl = `${this.env.PUBLIC_URL}/${destinationKey}`;
+
+      return {
+        success: true,
+        publicUrl,
+        key: destinationKey,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
   }
 }
 

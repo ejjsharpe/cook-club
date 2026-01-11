@@ -1,7 +1,11 @@
+import type { ImageWorkerService } from "cook-club-image-worker/service";
+
 export interface Env {
   AI: Ai;
   BROWSER: Fetcher;
   RECIPE_CACHE: KVNamespace;
+  IMAGE_WORKER: ImageWorkerService;
+  IMAGE_PUBLIC_URL: string;
 }
 
 // Re-export service types for convenience

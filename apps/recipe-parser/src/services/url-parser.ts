@@ -9,7 +9,7 @@ import { parseRecipeFromHtml, type AiRecipeResult } from "./ai-client";
 import { cacheRecipe } from "./cache";
 import {
   requiresBrowserRendering,
-  extractInstagramContent,
+  extractInstagramContent as extractInstagramContentBrowser,
   fetchHtmlWithBrowser,
 } from "../utils/browser-fetcher";
 import {
@@ -18,9 +18,81 @@ import {
   extractStepImageContext,
 } from "../utils/html-cleaner";
 import { fetchHtml } from "../utils/html-fetcher";
+import {
+  extractInstagramContent as extractInstagramContentOembed,
+  extractShortcode,
+} from "../utils/instagram-fetcher";
 import { extractStructuredRecipe } from "../utils/structured-data";
 import { extractTikTokContent } from "../utils/tiktok-fetcher";
 import { normalizeUnit } from "../utils/unit-normalizer";
+
+/**
+ * Re-upload external images to R2 for permanent hosting.
+ * This is necessary because external CDN URLs (Instagram, TikTok, etc.) expire
+ * and may block requests from mobile apps.
+ *
+ * @param env - Environment with IMAGE_WORKER binding
+ * @param imageUrls - Array of external image URLs
+ * @param prefix - Key prefix for organizing images (e.g., "social/instagram")
+ * @returns Array of permanent R2 URLs (or original URLs if upload fails)
+ */
+async function reuploadImagesToR2(
+  env: Env,
+  imageUrls: string[],
+  prefix: string,
+): Promise<string[]> {
+  if (!imageUrls.length) return [];
+
+  // Check if IMAGE_WORKER binding is available (not available in dev mode)
+  if (!env.IMAGE_WORKER) {
+    console.log(
+      "[reupload] IMAGE_WORKER binding not available (dev mode?) - using original URLs",
+    );
+    return imageUrls;
+  }
+
+  const results = await Promise.all(
+    imageUrls.map(async (sourceUrl, index) => {
+      try {
+        // Generate a unique key for this image
+        const imageId = crypto.randomUUID();
+        const extension = "jpg"; // Instagram/TikTok images are typically JPEG
+        const destinationKey = `${prefix}/${imageId}.${extension}`;
+
+        console.log(
+          `[reupload] Uploading image ${index + 1} from ${sourceUrl.substring(0, 50)}...`,
+        );
+
+        const result = await env.IMAGE_WORKER.uploadFromUrl(
+          sourceUrl,
+          destinationKey,
+        );
+
+        if (result.success && result.publicUrl) {
+          console.log(
+            `[reupload] Successfully uploaded image ${index + 1} to R2: ${result.publicUrl}`,
+          );
+          return result.publicUrl;
+        } else {
+          console.log(
+            `[reupload] Failed to upload image ${index + 1}: ${result.error}`,
+          );
+          // Return original URL as fallback
+          return sourceUrl;
+        }
+      } catch (error) {
+        console.log(
+          `[reupload] Error uploading image ${index + 1}:`,
+          error instanceof Error ? error.message : error,
+        );
+        // Return original URL as fallback
+        return sourceUrl;
+      }
+    }),
+  );
+
+  return results;
+}
 
 /**
  * Convert AI result to ParsedRecipe format
@@ -269,50 +341,121 @@ export async function parseUrl(
 /**
  * Parse a recipe from an Instagram URL
  *
- * Instagram requires browser rendering because all content is loaded via JavaScript.
- * We use desktop user agent because Instagram shows full captions on desktop view.
+ * Strategy:
+ * 1. Try oembed API first (fast, reliable, no browser needed)
+ * 2. Fall back to browser rendering if oembed fails
+ *
+ * The oembed API is preferred because:
+ * - Returns full, clean caption text without truncation
+ * - No login walls or JavaScript rendering issues
+ * - Much faster than Puppeteer
+ * - Returns thumbnail image
  */
 async function parseInstagramUrl(env: Env, url: string): Promise<ParseResult> {
+  const shortcode = extractShortcode(url) || "unknown";
+  console.log(`Parsing Instagram URL [${shortcode}]:`, url);
+
+  let contentForAi: string | null = null;
+  let images: string[] = [];
+  let method: "oembed" | "browser" = "oembed";
+
+  // Strategy 1: Try oembed API first (preferred)
   try {
-    console.log("Parsing Instagram URL:", url);
+    console.log(`[${shortcode}] Trying oembed API...`);
+    const oembedResult = await extractInstagramContentOembed(url);
 
-    // Instagram requires browser rendering - content is loaded via JavaScript
-    const result = await extractInstagramContent(env.BROWSER, url);
-    let contentForAi = result.caption;
-    const images = result.images;
+    if (oembedResult.caption && oembedResult.caption.length >= 50) {
+      contentForAi = oembedResult.caption;
+      images = oembedResult.images;
+      console.log(`[${shortcode}] Oembed success:`, {
+        captionLength: contentForAi.length,
+        imageCount: images.length,
+        author: oembedResult.authorName,
+      });
+    } else {
+      console.log(
+        `[${shortcode}] Oembed returned insufficient content (${oembedResult.caption?.length || 0} chars)`,
+      );
+    }
+  } catch (oembedError) {
+    console.log(
+      `[${shortcode}] Oembed failed:`,
+      oembedError instanceof Error ? oembedError.message : oembedError,
+    );
+  }
 
-    // If browser didn't get a caption, try cleaning the HTML
-    if (!contentForAi || contentForAi.length < 50) {
-      const cleanedContent = cleanHtml(result.html);
-      if (cleanedContent.length >= 100) {
-        contentForAi = cleanedContent;
+  // Strategy 2: Fall back to browser rendering if oembed failed
+  if (!contentForAi || contentForAi.length < 50) {
+    try {
+      console.log(`[${shortcode}] Falling back to browser rendering...`);
+      method = "browser";
+      const browserResult = await extractInstagramContentBrowser(
+        env.BROWSER,
+        url,
+      );
+
+      // Try caption first
+      if (browserResult.caption && browserResult.caption.length >= 50) {
+        contentForAi = browserResult.caption;
+        images = browserResult.images;
+      } else {
+        // Try cleaning HTML as last resort
+        const cleanedContent = cleanHtml(browserResult.html);
+        if (cleanedContent.length >= 100) {
+          contentForAi = cleanedContent;
+          images = browserResult.images;
+        }
       }
+
+      if (contentForAi) {
+        console.log(`[${shortcode}] Browser rendering success:`, {
+          captionLength: contentForAi.length,
+          imageCount: images.length,
+        });
+      }
+    } catch (browserError) {
+      console.log(
+        `[${shortcode}] Browser rendering failed:`,
+        browserError instanceof Error ? browserError.message : browserError,
+      );
     }
+  }
 
-    if (!contentForAi || contentForAi.length < 50) {
-      return {
-        success: false,
-        error: {
-          code: "NO_CONTENT",
-          message:
-            "Could not extract recipe content from Instagram. The post may not contain a recipe or may require login to view.",
-        },
-      };
-    }
+  // Check if we got any content
+  if (!contentForAi || contentForAi.length < 50) {
+    return {
+      success: false,
+      error: {
+        code: "NO_CONTENT",
+        message:
+          "Could not extract recipe content from Instagram. The post may not contain a recipe or may require login to view.",
+      },
+    };
+  }
 
-    console.log("Extracted Instagram content:", {
-      captionLength: contentForAi.length,
-      imageCount: images.length,
-    });
+  // Use AI to parse the recipe from the caption
+  try {
+    // Re-upload images to R2 for permanent hosting
+    // Instagram CDN URLs expire and block mobile app requests
+    console.log(
+      `[${shortcode}] Re-uploading ${images.length} image(s) to R2...`,
+    );
+    const permanentImages = await reuploadImagesToR2(
+      env,
+      images,
+      "social/instagram",
+    );
+    console.log(
+      `[${shortcode}] Re-upload complete, got ${permanentImages.length} permanent URL(s)`,
+    );
 
-    // Use AI to parse the recipe from the caption
     const aiResult = await parseRecipeFromHtml(env.AI, contentForAi);
-    const recipe = aiResultToRecipe(aiResult, url, images);
+    const recipe = aiResultToRecipe(aiResult, url, permanentImages);
 
     const validation = ParsedRecipeSchema(recipe);
 
     if (validation instanceof Error) {
-      console.log("Validation error for Instagram recipe");
+      console.log(`[${shortcode}] Validation error for Instagram recipe`);
       return {
         success: false,
         error: {
@@ -323,6 +466,10 @@ async function parseInstagramUrl(env: Env, url: string): Promise<ParseResult> {
     }
 
     await cacheRecipe(env.RECIPE_CACHE, url, recipe);
+
+    console.log(
+      `[${shortcode}] Successfully parsed recipe via ${method}: "${recipe.name}"`,
+    );
 
     return {
       success: true,
@@ -335,7 +482,7 @@ async function parseInstagramUrl(env: Env, url: string): Promise<ParseResult> {
       },
     };
   } catch (error) {
-    console.error("Instagram parsing error:", error);
+    console.error(`[${shortcode}] AI parsing error:`, error);
     return {
       success: false,
       error: {
@@ -364,8 +511,19 @@ async function parseTikTokUrl(env: Env, url: string): Promise<ParseResult> {
       };
     }
 
+    // Re-upload images to R2 for permanent hosting
+    // TikTok CDN URLs may expire or block mobile app requests
+    console.log(
+      `[TikTok] Re-uploading ${result.images.length} image(s) to R2...`,
+    );
+    const permanentImages = await reuploadImagesToR2(
+      env,
+      result.images,
+      "social/tiktok",
+    );
+
     const aiResult = await parseRecipeFromHtml(env.AI, result.caption);
-    const recipe = aiResultToRecipe(aiResult, url, result.images);
+    const recipe = aiResultToRecipe(aiResult, url, permanentImages);
 
     const validation = ParsedRecipeSchema(recipe);
 

@@ -34,11 +34,6 @@ import {
   useRemoveRecipeFromList,
 } from "@/api/shopping";
 import { useUser } from "@/api/user";
-import {
-  transformParsedRecipeForPreview,
-  transformParsedRecipeForSave,
-  validateRecipeForSave,
-} from "@/utils/recipeTransform";
 import { DropdownMenu, DropdownMenuItem } from "@/components/DropdownMenu";
 import { PageIndicator } from "@/components/PageIndicator";
 import { SegmentedControl, TabOption } from "@/components/SegmentedControl";
@@ -48,6 +43,11 @@ import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { getImageUrl } from "@/utils/imageUrl";
+import {
+  transformParsedRecipeForPreview,
+  transformParsedRecipeForSave,
+  validateRecipeForSave,
+} from "@/utils/recipeTransform";
 import { formatMinutesShort } from "@/utils/timeUtils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -315,6 +315,8 @@ export const RecipeDetailScreen = () => {
     },
   ];
 
+  console.log({ images: recipe?.images });
+
   // Show error state only when not loading, not in preview mode, and there's an error or no recipe
   if (!isPreviewMode && !isPending && (error || !recipe)) {
     const isForbidden = (error as any)?.data?.code === "FORBIDDEN";
@@ -355,14 +357,22 @@ export const RecipeDetailScreen = () => {
     );
   }
 
-  const renderImage = ({ item }: { item: RecipeImage }) => (
-    <View style={styles.imageContainer}>
-      <Image
-        source={{ uri: getImageUrl(item.url, "recipe-hero") }}
-        style={styles.recipeImage}
-      />
-    </View>
-  );
+  const renderImage = ({ item }: { item: RecipeImage }) => {
+    const imageUrl = getImageUrl(item.url, "recipe-hero") ?? item.url;
+    return (
+      <View style={styles.imageContainer}>
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.recipeImage}
+          contentFit="cover"
+          transition={200}
+          onError={(e) => {
+            console.log("Image load error:", imageUrl, e.error);
+          }}
+        />
+      </View>
+    );
+  };
 
   const renderIngredients = () => {
     if (!recipe) return null;
@@ -468,20 +478,6 @@ export const RecipeDetailScreen = () => {
             showsVerticalScrollIndicator={false}
             bounces={false}
           >
-            {/* Preview Banner */}
-            {isPreviewMode && (
-              <View style={styles.previewBanner}>
-                <Ionicons
-                  name="eye-outline"
-                  size={18}
-                  style={styles.previewBannerIcon}
-                />
-                <Text style={styles.previewBannerText}>Recipe Preview</Text>
-                <Text style={styles.previewBannerSubtext}>Not saved yet</Text>
-              </View>
-            )}
-
-            {/* Cover Photo Section */}
             <View style={styles.coverSection}>
               {recipe.images && recipe.images.length > 0 && (
                 <FlatList
@@ -856,6 +852,7 @@ const styles = StyleSheet.create((theme) => ({
     position: "relative",
   },
   imageContainer: {
+    flex: 1,
     width: SCREEN_WIDTH,
     height: IMAGE_HEIGHT,
   },

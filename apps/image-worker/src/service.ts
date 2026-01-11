@@ -28,6 +28,13 @@ export interface MoveResponse {
   results: MoveResult[];
 }
 
+export interface UploadFromUrlResponse {
+  success: boolean;
+  publicUrl?: string;
+  key?: string;
+  error?: string;
+}
+
 export interface ImageWorkerService {
   presign(
     contentType: "image/jpeg" | "image/png" | "image/webp",
@@ -38,4 +45,13 @@ export interface ImageWorkerService {
   move(moves: { from: string; to: string }[]): Promise<MoveResponse>;
 
   delete(keys: string[]): Promise<void>;
+
+  /**
+   * Download an image from a URL and upload it to R2.
+   * Used for re-hosting external images (e.g., from Instagram CDN).
+   */
+  uploadFromUrl(
+    sourceUrl: string,
+    destinationKey: string,
+  ): Promise<UploadFromUrlResponse>;
 }

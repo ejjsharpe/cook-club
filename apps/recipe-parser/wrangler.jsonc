@@ -18,8 +18,18 @@
   "kv_namespaces": [
     {
       "binding": "RECIPE_CACHE",
-      "id": "PLACEHOLDER_CREATE_IN_DASHBOARD",
+      "id": "51d8998b3bd54115a5c74fce8e67f37b",
       "preview_id": "8d40df048b504ee39950c3ece6e71b9e"
     }
-  ]
+  ],
+  "services": [
+    {
+      "binding": "IMAGE_WORKER",
+      "service": "cook-club-image-worker",
+      "entrypoint": "ImageWorker"
+    }
+  ],
+  "vars": {
+    "IMAGE_PUBLIC_URL": "https://images.cook-club.app"
+  }
 }

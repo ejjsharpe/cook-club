@@ -95,6 +95,8 @@ export function validateKey(key: string): boolean {
     /^recipes\/covers\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.[a-z]+$/, // recipes/covers/{recipeId}/{imageId}.{ext}
     /^recipes\/instructions\/[a-zA-Z0-9-]+\/\d+\/[a-zA-Z0-9-]+\.[a-z]+$/, // recipes/instructions/{recipeId}/{stepIndex}/{imageId}.{ext}
     /^avatars\/[a-zA-Z0-9_-]+\.[a-z]+$/, // avatars/{userId}.{ext}
+    /^social\/instagram\/[a-zA-Z0-9-]+\.[a-z]+$/, // social/instagram/{imageId}.{ext}
+    /^social\/tiktok\/[a-zA-Z0-9-]+\.[a-z]+$/, // social/tiktok/{imageId}.{ext}
   ];
 
   return allowedPatterns.some((pattern) => pattern.test(key));
