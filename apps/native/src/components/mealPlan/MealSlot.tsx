@@ -39,90 +39,91 @@ export const MealSlot = ({
 }: MealSlotProps) => {
   const { theme } = useUnistyles();
 
-  if (entry) {
-    return (
-      <TouchableOpacity
-        style={styles.filledSlot}
-        onPress={onPress}
-        onLongPress={onLongPress}
-        disabled={disabled}
-        activeOpacity={0.7}
-      >
-        {entry.recipeImageUrl ? (
+  return (
+    <TouchableOpacity
+      style={styles.slot}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      disabled={disabled}
+      activeOpacity={0.7}
+    >
+      {/* Left: Image or Icon container */}
+      {entry ? (
+        entry.recipeImageUrl ? (
           <Image
             source={{ uri: entry.recipeImageUrl }}
             style={styles.recipeImage}
             contentFit="cover"
           />
         ) : (
-          <View style={styles.placeholderImage}>
+          <View style={styles.iconContainer}>
             <Ionicons
               name="restaurant-outline"
               size={20}
               color={theme.colors.textTertiary}
             />
           </View>
-        )}
-        <View style={styles.recipeInfo}>
-          <Text type="caption" style={styles.mealLabel}>
-            {MEAL_LABELS[mealType]}
-          </Text>
-          <Text type="subheadline" numberOfLines={1} style={styles.recipeName}>
+        )
+      ) : (
+        <View style={styles.iconContainer}>
+          <Ionicons
+            name={MEAL_ICONS[mealType]}
+            size={20}
+            color={theme.colors.primary}
+          />
+        </View>
+      )}
+
+      {/* Center: Text content */}
+      <View style={styles.textContainer}>
+        <Text type="caption" style={styles.mealLabel}>
+          {MEAL_LABELS[mealType]}
+        </Text>
+        {entry ? (
+          <Text type="body" numberOfLines={1}>
             {entry.recipeName}
           </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }
+        ) : (
+          <Text type="bodyFaded">Add recipe</Text>
+        )}
+      </View>
 
-  return (
-    <TouchableOpacity
-      style={styles.emptySlot}
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.7}
-    >
-      <Ionicons
-        name={MEAL_ICONS[mealType]}
-        size={18}
-        color={theme.colors.textTertiary}
-      />
-      <Text type="caption" style={styles.emptyLabel}>
-        {MEAL_LABELS[mealType]}
-      </Text>
-      <Ionicons
-        name="add"
-        size={18}
-        color={theme.colors.textTertiary}
-        style={styles.addIcon}
-      />
+      {/* Right: Chevron or Add icon */}
+      {entry ? (
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={theme.colors.textTertiary}
+        />
+      ) : (
+        <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
+      )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create((theme) => ({
-  filledSlot: {
+  slot: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
-    padding: 10,
-    gap: 12,
+    padding: 16,
+    gap: 16,
+    minHeight: 72,
   },
   recipeImage: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.borderRadius.small,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
   },
-  placeholderImage: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.borderRadius.small,
-    backgroundColor: theme.colors.border,
-    alignItems: "center",
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primary + "15",
     justifyContent: "center",
+    alignItems: "center",
   },
-  recipeInfo: {
+  textContainer: {
     flex: 1,
     gap: 2,
   },
@@ -131,25 +132,5 @@ const styles = StyleSheet.create((theme) => ({
     textTransform: "uppercase",
     fontSize: 10,
     letterSpacing: 0.5,
-  },
-  recipeName: {
-    color: theme.colors.text,
-  },
-  emptySlot: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderStyle: "dashed",
-    borderRadius: theme.borderRadius.medium,
-    padding: 14,
-    gap: 8,
-  },
-  emptyLabel: {
-    flex: 1,
-    color: theme.colors.textTertiary,
-  },
-  addIcon: {
-    marginLeft: "auto",
   },
 }));

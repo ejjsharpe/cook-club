@@ -32,16 +32,16 @@ export const DayHeader = ({ date, isToday = false }: DayHeaderProps) => {
   return (
     <View style={styles.container}>
       <View style={styles.dateContainer}>
-        <Text type="headline" style={isToday ? styles.todayText : undefined}>
+        <Text type="title2" style={isToday ? styles.todayText : undefined}>
           {dayName}
         </Text>
-        <Text type="subheadline" style={styles.fullDate}>
+        <Text type="callout" style={styles.fullDate}>
           {monthName} {dayNumber}
         </Text>
       </View>
       {isToday && (
         <View style={styles.todayBadge}>
-          <Text type="caption" style={styles.todayBadgeText}>
+          <Text type="footnote" style={styles.todayBadgeText}>
             Today
           </Text>
         </View>
@@ -55,14 +55,14 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 20,
     backgroundColor: theme.colors.background,
   },
   dateContainer: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 8,
+    gap: 10,
   },
   fullDate: {
     color: theme.colors.textSecondary,
@@ -72,8 +72,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   todayBadge: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: theme.borderRadius.full,
   },
   todayBadgeText: {

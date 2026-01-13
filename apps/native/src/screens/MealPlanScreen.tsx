@@ -15,7 +15,7 @@ import {
 import { FLOATING_TAB_BAR_HEIGHT } from "@/components/FloatingTabBar";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { MealSlot, DayHeader } from "@/components/mealPlan";
+import { DayGroup, DayHeader } from "@/components/mealPlan";
 import { useTabBarScroll } from "@/lib/tabBarContext";
 
 interface DaySection {
@@ -192,39 +192,26 @@ export const MealPlanScreen = () => {
       const canEdit = activePlan?.canEdit ?? false;
 
       return (
-        <View style={styles.dayContent}>
-          <MealSlot
-            mealType="breakfast"
-            entry={dayEntries?.get("breakfast")}
-            onPress={() => handleMealSlotPress(item.dateString, "breakfast")}
-            onLongPress={() =>
-              handleMealSlotLongPress(item.dateString, "breakfast")
-            }
-            disabled={!canEdit}
-          />
-          <MealSlot
-            mealType="lunch"
-            entry={dayEntries?.get("lunch")}
-            onPress={() => handleMealSlotPress(item.dateString, "lunch")}
-            onLongPress={() =>
-              handleMealSlotLongPress(item.dateString, "lunch")
-            }
-            disabled={!canEdit}
-          />
-          <MealSlot
-            mealType="dinner"
-            entry={dayEntries?.get("dinner")}
-            onPress={() => handleMealSlotPress(item.dateString, "dinner")}
-            onLongPress={() =>
-              handleMealSlotLongPress(item.dateString, "dinner")
-            }
-            disabled={!canEdit}
-          />
-        </View>
+        <DayGroup
+          dateString={item.dateString}
+          entries={dayEntries}
+          canEdit={canEdit}
+          onMealPress={(mealType) =>
+            handleMealSlotPress(item.dateString, mealType)
+          }
+          onMealLongPress={(mealType) =>
+            handleMealSlotLongPress(item.dateString, mealType)
+          }
+        />
       );
     },
     [entriesByDate, activePlan, handleMealSlotPress, handleMealSlotLongPress],
   );
+
+  // Render section footer for spacing
+  const renderSectionFooter = useCallback(() => {
+    return <View style={styles.sectionFooter} />;
+  }, []);
 
   // Find index of today's section for initial scroll
   const todaySectionIndex = useMemo(() => {
@@ -323,6 +310,7 @@ export const MealPlanScreen = () => {
         keyExtractor={(item) => item.dateString}
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}
+        renderSectionFooter={renderSectionFooter}
         stickySectionHeadersEnabled
         contentContainerStyle={styles.listContent}
         onScroll={onTabBarScroll}
@@ -368,10 +356,8 @@ const styles = StyleSheet.create((theme, rt) => ({
   listContent: {
     paddingBottom: FLOATING_TAB_BAR_HEIGHT + rt.insets.bottom + 20,
   },
-  dayContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    gap: 8,
+  sectionFooter: {
+    height: 16,
   },
   loadingContainer: {
     flex: 1,

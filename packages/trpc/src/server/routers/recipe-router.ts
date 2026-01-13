@@ -134,6 +134,7 @@ export const recipeRouter = router({
         });
 
         if (!result.success) {
+          console.log("Smart import failed:", result.error.code, result.error.message);
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: result.error.message,
@@ -142,10 +143,13 @@ export const recipeRouter = router({
 
         return result;
       } catch (e) {
-        console.log(e, "ERROR");
+        if (e instanceof TRPCError) throw e;
+        console.error("Smart import error:", e);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to parse recipe",
+        });
       }
-
-      throw new Error();
     }),
 
   // Parse recipe from URL using structured data only (no AI) - for Basic Import
