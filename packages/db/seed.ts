@@ -535,20 +535,32 @@ async function seedCollections(
 ) {
   console.log("📚 Seeding collections...");
 
+  // Create both default collections for each user
+  const collectionValues = users.flatMap((user) => [
+    {
+      userId: user.id,
+      name: "Want to cook",
+      defaultType: "want_to_cook",
+      createdAt: user.createdAt,
+      updatedAt: new Date(),
+    },
+    {
+      userId: user.id,
+      name: "Cooked",
+      defaultType: "cooked",
+      createdAt: user.createdAt,
+      updatedAt: new Date(),
+    },
+  ]);
+
   const collections = await db
     .insert(schema.collections)
-    .values(
-      users.map((user) => ({
-        userId: user.id,
-        name: "Saved Recipes",
-        isDefault: true,
-        createdAt: user.createdAt,
-        updatedAt: new Date(),
-      }))
-    )
+    .values(collectionValues)
     .returning();
 
-  console.log(`✅ Seeded ${collections.length} default collections`);
+  console.log(
+    `✅ Seeded ${collections.length} default collections (2 per user)`
+  );
   return collections;
 }
 

@@ -6,16 +6,13 @@ import {
   recipes,
   user,
 } from "@repo/db/schemas";
+import { hydrateActivityIds } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, desc, lt, and, sql, inArray } from "drizzle-orm";
 
-import {
-  propagateActivityToFollowers,
-  hydrateFeed,
-  hydrateActivityIds,
-} from "../services/activity/activity-propagation.service";
 import { router, authedProcedure } from "../trpc";
+import { propagateActivityToFollowers, hydrateFeed } from "../services/activity";
 
 interface GetFeedIdsResponse {
   activityIds: number[];

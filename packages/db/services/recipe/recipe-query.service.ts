@@ -7,16 +7,8 @@ import {
   tags,
   follows,
   user,
-} from "@repo/db/schemas";
-import {
-  eq,
-  and,
-  desc,
-  min,
-  countDistinct,
-  sql,
-  inArray,
-} from "drizzle-orm";
+} from "../../schemas";
+import { eq, and, desc, min, sql, inArray } from "drizzle-orm";
 
 import type { DbClient } from "../types";
 
@@ -30,7 +22,6 @@ export type RecipeListItem = Omit<typeof recipes.$inferSelect, "ownerId"> & {
     image: string | null;
   };
   coverImage: string | null;
-  saveCount: number;
   collectionIds: number[];
   isFollowing: boolean;
   tags: (typeof tags.$inferSelect)[];
@@ -107,14 +98,12 @@ export async function queryPopularRecipesThisWeek(
         image: user.image,
       },
       firstImage: min(recipeImages.url),
-      saveCount: countDistinct(recipeCollections.id),
       recentEngagement: recentEngagementExpr,
       isFollowing: sql<boolean>`${follows.id} IS NOT NULL`,
     })
     .from(recipes)
     .innerJoin(user, eq(recipes.ownerId, user.id))
     .leftJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
-    .leftJoin(recipeCollections, eq(recipes.id, recipeCollections.recipeId))
     .leftJoin(
       follows,
       and(
@@ -169,7 +158,6 @@ export async function queryPopularRecipesThisWeek(
     ...item.recipe,
     owner: item.uploader,
     coverImage: item.firstImage,
-    saveCount: item.saveCount,
     collectionIds: collectionsByRecipe[item.recipe.id] || [],
     isFollowing: item.isFollowing,
     tags: tagsByRecipe[item.recipe.id] || [],

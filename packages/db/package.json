@@ -2,6 +2,12 @@
   "name": "@repo/db",
   "version": "1.0.0",
   "main": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./schemas": "./schemas/index.ts",
+    "./services": "./services/index.ts",
+    "./utils": "./utils/index.ts"
+  },
   "scripts": {
     "generate": "dotenvx run -- drizzle-kit generate",
     "migrate": "dotenvx run -- drizzle-kit migrate",
@@ -12,7 +18,9 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "latest",
+    "@repo/shared": "workspace:*",
     "bcryptjs": "^3.0.3",
+    "cook-club-image-worker": "workspace:*",
     "drizzle-orm": "0.44.3"
   },
   "devDependencies": {

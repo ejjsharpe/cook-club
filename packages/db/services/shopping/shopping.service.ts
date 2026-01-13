@@ -1,22 +1,20 @@
 import {
   shoppingLists,
   shoppingListItems,
-  shoppingListRecipes,
-  recipes,
-  recipeIngredients,
-} from "@repo/db/schemas";
+} from "../../schemas";
 import { classifyIngredientAisle } from "@repo/shared";
-import { eq, and, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import {
   parseIngredient,
   normalizeIngredientName,
-} from "../../../utils/ingredientParser";
-import { normalizeUnit } from "../../../utils/unitNormalizer";
+  parseIngredients,
+} from "../../utils/ingredientParser";
+import { normalizeUnit } from "../../utils/unitNormalizer";
 import type { DbClient, TransactionClient } from "../types";
 
 // Re-export for convenience
-export { parseIngredient, normalizeIngredientName };
+export { parseIngredient, normalizeIngredientName, parseIngredients };
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 

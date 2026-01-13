@@ -1,7 +1,7 @@
-import { follows, user } from "@repo/db/schemas";
-import { TRPCError } from "@trpc/server";
+import { follows, user } from "../../schemas";
 import { eq, and } from "drizzle-orm";
 
+import { ServiceError } from "../errors";
 import type { DbClient } from "../types";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -23,10 +23,7 @@ export async function followUser(
   followingId: string,
 ) {
   if (followingId === followerId) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Cannot follow yourself",
-    });
+    throw new ServiceError("BAD_REQUEST", "Cannot follow yourself");
   }
 
   // Check if already following
@@ -42,10 +39,7 @@ export async function followUser(
     .then((rows) => rows[0]);
 
   if (existingFollow) {
-    throw new TRPCError({
-      code: "CONFLICT",
-      message: "Already following this user",
-    });
+    throw new ServiceError("CONFLICT", "Already following this user");
   }
 
   // Check if target user exists
@@ -56,10 +50,7 @@ export async function followUser(
     .then((rows) => rows[0]);
 
   if (!targetUser) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "User not found",
-    });
+    throw new ServiceError("NOT_FOUND", "User not found");
   }
 
   // Create follow relationship
@@ -96,10 +87,7 @@ export async function unfollowUser(
     .then((rows) => rows[0]);
 
   if (!follow) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Not following this user",
-    });
+    throw new ServiceError("NOT_FOUND", "Not following this user");
   }
 
   await db.delete(follows).where(eq(follows.id, follow.id));

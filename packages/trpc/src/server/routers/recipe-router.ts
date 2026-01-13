@@ -8,20 +8,21 @@ import {
   recipeTags,
   activityEvents,
 } from "@repo/db/schemas";
-import { TRPCError } from "@trpc/server";
-import { type } from "arktype";
-import { eq, lt, desc, and, ilike, count, inArray, min } from "drizzle-orm";
-
-import { parseIngredients } from "../../utils/ingredientParser";
-import { propagateActivityToFollowers } from "../services/activity/activity-propagation.service";
 import {
   queryPopularRecipesThisWeek,
   validateTags,
   createRecipe,
   getRecipeDetail,
   importRecipe,
-} from "../services/recipe";
+  parseIngredients,
+} from "@repo/db/services";
+import { TRPCError } from "@trpc/server";
+import { type } from "arktype";
+import { eq, lt, desc, and, ilike, count, inArray, min } from "drizzle-orm";
+
 import { router, authedProcedure } from "../trpc";
+import { mapServiceError } from "../utils";
+import { propagateActivityToFollowers } from "../services/activity";
 
 const ImageRecord = type({
   url: "string.url",
@@ -599,12 +600,8 @@ export const recipeRouter = router({
       try {
         return await getRecipeDetail(ctx.db, input.recipeId, ctx.user.id);
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
         console.error("Error fetching recipe detail:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch recipe detail",
-        });
+        throw mapServiceError(err);
       }
     }),
 
@@ -649,12 +646,8 @@ export const recipeRouter = router({
 
         return newRecipe;
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
         console.error("Error importing recipe:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to import recipe",
-        });
+        throw mapServiceError(err);
       }
     }),
 

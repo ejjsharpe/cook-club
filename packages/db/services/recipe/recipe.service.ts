@@ -14,14 +14,14 @@ import {
   cookingReviews,
   tags,
   user,
-} from "@repo/db/schemas";
-import { TRPCError } from "@trpc/server";
+} from "../../schemas";
 import type { ImageWorkerService } from "cook-club-image-worker/service";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
-import { parseIngredient } from "../../../utils/ingredientParser";
-import { normalizeUnit } from "../../../utils/unitNormalizer";
+import { parseIngredient } from "../../utils/ingredientParser";
+import { normalizeUnit } from "../../utils/unitNormalizer";
+import { ServiceError } from "../errors";
 import type { DbClient } from "../types";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -109,7 +109,6 @@ export type RecipeWithDetails = Omit<typeof recipes.$inferSelect, "ownerId"> & {
   userRecipesCount: number;
   collectionIds: number[];
   isInShoppingList: boolean;
-  saveCount: number;
   // For recipes imported from another user
   originalOwner: Pick<typeof user.$inferSelect, "id" | "name" | "image"> | null;
   // User's review rating (1-5) if they've reviewed this recipe, null otherwise
@@ -150,10 +149,10 @@ export async function validateTags(
     );
 
     if (invalidCategories.length > 0) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: `Invalid categories: ${invalidCategories.join(", ")}.`,
-      });
+      throw new ServiceError(
+        "BAD_REQUEST",
+        `Invalid categories: ${invalidCategories.join(", ")}.`,
+      );
     }
   }
 
@@ -165,10 +164,10 @@ export async function validateTags(
     );
 
     if (invalidCuisines.length > 0) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: `Invalid cuisines: ${invalidCuisines.join(", ")}.`,
-      });
+      throw new ServiceError(
+        "BAD_REQUEST",
+        `Invalid cuisines: ${invalidCuisines.join(", ")}.`,
+      );
     }
   }
 }
@@ -191,10 +190,7 @@ export async function createRecipe(
   const hasUploadIds = input.imageUploadIds && input.imageUploadIds.length > 0;
 
   if (!hasDirectImages && !hasUploadIds) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "At least one image is required",
-    });
+    throw new ServiceError("BAD_REQUEST", "At least one image is required");
   }
 
   // Use transaction to ensure all inserts succeed or all fail
@@ -219,10 +215,7 @@ export async function createRecipe(
       .then((rows) => rows[0]);
 
     if (!recipe) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to create recipe",
-      });
+      throw new ServiceError("INTERNAL_ERROR", "Failed to create recipe");
     }
 
     // Insert ingredient sections and their items
@@ -245,10 +238,10 @@ export async function createRecipe(
         .returning();
 
       if (!insertedSection) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create ingredient section",
-        });
+        throw new ServiceError(
+          "INTERNAL_ERROR",
+          "Failed to create ingredient section",
+        );
       }
 
       // Parse and insert ingredients for this section
@@ -320,10 +313,10 @@ export async function createRecipe(
         .returning();
 
       if (!insertedSection) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create instruction section",
-        });
+        throw new ServiceError(
+          "INTERNAL_ERROR",
+          "Failed to create instruction section",
+        );
       }
 
       // Insert instructions for this section
@@ -376,10 +369,10 @@ export async function createRecipe(
           .map((r) => `${r.from} -> ${r.to}: ${r.error}`)
           .join(", ");
         console.error("Failed to move uploaded images:", errorDetails);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to move uploaded images: ${errorDetails}`,
-        });
+        throw new ServiceError(
+          "INTERNAL_ERROR",
+          `Failed to move uploaded images: ${errorDetails}`,
+        );
       }
 
       // Generate public URLs from permanent keys
@@ -388,10 +381,7 @@ export async function createRecipe(
       // Use direct URLs as-is
       imageUrls = input.images!.map((img) => img.url);
     } else {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "No valid images provided",
-      });
+      throw new ServiceError("BAD_REQUEST", "No valid images provided");
     }
 
     // Insert images
@@ -444,12 +434,6 @@ export async function getRecipeDetail(
         name: originalUser.name,
         image: originalUser.image,
       },
-      // Scalar subquery: count of saves for this recipe
-      saveCount: sql<number>`(
-        SELECT CAST(COUNT(DISTINCT ${recipeCollections.id}) AS INTEGER)
-        FROM ${recipeCollections}
-        WHERE ${recipeCollections.recipeId} = ${recipes.id}
-      )`,
       // Scalar subquery: total recipes by this owner
       ownerRecipeCount: sql<number>`(
         SELECT CAST(COUNT(*) AS INTEGER)
@@ -479,10 +463,7 @@ export async function getRecipeDetail(
     .then((rows) => rows[0]);
 
   if (!recipeData) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Recipe not found",
-    });
+    throw new ServiceError("NOT_FOUND", "Recipe not found");
   }
 
   // Access control: URL-scraped recipes can only be viewed by their owner
@@ -490,14 +471,14 @@ export async function getRecipeDetail(
     recipeData.recipe.sourceType === "url" &&
     recipeData.recipe.ownerId !== userId
   ) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "This recipe can only be viewed on the original source website.",
-      cause: {
+    throw new ServiceError(
+      "FORBIDDEN",
+      "This recipe can only be viewed on the original source website.",
+      {
         sourceUrl: recipeData.recipe.sourceUrl,
         recipeName: recipeData.recipe.name,
       },
-    });
+    );
   }
 
   // Get collection IDs for this recipe and current user
@@ -642,7 +623,6 @@ export async function getRecipeDetail(
     userRecipesCount: recipeData.ownerRecipeCount,
     collectionIds,
     isInShoppingList: recipeData.isInShoppingList,
-    saveCount: recipeData.saveCount,
     originalOwner,
     userReviewRating: recipeData.userReviewRating,
   };
@@ -667,18 +647,12 @@ export async function importRecipe(
       .then((rows) => rows[0]);
 
     if (!sourceRecipe) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "Recipe not found",
-      });
+      throw new ServiceError("NOT_FOUND", "Recipe not found");
     }
 
     // Prevent importing own recipe
     if (sourceRecipe.ownerId === userId) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "You cannot import your own recipe",
-      });
+      throw new ServiceError("BAD_REQUEST", "You cannot import your own recipe");
     }
 
     // Check for duplicate imports
@@ -694,10 +668,7 @@ export async function importRecipe(
       .then((rows) => rows[0]);
 
     if (existingImport) {
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: "You have already imported this recipe",
-      });
+      throw new ServiceError("CONFLICT", "You have already imported this recipe");
     }
 
     // Create the new recipe
@@ -721,10 +692,7 @@ export async function importRecipe(
       .returning({ id: recipes.id });
 
     if (!newRecipe) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to create recipe copy",
-      });
+      throw new ServiceError("INTERNAL_ERROR", "Failed to create recipe copy");
     }
 
     // Copy nutrition data if exists
@@ -882,10 +850,7 @@ export async function importRecipe(
   });
 
   if (!result) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Failed to import recipe",
-    });
+    throw new ServiceError("INTERNAL_ERROR", "Failed to import recipe");
   }
 
   return result;

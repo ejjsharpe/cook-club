@@ -5,9 +5,12 @@ import { CollectionSelectorSheet } from "@/components/CollectionSelectorSheet";
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { CookingReviewSheet } from "@/components/CookingReviewSheet";
 import { FilterSheet } from "@/components/FilterBottomSheet";
-import { SmartImportSheet } from "@/components/SmartImportSheet";
 import { SignInSheet } from "@/components/SignInSheet";
 import { SignUpSheet } from "@/components/SignUpSheet";
+import { SmartImportSheet } from "@/components/SmartImportSheet";
+import { MealPlanPickerSheet } from "@/components/mealPlan/MealPlanPickerSheet";
+import { MealPlanShareSheet } from "@/components/mealPlan/MealPlanShareSheet";
+import { RecipePickerSheet } from "@/components/mealPlan/RecipePickerSheet";
 
 // Type declarations for sheets
 declare module "react-native-actions-sheet" {
@@ -57,6 +60,25 @@ declare module "react-native-actions-sheet" {
         ) => void;
       };
     }>;
+    "recipe-picker-sheet": SheetDefinition<{
+      payload: {
+        mealPlanId: number;
+        date: string;
+        mealType: "breakfast" | "lunch" | "dinner";
+      };
+    }>;
+    "meal-plan-picker-sheet": SheetDefinition<{
+      payload: {
+        activePlanId: number;
+        onSelectPlan: (planId: number) => void;
+      };
+    }>;
+    "meal-plan-share-sheet": SheetDefinition<{
+      payload: {
+        mealPlanId: number;
+        planName: string;
+      };
+    }>;
   }
 }
 
@@ -72,6 +94,9 @@ export const Sheets = () => {
         "cooking-review-sheet": CookingReviewSheet,
         "smart-import-sheet": SmartImportSheet,
         "basic-import-sheet": BasicImportSheet,
+        "recipe-picker-sheet": RecipePickerSheet,
+        "meal-plan-picker-sheet": MealPlanPickerSheet,
+        "meal-plan-share-sheet": MealPlanShareSheet,
       }}
     />
   );

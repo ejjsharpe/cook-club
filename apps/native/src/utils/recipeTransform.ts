@@ -102,7 +102,6 @@ export function transformParsedRecipeForPreview(
     userRecipesCount: 0,
     collectionIds: [],
     isInShoppingList: false,
-    saveCount: 0,
     originalOwner: null,
     userReviewRating: null,
     tags: [],

@@ -80,7 +80,9 @@ export function ShareIntentStorageHandler() {
       // For images, we need to convert to base64 before storing
       (async () => {
         try {
-          const { base64, mimeType } = await imageToBase64(detectedIntent.content);
+          const { base64, mimeType } = await imageToBase64(
+            detectedIntent.content,
+          );
           setPendingShareIntent({
             ...detectedIntent,
             content: base64,

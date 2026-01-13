@@ -3,9 +3,15 @@ import { TRPCError } from "@trpc/server";
 
 import { createMockEnv } from "../__mocks__/env";
 
-// Mock the propagation service
-vi.mock("../services/activity/activity-propagation.service", () => ({
+// Mock the activity propagation service (now in tRPC layer)
+vi.mock("../services/activity", () => ({
   propagateActivityToFollowers: vi.fn().mockResolvedValue(undefined),
+  hydrateFeed: vi.fn().mockResolvedValue(0),
+}));
+
+// Mock the db services (only hydrateActivityIds remains here)
+vi.mock("@repo/db/services", () => ({
+  hydrateActivityIds: vi.fn().mockResolvedValue([]),
 }));
 
 // Mock @repo/db/schemas to provide table objects
@@ -298,7 +304,7 @@ describe("activityRouter", () => {
 
     it("propagates activity to followers", async () => {
       const { propagateActivityToFollowers } = await import(
-        "../services/activity/activity-propagation.service"
+        "../services/activity"
       );
 
       mockDb._setResults("recipes", [{ id: 1, name: "Test Recipe" }]);

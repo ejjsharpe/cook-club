@@ -50,7 +50,6 @@ export const useCreateCollection = () => {
 };
 
 // Toggle recipe in a collection with optimistic updates
-// Now supports optional collectionId - if not provided, uses default collection
 export const useToggleRecipeInCollection = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -81,20 +80,11 @@ export const useToggleRecipeInCollection = () => {
         // Get collectionIds from detail cache
         const previousCollectionIds = previousRecipeDetail?.collectionIds || [];
 
-        // Calculate new collectionIds optimistically
-        let newCollectionIds: number[];
-        if (collectionId) {
-          // Specific collection provided - toggle it
-          newCollectionIds = toggleCollectionInArray(
-            previousCollectionIds,
-            collectionId,
-          );
-        } else {
-          // Default collection - toggle between saved (unknown ID) and unsaved
-          // If currently saved, unsave by clearing the array
-          // If currently unsaved, we'll use a placeholder [-1] that will be replaced by server response
-          newCollectionIds = previousCollectionIds.length > 0 ? [] : [-1];
-        }
+        // Calculate new collectionIds optimistically - toggle the specified collection
+        const newCollectionIds = toggleCollectionInArray(
+          previousCollectionIds,
+          collectionId,
+        );
 
         // Update all caches with new collectionIds
         updateRecipeCollections(queryClient, trpc, recipeId, newCollectionIds);
@@ -109,15 +99,7 @@ export const useToggleRecipeInCollection = () => {
 
           // Update hasRecipe for the toggled collection
           return old.map((collection: any) => {
-            // If collectionId is provided, toggle that specific collection
-            if (collectionId !== undefined && collection.id === collectionId) {
-              return {
-                ...collection,
-                hasRecipe: !collection.hasRecipe,
-              };
-            }
-            // If collectionId is not provided, toggle the default collection
-            if (collectionId === undefined && collection.isDefault) {
+            if (collection.id === collectionId) {
               return {
                 ...collection,
                 hasRecipe: !collection.hasRecipe,

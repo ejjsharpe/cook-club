@@ -57,6 +57,7 @@ export const recipes = pgTable(
 );
 
 // ─── Collections: user-created recipe collections ────────────────────────────
+// defaultType: 'want_to_cook' | 'cooked' | null (for custom collections)
 export const collections = pgTable(
   "collections",
   {
@@ -65,7 +66,7 @@ export const collections = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    isDefault: boolean("is_default").notNull().default(false),
+    defaultType: text("default_type"), // 'want_to_cook' | 'cooked' | null
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
@@ -75,10 +76,10 @@ export const collections = pgTable(
       table.userId,
       table.createdAt.desc()
     ),
-    // Ensure only one default collection per user
-    index("collections_user_default_unique_idx")
-      .on(table.userId, table.isDefault)
-      .where(sql`${table.isDefault} = true`),
+    // Ensure only one of each default type per user
+    uniqueIndex("collections_user_default_type_unique_idx")
+      .on(table.userId, table.defaultType)
+      .where(sql`${table.defaultType} IS NOT NULL`),
   ]
 );
 

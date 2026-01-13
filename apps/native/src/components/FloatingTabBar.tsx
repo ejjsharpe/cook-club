@@ -16,11 +16,12 @@ import { useTabBar } from "@/lib/tabBarContext";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-type TabIconName = "home" | "add" | "book" | "cart";
+type TabIconName = "home" | "add" | "calendar" | "book" | "cart";
 
 const TAB_ICONS: Record<string, TabIconName> = {
   Home: "home",
   "Add recipe": "add",
+  "Meal Plan": "calendar",
   "My Recipes": "book",
   "Shopping List": "cart",
 };

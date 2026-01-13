@@ -1,16 +1,29 @@
 import { expo } from "@better-auth/expo";
 import { getDb } from "@repo/db";
 import * as schema from "@repo/db/schemas";
+import { getOrCreateDefaultCollections } from "@repo/db/services";
 import type { TRPCEnv } from "@repo/trpc/server/env";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 export function getAuth(env: TRPCEnv) {
+  const db = getDb(env);
+
   return betterAuth({
-    database: drizzleAdapter(getDb(env), {
+    database: drizzleAdapter(db, {
       provider: "pg",
       schema,
     }),
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            // Create default collections for new users
+            await getOrCreateDefaultCollections(db, user.id);
+          },
+        },
+      },
+    },
     plugins: [expo({ disableOriginOverride: true })],
     trustedOrigins: ["cookclub://"],
     advanced: { disableOriginCheck: true },

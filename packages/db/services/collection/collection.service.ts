@@ -4,46 +4,93 @@ import {
   recipes,
   recipeImages,
   user,
-} from "@repo/db/schemas";
-import { TRPCError } from "@trpc/server";
-import { eq, and, desc, ilike, sql, inArray } from "drizzle-orm";
+} from "../../schemas";
+import { eq, and, desc, ilike, sql, inArray, isNotNull } from "drizzle-orm";
 
+import { ServiceError } from "../errors";
 import type { DbClient } from "../types";
+
+// ─── Types ─────────────────────────────────────────────────────────────────
+
+export type DefaultCollectionType = "want_to_cook" | "cooked";
+
+export interface DefaultCollections {
+  wantToCook: typeof collections.$inferSelect;
+  cooked: typeof collections.$inferSelect;
+}
 
 // ─── Collection Operations ─────────────────────────────────────────────────
 
 /**
- * Get or create the default collection for a user
+ * Get or create both default collections for a user.
+ * Handles race conditions gracefully using onConflictDoNothing.
  */
-export async function getOrCreateDefaultCollection(
+export async function getOrCreateDefaultCollections(
   db: DbClient,
   userId: string,
-) {
-  // Look for default collection
-  const defaultCollection = await db
+): Promise<DefaultCollections> {
+  // Query for existing default collections
+  const existingDefaults = await db
     .select()
     .from(collections)
-    .where(and(eq(collections.userId, userId), eq(collections.isDefault, true)))
-    .then((rows) => rows[0]);
+    .where(
+      and(eq(collections.userId, userId), isNotNull(collections.defaultType)),
+    );
 
-  if (defaultCollection) {
-    return defaultCollection;
+  const wantToCook = existingDefaults.find(
+    (c) => c.defaultType === "want_to_cook",
+  );
+  const cooked = existingDefaults.find((c) => c.defaultType === "cooked");
+
+  // If both exist, return early
+  if (wantToCook && cooked) {
+    return { wantToCook, cooked };
   }
 
-  // Create default collection
-  const newCollection = await db
-    .insert(collections)
-    .values({
-      userId,
-      name: "Saved Recipes",
-      isDefault: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .returning()
-    .then((rows) => rows[0]);
+  // Build list of missing defaults to insert
+  const now = new Date();
+  const toInsert: Array<{
+    userId: string;
+    name: string;
+    defaultType: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }> = [];
 
-  return newCollection!;
+  if (!wantToCook) {
+    toInsert.push({
+      userId,
+      name: "Want to cook",
+      defaultType: "want_to_cook",
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+  if (!cooked) {
+    toInsert.push({
+      userId,
+      name: "Cooked",
+      defaultType: "cooked",
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Batch insert with conflict handling for race conditions
+  await db.insert(collections).values(toInsert).onConflictDoNothing();
+
+  // Re-fetch to get final state (handles race condition where another request inserted)
+  const finalDefaults = await db
+    .select()
+    .from(collections)
+    .where(
+      and(eq(collections.userId, userId), isNotNull(collections.defaultType)),
+    );
+
+  return {
+    wantToCook: finalDefaults.find((c) => c.defaultType === "want_to_cook")!,
+    cooked: finalDefaults.find((c) => c.defaultType === "cooked")!,
+  };
 }
 
 /**
@@ -54,10 +101,10 @@ export async function toggleRecipeInCollection(
   params: {
     userId: string;
     recipeId: number;
-    collectionId?: number | undefined;
+    collectionId: number;
   },
 ) {
-  const { userId, recipeId, collectionId: inputCollectionId } = params;
+  const { userId, recipeId, collectionId } = params;
 
   // Verify recipe exists and belongs to user
   const recipe = await db
@@ -67,26 +114,15 @@ export async function toggleRecipeInCollection(
     .then((rows) => rows[0]);
 
   if (!recipe) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Recipe not found",
-    });
+    throw new ServiceError("NOT_FOUND", "Recipe not found");
   }
 
   // Verify user owns the recipe - users can only add their own recipes to collections
   if (recipe.ownerId !== userId) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message:
-        "You can only add your own recipes to collections. Import this recipe first.",
-    });
-  }
-
-  // Get or use default collection
-  let collectionId = inputCollectionId;
-  if (!collectionId) {
-    const defaultCollection = await getOrCreateDefaultCollection(db, userId);
-    collectionId = defaultCollection.id;
+    throw new ServiceError(
+      "FORBIDDEN",
+      "You can only add your own recipes to collections. Import this recipe first.",
+    );
   }
 
   // Verify collection exists and belongs to user
@@ -99,10 +135,7 @@ export async function toggleRecipeInCollection(
     .then((rows) => rows[0]);
 
   if (!collection) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Collection not found",
-    });
+    throw new ServiceError("NOT_FOUND", "Collection not found");
   }
 
   // Check if recipe is already in collection
@@ -149,11 +182,18 @@ export async function toggleRecipeInCollection(
     .select({
       id: collections.id,
       name: collections.name,
-      isDefault: collections.isDefault,
+      defaultType: collections.defaultType,
     })
     .from(collections)
     .where(eq(collections.userId, userId))
-    .orderBy(desc(collections.isDefault), collections.createdAt);
+    .orderBy(
+      sql`CASE
+        WHEN ${collections.defaultType} = 'want_to_cook' THEN 0
+        WHEN ${collections.defaultType} = 'cooked' THEN 1
+        ELSE 2
+      END`,
+      collections.createdAt,
+    );
 
   const collectionsWithStatus = userCollections.map((col) => ({
     ...col,
@@ -173,7 +213,7 @@ export async function toggleRecipeInCollection(
 export interface UserCollectionWithMetadata {
   id: number;
   name: string;
-  isDefault: boolean;
+  defaultType: DefaultCollectionType | null;
   recipeCount: number;
   owner: {
     id: string;
@@ -211,7 +251,7 @@ export async function getUserCollectionsWithMetadata(
     .select({
       id: collections.id,
       name: collections.name,
-      isDefault: collections.isDefault,
+      defaultType: collections.defaultType,
       createdAt: collections.createdAt,
       recipeCount: sql<number>`coalesce(${recipeCountSubquery.count}, 0)`,
       ownerId: user.id,
@@ -230,7 +270,14 @@ export async function getUserCollectionsWithMetadata(
         search ? ilike(collections.name, `%${search}%`) : undefined,
       ),
     )
-    .orderBy(desc(collections.isDefault), collections.createdAt);
+    .orderBy(
+      sql`CASE
+        WHEN ${collections.defaultType} = 'want_to_cook' THEN 0
+        WHEN ${collections.defaultType} = 'cooked' THEN 1
+        ELSE 2
+      END`,
+      collections.createdAt,
+    );
 
   // Get collection IDs
   const collectionIds = results.map((r) => r.id);
@@ -267,7 +314,7 @@ export async function getUserCollectionsWithMetadata(
   return results.map((row) => ({
     id: row.id,
     name: row.name,
-    isDefault: row.isDefault,
+    defaultType: row.defaultType as DefaultCollectionType | null,
     recipeCount: Number(row.recipeCount),
     owner: {
       id: row.ownerId,
@@ -284,7 +331,7 @@ export async function getUserCollectionsWithMetadata(
 export interface CollectionDetailResult {
   id: number;
   name: string;
-  isDefault: boolean;
+  defaultType: DefaultCollectionType | null;
   recipeCount: number;
   createdAt: Date;
   recipes: {
@@ -315,7 +362,7 @@ export async function getCollectionDetail(
     .select({
       id: collections.id,
       name: collections.name,
-      isDefault: collections.isDefault,
+      defaultType: collections.defaultType,
       createdAt: collections.createdAt,
     })
     .from(collections)
@@ -325,10 +372,7 @@ export async function getCollectionDetail(
     .then((rows) => rows[0]);
 
   if (!collection) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Collection not found",
-    });
+    throw new ServiceError("NOT_FOUND", "Collection not found");
   }
 
   // Get all recipes in the collection
@@ -368,7 +412,7 @@ export async function getCollectionDetail(
   return {
     id: collection.id,
     name: collection.name,
-    isDefault: collection.isDefault,
+    defaultType: collection.defaultType as DefaultCollectionType | null,
     recipeCount: recipesInCollection.length,
     createdAt: collection.createdAt,
     recipes: recipesWithImages,
@@ -393,7 +437,7 @@ export async function deleteCollection(
   const collection = await db
     .select({
       id: collections.id,
-      isDefault: collections.isDefault,
+      defaultType: collections.defaultType,
     })
     .from(collections)
     .where(
@@ -402,18 +446,12 @@ export async function deleteCollection(
     .then((rows) => rows[0]);
 
   if (!collection) {
-    throw new TRPCError({
-      code: "NOT_FOUND",
-      message: "Collection not found",
-    });
+    throw new ServiceError("NOT_FOUND", "Collection not found");
   }
 
-  // Prevent deleting default collection
-  if (collection.isDefault) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "Cannot delete your default collection",
-    });
+  // Prevent deleting default collections
+  if (collection.defaultType !== null) {
+    throw new ServiceError("BAD_REQUEST", "Cannot delete default collections");
   }
 
   // Delete collection (cascade will handle recipeCollections)

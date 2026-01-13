@@ -1,18 +1,19 @@
-import { follows, user, recipes } from "@repo/db/schemas";
-import { TRPCError } from "@trpc/server";
-import { type } from "arktype";
-import { eq, and, or, ne, like, sql } from "drizzle-orm";
-
-import {
-  backfillFeedFromUser,
-  removeUserFromFeed,
-} from "../services/activity/activity-propagation.service";
+import { follows, user } from "@repo/db/schemas";
 import {
   followUser as followUserService,
   unfollowUser as unfollowUserService,
   getFollowList,
-} from "../services/follows";
+} from "@repo/db/services";
+import { TRPCError } from "@trpc/server";
+import { type } from "arktype";
+import { eq, and, or, ne, like, sql } from "drizzle-orm";
+
 import { router, authedProcedure } from "../trpc";
+import { mapServiceError } from "../utils";
+import {
+  backfillFeedFromUser,
+  removeUserFromFeed,
+} from "../services/activity";
 
 export const followsRouter = router({
   // Follow a user
@@ -43,11 +44,7 @@ export const followsRouter = router({
 
         return result;
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to follow user",
-        });
+        throw mapServiceError(err);
       }
     }),
 
@@ -75,11 +72,7 @@ export const followsRouter = router({
 
         return result;
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to unfollow user",
-        });
+        throw mapServiceError(err);
       }
     }),
 

@@ -7,18 +7,18 @@ import {
   recipeImages,
   ingredientSections,
 } from "@repo/db/schemas";
-import { classifyIngredientAisle } from "@repo/shared";
-import { TRPCError } from "@trpc/server";
-import { type } from "arktype";
-import { eq, and, desc, sql } from "drizzle-orm";
-
 import {
   getOrCreateShoppingList,
   insertShoppingListItem,
   formatQuantity,
   parseIngredient,
   normalizeIngredientName,
-} from "../services/shopping";
+} from "@repo/db/services";
+import { classifyIngredientAisle } from "@repo/shared";
+import { TRPCError } from "@trpc/server";
+import { type } from "arktype";
+import { eq, and, desc, sql } from "drizzle-orm";
+
 import { router, authedProcedure } from "../trpc";
 
 // ─── Router ──────────────────────────────────────────────────────────────────

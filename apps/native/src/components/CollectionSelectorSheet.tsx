@@ -109,7 +109,7 @@ export const CollectionSelectorSheet = (
                           disabled={toggleMutation.isPending}
                         >
                           <View style={styles.collectionInfo}>
-                            {collection.isDefault && (
+                            {collection.defaultType && (
                               <Ionicons
                                 name="bookmark"
                                 size={18}
@@ -117,9 +117,13 @@ export const CollectionSelectorSheet = (
                               />
                             )}
                             <Text type="body">{collection.name}</Text>
-                            {collection.isDefault && (
+                            {collection.defaultType && (
                               <View style={styles.defaultBadge}>
-                                <Text style={styles.defaultText}>Default</Text>
+                                <Text style={styles.defaultText}>
+                                  {collection.defaultType === "want_to_cook"
+                                    ? "Want to cook"
+                                    : "Cooked"}
+                                </Text>
                               </View>
                             )}
                           </View>

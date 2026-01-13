@@ -122,7 +122,9 @@
       "version": "1.0.0",
       "dependencies": {
         "@neondatabase/serverless": "latest",
+        "@repo/shared": "workspace:*",
         "bcryptjs": "^3.0.3",
+        "cook-club-image-worker": "workspace:*",
         "drizzle-orm": "0.44.3",
       },
       "devDependencies": {

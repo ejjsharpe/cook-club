@@ -1,15 +1,17 @@
 import { collections, recipeCollections } from "@repo/db/schemas";
-import { TRPCError } from "@trpc/server";
-import { type } from "arktype";
-import { eq, desc } from "drizzle-orm";
-
 import {
   toggleRecipeInCollection as toggleRecipeInCollectionService,
   getUserCollectionsWithMetadata as getUserCollectionsWithMetadataService,
   getCollectionDetail as getCollectionDetailService,
   deleteCollection as deleteCollectionService,
-} from "../services/collection";
+  getOrCreateDefaultCollections,
+} from "@repo/db/services";
+import { TRPCError } from "@trpc/server";
+import { type } from "arktype";
+import { eq, sql } from "drizzle-orm";
+
 import { router, authedProcedure } from "../trpc";
+import { mapServiceError } from "../utils";
 
 export const collectionRouter = router({
   getUserCollections: authedProcedure
@@ -23,6 +25,9 @@ export const collectionRouter = router({
     .query(async ({ ctx, input }) => {
       const { recipeId, includeMetadata, search } = input;
 
+      // Ensure default collections exist (lazy creation on first access)
+      await getOrCreateDefaultCollections(ctx.db, ctx.user.id);
+
       // If includeMetadata is requested AND no recipeId, return with metadata
       if (includeMetadata && recipeId === undefined) {
         return await getUserCollectionsWithMetadataService(ctx.db, {
@@ -32,17 +37,24 @@ export const collectionRouter = router({
       }
 
       try {
-        // Get all user's collections (default collection first)
+        // Get all user's collections (default collections first: want_to_cook, then cooked, then custom)
         const userCollections = await ctx.db
           .select({
             id: collections.id,
             name: collections.name,
-            isDefault: collections.isDefault,
+            defaultType: collections.defaultType,
             createdAt: collections.createdAt,
           })
           .from(collections)
           .where(eq(collections.userId, ctx.user.id))
-          .orderBy(desc(collections.isDefault), collections.createdAt);
+          .orderBy(
+            sql`CASE
+              WHEN ${collections.defaultType} = 'want_to_cook' THEN 0
+              WHEN ${collections.defaultType} = 'cooked' THEN 1
+              ELSE 2
+            END`,
+            collections.createdAt,
+          );
 
         // If recipeId provided, also check which collections contain this recipe
         if (recipeId !== undefined) {
@@ -84,30 +96,22 @@ export const collectionRouter = router({
       const { name } = input;
 
       try {
-        // Prevent users from creating collections named "Saved Recipes" (reserved for default)
-        if (name.trim().toLowerCase() === "saved recipes") {
+        // Prevent users from creating collections with reserved default names
+        const reservedNames = ["want to cook", "cooked"];
+        if (reservedNames.includes(name.trim().toLowerCase())) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message:
-              'The name "Saved Recipes" is reserved for your default collection',
+            message: `The name "${name}" is reserved for default collections`,
           });
         }
 
-        // Check if user has any collections
-        const existingCollections = await ctx.db
-          .select({ id: collections.id })
-          .from(collections)
-          .where(eq(collections.userId, ctx.user.id));
-
-        const isFirstCollection = existingCollections.length === 0;
-
-        // Create the collection
+        // Create the collection (all user-created collections are non-default)
         const [newCollection] = await ctx.db
           .insert(collections)
           .values({
             userId: ctx.user.id,
             name,
-            isDefault: isFirstCollection,
+            defaultType: null,
             createdAt: new Date(),
             updatedAt: new Date(),
           })
@@ -128,7 +132,7 @@ export const collectionRouter = router({
     .input(
       type({
         recipeId: "number",
-        "collectionId?": "number",
+        collectionId: "number",
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -139,12 +143,8 @@ export const collectionRouter = router({
           collectionId: input.collectionId,
         });
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
         console.error("Error toggling recipe in collection:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to toggle recipe in collection",
-        });
+        throw mapServiceError(err);
       }
     }),
 
@@ -161,12 +161,8 @@ export const collectionRouter = router({
           collectionId: input.collectionId,
         });
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
         console.error("Error fetching collection detail:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch collection detail",
-        });
+        throw mapServiceError(err);
       }
     }),
 
@@ -183,12 +179,8 @@ export const collectionRouter = router({
           collectionId: input.collectionId,
         });
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
         console.error("Error deleting collection:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to delete collection",
-        });
+        throw mapServiceError(err);
       }
     }),
 
@@ -209,12 +201,8 @@ export const collectionRouter = router({
           ...(search && { search }),
         });
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
         console.error("Error fetching user collections:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch user collections",
-        });
+        throw mapServiceError(err);
       }
     }),
 });

@@ -53,11 +53,8 @@ export const CollectionDetailScreen = () => {
   const handleDeleteCollection = () => {
     if (!collection) return;
 
-    if (collection.isDefault) {
-      Alert.alert(
-        "Cannot Delete",
-        "Your default collection cannot be deleted.",
-      );
+    if (collection.defaultType !== null) {
+      Alert.alert("Cannot Delete", "Default collections cannot be deleted.");
       return;
     }
 
@@ -130,7 +127,7 @@ export const CollectionDetailScreen = () => {
                 {collection.recipeCount === 1 ? "recipe" : "recipes"}
               </Text>
             </View>
-            {!collection.isDefault && (
+            {collection.defaultType === null && (
               <TouchableOpacity
                 onPress={handleDeleteCollection}
                 style={styles.deleteButton}
