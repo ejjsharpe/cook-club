@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, SectionList, TouchableOpacity, Alert } from "react-native";
+import { View, SectionList, TouchableOpacity } from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -156,18 +156,11 @@ export const MealPlanScreen = () => {
     [entriesByDate, activePlan, navigation],
   );
 
-  const handleMealSlotLongPress = useCallback(
+  const handleMealSlotDelete = useCallback(
     (dateString: string, mealType: "breakfast" | "lunch" | "dinner") => {
       const entry = entriesByDate.get(dateString)?.get(mealType);
       if (entry) {
-        Alert.alert("Remove Recipe", `Remove ${entry.recipeName}?`, [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Remove",
-            style: "destructive",
-            onPress: () => removeEntry.mutate({ entryId: entry.id }),
-          },
-        ]);
+        removeEntry.mutate({ entryId: entry.id });
       }
     },
     [entriesByDate, removeEntry],
@@ -199,13 +192,13 @@ export const MealPlanScreen = () => {
           onMealPress={(mealType) =>
             handleMealSlotPress(item.dateString, mealType)
           }
-          onMealLongPress={(mealType) =>
-            handleMealSlotLongPress(item.dateString, mealType)
+          onMealDelete={(mealType) =>
+            handleMealSlotDelete(item.dateString, mealType)
           }
         />
       );
     },
-    [entriesByDate, activePlan, handleMealSlotPress, handleMealSlotLongPress],
+    [entriesByDate, activePlan, handleMealSlotPress, handleMealSlotDelete],
   );
 
   // Render section footer for spacing

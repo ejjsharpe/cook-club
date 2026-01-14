@@ -8,7 +8,6 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   FlatList,
-  ScrollView,
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
@@ -18,7 +17,13 @@ import {
   NativeSyntheticEvent,
 } from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
-import { useSharedValue } from "react-native-reanimated";
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolation,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -139,6 +144,39 @@ export const RecipeDetailScreen = () => {
 
   // Shared value for syncing tab swipe with underline
   const scrollProgress = useSharedValue(0);
+
+  // Shared value for vertical scroll position (parallax effects)
+  const scrollY = useSharedValue(0);
+
+  const onScrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  // Animated style for top buttons (fade out on scroll down)
+  const topButtonsAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, 200],
+      [1, 0],
+      Extrapolation.CLAMP,
+    );
+    return { opacity };
+  });
+
+  // Animated style for image (scale up on pull down)
+  const imageAnimatedStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      scrollY.value,
+      [-1500, 0],
+      [10, 1],
+      Extrapolation.CLAMP,
+    );
+    return {
+      transform: [{ scale }],
+    };
+  });
 
   // Mutations
   const addToShoppingMutation = useAddRecipeToShoppingList();
@@ -473,68 +511,76 @@ export const RecipeDetailScreen = () => {
     >
       {recipe ? (
         <View style={styles.screen}>
-          <ScrollView
+          {/* Fixed Image Section */}
+          <Animated.View
+            style={[styles.fixedImageContainer, imageAnimatedStyle]}
+          >
+            {recipe.images && recipe.images.length > 0 && (
+              <FlatList
+                data={recipe.images}
+                renderItem={renderImage}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={handleImageScroll}
+                scrollEventThrottle={16}
+              />
+            )}
+
+            {/* Page Indicator */}
+            <PageIndicator
+              currentPage={currentImageIndex + 1}
+              totalPages={recipe.images.length}
+            />
+          </Animated.View>
+
+          {/* Top Buttons - outside ScrollView for consistent positioning */}
+          <Animated.View
+            style={[
+              styles.topButtons,
+              { top: insets.top + 8 },
+              topButtonsAnimatedStyle,
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.overlayButton}
+              onPress={() => navigation.goBack()}
+            >
+              <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
+                <Ionicons name="chevron-back" size={24} color="white" />
+              </BlurView>
+            </TouchableOpacity>
+
+            {/* Hide menu in preview mode */}
+            {!isPreviewMode && isOwnRecipe && (
+              <TouchableOpacity
+                style={styles.overlayButton}
+                onPress={() => setMenuVisible(true)}
+              >
+                <BlurView
+                  intensity={80}
+                  tint="dark"
+                  style={styles.blurContainer}
+                >
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={24}
+                    color="white"
+                  />
+                </BlurView>
+              </TouchableOpacity>
+            )}
+          </Animated.View>
+
+          <Animated.ScrollView
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}
-            bounces={false}
+            onScroll={onScrollHandler}
+            scrollEventThrottle={16}
           >
-            <View style={styles.coverSection}>
-              {recipe.images && recipe.images.length > 0 && (
-                <FlatList
-                  data={recipe.images}
-                  renderItem={renderImage}
-                  keyExtractor={(item) => item.id.toString()}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onScroll={handleImageScroll}
-                  scrollEventThrottle={16}
-                  bounces={false}
-                />
-              )}
-
-              {/* Page Indicator */}
-              <PageIndicator
-                currentPage={currentImageIndex + 1}
-                totalPages={recipe.images.length}
-              />
-
-              {/* Top Buttons */}
-              <View style={[styles.topButtons, { top: insets.top + 8 }]}>
-                <TouchableOpacity
-                  style={styles.overlayButton}
-                  onPress={() => navigation.goBack()}
-                >
-                  <BlurView
-                    intensity={80}
-                    tint="dark"
-                    style={styles.blurContainer}
-                  >
-                    <Ionicons name="chevron-back" size={24} color="white" />
-                  </BlurView>
-                </TouchableOpacity>
-
-                {/* Hide menu in preview mode */}
-                {!isPreviewMode && isOwnRecipe && (
-                  <TouchableOpacity
-                    style={styles.overlayButton}
-                    onPress={() => setMenuVisible(true)}
-                  >
-                    <BlurView
-                      intensity={80}
-                      tint="dark"
-                      style={styles.blurContainer}
-                    >
-                      <Ionicons
-                        name="ellipsis-horizontal"
-                        size={24}
-                        color="white"
-                      />
-                    </BlurView>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
+            {/* Spacer to push white card below image initially */}
+            <View style={styles.imageSpacer} />
 
             {/* White Card Section */}
             <View style={styles.whiteCard}>
@@ -717,7 +763,7 @@ export const RecipeDetailScreen = () => {
 
               <VSpace size={isPreviewMode || !isOwnRecipe ? 100 : 40} />
             </View>
-          </ScrollView>
+          </Animated.ScrollView>
 
           {/* Sticky Footer */}
           {isPreviewMode ? (
@@ -846,10 +892,17 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
 
-  // Cover Section
-  coverSection: {
+  // Fixed Image Section
+  fixedImageContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     height: IMAGE_HEIGHT,
-    position: "relative",
+    zIndex: 0,
+  },
+  imageSpacer: {
+    height: IMAGE_HEIGHT - 24, // Account for white card overlap
   },
   imageContainer: {
     flex: 1,
@@ -867,7 +920,7 @@ const styles = StyleSheet.create((theme) => ({
     right: 16,
     flexDirection: "row",
     justifyContent: "space-between",
-    zIndex: 10,
+    zIndex: 20,
   },
   overlayButton: {
     width: 44,
@@ -887,7 +940,6 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    marginTop: -24,
     paddingTop: 28,
     paddingHorizontal: 20,
     minHeight: 400,

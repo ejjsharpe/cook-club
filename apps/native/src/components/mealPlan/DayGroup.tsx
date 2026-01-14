@@ -10,14 +10,14 @@ interface DayGroupProps {
   entries: Map<string, MealPlanEntry> | undefined;
   canEdit: boolean;
   onMealPress: (mealType: "breakfast" | "lunch" | "dinner") => void;
-  onMealLongPress: (mealType: "breakfast" | "lunch" | "dinner") => void;
+  onMealDelete: (mealType: "breakfast" | "lunch" | "dinner") => void;
 }
 
 export const DayGroup = ({
   entries,
   canEdit,
   onMealPress,
-  onMealLongPress,
+  onMealDelete,
 }: DayGroupProps) => {
   return (
     <View style={styles.container}>
@@ -25,7 +25,7 @@ export const DayGroup = ({
         mealType="breakfast"
         entry={entries?.get("breakfast")}
         onPress={() => onMealPress("breakfast")}
-        onLongPress={() => onMealLongPress("breakfast")}
+        onDelete={canEdit ? () => onMealDelete("breakfast") : undefined}
         disabled={!canEdit}
       />
       <View style={styles.separator} />
@@ -33,7 +33,7 @@ export const DayGroup = ({
         mealType="lunch"
         entry={entries?.get("lunch")}
         onPress={() => onMealPress("lunch")}
-        onLongPress={() => onMealLongPress("lunch")}
+        onDelete={canEdit ? () => onMealDelete("lunch") : undefined}
         disabled={!canEdit}
       />
       <View style={styles.separator} />
@@ -41,7 +41,7 @@ export const DayGroup = ({
         mealType="dinner"
         entry={entries?.get("dinner")}
         onPress={() => onMealPress("dinner")}
-        onLongPress={() => onMealLongPress("dinner")}
+        onDelete={canEdit ? () => onMealDelete("dinner") : undefined}
         disabled={!canEdit}
       />
     </View>
