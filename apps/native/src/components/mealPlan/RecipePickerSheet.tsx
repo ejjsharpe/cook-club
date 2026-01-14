@@ -3,21 +3,22 @@ import { useState, useCallback } from "react";
 import {
   View,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
-  Image,
+  FlatList,
 } from "react-native";
 import ActionSheet, {
   SheetManager,
   SheetProps,
-  FlatList,
 } from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
+import { useGetCollectionDetail } from "../../api/collection";
 import { useAddRecipeToMealPlan } from "../../api/mealPlan";
-import { useGetUserRecipes, type RecipeListItem } from "../../api/recipe";
-import { useDebounce } from "../../hooks/useDebounce";
+import { RecipeCard } from "../RecipeCard";
+import { RecipeCollectionBrowser } from "../RecipeCollectionBrowser";
 import { Text } from "../Text";
+
+import type { Recipe } from "@/hooks/useRecipeCollectionBrowser";
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: "Breakfast",
@@ -25,74 +26,48 @@ const MEAL_TYPE_LABELS: Record<string, string> = {
   dinner: "Dinner",
 };
 
-interface RecipeItemProps {
-  recipe: RecipeListItem;
-  onPress: () => void;
-  isPending: boolean;
-}
-
-const RecipeItem = ({ recipe, onPress, isPending }: RecipeItemProps) => {
-  const imageUrl = recipe.coverImage;
-
-  return (
-    <TouchableOpacity
-      style={styles.recipeRow}
-      onPress={onPress}
-      disabled={isPending}
-    >
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.recipeImage} />
-      ) : (
-        <View style={[styles.recipeImage, styles.recipeImagePlaceholder]}>
-          <Ionicons
-            name="restaurant-outline"
-            size={24}
-            style={styles.placeholderIcon}
-          />
-        </View>
-      )}
-      <View style={styles.recipeInfo}>
-        <Text type="body" numberOfLines={2}>
-          {recipe.name}
-        </Text>
-        {recipe.totalTime && (
-          <Text type="caption" style={styles.recipeTime}>
-            {recipe.totalTime}
-          </Text>
-        )}
-      </View>
-      {isPending ? (
-        <ActivityIndicator size="small" />
-      ) : (
-        <Ionicons name="add-circle" size={28} style={styles.addIcon} />
-      )}
-    </TouchableOpacity>
-  );
+// Recipe type from collection detail (dates are serialized to strings via tRPC)
+type CollectionRecipe = {
+  id: number;
+  name: string;
+  cookTime: number | null;
+  servings: number | null;
+  sourceUrl: string | null;
+  createdAt: string;
+  images: { id: number; url: string }[];
 };
+
+const RecipeSeparator = () => (
+  <View style={styles.separatorContainer}>
+    <View style={styles.separator} />
+  </View>
+);
+
+const TITLE_HEIGHT = 50;
 
 export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
   const { mealPlanId, date, mealType } = props.payload || {};
-  const [searchText, setSearchText] = useState("");
-  const debouncedSearch = useDebounce(searchText, 300);
-
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useGetUserRecipes({
-      search: debouncedSearch || undefined,
-      limit: 20,
-    });
+  const [selectedCollectionId, setSelectedCollectionId] = useState<
+    number | null
+  >(null);
 
   const addRecipeMutation = useAddRecipeToMealPlan();
 
-  const recipes = data?.pages.flatMap((page) => page.items) ?? [];
+  const { data: collectionDetail, isLoading: isLoadingCollection } =
+    useGetCollectionDetail({
+      collectionId: selectedCollectionId ?? 0,
+    });
+
+  const mealTypeLabel = mealType ? MEAL_TYPE_LABELS[mealType] : "";
 
   const handleSelectRecipe = useCallback(
-    async (recipe: RecipeListItem) => {
+    async (recipeId: number) => {
       if (!mealPlanId || !date || !mealType) return;
 
       try {
         await addRecipeMutation.mutateAsync({
           mealPlanId,
-          recipeId: recipe.id,
+          recipeId,
           date,
           mealType,
         });
@@ -104,51 +79,47 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
     [mealPlanId, date, mealType, addRecipeMutation],
   );
 
-  const handleLoadMore = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  const mealTypeLabel = mealType ? MEAL_TYPE_LABELS[mealType] : "";
-
-  const renderItem = useCallback(
-    ({ item }: { item: RecipeListItem }) => (
-      <RecipeItem
-        recipe={item}
-        onPress={() => handleSelectRecipe(item)}
-        isPending={addRecipeMutation.isPending}
-      />
-    ),
-    [handleSelectRecipe, addRecipeMutation.isPending],
+  const handleRecipePress = useCallback(
+    (recipe: Recipe) => {
+      handleSelectRecipe(recipe.id);
+    },
+    [handleSelectRecipe],
   );
 
-  const renderFooter = useCallback(() => {
-    if (!isFetchingNextPage) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" />
-      </View>
-    );
-  }, [isFetchingNextPage]);
+  const handleCollectionPress = useCallback((collectionId: number) => {
+    setSelectedCollectionId(collectionId);
+  }, []);
 
-  const renderEmpty = useCallback(() => {
-    if (isLoading) return null;
-    return (
-      <View style={styles.emptyContainer}>
-        <Ionicons
-          name="restaurant-outline"
-          size={48}
-          style={styles.emptyIcon}
-        />
-        <Text type="bodyFaded" style={styles.emptyText}>
-          {searchText
-            ? "No recipes found matching your search"
-            : "You don't have any recipes yet"}
-        </Text>
-      </View>
-    );
-  }, [isLoading, searchText]);
+  const handleBackPress = useCallback(() => {
+    setSelectedCollectionId(null);
+  }, []);
+
+  const renderCollectionRecipe = useCallback(
+    ({ item }: { item: CollectionRecipe }) => (
+      <RecipeCard
+        recipe={{
+          id: item.id,
+          name: item.name,
+          cookTime: item.cookTime,
+          sourceUrl: item.sourceUrl,
+          coverImage: item.images[0]?.url,
+        }}
+        onPress={() => handleSelectRecipe(item.id)}
+      />
+    ),
+    [handleSelectRecipe],
+  );
+
+  const headerContent = (
+    <View style={styles.header}>
+      <Text type="title2">Add to {mealTypeLabel}</Text>
+      <TouchableOpacity
+        onPress={() => SheetManager.hide("recipe-picker-sheet")}
+      >
+        <Ionicons name="close" size={28} style={styles.closeIcon} />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <ActionSheet
@@ -158,57 +129,71 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
       gestureEnabled
       enableGesturesInScrollView={false}
       indicatorStyle={styles.indicator}
-      containerStyle={{ flex: 0.7 }}
+      containerStyle={{ flex: 1 }}
     >
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text type="title2">Add to {mealTypeLabel}</Text>
-          <TouchableOpacity
-            onPress={() => SheetManager.hide("recipe-picker-sheet")}
-          >
-            <Ionicons name="close" size={28} style={styles.closeIcon} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Search */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search your recipes..."
-            placeholderTextColor="#999"
-            value={searchText}
-            onChangeText={setSearchText}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchText("")}>
-              <Ionicons
-                name="close-circle"
-                size={20}
-                style={styles.clearIcon}
+        {selectedCollectionId !== null ? (
+          // Collection drill-down view
+          <View style={styles.container}>
+            <View style={styles.collectionHeader}>
+              <TouchableOpacity
+                onPress={handleBackPress}
+                style={styles.backButton}
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={24}
+                  style={styles.backIcon}
+                />
+              </TouchableOpacity>
+              <Text
+                type="title2"
+                numberOfLines={1}
+                style={styles.collectionTitle}
+              >
+                {collectionDetail?.name ?? "Collection"}
+              </Text>
+              <TouchableOpacity
+                onPress={() => SheetManager.hide("recipe-picker-sheet")}
+              >
+                <Ionicons name="close" size={28} style={styles.closeIcon} />
+              </TouchableOpacity>
+            </View>
+            {isLoadingCollection ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" />
+              </View>
+            ) : (
+              <FlatList
+                data={collectionDetail?.recipes ?? []}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderCollectionRecipe}
+                ItemSeparatorComponent={RecipeSeparator}
+                contentContainerStyle={styles.listContent}
+                ListEmptyComponent={
+                  <View style={styles.emptyContainer}>
+                    <Ionicons
+                      name="restaurant-outline"
+                      size={48}
+                      style={styles.emptyIcon}
+                    />
+                    <Text type="subheadline" style={styles.emptyText}>
+                      No recipes in this collection yet
+                    </Text>
+                  </View>
+                }
               />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Recipe List */}
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" />
+            )}
           </View>
         ) : (
-          <FlatList
-            data={recipes}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
-            ListFooterComponent={renderFooter}
-            ListEmptyComponent={renderEmpty}
+          // Recipe collection browser
+          <RecipeCollectionBrowser
+            headerContent={headerContent}
+            titleSectionHeight={TITLE_HEIGHT}
+            onRecipePress={handleRecipePress}
+            onCollectionPress={handleCollectionPress}
+            showCreateCollectionCard={false}
+            recipesEmptyMessage="You don't have any recipes yet"
           />
         )}
       </View>
@@ -230,33 +215,25 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
   },
   closeIcon: {
     color: theme.colors.text,
   },
-  searchContainer: {
+  collectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 20,
-    marginVertical: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.medium,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
-  searchIcon: {
-    color: theme.colors.textTertiary,
+  backButton: {
     marginRight: 8,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
+  backIcon: {
     color: theme.colors.text,
   },
-  clearIcon: {
-    color: theme.colors.textTertiary,
+  collectionTitle: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -265,44 +242,14 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 60,
   },
   listContent: {
-    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  recipeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+  separatorContainer: {
+    paddingHorizontal: 20,
   },
-  recipeImage: {
-    width: 56,
-    height: 56,
-    borderRadius: theme.borderRadius.small,
-    backgroundColor: theme.colors.inputBackground,
-  },
-  recipeImagePlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  placeholderIcon: {
-    color: theme.colors.textTertiary,
-  },
-  recipeInfo: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 8,
-  },
-  recipeTime: {
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  addIcon: {
-    color: theme.colors.primary,
-  },
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: "center",
+  separator: {
+    height: 1,
+    backgroundColor: theme.colors.border,
   },
   emptyContainer: {
     alignItems: "center",
@@ -314,6 +261,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   emptyText: {
     textAlign: "center",
+    color: theme.colors.textSecondary,
     paddingHorizontal: 40,
   },
 }));

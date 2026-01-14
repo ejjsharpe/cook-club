@@ -183,6 +183,9 @@ export const useRecipeCollectionBrowser = ({
   const hasActiveFilters =
     selectedTagIds.length > 0 || maxTotalTime !== undefined;
 
+  // Manual refresh state to avoid React Query's automatic state updates affecting other instances
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   // Fetch recipes
   const {
     data: recipesData,
@@ -190,7 +193,6 @@ export const useRecipeCollectionBrowser = ({
     hasNextPage: hasMoreRecipes,
     isFetchingNextPage: isFetchingNextRecipes,
     isLoading: isLoadingRecipes,
-    isRefetching: isRefetchingRecipes,
     refetch: refetchRecipes,
     error: recipesError,
   } = useGetUserRecipes({
@@ -203,12 +205,17 @@ export const useRecipeCollectionBrowser = ({
   const {
     data: collectionsData,
     isLoading: isLoadingCollections,
-    isRefetching: isRefetchingCollections,
     refetch: refetchCollections,
     error: collectionsError,
   } = useGetUserCollectionsWithMetadata({
     search: searchQuery,
   });
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([refetchRecipes(), refetchCollections()]);
+    setIsRefreshing(false);
+  }, [refetchRecipes, refetchCollections]);
 
   const recipes = useMemo(() => {
     return recipesData?.pages.flatMap((page) => page?.items ?? []) ?? [];
@@ -256,8 +263,6 @@ export const useRecipeCollectionBrowser = ({
     // Recipes data
     recipes,
     isLoadingRecipes,
-    isRefetchingRecipes,
-    refetchRecipes,
     recipesError,
     isFetchingNextRecipes,
     handleLoadMoreRecipes,
@@ -265,8 +270,10 @@ export const useRecipeCollectionBrowser = ({
     // Collections data
     collections,
     isLoadingCollections,
-    isRefetchingCollections,
-    refetchCollections,
     collectionsError,
+
+    // Refresh
+    isRefreshing,
+    handleRefresh,
   };
 };

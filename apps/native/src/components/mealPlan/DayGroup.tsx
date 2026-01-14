@@ -1,9 +1,9 @@
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import type { MealPlanEntry } from "@/api/mealPlan";
-
 import { MealSlot } from "./MealSlot";
+
+import type { MealPlanEntry } from "@/api/mealPlan";
 
 interface DayGroupProps {
   dateString: string;

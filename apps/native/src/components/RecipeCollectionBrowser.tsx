@@ -88,16 +88,14 @@ export const RecipeCollectionBrowser = ({
     collectionsScrollHandler,
     recipes,
     isLoadingRecipes,
-    isRefetchingRecipes,
-    refetchRecipes,
     recipesError,
     isFetchingNextRecipes,
     handleLoadMoreRecipes,
     collections,
     isLoadingCollections,
-    isRefetchingCollections,
-    refetchCollections,
     collectionsError,
+    isRefreshing,
+    handleRefresh,
   } = useRecipeCollectionBrowser({
     titleSectionHeight,
     onTabBarScroll,
@@ -282,8 +280,8 @@ export const RecipeCollectionBrowser = ({
             scrollEventThrottle={32}
             refreshControl={
               <RefreshControl
-                refreshing={isRefetchingRecipes}
-                onRefresh={refetchRecipes}
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
                 progressViewOffset={headerHeight}
                 tintColor={theme.colors.primary}
               />
@@ -313,8 +311,8 @@ export const RecipeCollectionBrowser = ({
             scrollEventThrottle={20}
             refreshControl={
               <RefreshControl
-                refreshing={isRefetchingCollections}
-                onRefresh={refetchCollections}
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
                 progressViewOffset={headerHeight}
                 tintColor={theme.colors.primary}
               />
