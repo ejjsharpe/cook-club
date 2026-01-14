@@ -76,7 +76,11 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
           {recipe.sourceUrl && (
             <View style={styles.metaItem}>
               <Ionicons name="link-outline" size={14} style={styles.metaIcon} />
-              <Text type="subheadline" style={styles.metaText} numberOfLines={1}>
+              <Text
+                type="subheadline"
+                style={styles.metaText}
+                numberOfLines={1}
+              >
                 {new URL(recipe.sourceUrl).hostname.replace(/^www\./, "")}
               </Text>
             </View>
@@ -120,17 +124,16 @@ const styles = StyleSheet.create((theme) => ({
   },
   content: {
     flex: 1,
-    gap: 4,
+    gap: 8,
   },
   metaRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: 8,
   },
   metaItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
   },
   metaIcon: {
     color: theme.colors.textSecondary,
