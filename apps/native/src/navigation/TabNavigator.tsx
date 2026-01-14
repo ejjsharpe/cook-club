@@ -22,9 +22,9 @@ export const TabNavigator = () => {
         }}
       >
         <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="My Recipes" component={MyRecipesScreen} />
         <Tab.Screen name="Add recipe" component={AddRecipeScreen} />
         <Tab.Screen name="Meal Plan" component={MealPlanScreen} />
-        <Tab.Screen name="My Recipes" component={MyRecipesScreen} />
         <Tab.Screen name="Shopping List" component={ShoppingListScreen} />
       </Tab.Navigator>
     </TabBarProvider>
