@@ -81,11 +81,8 @@ export const useRecipeCollectionBrowser = ({
       // Ignore scroll events shortly after tab switch
       if (Date.now() - tabSwitchedAt.value < TAB_SWITCH_DELAY) return;
 
-      // Update header position
-      headerTranslateY.value = -Math.min(
-        Math.max(offsetY, 0),
-        titleSectionHeight,
-      );
+      // Update header position (allow negative offset for overscroll)
+      headerTranslateY.value = -Math.min(offsetY, titleSectionHeight);
 
       // Call external scroll handler if provided
       if (onTabBarScroll) {
@@ -115,11 +112,8 @@ export const useRecipeCollectionBrowser = ({
       // Ignore scroll events shortly after tab switch
       if (Date.now() - tabSwitchedAt.value < TAB_SWITCH_DELAY) return;
 
-      // Update header position
-      headerTranslateY.value = -Math.min(
-        Math.max(offsetY, 0),
-        titleSectionHeight,
-      );
+      // Update header position (allow negative offset for overscroll)
+      headerTranslateY.value = -Math.min(offsetY, titleSectionHeight);
 
       // Call external scroll handler if provided
       if (onTabBarScroll) {

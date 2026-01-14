@@ -400,8 +400,6 @@ export const HomeScreen = () => {
     opacity: searchProgress.value,
   }));
 
-  console.log("test");
-
   // Floating search bar animates from its scroll position to fixed position
   const floatingSearchBarStyle = useAnimatedStyle(() => {
     return {

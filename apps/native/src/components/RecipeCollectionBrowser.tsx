@@ -336,7 +336,6 @@ const styles = StyleSheet.create((theme, rt) => ({
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: rt.insets.top,
     backgroundColor: theme.colors.background,
     zIndex: 10,
   },

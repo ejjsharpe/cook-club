@@ -27,10 +27,10 @@ interface Recipe {
   prepTime?: number | null;
   cookTime?: number | null;
   totalTime?: number | null;
-  servings?: number | null;
   coverImage?: string | null;
   tags?: Tag[];
   owner?: User;
+  sourceUrl?: string | null;
 }
 
 interface Props {
@@ -73,16 +73,11 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
               </Text>
             </View>
           )}
-          {recipe.servings && (
+          {recipe.sourceUrl && (
             <View style={styles.metaItem}>
-              <Ionicons
-                name="people-outline"
-                size={14}
-                style={styles.metaIcon}
-              />
-              <Text type="subheadline" style={styles.metaText}>
-                {recipe.servings}{" "}
-                {recipe.servings === 1 ? "serving" : "servings"}
+              <Ionicons name="link-outline" size={14} style={styles.metaIcon} />
+              <Text type="subheadline" style={styles.metaText} numberOfLines={1}>
+                {new URL(recipe.sourceUrl).hostname.replace(/^www\./, "")}
               </Text>
             </View>
           )}
