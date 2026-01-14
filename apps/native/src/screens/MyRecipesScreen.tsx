@@ -5,6 +5,7 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { useCreateCollection } from "@/api/collection";
 import { RecipeCollectionBrowser } from "@/components/RecipeCollectionBrowser";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import type { Recipe } from "@/hooks/useRecipeCollectionBrowser";
@@ -66,21 +67,27 @@ export const MyRecipesScreen = () => {
   );
 
   return (
-    <RecipeCollectionBrowser
-      headerContent={headerContent}
-      titleSectionHeight={TITLE_SECTION_HEIGHT}
-      onRecipePress={handleRecipePress}
-      onCollectionPress={handleCollectionPress}
-      showCreateCollectionCard
-      onCreateCollection={handleCreateCollection}
-      isCreatingCollection={createCollectionMutation.isPending}
-      recipesEmptyMessage="No recipes in your library yet. Import recipes from the feed or add your own!"
-      onTabBarScroll={onTabBarScroll}
-    />
+    <SafeAreaView edges={["top"]} style={styles.container}>
+      <RecipeCollectionBrowser
+        headerContent={headerContent}
+        titleSectionHeight={TITLE_SECTION_HEIGHT}
+        onRecipePress={handleRecipePress}
+        onCollectionPress={handleCollectionPress}
+        showCreateCollectionCard
+        onCreateCollection={handleCreateCollection}
+        isCreatingCollection={createCollectionMutation.isPending}
+        recipesEmptyMessage="No recipes in your library yet. Import recipes from the feed or add your own!"
+        onTabBarScroll={onTabBarScroll}
+      />
+    </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create(() => ({
+const styles = StyleSheet.create((theme) => ({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   headerPadded: {
     paddingHorizontal: 20,
   },

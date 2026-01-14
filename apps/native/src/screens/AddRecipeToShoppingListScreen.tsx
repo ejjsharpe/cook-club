@@ -5,6 +5,7 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { useAddRecipeToShoppingList } from "@/api/shopping";
 import { RecipeCollectionBrowser } from "@/components/RecipeCollectionBrowser";
+import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
@@ -65,17 +66,23 @@ export const AddRecipeToShoppingListScreen = () => {
   );
 
   return (
-    <RecipeCollectionBrowser
-      headerContent={headerContent}
-      titleSectionHeight={TITLE_SECTION_HEIGHT}
-      onRecipePress={handleRecipeSelect}
-      onCollectionPress={handleCollectionPress}
-      recipesEmptyMessage="No recipes in your library yet"
-    />
+    <SafeAreaView edges={["top"]} style={styles.container}>
+      <RecipeCollectionBrowser
+        headerContent={headerContent}
+        titleSectionHeight={TITLE_SECTION_HEIGHT}
+        onRecipePress={handleRecipeSelect}
+        onCollectionPress={handleCollectionPress}
+        recipesEmptyMessage="No recipes in your library yet"
+      />
+    </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create(() => ({
+const styles = StyleSheet.create((theme) => ({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",

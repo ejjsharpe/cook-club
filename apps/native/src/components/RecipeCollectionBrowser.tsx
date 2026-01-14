@@ -16,7 +16,6 @@ import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 import { CollectionGridCard, GRID_GAP } from "./CollectionGridCard";
 import { CreateCollectionCard } from "./CreateCollectionCard";
 import { RecipeCard } from "./RecipeCard";
-import { SafeAreaView } from "./SafeAreaView";
 import { SearchBar } from "./SearchBar";
 import { SegmentedControl, type TabOption } from "./SegmentedControl";
 import { MyRecipesListSkeleton, CollectionsListSkeleton } from "./Skeleton";
@@ -206,7 +205,7 @@ export const RecipeCollectionBrowser = ({
   );
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
+    <View style={styles.container}>
       <Animated.View style={[styles.headerContainer, headerAnimatedStyle]}>
         <View style={styles.header}>
           <Animated.View style={titleAnimatedStyle}>
@@ -323,7 +322,7 @@ export const RecipeCollectionBrowser = ({
           />
         )}
       </SwipeableTabView>
-    </SafeAreaView>
+    </View>
   );
 };
 
