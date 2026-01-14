@@ -7,22 +7,25 @@ import { Image } from "expo-image";
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
-  FlatList,
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
   Modal,
   Alert,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
 } from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   interpolate,
   Extrapolation,
+  useAnimatedRef,
+  scrollTo,
+  runOnJS,
+  withSpring,
+  useAnimatedReaction,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
@@ -141,6 +144,66 @@ export const RecipeDetailScreen = () => {
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [menuVisible, setMenuVisible] = useState(false);
+  const imageListRef = useAnimatedRef<Animated.FlatList<unknown>>();
+  const imageScrollOffset = useSharedValue(0);
+  const gestureStartIndex = useSharedValue(0);
+
+  const updateImageIndex = (index: number) => {
+    setCurrentImageIndex(index);
+  };
+
+  // Sync scroll position with animated offset value
+  useAnimatedReaction(
+    () => imageScrollOffset.value,
+    (offset) => {
+      scrollTo(imageListRef, offset, 0, false);
+    },
+  );
+
+  // Gesture handler for image carousel swipes
+  const FLICK_VELOCITY_THRESHOLD = 500;
+  const imageGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-10, 10])
+    .onStart(() => {
+      gestureStartIndex.value = Math.round(
+        imageScrollOffset.value / SCREEN_WIDTH,
+      );
+    })
+    .onUpdate((event) => {
+      const startOffset = gestureStartIndex.value * SCREEN_WIDTH;
+      const newOffset = startOffset - event.translationX;
+      imageScrollOffset.value = newOffset;
+    })
+    .onEnd((event) => {
+      const imageCount = recipe?.images?.length ?? 1;
+      const velocity = -event.velocityX;
+      const currentIndex = gestureStartIndex.value;
+
+      // Snap to nearest image, or use velocity to determine direction
+      let targetIndex: number;
+      if (Math.abs(velocity) > FLICK_VELOCITY_THRESHOLD) {
+        // Fast flick - advance in flick direction
+        if (velocity > 0) {
+          targetIndex = Math.min(currentIndex + 1, imageCount - 1);
+        } else {
+          targetIndex = Math.max(currentIndex - 1, 0);
+        }
+      } else {
+        // Slow drag - snap to nearest based on position
+        const nearestIndex = Math.round(imageScrollOffset.value / SCREEN_WIDTH);
+        targetIndex = Math.max(0, Math.min(nearestIndex, imageCount - 1));
+      }
+
+      const targetOffset = targetIndex * SCREEN_WIDTH;
+      imageScrollOffset.value = withSpring(targetOffset, {
+        velocity,
+        damping: 100,
+        stiffness: 100,
+        mass: 0.5,
+      });
+      runOnJS(updateImageIndex)(targetIndex);
+    });
 
   // Shared value for syncing tab swipe with underline
   const scrollProgress = useSharedValue(0);
@@ -176,6 +239,17 @@ export const RecipeDetailScreen = () => {
     return {
       transform: [{ scale }],
     };
+  });
+
+  // Animated style for touch layer - moves up with scroll to stay over visible images
+  const touchLayerAnimatedStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(
+      scrollY.value,
+      [0, IMAGE_HEIGHT],
+      [0, -IMAGE_HEIGHT],
+      Extrapolation.CLAMP,
+    );
+    return { transform: [{ translateY }] };
   });
 
   // Mutations
@@ -304,13 +378,6 @@ export const RecipeDetailScreen = () => {
   const handleEditPreviewRecipe = () => {
     if (!parsedRecipe) return;
     navigation.navigate("EditRecipe", { parsedRecipe });
-  };
-
-  const handleImageScroll = (
-    event: NativeSyntheticEvent<NativeScrollEvent>,
-  ) => {
-    const page = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-    setCurrentImageIndex(page);
   };
 
   const handleTabChange = (tab: TabType, _direction: number) => {
@@ -516,15 +583,14 @@ export const RecipeDetailScreen = () => {
             style={[styles.fixedImageContainer, imageAnimatedStyle]}
           >
             {recipe.images && recipe.images.length > 0 && (
-              <FlatList
+              <Animated.FlatList
+                ref={imageListRef}
                 data={recipe.images}
                 renderItem={renderImage}
                 keyExtractor={(item) => item.id.toString()}
                 horizontal
-                pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                onScroll={handleImageScroll}
-                scrollEventThrottle={16}
+                scrollEnabled={false}
               />
             )}
 
@@ -536,12 +602,14 @@ export const RecipeDetailScreen = () => {
           </Animated.View>
 
           {/* Top Buttons - outside ScrollView for consistent positioning */}
+          {/* pointerEvents box-none lets touches pass through to image carousel between buttons */}
           <Animated.View
             style={[
               styles.topButtons,
               { top: insets.top + 8 },
               topButtonsAnimatedStyle,
             ]}
+            pointerEvents="box-none"
           >
             <TouchableOpacity
               style={styles.overlayButton}
@@ -765,6 +833,13 @@ export const RecipeDetailScreen = () => {
             </View>
           </Animated.ScrollView>
 
+          {/* Touch layer for image swipes - shrinks as images scroll off screen */}
+          <GestureDetector gesture={imageGesture}>
+            <Animated.View
+              style={[styles.imageTouchLayer, touchLayerAnimatedStyle]}
+            />
+          </GestureDetector>
+
           {/* Sticky Footer */}
           {isPreviewMode ? (
             // Preview mode: Save and Edit buttons
@@ -892,14 +967,22 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
 
-  // Fixed Image Section
+  // Fixed Image Section - behind ScrollView so card scrolls over it
   fixedImageContainer: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: IMAGE_HEIGHT,
-    zIndex: 0,
+  },
+  // Touch layer sits on top to capture horizontal swipes for image carousel
+  imageTouchLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: IMAGE_HEIGHT,
+    zIndex: 5,
   },
   imageSpacer: {
     height: IMAGE_HEIGHT - 24, // Account for white card overlap
