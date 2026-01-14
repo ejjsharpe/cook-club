@@ -15,6 +15,7 @@ import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import {
   KeyboardStickyView,
   useReanimatedKeyboardAnimation,
+  useKeyboardHandler,
 } from "react-native-keyboard-controller";
 import Animated, {
   useAnimatedStyle,
@@ -256,21 +257,63 @@ export const ShoppingListScreen = () => {
   const [manualItemText, setManualItemText] = useState("");
   const { progress: keyboardswipeProgress } = useReanimatedKeyboardAnimation();
 
-  const inputPaddingAnimatedStyle = useAnimatedStyle(() => {
-    // When keyboard is open, no extra padding needed (keyboard covers tab bar)
-    const isKeyboardOpen = keyboardswipeProgress.value > 0;
-    if (isKeyboardOpen) {
-      return { paddingBottom: 0 };
-    }
+  // Track keyboard height for empty state centering
+  const keyboardHeight = useSharedValue(0);
+  useKeyboardHandler({
+    onMove: (e) => {
+      "worklet";
+      keyboardHeight.value = e.height;
+    },
+    onEnd: (e) => {
+      "worklet";
+      keyboardHeight.value = e.height;
+    },
+  });
 
-    // When keyboard is closed, add padding for tab bar
+  // Base padding for when keyboard is closed and tab bar is visible
+  const basePadding = FLOATING_TAB_BAR_HEIGHT + insets.bottom - 8;
+
+  const inputTransformAnimatedStyle = useAnimatedStyle(() => {
+    // When keyboard is closed, slide out with tab bar using same spring config
+    const closedOffset =
+      isVisible.value === 1 ? 0 : INPUT_SECTION_HEIGHT + basePadding;
+
+    // Interpolate between closed and open states based on keyboard progress
+    const translateY = interpolate(
+      keyboardswipeProgress.value,
+      [0, 1],
+      [closedOffset, basePadding],
+    );
+
     return {
-      paddingBottom: withSpring(
-        isVisible.value === 1
-          ? FLOATING_TAB_BAR_HEIGHT + insets.bottom - 8
-          : insets.bottom + 8,
-        { damping: 50, stiffness: 400, mass: 3 },
-      ),
+      paddingBottom: basePadding,
+      transform: [
+        {
+          translateY: withSpring(translateY, {
+            damping: 200,
+            stiffness: 400,
+            mass: 2,
+          }),
+        },
+      ],
+    };
+  });
+
+  // Animate empty state to stay centered between header and input section
+  const inputSectionOffset = INPUT_SECTION_HEIGHT + basePadding;
+  const emptyStateAnimatedStyle = useAnimatedStyle(() => {
+    // Smoothly interpolate between closed and open states
+    const closedOffset = inputSectionOffset / 2;
+    const openOffset = keyboardHeight.value / 2;
+
+    const offset = interpolate(
+      keyboardswipeProgress.value,
+      [0, 1],
+      [closedOffset, openOffset],
+    );
+
+    return {
+      transform: [{ translateY: -offset }],
     };
   });
 
@@ -449,24 +492,22 @@ export const ShoppingListScreen = () => {
   const renderEmpty = () => {
     if (error) {
       return (
-        <View style={styles.centered}>
+        <Animated.View style={[styles.centered, emptyStateAnimatedStyle]}>
           <Text type="bodyFaded">Failed to load shopping list</Text>
-        </View>
+        </Animated.View>
       );
     }
 
     return (
-      <View style={styles.centered}>
+      <Animated.View style={[styles.centered, emptyStateAnimatedStyle]}>
         <Ionicons name="cart-outline" size={64} style={styles.emptyIcon} />
         <VSpace size={16} />
-        <Text type="title3" style={styles.emptyTitle}>
-          Your shopping list is empty
-        </Text>
+        <Text type="heading">Your shopping list is empty</Text>
         <VSpace size={8} />
-        <Text type="subheadline" style={styles.emptySubtitle}>
+        <Text type="bodyFaded" style={styles.emptyText}>
           Add ingredients from any recipe to get started
         </Text>
-      </View>
+      </Animated.View>
     );
   };
 
@@ -547,7 +588,9 @@ export const ShoppingListScreen = () => {
           opened: -12,
         }}
       >
-        <Animated.View style={[styles.inputSection, inputPaddingAnimatedStyle]}>
+        <Animated.View
+          style={[styles.inputSection, inputTransformAnimatedStyle]}
+        >
           <TextInput
             style={styles.input}
             placeholder="Add item (e.g., 2 cups milk)"
@@ -775,14 +818,10 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
   emptyIcon: {
-    color: theme.colors.textTertiary,
+    color: theme.colors.border,
   },
-  emptyTitle: {
+  emptyText: {
     textAlign: "center",
-  },
-  emptySubtitle: {
-    textAlign: "center",
-    color: theme.colors.textSecondary,
   },
   itemRowOuter: {
     paddingHorizontal: 12,
