@@ -152,13 +152,32 @@ export const RecipeDetailScreen = () => {
     setCurrentImageIndex(index);
   };
 
-  // Sync scroll position with animated offset value
+  // Sync scroll position with animated offset value (clamped for FlatList)
   useAnimatedReaction(
     () => imageScrollOffset.value,
     (offset) => {
-      scrollTo(imageListRef, offset, 0, false);
+      const imageCount = recipe?.images?.length ?? 1;
+      const maxOffset = (imageCount - 1) * SCREEN_WIDTH;
+      const clampedOffset = Math.max(0, Math.min(offset, maxOffset));
+      scrollTo(imageListRef, clampedOffset, 0, false);
     },
   );
+
+  // Animated style for overscroll effect on image container
+  const imageOverscrollStyle = useAnimatedStyle(() => {
+    const imageCount = recipe?.images?.length ?? 1;
+    const maxOffset = (imageCount - 1) * SCREEN_WIDTH;
+    const offset = imageScrollOffset.value;
+
+    let overscrollX = 0;
+    if (offset < 0) {
+      overscrollX = -offset; // Move right when pulling past start
+    } else if (offset > maxOffset) {
+      overscrollX = -(offset - maxOffset); // Move left when pulling past end
+    }
+
+    return { transform: [{ translateX: overscrollX }] };
+  });
 
   // Gesture handler for image carousel swipes
   const FLICK_VELOCITY_THRESHOLD = 500;
@@ -171,8 +190,18 @@ export const RecipeDetailScreen = () => {
       );
     })
     .onUpdate((event) => {
+      const imageCount = recipe?.images?.length ?? 1;
+      const maxOffset = (imageCount - 1) * SCREEN_WIDTH;
       const startOffset = gestureStartIndex.value * SCREEN_WIDTH;
-      const newOffset = startOffset - event.translationX;
+      let newOffset = startOffset - event.translationX;
+
+      // Rubber band effect when overscrolling
+      if (newOffset < 0) {
+        newOffset = newOffset * 0.3;
+      } else if (newOffset > maxOffset) {
+        newOffset = maxOffset + (newOffset - maxOffset) * 0.3;
+      }
+
       imageScrollOffset.value = newOffset;
     })
     .onEnd((event) => {
@@ -591,6 +620,7 @@ export const RecipeDetailScreen = () => {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 scrollEnabled={false}
+                style={imageOverscrollStyle}
               />
             )}
 
