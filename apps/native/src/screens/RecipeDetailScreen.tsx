@@ -179,11 +179,15 @@ export const RecipeDetailScreen = () => {
     return { transform: [{ translateX: overscrollX }] };
   });
 
+  // Native gesture for ScrollView to coordinate with image gesture
+  const scrollViewNativeGesture = Gesture.Native();
+
   // Gesture handler for image carousel swipes
   const FLICK_VELOCITY_THRESHOLD = 500;
   const imageGesture = Gesture.Pan()
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-10, 10])
+    .activeOffsetX([-10, 10]) // Activate after 10px horizontal movement
+    .failOffsetY([-10, 10]) // Fail if vertical movement exceeds 10px first
+    .blocksExternalGesture(scrollViewNativeGesture) // Block ScrollView when horizontal swipe detected
     .onStart(() => {
       gestureStartIndex.value = Math.round(
         imageScrollOffset.value / SCREEN_WIDTH,
@@ -268,17 +272,6 @@ export const RecipeDetailScreen = () => {
     return {
       transform: [{ scale }],
     };
-  });
-
-  // Animated style for touch layer - moves up with scroll to stay over visible images
-  const touchLayerAnimatedStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(
-      scrollY.value,
-      [0, IMAGE_HEIGHT],
-      [0, -IMAGE_HEIGHT],
-      Extrapolation.CLAMP,
-    );
-    return { transform: [{ translateY }] };
   });
 
   // Mutations
@@ -671,203 +664,207 @@ export const RecipeDetailScreen = () => {
             )}
           </Animated.View>
 
-          <Animated.ScrollView
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
-            onScroll={onScrollHandler}
-            scrollEventThrottle={16}
-          >
-            {/* Spacer to push white card below image initially */}
-            <View style={styles.imageSpacer} />
+          <GestureDetector gesture={scrollViewNativeGesture}>
+            <Animated.ScrollView
+              style={styles.scrollView}
+              showsVerticalScrollIndicator={false}
+              onScroll={onScrollHandler}
+              scrollEventThrottle={16}
+            >
+              {/* Spacer to push white card below image initially - also handles image swipe gestures */}
+              <GestureDetector gesture={imageGesture}>
+                <View style={styles.imageSpacer} />
+              </GestureDetector>
 
-            {/* White Card Section */}
-            <View style={styles.whiteCard}>
-              {/* Title */}
-              <Text type="title1">{recipe.name}</Text>
+              {/* White Card Section */}
+              <View style={styles.whiteCard}>
+                {/* Title */}
+                <Text type="title1">{recipe.name}</Text>
 
-              <VSpace size={16} />
+                <VSpace size={16} />
 
-              {/* Cook Times */}
-              <View style={styles.timesRow}>
-                {recipe.prepTime && (
-                  <View style={styles.timeItem}>
-                    <Ionicons
-                      name="timer-outline"
-                      size={18}
-                      style={styles.timeIcon}
-                    />
-                    <Text type="subheadline" style={styles.timeIcon}>
-                      Prep: {formatMinutesShort(recipe.prepTime)}
-                    </Text>
-                  </View>
-                )}
-                {recipe.cookTime && (
-                  <View style={styles.timeItem}>
-                    <Ionicons
-                      name="flame-outline"
-                      size={18}
-                      style={styles.timeIcon}
-                    />
-                    <Text type="subheadline" style={styles.timeIcon}>
-                      Cook: {formatMinutesShort(recipe.cookTime)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Attribution for imported recipes */}
-              {isOwnRecipe &&
-                recipe.sourceType === "user" &&
-                recipe.originalOwner && (
-                  <>
-                    <VSpace size={8} />
-                    <Text type="footnote" style={styles.attributionText}>
-                      Originally from @{recipe.originalOwner.name}
-                    </Text>
-                  </>
-                )}
-
-              <VSpace size={24} />
-
-              {/* Servings Row with Review Button or Author Info */}
-              <View style={styles.servingsRow}>
-                <View style={styles.servingsStepper}>
-                  <TouchableOpacity
-                    style={styles.stepperButton}
-                    onPress={() => setServings(Math.max(1, servings - 1))}
-                  >
-                    <Ionicons
-                      name="remove"
-                      size={20}
-                      style={styles.stepperIcon}
-                    />
-                  </TouchableOpacity>
-                  <View style={styles.servingsDisplay}>
-                    <Text type="caption" style={styles.servingsLabel}>
-                      Servings
-                    </Text>
-                    <Text style={styles.servingsNumber}>{servings}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.stepperButton}
-                    onPress={() => setServings(servings + 1)}
-                  >
-                    <Ionicons name="add" size={20} style={styles.stepperIcon} />
-                  </TouchableOpacity>
-                </View>
-
-                {isPreviewMode ? (
-                  // Preview mode: show placeholder
-                  <View style={styles.previewAuthorPlaceholder}>
-                    <Ionicons
-                      name="bookmark-outline"
-                      size={20}
-                      style={styles.previewPlaceholderIcon}
-                    />
-                    <Text type="caption" style={styles.previewPlaceholderText}>
-                      Will be saved to your recipes
-                    </Text>
-                  </View>
-                ) : isOwnRecipe ? (
-                  <TouchableOpacity
-                    style={styles.reviewButton}
-                    onPress={handleReview}
-                  >
-                    {recipe.userReviewRating ? (
-                      <View style={styles.starRatingContainer}>
-                        {Array.from({ length: recipe.userReviewRating }).map(
-                          (_, i) => (
-                            <Ionicons
-                              key={i}
-                              name="star"
-                              size={18}
-                              style={styles.reviewIcon}
-                            />
-                          ),
-                        )}
-                      </View>
-                    ) : (
-                      <>
-                        <Ionicons
-                          name="star-outline"
-                          size={18}
-                          style={styles.reviewIcon}
-                        />
-                        <Text style={styles.reviewText}>Review</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.authorCard}
-                    onPress={() =>
-                      navigation.navigate("UserProfile", {
-                        userId: recipe.owner.id,
-                      })
-                    }
-                    activeOpacity={0.7}
-                  >
-                    {recipe.owner.image ? (
-                      <Image
-                        source={{
-                          uri: getImageUrl(recipe.owner.image, "avatar-sm"),
-                        }}
-                        style={styles.authorAvatarImage}
+                {/* Cook Times */}
+                <View style={styles.timesRow}>
+                  {recipe.prepTime && (
+                    <View style={styles.timeItem}>
+                      <Ionicons
+                        name="timer-outline"
+                        size={18}
+                        style={styles.timeIcon}
                       />
-                    ) : (
-                      <View style={styles.authorAvatarPlaceholder}>
-                        <Text style={styles.authorAvatarText}>
-                          {recipe.owner.name.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.authorInfo}>
-                      <Text type="headline" numberOfLines={1}>
-                        {recipe.owner.name}
-                      </Text>
-                      <Text type="caption">
-                        {recipe.userRecipesCount} recipes
+                      <Text type="subheadline" style={styles.timeIcon}>
+                        Prep: {formatMinutesShort(recipe.prepTime)}
                       </Text>
                     </View>
-                  </TouchableOpacity>
-                )}
-              </View>
+                  )}
+                  {recipe.cookTime && (
+                    <View style={styles.timeItem}>
+                      <Ionicons
+                        name="flame-outline"
+                        size={18}
+                        style={styles.timeIcon}
+                      />
+                      <Text type="subheadline" style={styles.timeIcon}>
+                        Cook: {formatMinutesShort(recipe.cookTime)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
 
-              <VSpace size={24} />
+                {/* Attribution for imported recipes */}
+                {isOwnRecipe &&
+                  recipe.sourceType === "user" &&
+                  recipe.originalOwner && (
+                    <>
+                      <VSpace size={8} />
+                      <Text type="footnote" style={styles.attributionText}>
+                        Originally from @{recipe.originalOwner.name}
+                      </Text>
+                    </>
+                  )}
 
-              {/* Full Width Tabs */}
-              <SegmentedControl
-                options={TAB_OPTIONS}
-                value={activeTab}
-                onValueChange={handleTabChange}
-                scrollProgress={scrollProgress}
-                fullWidth
-              />
+                <VSpace size={24} />
 
-              <VSpace size={24} />
+                {/* Servings Row with Review Button or Author Info */}
+                <View style={styles.servingsRow}>
+                  <View style={styles.servingsStepper}>
+                    <TouchableOpacity
+                      style={styles.stepperButton}
+                      onPress={() => setServings(Math.max(1, servings - 1))}
+                    >
+                      <Ionicons
+                        name="remove"
+                        size={20}
+                        style={styles.stepperIcon}
+                      />
+                    </TouchableOpacity>
+                    <View style={styles.servingsDisplay}>
+                      <Text type="caption" style={styles.servingsLabel}>
+                        Servings
+                      </Text>
+                      <Text style={styles.servingsNumber}>{servings}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.stepperButton}
+                      onPress={() => setServings(servings + 1)}
+                    >
+                      <Ionicons
+                        name="add"
+                        size={20}
+                        style={styles.stepperIcon}
+                      />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Swipeable Tab Content - breaks out of card padding for edge-to-edge swipe */}
-              <View style={styles.tabViewWrapper}>
-                <SwipeableTabView
-                  activeIndex={activeTabIndex}
-                  onIndexChange={handleSwipeTabChange}
-                  containerWidth={SCREEN_WIDTH}
+                  {isPreviewMode ? (
+                    // Preview mode: show placeholder
+                    <View style={styles.previewAuthorPlaceholder}>
+                      <Ionicons
+                        name="bookmark-outline"
+                        size={20}
+                        style={styles.previewPlaceholderIcon}
+                      />
+                      <Text
+                        type="caption"
+                        style={styles.previewPlaceholderText}
+                      >
+                        Will be saved to your recipes
+                      </Text>
+                    </View>
+                  ) : isOwnRecipe ? (
+                    <TouchableOpacity
+                      style={styles.reviewButton}
+                      onPress={handleReview}
+                    >
+                      {recipe.userReviewRating ? (
+                        <View style={styles.starRatingContainer}>
+                          {Array.from({ length: recipe.userReviewRating }).map(
+                            (_, i) => (
+                              <Ionicons
+                                key={i}
+                                name="star"
+                                size={18}
+                                style={styles.reviewIcon}
+                              />
+                            ),
+                          )}
+                        </View>
+                      ) : (
+                        <>
+                          <Ionicons
+                            name="star-outline"
+                            size={18}
+                            style={styles.reviewIcon}
+                          />
+                          <Text style={styles.reviewText}>Review</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.authorCard}
+                      onPress={() =>
+                        navigation.navigate("UserProfile", {
+                          userId: recipe.owner.id,
+                        })
+                      }
+                      activeOpacity={0.7}
+                    >
+                      {recipe.owner.image ? (
+                        <Image
+                          source={{
+                            uri: getImageUrl(recipe.owner.image, "avatar-sm"),
+                          }}
+                          style={styles.authorAvatarImage}
+                        />
+                      ) : (
+                        <View style={styles.authorAvatarPlaceholder}>
+                          <Text style={styles.authorAvatarText}>
+                            {recipe.owner.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.authorInfo}>
+                        <Text type="headline" numberOfLines={1}>
+                          {recipe.owner.name}
+                        </Text>
+                        <Text type="caption">
+                          {recipe.userRecipesCount} recipes
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                <VSpace size={24} />
+
+                {/* Full Width Tabs */}
+                <SegmentedControl
+                  options={TAB_OPTIONS}
+                  value={activeTab}
+                  onValueChange={handleTabChange}
                   scrollProgress={scrollProgress}
-                >
-                  {renderIngredients()}
-                  {renderMethod()}
-                </SwipeableTabView>
+                  fullWidth
+                />
+
+                <VSpace size={24} />
+
+                {/* Swipeable Tab Content - breaks out of card padding for edge-to-edge swipe */}
+                <View style={styles.tabViewWrapper}>
+                  <SwipeableTabView
+                    activeIndex={activeTabIndex}
+                    onIndexChange={handleSwipeTabChange}
+                    containerWidth={SCREEN_WIDTH}
+                    scrollProgress={scrollProgress}
+                  >
+                    {renderIngredients()}
+                    {renderMethod()}
+                  </SwipeableTabView>
+                </View>
+
+                <VSpace size={isPreviewMode || !isOwnRecipe ? 100 : 40} />
               </View>
-
-              <VSpace size={isPreviewMode || !isOwnRecipe ? 100 : 40} />
-            </View>
-          </Animated.ScrollView>
-
-          {/* Touch layer for image swipes - shrinks as images scroll off screen */}
-          <GestureDetector gesture={imageGesture}>
-            <Animated.View
-              style={[styles.imageTouchLayer, touchLayerAnimatedStyle]}
-            />
+            </Animated.ScrollView>
           </GestureDetector>
 
           {/* Sticky Footer */}
@@ -1004,15 +1001,6 @@ const styles = StyleSheet.create((theme) => ({
     left: 0,
     right: 0,
     height: IMAGE_HEIGHT,
-  },
-  // Touch layer sits on top to capture horizontal swipes for image carousel
-  imageTouchLayer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: IMAGE_HEIGHT,
-    zIndex: 5,
   },
   imageSpacer: {
     height: IMAGE_HEIGHT - 24, // Account for white card overlap
