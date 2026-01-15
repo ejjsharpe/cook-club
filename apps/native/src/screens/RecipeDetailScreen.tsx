@@ -262,7 +262,7 @@ export const RecipeDetailScreen = () => {
     return { opacity };
   });
 
-  // Animated style for image (scale up on pull down)
+  // Animated style for image (scale up on pull down, parallax on scroll up)
   const imageAnimatedStyle = useAnimatedStyle(() => {
     const scale = interpolate(
       scrollY.value,
@@ -270,8 +270,15 @@ export const RecipeDetailScreen = () => {
       [10, 1],
       Extrapolation.CLAMP,
     );
+    // Parallax: image moves up at 0.3x the scroll speed
+    const translateY = interpolate(
+      scrollY.value,
+      [0, IMAGE_HEIGHT],
+      [0, -IMAGE_HEIGHT * 0.5],
+      Extrapolation.CLAMP,
+    );
     return {
-      transform: [{ scale }],
+      transform: [{ scale }, { translateY }],
     };
   });
 
