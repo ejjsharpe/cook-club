@@ -51,6 +51,7 @@ import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { getImageUrl } from "@/utils/imageUrl";
+import { isCompactUnit, formatUnit } from "@/utils/measurementUtils";
 import {
   transformParsedRecipeForPreview,
   transformParsedRecipeForSave,
@@ -523,17 +524,22 @@ export const RecipeDetailScreen = () => {
                   : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "")
                 : null;
 
+              const displayUnit = formatUnit(item.unit, adjustedQuantity);
+              const needsSpace = displayUnit && !isCompactUnit(displayUnit);
+
               return (
                 <View key={item.id} style={styles.ingredientItem}>
                   <View style={styles.ingredientBullet} />
                   <HSpace size={12} />
                   <View style={styles.ingredientContent}>
                     <Text style={styles.ingredientName}>
-                      {(formattedQuantity || item.unit) && (
+                      {(formattedQuantity || displayUnit) && (
                         <Text style={styles.ingredientQuantity}>
                           {formattedQuantity}
-                          {formattedQuantity && item.unit ? " " : ""}
-                          {item.unit}{" "}
+                          {formattedQuantity && displayUnit && needsSpace
+                            ? " "
+                            : ""}
+                          {displayUnit}{" "}
                         </Text>
                       )}
                       {item.name}
@@ -1208,7 +1214,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   ingredientName: {
     fontSize: 17,
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
   },
   ingredientPreparation: {
     fontSize: 14,

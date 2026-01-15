@@ -538,3 +538,56 @@ export function detectSystemFromIngredients(
   if (imperialCount > metricCount * 2) return "imperial";
   return "mixed";
 }
+
+// Compact units that don't need a space between quantity and unit
+const COMPACT_UNITS = ["g", "ml", "kg", "l"];
+
+export const isCompactUnit = (unit: string | null | undefined): boolean => {
+  if (!unit) return false;
+  return COMPACT_UNITS.includes(unit.toLowerCase());
+};
+
+// Pluralization map for spelled-out units
+const UNIT_PLURALS: Record<string, { singular: string; plural: string }> = {
+  cup: { singular: "cup", plural: "cups" },
+  teaspoon: { singular: "teaspoon", plural: "teaspoons" },
+  tablespoon: { singular: "tablespoon", plural: "tablespoons" },
+  ounce: { singular: "ounce", plural: "ounces" },
+  pound: { singular: "pound", plural: "pounds" },
+  clove: { singular: "clove", plural: "cloves" },
+  slice: { singular: "slice", plural: "slices" },
+  piece: { singular: "piece", plural: "pieces" },
+  pint: { singular: "pint", plural: "pints" },
+  quart: { singular: "quart", plural: "quarts" },
+  gallon: { singular: "gallon", plural: "gallons" },
+  liter: { singular: "liter", plural: "liters" },
+  milliliter: { singular: "milliliter", plural: "milliliters" },
+  gram: { singular: "gram", plural: "grams" },
+  kilogram: { singular: "kilogram", plural: "kilograms" },
+};
+
+export const formatUnit = (
+  unit: string | null | undefined,
+  quantity: number | null,
+): string | null => {
+  if (!unit) return null;
+
+  const normalizedUnit = unit.toLowerCase().trim();
+
+  // Find the base unit (handle both singular and plural inputs)
+  let baseUnit: string | null = null;
+  for (const [key, forms] of Object.entries(UNIT_PLURALS)) {
+    if (normalizedUnit === forms.singular || normalizedUnit === forms.plural) {
+      baseUnit = key;
+      break;
+    }
+  }
+
+  // If not a known spelled-out unit, return as-is (handles abbreviations like g, ml, tsp)
+  if (!baseUnit) return unit;
+
+  const forms = UNIT_PLURALS[baseUnit]!;
+  const shouldPluralize = quantity !== null && quantity !== 1;
+
+  return shouldPluralize ? forms.plural : forms.singular;
+};
