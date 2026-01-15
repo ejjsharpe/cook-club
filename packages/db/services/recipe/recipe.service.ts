@@ -32,6 +32,7 @@ export interface CreateRecipeIngredient {
   quantity?: string | null; // Parsed format
   unit?: string | null;
   name?: string;
+  preparation?: string | null;
 }
 
 export interface CreateRecipeInstruction {
@@ -86,6 +87,7 @@ export interface IngredientSectionWithItems {
     quantity: string | null;
     unit: string | null;
     name: string;
+    preparation: string | null;
   }[];
 }
 
@@ -253,6 +255,7 @@ export async function createRecipe(
             quantity: parsed.quantity?.toString() || null,
             unit: normalizeUnit(parsed.unit),
             name: parsed.name,
+            preparation: parsed.preparation,
           };
         }
         return {
@@ -260,6 +263,7 @@ export async function createRecipe(
           quantity: ing.quantity || null,
           unit: normalizeUnit(ing.unit || null),
           name: ing.name || "",
+          preparation: ing.preparation || null,
         };
       });
 
@@ -274,6 +278,7 @@ export async function createRecipe(
                   quantity: ingredient.quantity,
                   unit: ingredient.unit,
                   name: ingredient.name,
+                  preparation: ingredient.preparation,
                 })),
               )
               .returning({
@@ -282,6 +287,7 @@ export async function createRecipe(
                 quantity: recipeIngredients.quantity,
                 unit: recipeIngredients.unit,
                 name: recipeIngredients.name,
+                preparation: recipeIngredients.preparation,
               })
           : [];
 
@@ -526,6 +532,7 @@ export async function getRecipeDetail(
         quantity: recipeIngredients.quantity,
         unit: recipeIngredients.unit,
         name: recipeIngredients.name,
+        preparation: recipeIngredients.preparation,
       })
       .from(recipeIngredients)
       .innerJoin(
@@ -590,6 +597,7 @@ export async function getRecipeDetail(
         quantity: ing.quantity,
         unit: ing.unit,
         name: ing.name,
+        preparation: ing.preparation,
       })),
     }));
 
@@ -766,6 +774,7 @@ export async function importRecipe(
             quantity: recipeIngredients.quantity,
             unit: recipeIngredients.unit,
             name: recipeIngredients.name,
+            preparation: recipeIngredients.preparation,
           })
           .from(recipeIngredients)
           .where(eq(recipeIngredients.sectionId, section.id))
@@ -779,6 +788,7 @@ export async function importRecipe(
               quantity: ing.quantity,
               unit: ing.unit,
               name: ing.name,
+              preparation: ing.preparation,
             })),
           );
         }

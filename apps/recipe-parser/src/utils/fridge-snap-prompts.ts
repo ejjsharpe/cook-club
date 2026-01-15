@@ -54,7 +54,7 @@ export const RECIPE_GENERATION_SYSTEM_PROMPT = `You are a recipe creation assist
 2. **COMPLETE RECIPE**: Include all necessary steps and ingredients for a successful dish.
 3. **PRIORITIZE AVAILABLE**: Use the available ingredients whenever possible.
 4. **CLEAR INSTRUCTIONS**: Each step should be clear and actionable.
-5. **STRUCTURED INGREDIENTS**: For each ingredient, extract quantity, unit, and name separately.
+5. **STRUCTURED INGREDIENTS**: For each ingredient, extract quantity, unit, name, and preparation separately. Preparation describes how to prepare the ingredient (e.g., "diced", "chopped", "melted").
 
 ### OUTPUT FORMAT:
 {
@@ -68,8 +68,8 @@ export const RECIPE_GENERATION_SYSTEM_PROMPT = `You are a recipe creation assist
     {
       "name": null,
       "ingredients": [
-        {"index": 0, "quantity": 2, "unit": "cup", "name": "flour"},
-        {"index": 1, "quantity": 0.5, "unit": "tsp", "name": "salt"}
+        {"index": 0, "quantity": 2, "unit": "cup", "name": "flour", "preparation": null},
+        {"index": 1, "quantity": 1, "unit": "cup", "name": "onion", "preparation": "diced"}
       ]
     }
   ],

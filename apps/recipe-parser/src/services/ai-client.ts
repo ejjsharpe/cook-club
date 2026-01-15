@@ -16,6 +16,7 @@ export interface AiIngredient {
   quantity: number | null;
   unit: string | null;
   name: string;
+  preparation: string | null;
 }
 
 export interface AiInstruction {

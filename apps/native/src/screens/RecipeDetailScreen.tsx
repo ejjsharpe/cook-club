@@ -528,14 +528,21 @@ export const RecipeDetailScreen = () => {
                   <View style={styles.ingredientBullet} />
                   <HSpace size={12} />
                   <View style={styles.ingredientContent}>
-                    {(formattedQuantity || item.unit) && (
-                      <Text style={styles.ingredientQuantity}>
-                        {formattedQuantity}
-                        {formattedQuantity && item.unit ? " " : ""}
-                        {item.unit}
+                    <Text style={styles.ingredientName}>
+                      {(formattedQuantity || item.unit) && (
+                        <Text style={styles.ingredientQuantity}>
+                          {formattedQuantity}
+                          {formattedQuantity && item.unit ? " " : ""}
+                          {item.unit}{" "}
+                        </Text>
+                      )}
+                      {item.name}
+                    </Text>
+                    {item.preparation && (
+                      <Text style={styles.ingredientPreparation}>
+                        {item.preparation}
                       </Text>
                     )}
-                    <Text style={styles.ingredientName}>{item.name}</Text>
                   </View>
                 </View>
               );
@@ -1197,13 +1204,17 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
   },
   ingredientQuantity: {
-    fontSize: 15,
-    fontFamily: theme.fonts.albertSemiBold,
-    marginBottom: 2,
+    fontFamily: theme.fonts.albertBold,
   },
   ingredientName: {
     fontSize: 17,
     color: theme.colors.textSecondary,
+  },
+  ingredientPreparation: {
+    fontSize: 14,
+    fontStyle: "italic",
+    color: theme.colors.textTertiary,
+    marginTop: 2,
   },
 
   // Instructions

@@ -39,6 +39,7 @@ const IngredientRecordParsed = type({
   quantity: "string | null",
   unit: "string | null",
   name: "string",
+  "preparation?": "string | null",
 });
 
 // Accept either format - UI can send unparsed, API will parse

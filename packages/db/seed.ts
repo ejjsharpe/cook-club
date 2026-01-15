@@ -7,6 +7,7 @@ import { recipes as recipeData, type SourceType } from "./data/recipes";
 import { socialRecipes } from "./data/social-recipes";
 import * as readline from "readline";
 import { hashPassword } from "better-auth/crypto";
+import { extractPreparation } from "./utils/ingredientParser";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -44,16 +45,17 @@ function randomChoice<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)]!;
 }
 
-// Parse ingredient text to extract quantity, unit, and name
+// Parse ingredient text to extract quantity, unit, name, and preparation
 interface ParsedIngredient {
   quantity: string | null;
   unit: string | null;
   name: string;
+  preparation: string | null;
 }
 
 function parseIngredient(ingredientText: string): ParsedIngredient {
   if (!ingredientText || typeof ingredientText !== "string") {
-    return { quantity: null, unit: null, name: ingredientText || "" };
+    return { quantity: null, unit: null, name: ingredientText || "", preparation: null };
   }
 
   const match = ingredientText.match(
@@ -63,7 +65,10 @@ function parseIngredient(ingredientText: string): ParsedIngredient {
   if (match) {
     const quantityStr = match[1];
     const unit = match[2]?.trim() || null;
-    const name = match[3]?.trim() || ingredientText;
+    const rawName = match[3]?.trim() || ingredientText;
+
+    // Extract preparation from the ingredient name
+    const { name, preparation } = extractPreparation(rawName);
 
     let quantity: string | null = null;
     if (quantityStr) {
@@ -90,10 +95,12 @@ function parseIngredient(ingredientText: string): ParsedIngredient {
       }
     }
 
-    return { quantity, unit, name };
+    return { quantity, unit, name, preparation };
   }
 
-  return { quantity: null, unit: null, name: ingredientText };
+  // Try to extract preparation from the entire text
+  const { name, preparation } = extractPreparation(ingredientText);
+  return { quantity: null, unit: null, name, preparation };
 }
 
 // ─── Database Operations ──────────────────────────────────────────────────────
@@ -373,6 +380,7 @@ async function seedRecipes(
           quantity: parsed.quantity,
           unit: parsed.unit,
           name: parsed.name,
+          preparation: parsed.preparation,
         });
       }
     }
@@ -484,6 +492,7 @@ async function seedSocialRecipes(
           quantity: parsed.quantity,
           unit: parsed.unit,
           name: parsed.name,
+          preparation: parsed.preparation,
         });
       }
     }
@@ -702,6 +711,7 @@ async function seedImportedRecipes(
               quantity: ing.quantity,
               unit: ing.unit,
               name: ing.name,
+              preparation: ing.preparation,
             });
           }
         }

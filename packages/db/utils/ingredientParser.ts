@@ -12,8 +12,73 @@ export interface ParsedIngredient {
   quantity: number | null;
   unit: string | null;
   name: string;
+  preparation: string | null;
   confidence: "high" | "medium" | "low";
   originalText: string;
+}
+
+// Preparation words to extract from ingredient text
+export const PREPARATION_WORDS = [
+  "chopped",
+  "diced",
+  "sliced",
+  "minced",
+  "crushed",
+  "grated",
+  "shredded",
+  "julienned",
+  "cubed",
+  "melted",
+  "softened",
+  "beaten",
+  "whisked",
+  "room temperature",
+  "chilled",
+  "frozen",
+  "thawed",
+  "peeled",
+  "seeded",
+  "deveined",
+  "trimmed",
+  "quartered",
+  "halved",
+  "thinly sliced",
+  "finely chopped",
+  "roughly chopped",
+  "finely diced",
+  "coarsely chopped",
+];
+
+/**
+ * Extract preparation method from ingredient name
+ * Returns the cleaned name and extracted preparation
+ */
+export function extractPreparation(text: string): {
+  name: string;
+  preparation: string | null;
+} {
+  const lower = text.toLowerCase();
+
+  // Sort by length descending to match longer phrases first (e.g., "finely chopped" before "chopped")
+  const sortedPreps = [...PREPARATION_WORDS].sort(
+    (a, b) => b.length - a.length,
+  );
+
+  for (const prep of sortedPreps) {
+    if (lower.includes(prep)) {
+      // Remove the preparation word and any surrounding commas/spaces
+      const cleanedName = text
+        .replace(new RegExp(`\\s*,?\\s*${prep}\\s*,?`, "gi"), " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      return {
+        name: cleanedName,
+        preparation: prep,
+      };
+    }
+  }
+
+  return { name: text, preparation: null };
 }
 
 /**
@@ -31,6 +96,7 @@ export function parseIngredient(ingredientText: string): ParsedIngredient {
       quantity: null,
       unit: null,
       name: ingredientText || "",
+      preparation: null,
       confidence: "low",
       originalText: ingredientText || "",
     };
@@ -47,7 +113,10 @@ export function parseIngredient(ingredientText: string): ParsedIngredient {
   if (match) {
     const quantityStr = match[1];
     const unit = match[2]?.trim() || null;
-    const name = match[3]?.trim() || trimmed;
+    const rawName = match[3]?.trim() || trimmed;
+
+    // Extract preparation from the ingredient name
+    const { name, preparation } = extractPreparation(rawName);
 
     // Convert fractions to decimals (e.g., "1/2" -> 0.5)
     let quantity: number | null = null;
@@ -76,16 +145,20 @@ export function parseIngredient(ingredientText: string): ParsedIngredient {
       quantity,
       unit,
       name,
+      preparation,
       confidence,
       originalText: trimmed,
     };
   }
 
-  // If no match, treat entire text as ingredient name
+  // If no match, try to extract preparation from the entire text
+  const { name, preparation } = extractPreparation(trimmed);
+
   return {
     quantity: null,
     unit: null,
-    name: trimmed,
+    name,
+    preparation,
     confidence: "low",
     originalText: trimmed,
   };

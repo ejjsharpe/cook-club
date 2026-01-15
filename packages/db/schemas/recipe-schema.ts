@@ -170,6 +170,7 @@ export const recipeIngredients = pgTable(
     quantity: numeric("quantity"),
     unit: text("unit"),
     name: text("name").notNull(),
+    preparation: text("preparation"), // e.g., "chopped", "diced", "melted"
   },
   (table) => [
     index("recipe_ingredients_section_id_idx").on(table.sectionId),

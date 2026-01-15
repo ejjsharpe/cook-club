@@ -85,8 +85,9 @@ Think like a real chef - pick 2-4 KEY ingredients that work well together and bu
   "totalTime": 45,
   "servings": 4,
   "ingredients": [
-    {"quantity": 2, "unit": "cup", "name": "rice"},
-    {"quantity": 1, "unit": "lb", "name": "chicken breast"}
+    {"quantity": 2, "unit": "cup", "name": "rice", "preparation": null},
+    {"quantity": 1, "unit": "lb", "name": "chicken breast", "preparation": "cubed"},
+    {"quantity": 1, "unit": "cup", "name": "onion", "preparation": "diced"}
   ],
   "instructions": [
     {"text": "Step 1 description", "imageUrl": null},

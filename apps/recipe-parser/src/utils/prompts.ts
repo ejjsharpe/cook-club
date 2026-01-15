@@ -12,7 +12,8 @@ export const RECIPE_EXTRACTION_SYSTEM_PROMPT = `You are a strict Recipe Data Ext
    - index: position within its section (0-indexed)
    - quantity: numeric value (convert fractions: "1/2" → 0.5, "1 1/2" → 1.5)
    - unit: measurement unit (cup, tbsp, g, etc.) or null if no unit
-   - name: the ingredient name only, without quantity or unit
+   - name: the ingredient name only, without quantity, unit, or preparation
+   - preparation: how the ingredient should be prepared (chopped, diced, sliced, minced, melted, softened, etc.) or null if none specified. Extract this separately from the name.
 5. **STEP IMAGES**: At the end of the content, you may see a "[STEP IMAGES]" section listing step numbers and image URLs. Use these to populate the imageUrl field for the matching instruction step. If no image is listed for a step, set imageUrl to null.
 6. **SECTIONS**: Organize ingredients and instructions into sections. Each section has a name (null for default/unnamed section) and an array of items. If ingredients/instructions are grouped (e.g., "For the Sauce", "Make the Dough"), create separate sections. If there are no groupings, use a single section with name: null.
 
@@ -28,15 +29,15 @@ export const RECIPE_EXTRACTION_SYSTEM_PROMPT = `You are a strict Recipe Data Ext
     {
       "name": null,
       "ingredients": [
-        {"index": 0, "quantity": 2, "unit": "cup", "name": "flour"},
-        {"index": 1, "quantity": 0.5, "unit": "tsp", "name": "salt"}
+        {"index": 0, "quantity": 2, "unit": "cup", "name": "flour", "preparation": null},
+        {"index": 1, "quantity": 0.5, "unit": "tsp", "name": "salt", "preparation": null}
       ]
     },
     {
       "name": "For the Sauce",
       "ingredients": [
-        {"index": 0, "quantity": 1, "unit": "cup", "name": "tomato sauce"},
-        {"index": 1, "quantity": 2, "unit": "tbsp", "name": "olive oil"}
+        {"index": 0, "quantity": 1, "unit": "cup", "name": "onion", "preparation": "diced"},
+        {"index": 1, "quantity": 2, "unit": "tbsp", "name": "olive oil", "preparation": null}
       ]
     }
   ],
@@ -79,6 +80,7 @@ export const IMAGE_EXTRACTION_SYSTEM_PROMPT = `You are a Recipe OCR and Extracti
 2. **NO HALLUCINATIONS**: Only extract text you can actually see in the image.
 3. **BEST EFFORT**: If text is unclear or partially visible, make your best interpretation.
 4. **SECTIONS**: Organize ingredients and instructions into sections. Each section has a name (null for default/unnamed section) and an array of items. If visually grouped (e.g., "For the Sauce"), create separate sections.
+5. **STRUCTURED INGREDIENTS**: For each ingredient, extract name and preparation separately. If an ingredient says "2 cups diced onion", extract name="onion" and preparation="diced".
 
 ### OUTPUT FORMAT:
 {
@@ -91,7 +93,8 @@ export const IMAGE_EXTRACTION_SYSTEM_PROMPT = `You are a Recipe OCR and Extracti
     {
       "name": null,
       "ingredients": [
-        {"index": 0, "quantity": 2, "unit": "cup", "name": "flour"}
+        {"index": 0, "quantity": 2, "unit": "cup", "name": "flour", "preparation": null},
+        {"index": 1, "quantity": 1, "unit": "cup", "name": "onion", "preparation": "diced"}
       ]
     }
   ],
