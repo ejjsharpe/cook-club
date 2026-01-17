@@ -17,18 +17,18 @@ import { SheetManager } from "react-native-actions-sheet";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
-  useAnimatedScrollHandler,
   useAnimatedStyle,
   interpolate,
   Extrapolation,
   useAnimatedRef,
   scrollTo,
-  runOnJS,
   withSpring,
   useAnimatedReaction,
+  useAnimatedScrollHandler,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
+import { scheduleOnRN } from "react-native-worklets";
 
 import { useCreateCookingReview } from "@/api/activity";
 import {
@@ -99,14 +99,14 @@ export const RecipeDetailScreen = () => {
   // Determine if we're in preview mode
   const isPreviewMode = isPreviewParams(params);
   const parsedRecipe = isPreviewMode ? params.parsedRecipe : null;
-  const recipeId = isPreviewMode ? null : params.recipeId;
+  const recipeId = "recipeId" in params ? params.recipeId : null;
 
   // Only fetch if we have a recipeId (not preview mode)
   const {
     data: fetchedRecipe,
     isPending,
     error,
-  } = useRecipeDetail({ recipeId: recipeId ?? -1 });
+  } = useRecipeDetail({ recipeId });
 
   // Transform parsed recipe for display in preview mode
   const previewRecipe = useMemo(() => {
@@ -236,49 +236,52 @@ export const RecipeDetailScreen = () => {
         stiffness: 100,
         mass: 0.5,
       });
-      runOnJS(updateImageIndex)(targetIndex);
+      scheduleOnRN(updateImageIndex, targetIndex);
     });
 
   // Shared value for syncing tab swipe with underline
   const scrollProgress = useSharedValue(0);
 
-  // Shared value for vertical scroll position (parallax effects)
+  // Ref and scroll offset for parallax effects
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollY = useSharedValue(0);
 
-  const onScrollHandler = useAnimatedScrollHandler({
+  const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
     },
   });
-
   // Animated style for top buttons (fade out on scroll down)
   const topButtonsAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [0, 200],
-      [1, 0],
-      Extrapolation.CLAMP,
-    );
-    return { opacity };
+    return {
+      opacity: interpolate(
+        scrollY.value,
+        [0, 200],
+        [1, 0],
+        Extrapolation.CLAMP,
+      ),
+    };
   });
 
   // Animated style for image (scale up on pull down, parallax on scroll up)
   const imageAnimatedStyle = useAnimatedStyle(() => {
-    const scale = interpolate(
-      scrollY.value,
-      [-1500, 0],
-      [10, 1],
-      Extrapolation.CLAMP,
-    );
-    // Parallax: image moves up at 0.3x the scroll speed
-    const translateY = interpolate(
-      scrollY.value,
-      [0, IMAGE_HEIGHT],
-      [0, -IMAGE_HEIGHT * 0.5],
-      Extrapolation.CLAMP,
-    );
     return {
-      transform: [{ scale }, { translateY }],
+      transform: [
+        {
+          translateY: interpolate(
+            -scrollY.value,
+            [-IMAGE_HEIGHT, 0, IMAGE_HEIGHT],
+            [-IMAGE_HEIGHT / 2, 0, IMAGE_HEIGHT * 0.75],
+          ),
+        },
+        {
+          scale: interpolate(
+            scrollY.value,
+            [-IMAGE_HEIGHT, 0, IMAGE_HEIGHT],
+            [2.5, 1, 1],
+          ),
+        },
+      ],
     };
   });
 
@@ -356,6 +359,9 @@ export const RecipeDetailScreen = () => {
   };
 
   const handleDeleteRecipe = () => {
+    if (recipeId === null) return;
+
+    const id = recipeId;
     Alert.alert(
       "Delete Recipe",
       "Are you sure you want to delete this recipe? This cannot be undone.",
@@ -366,7 +372,7 @@ export const RecipeDetailScreen = () => {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteMutation.mutateAsync({ recipeId });
+              await deleteMutation.mutateAsync({ recipeId: id });
               navigation.goBack();
             } catch (err: any) {
               Alert.alert("Error", err?.message || "Failed to delete recipe");
@@ -449,8 +455,6 @@ export const RecipeDetailScreen = () => {
       onPress: handleDeleteRecipe,
     },
   ];
-
-  console.log({ images: recipe?.images });
 
   // Show error state only when not loading, not in preview mode, and there's an error or no recipe
   if (!isPreviewMode && !isPending && (error || !recipe)) {
@@ -686,10 +690,11 @@ export const RecipeDetailScreen = () => {
 
           <GestureDetector gesture={scrollViewNativeGesture}>
             <Animated.ScrollView
+              ref={scrollRef}
               style={styles.scrollView}
               showsVerticalScrollIndicator={false}
-              onScroll={onScrollHandler}
-              scrollEventThrottle={16}
+              scrollEventThrottle={32}
+              onScroll={scrollHandler}
             >
               {/* Spacer to push white card below image initially - also handles image swipe gestures */}
               <GestureDetector gesture={imageGesture}>
@@ -1238,6 +1243,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   stepNumber: {
     fontSize: 34,
+    lineHeight: 40,
     fontFamily: theme.fonts.albertBold,
     color: theme.colors.primary,
     opacity: 0.3,

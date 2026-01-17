@@ -81,13 +81,20 @@ export const useGetUserRecipes = ({
 
 // Get recipe detail
 interface UseRecipeDetailParams {
-  recipeId: number;
+  recipeId: number | null;
+  enabled?: boolean;
 }
 
-export const useRecipeDetail = ({ recipeId }: UseRecipeDetailParams) => {
+export const useRecipeDetail = ({
+  recipeId,
+  enabled = true,
+}: UseRecipeDetailParams) => {
   const trpc = useTRPC();
 
-  return useQuery(trpc.recipe.getRecipeDetail.queryOptions({ recipeId }));
+  return useQuery({
+    ...trpc.recipe.getRecipeDetail.queryOptions({ recipeId: recipeId ?? -1 }),
+    enabled: enabled && recipeId !== null,
+  });
 };
 
 // Get user preferences for filter suggestions

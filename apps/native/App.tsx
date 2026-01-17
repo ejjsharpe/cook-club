@@ -10,7 +10,7 @@ import {
   LibreBaskerville_700Bold,
   LibreBaskerville_400Regular_Italic,
 } from "@expo-google-fonts/libre-baskerville";
-import { DefaultTheme } from "@react-navigation/native";
+import { DefaultTheme, DarkTheme } from "@react-navigation/native";
 import { Asset } from "expo-asset";
 import { useFonts } from "expo-font";
 import { Image } from "expo-image";
@@ -22,6 +22,11 @@ import { SheetProvider } from "react-native-actions-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import {
+  StyleSheet,
+  UnistylesRuntime,
+  useUnistyles,
+} from "react-native-unistyles";
 
 import startImage1 from "@/assets/images/start-food-1.jpg";
 import startImage10 from "@/assets/images/start-food-10.jpg";
@@ -109,6 +114,22 @@ export default function App() {
     return null;
   }
 
+  const theme = UnistylesRuntime.getTheme();
+  const themeName = UnistylesRuntime.themeName;
+
+  const navigationTheme = {
+    dark: themeName === "dark",
+    fonts: DefaultTheme.fonts,
+    colors: {
+      primary: theme.colors.primary,
+      background: theme.colors.background,
+      card: theme.colors.background,
+      text: theme.colors.text,
+      border: theme.colors.border,
+      notification: theme.colors.primary,
+    },
+  };
+
   return (
     <SafeAreaProvider>
       <KeyboardProvider>
@@ -118,19 +139,13 @@ export default function App() {
               <TRPCProvider>
                 <SignedInProvider>
                   <ShareIntentStorageHandler />
-                  <GestureHandlerRootView>
+                  <GestureHandlerRootView style={styles.rootView}>
                     <SheetProvider>
                       <Sheets />
                       <Navigation
                         onReady={onNavigationReady}
                         linking={linking}
-                        theme={{
-                          ...DefaultTheme,
-                          colors: {
-                            ...DefaultTheme.colors,
-                            background: "#FFF",
-                          },
-                        }}
+                        theme={navigationTheme}
                       />
                     </SheetProvider>
                   </GestureHandlerRootView>
@@ -143,3 +158,7 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create((theme) => ({
+  rootView: { flex: 1, backgroundColor: theme.colors.background },
+}));
