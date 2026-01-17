@@ -192,7 +192,7 @@ export const useRecipeCollectionBrowser = ({
     fetchNextPage: fetchNextRecipes,
     hasNextPage: hasMoreRecipes,
     isFetchingNextPage: isFetchingNextRecipes,
-    isLoading: isLoadingRecipes,
+    isPending: isPendingRecipes,
     refetch: refetchRecipes,
     error: recipesError,
   } = useGetUserRecipes({
@@ -204,7 +204,7 @@ export const useRecipeCollectionBrowser = ({
   // Fetch collections
   const {
     data: collectionsData,
-    isLoading: isLoadingCollections,
+    isPending: isPendingCollections,
     refetch: refetchCollections,
     error: collectionsError,
   } = useGetUserCollectionsWithMetadata({
@@ -262,14 +262,14 @@ export const useRecipeCollectionBrowser = ({
 
     // Recipes data
     recipes,
-    isLoadingRecipes,
+    isPendingRecipes,
     recipesError,
     isFetchingNextRecipes,
     handleLoadMoreRecipes,
 
     // Collections data
     collections,
-    isLoadingCollections,
+    isPendingCollections,
     collectionsError,
 
     // Refresh

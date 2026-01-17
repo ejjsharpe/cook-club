@@ -87,7 +87,7 @@ export const RecipeCollectionBrowser = ({
     recipesScrollHandler,
     collectionsScrollHandler,
     recipes,
-    isLoadingRecipes,
+    isPendingRecipes: isLoadingRecipes,
     recipesError,
     isFetchingNextRecipes,
     handleLoadMoreRecipes,

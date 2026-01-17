@@ -13,6 +13,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { useAnimatedTheme } from "react-native-unistyles/reanimated";
 
 import { Text } from "@/components/Text";
 
@@ -103,12 +104,13 @@ const SlotContent = ({
   disabled: boolean;
 }) => {
   const { theme } = useUnistyles();
+  const animatedTheme = useAnimatedTheme();
 
   const backgroundStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
       swipeProgress.value,
       [0, 1],
-      ["transparent", theme.colors.background],
+      ["transparent", animatedTheme.value.colors.background],
     ),
   }));
 

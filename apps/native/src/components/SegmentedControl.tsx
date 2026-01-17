@@ -9,7 +9,8 @@ import Animated, {
   useDerivedValue,
   interpolateColor,
 } from "react-native-reanimated";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
+import { useAnimatedTheme } from "react-native-unistyles/reanimated";
 
 import { Text } from "./Text";
 
@@ -29,7 +30,7 @@ const AnimatedTabText = ({
   activeIndex: number;
   totalTabs: number;
 }) => {
-  const theme = UnistylesRuntime.getTheme();
+  const animatedTheme = useAnimatedTheme();
 
   const animatedStyle = useAnimatedStyle(() => {
     if (scrollProgress) {
@@ -49,14 +50,19 @@ const AnimatedTabText = ({
         color: interpolateColor(
           progress,
           [0, 1],
-          [theme.colors.textSecondary, theme.colors.text],
+          [
+            animatedTheme.value.colors.textSecondary,
+            animatedTheme.value.colors.text,
+          ],
         ),
       };
     }
     // Fallback to static color when no scrollProgress
     return {
       color:
-        index === activeIndex ? theme.colors.text : theme.colors.textSecondary,
+        index === activeIndex
+          ? animatedTheme.value.colors.text
+          : animatedTheme.value.colors.textSecondary,
     };
   });
 

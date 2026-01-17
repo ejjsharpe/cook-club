@@ -26,8 +26,8 @@ const TAB_ICONS: Record<string, TabIconName> = {
   "Shopping List": "cart",
 };
 
-const TAB_ITEM_SIZE = 52;
-const TAB_BAR_PADDING_VERTICAL = 10;
+const TAB_ITEM_SIZE = 48;
+const TAB_BAR_PADDING_VERTICAL = 8;
 const TAB_BAR_PADDING_HORIZONTAL = 8;
 const TAB_BAR_MARGIN_HORIZONTAL = 20;
 const TAB_BAR_BOTTOM_MARGIN = 16;
@@ -183,12 +183,12 @@ export const FloatingTabBar = ({ state, navigation }: BottomTabBarProps) => {
     <Animated.View
       style={[
         styles.container,
-        { bottom: Math.max(insets.bottom - 8, 8) },
+        { bottom: Math.max(insets.bottom - 16, 16) },
         animatedContainerStyle,
       ]}
     >
       <BlurView
-        intensity={80}
+        intensity={60}
         tint={UnistylesRuntime.themeName === "dark" ? "dark" : "light"}
         style={styles.tabBar}
         onLayout={(e) => {
