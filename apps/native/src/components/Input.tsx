@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { TextInput, TextInputProps, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -9,16 +8,12 @@ interface Props extends TextInputProps {
 }
 
 export const Input = ({ label, style, ...props }: Props) => {
-  const [isFocused, setIsFocused] = useState(false);
-
   return (
     <View style={styles.container}>
       {!!label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        style={[styles.input, isFocused && styles.focused, style]}
+        style={[styles.input, style]}
         placeholderTextColor={styles.placeholder.color}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
         {...props}
       />
     </View>
@@ -45,10 +40,7 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 17,
     color: theme.colors.text,
   },
-  focused: {
-    backgroundColor: theme.colors.inputBackgroundFocused,
-  },
   placeholder: {
-    color: theme.colors.textTertiary,
+    color: theme.colors.placeholderText,
   },
 }));

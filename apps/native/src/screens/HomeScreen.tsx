@@ -12,6 +12,8 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import Animated, {
@@ -20,6 +22,7 @@ import Animated, {
   withTiming,
   interpolate,
   Easing,
+  type SharedValue,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -34,7 +37,6 @@ import { Avatar } from "@/components/Avatar";
 import { EmptyFeedState } from "@/components/EmptyFeedState";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { SearchBar, SEARCH_BAR_HEIGHT } from "@/components/SearchBar";
 import { SearchEmptyState } from "@/components/SearchEmptyState";
 import { HomeFeedSkeleton, SkeletonContainer } from "@/components/Skeleton";
@@ -49,33 +51,52 @@ import { useTabBarScroll } from "@/lib/tabBarContext";
 interface HeaderProps {
   user: User | undefined;
   onAvatarPress: () => void;
+  titleOpacity: SharedValue<number>;
+  avatarOpacity: SharedValue<number>;
 }
 
-const Header = memo(({ user, onAvatarPress }: HeaderProps) => (
-  <View style={styles.headerContainer}>
-    <View style={styles.headerRow}>
-      <Text type="title1">
-        cook
-        <Text type="title1" style={styles.clubText}>
-          club
-        </Text>
-      </Text>
-      {user && (
-        <Avatar
-          imageUrl={user.image}
-          name={user.name}
-          size={44}
-          onPress={onAvatarPress}
-        />
-      )}
-    </View>
-  </View>
-));
+const Header = memo(
+  ({ user, onAvatarPress, titleOpacity, avatarOpacity }: HeaderProps) => {
+    const titleAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: titleOpacity.value,
+    }));
+
+    const avatarAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: avatarOpacity.value,
+    }));
+
+    return (
+      <View style={styles.headerContainer}>
+        <View style={styles.headerRow}>
+          <Animated.View style={titleAnimatedStyle}>
+            <Text type="title1" style={styles.headerTitle}>
+              cook
+              <Text type="title1" style={[styles.headerTitle, styles.clubText]}>
+                club
+              </Text>
+            </Text>
+          </Animated.View>
+          {user && (
+            <Animated.View style={avatarAnimatedStyle}>
+              <Avatar
+                imageUrl={user.image}
+                name={user.name}
+                size={44}
+                onPress={onAvatarPress}
+              />
+            </Animated.View>
+          )}
+        </View>
+      </View>
+    );
+  },
+);
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const HORIZONTAL_PADDING = 20;
 const BACK_BUTTON_WIDTH = 44;
 const HEADER_GAP = 12;
+const HEADER_HEIGHT = 52; // Height of the cook club title + avatar row
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -104,6 +125,11 @@ export const HomeScreen = () => {
   // Animation progress (0 = browse, 1 = search)
   const searchProgress = useSharedValue(0);
 
+  // Scroll tracking for header fade
+  const scrollY = useSharedValue(0);
+  const titleOpacity = useSharedValue(1);
+  const avatarOpacity = useSharedValue(1);
+
   // Keyboard height as animated value for empty state centering
   const keyboardHeight = useSharedValue(0);
 
@@ -118,8 +144,8 @@ export const HomeScreen = () => {
     },
   });
 
-  // Target Y position for search mode (safe area top + padding)
-  const searchModeY = insets.top + 20;
+  // Target Y position for search mode (at the top where the header is)
+  const searchModeY = insets.top;
 
   const animationConfig = useMemo(
     () => ({
@@ -279,6 +305,30 @@ export const HomeScreen = () => {
     [toggleLike],
   );
 
+  // ─── Scroll Handler with Header Fade ────────────────────────────────────────────
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const y = event.nativeEvent.contentOffset.y;
+      scrollY.value = y;
+
+      // Fade out when search bar would collide with header
+      // Title fades first, avatar fades slightly after
+      const titleShouldHide = y > 5;
+      titleOpacity.value = withTiming(titleShouldHide ? 0 : 1, {
+        duration: 150,
+      });
+
+      const avatarShouldHide = y > 10;
+      avatarOpacity.value = withTiming(avatarShouldHide ? 0 : 1, {
+        duration: 150,
+      });
+
+      // Also handle tab bar visibility
+      onTabBarScroll(event);
+    },
+    [scrollY, titleOpacity, avatarOpacity, onTabBarScroll],
+  );
+
   // ─── Render Functions ─────────────────────────────────────────────────────────
   const renderUser = ({ item }: { item: SearchUser }) => (
     <View style={styles.userCardWrapper}>
@@ -324,12 +374,11 @@ export const HomeScreen = () => {
   const activityKeyExtractor = useCallback((item: FeedItem) => item.id, []);
 
   // ─── Browse Mode Header ───────────────────────────────────────────────────────
+  // The Header is rendered as a fixed element outside the list
   const BrowseListHeader = useMemo(
     () => (
       <>
-        <VSpace size={8} />
-        <Header user={user} onAvatarPress={handleAvatarPress} />
-        <VSpace size={20} />
+        <VSpace size={insets.top + HEADER_HEIGHT} />
         <Pressable
           ref={searchBarRef}
           style={[
@@ -346,10 +395,10 @@ export const HomeScreen = () => {
             />
           </View>
         </Pressable>
-        <VSpace size={16} />
+        <VSpace size={8} />
       </>
     ),
-    [user, handleAvatarPress, showFloatingSearch, handleSearchFocus],
+    [showFloatingSearch, handleSearchFocus, insets.top],
   );
 
   // ─── Activity Feed Empty State ─────────────────────────────────────────────────
@@ -370,8 +419,11 @@ export const HomeScreen = () => {
 
   // ─── Search Mode Header ───────────────────────────────────────────────────────
   // The search bar and back button are rendered as fixed elements outside the FlatList.
-  // FlatList only contains search results.
-  const SearchListHeader = useMemo(() => <VSpace size={16} />, []);
+  // FlatList only contains search results with top spacing for the fixed header.
+  const SearchListHeader = useMemo(
+    () => <VSpace size={insets.top + SEARCH_BAR_HEIGHT + 16} />,
+    [insets.top],
+  );
 
   // ─── Search Empty State ───────────────────────────────────────────────────────
   const isFetching = usersPending || usersFetching;
@@ -441,7 +493,7 @@ export const HomeScreen = () => {
         style={[styles.listContainer, browseAnimatedStyle]}
         pointerEvents={showFloatingSearch ? "none" : "auto"}
       >
-        <SafeAreaView edges={["top"]} style={styles.feedContainer}>
+        <View style={styles.feedContainer}>
           <SkeletonContainer
             isLoading={activityPending}
             skeleton={
@@ -469,7 +521,7 @@ export const HomeScreen = () => {
               onEndReachedThreshold={0.5}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.feedContent}
-              onScroll={onTabBarScroll}
+              onScroll={handleScroll}
               scrollEventThrottle={16}
               refreshControl={
                 <RefreshControl
@@ -479,7 +531,17 @@ export const HomeScreen = () => {
               }
             />
           </SkeletonContainer>
-        </SafeAreaView>
+        </View>
+
+        {/* Fixed Header - stays in place while content scrolls beneath */}
+        <View style={styles.fixedHeader}>
+          <Header
+            user={user}
+            onAvatarPress={handleAvatarPress}
+            titleOpacity={titleOpacity}
+            avatarOpacity={avatarOpacity}
+          />
+        </View>
       </Animated.View>
 
       {/* Search Mode */}
@@ -491,34 +553,25 @@ export const HomeScreen = () => {
         ]}
         pointerEvents={isSearchActive ? "auto" : "none"}
       >
-        {/* Fixed header */}
-        <SafeAreaView edges={["top"]} style={styles.searchFixedHeader}>
-          {/* Spacer for the floating search bar row */}
-          <VSpace size={20 + SEARCH_BAR_HEIGHT + 12} />
-        </SafeAreaView>
-
         {/* Scrollable search results */}
-        <View style={styles.searchResultsList}>
-          <FlatList
-            ref={searchListRef}
-            data={users}
-            renderItem={renderUser}
-            keyExtractor={searchKeyExtractor}
-            ListHeaderComponent={SearchListHeader}
-            ListEmptyComponent={renderSearchEmpty}
-            onEndReachedThreshold={0.5}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing && isSearchActive}
-                onRefresh={handleRefresh}
-                enabled={shouldFetchUsers}
-              />
-            }
-            showsVerticalScrollIndicator={false}
-            style={styles.flatListFlex}
-            contentContainerStyle={styles.searchResultsContent}
-          />
-        </View>
+        <FlatList
+          ref={searchListRef}
+          data={users}
+          renderItem={renderUser}
+          keyExtractor={searchKeyExtractor}
+          ListHeaderComponent={SearchListHeader}
+          ListEmptyComponent={renderSearchEmpty}
+          onEndReachedThreshold={0.5}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing && isSearchActive}
+              onRefresh={handleRefresh}
+              enabled={shouldFetchUsers}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.searchResultsContent}
+        />
       </Animated.View>
 
       {/* Floating Search Bar (appears during transition and in search mode) */}
@@ -562,15 +615,6 @@ const styles = StyleSheet.create((theme, rt) => ({
   searchModeContainer: {
     backgroundColor: theme.colors.background,
   },
-  searchFixedHeader: {
-    backgroundColor: theme.colors.background,
-  },
-  searchResultsList: {
-    flex: 1,
-  },
-  flatListFlex: {
-    flex: 1,
-  },
   searchResultsContent: {
     flexGrow: 1,
     paddingBottom: rt.insets.bottom,
@@ -579,8 +623,13 @@ const styles = StyleSheet.create((theme, rt) => ({
     flex: 1,
   },
   feedContent: {
-    flexGrow: 1,
     paddingBottom: rt.insets.bottom,
+  },
+  fixedHeader: {
+    position: "absolute",
+    top: rt.insets.top,
+    left: 0,
+    right: 0,
   },
   headerContainer: {
     paddingHorizontal: 20,
@@ -589,6 +638,10 @@ const styles = StyleSheet.create((theme, rt) => ({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    textAlignVertical: "center",
+  },
+  headerTitle: {
+    lineHeight: 40,
   },
   clubText: {
     color: theme.colors.primary,
@@ -606,10 +659,12 @@ const styles = StyleSheet.create((theme, rt) => ({
     gap: 12,
   },
   backButton: {
-    width: 44,
+    width: 50,
     height: 50,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 25,
   },
   backIcon: {
     color: theme.colors.text,

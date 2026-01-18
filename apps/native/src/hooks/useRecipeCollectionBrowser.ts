@@ -12,13 +12,6 @@ import { scheduleOnRN } from "react-native-worklets";
 
 import { useGetUserCollectionsWithMetadata } from "@/api/collection";
 import { useGetUserRecipes, useAllTags } from "@/api/recipe";
-import {
-  useAnimatedHeaderScroll,
-  TAB_SWITCH_DELAY,
-} from "@/hooks/useAnimatedHeaderScroll";
-
-const SEARCH_ROW_HEIGHT = 50;
-const TABS_HEIGHT = 16 + 50 + 16; // VSpace(16) + tabs + VSpace(16)
 
 const animationConfig = {
   duration: 250,
@@ -36,53 +29,29 @@ export type CollectionWithMetadata = NonNullable<
 export type TabType = "recipes" | "collections";
 
 interface UseRecipeCollectionBrowserOptions {
-  titleSectionHeight: number;
   onTabBarScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** External search query - when provided, uses this instead of internal state */
+  externalSearchQuery?: string;
 }
 
 export const useRecipeCollectionBrowser = ({
-  titleSectionHeight,
   onTabBarScroll,
-}: UseRecipeCollectionBrowserOptions) => {
-  const headerHeight = titleSectionHeight + SEARCH_ROW_HEIGHT + TABS_HEIGHT;
-
+  externalSearchQuery,
+}: UseRecipeCollectionBrowserOptions = {}) => {
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>("recipes");
-  const [searchQuery, setSearchQuery] = useState("");
-  const scrollProgress = useSharedValue(0);
+  const [internalSearchQuery, setInternalSearchQuery] = useState("");
 
-  // Animated header
-  const {
-    headerTranslateY,
-    activeTabIndex,
-    scrollPositions,
-    tabSwitchedAt,
-    headerAnimatedStyle,
-    titleAnimatedStyle,
-    handleTabSwitch,
-  } = useAnimatedHeaderScroll({
-    titleSectionHeight,
-    headerHeight,
-    tabCount: 2,
-  });
+  // Use external search query if provided, otherwise use internal
+  const searchQuery = externalSearchQuery ?? internalSearchQuery;
+  const setSearchQuery = setInternalSearchQuery;
+  const scrollProgress = useSharedValue(0);
+  const activeTabIndex = useSharedValue(0);
 
   const recipesScrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       "worklet";
-      const tabIndex = 0;
       const offsetY = event.contentOffset.y;
-
-      // Always track scroll position
-      scrollPositions.value[tabIndex] = offsetY;
-
-      // Only update header if this is the active tab
-      if (activeTabIndex.value !== tabIndex) return;
-
-      // Ignore scroll events shortly after tab switch
-      if (Date.now() - tabSwitchedAt.value < TAB_SWITCH_DELAY) return;
-
-      // Update header position (allow negative offset for overscroll)
-      headerTranslateY.value = -Math.min(offsetY, titleSectionHeight);
 
       // Call external scroll handler if provided
       if (onTabBarScroll) {
@@ -100,20 +69,7 @@ export const useRecipeCollectionBrowser = ({
   const collectionsScrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       "worklet";
-      const tabIndex = 1;
       const offsetY = event.contentOffset.y;
-
-      // Always track scroll position
-      scrollPositions.value[tabIndex] = offsetY;
-
-      // Only update header if this is the active tab
-      if (activeTabIndex.value !== tabIndex) return;
-
-      // Ignore scroll events shortly after tab switch
-      if (Date.now() - tabSwitchedAt.value < TAB_SWITCH_DELAY) return;
-
-      // Update header position (allow negative offset for overscroll)
-      headerTranslateY.value = -Math.min(offsetY, titleSectionHeight);
 
       // Call external scroll handler if provided
       if (onTabBarScroll) {
@@ -147,7 +103,7 @@ export const useRecipeCollectionBrowser = ({
     (tab: TabType) => {
       const newTabIndex = tab === "recipes" ? 0 : 1;
       setActiveTab(tab);
-      handleTabSwitch(newTabIndex);
+      activeTabIndex.value = newTabIndex;
 
       // Animate filter button visibility
       filterButtonProgress.value = withTiming(
@@ -155,7 +111,7 @@ export const useRecipeCollectionBrowser = ({
         animationConfig,
       );
     },
-    [handleTabSwitch, filterButtonProgress],
+    [activeTabIndex, filterButtonProgress],
   );
 
   // Derive activeTabIndex for consumers that need it as a number
@@ -250,11 +206,6 @@ export const useRecipeCollectionBrowser = ({
     // Filter button animation
     filterButtonProgress,
     filterButtonStyle,
-
-    // Header animation
-    headerHeight,
-    headerAnimatedStyle,
-    titleAnimatedStyle,
 
     // Scroll handlers
     recipesScrollHandler,

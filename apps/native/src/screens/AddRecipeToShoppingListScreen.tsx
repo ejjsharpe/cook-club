@@ -11,9 +11,6 @@ import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
 import type { Recipe } from "@/hooks/useRecipeCollectionBrowser";
 
-// Header height constants
-const TITLE_SECTION_HEIGHT = 44 + 16; // Back button row + VSpace
-
 export const AddRecipeToShoppingListScreen = () => {
   const navigation = useNavigation();
 
@@ -52,8 +49,8 @@ export const AddRecipeToShoppingListScreen = () => {
     [navigation],
   );
 
-  const headerContent = (
-    <>
+  return (
+    <SafeAreaView edges={["top"]} style={styles.container}>
       <View style={styles.titleRow}>
         <BackButton />
         <Text type="title2" style={styles.headerTitle}>
@@ -62,14 +59,7 @@ export const AddRecipeToShoppingListScreen = () => {
         <View style={styles.headerSpacer} />
       </View>
       <VSpace size={16} />
-    </>
-  );
-
-  return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
       <RecipeCollectionBrowser
-        headerContent={headerContent}
-        titleSectionHeight={TITLE_SECTION_HEIGHT}
         onRecipePress={handleRecipeSelect}
         onCollectionPress={handleCollectionPress}
         recipesEmptyMessage="No recipes in your library yet"

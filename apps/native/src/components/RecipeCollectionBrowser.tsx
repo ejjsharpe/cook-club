@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list";
-import type { ReactNode } from "react";
-import { useCallback } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import { useCallback, useEffect } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import {
   View,
@@ -46,8 +46,6 @@ const tabOptions: TabOption<TabType>[] = [
 ];
 
 interface RecipeCollectionBrowserProps {
-  headerContent: ReactNode;
-  titleSectionHeight: number;
   onRecipePress: (recipe: Recipe) => void;
   onCollectionPress: (collectionId: number) => void;
   showCreateCollectionCard?: boolean;
@@ -55,11 +53,21 @@ interface RecipeCollectionBrowserProps {
   isCreatingCollection?: boolean;
   recipesEmptyMessage?: string;
   onTabBarScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** Hide the search bar (when using external search bar) */
+  hideSearchBar?: boolean;
+  /** External search query to sync with internal state */
+  externalSearchQuery?: string;
+  /** Callback when internal search query changes */
+  onSearchQueryChange?: (query: string) => void;
+  /** Callback to receive filter state for external filter button rendering */
+  onFilterStateChange?: (state: {
+    hasActiveFilters: boolean;
+    onOpenFilters: () => void;
+    activeTab: TabType;
+  }) => void;
 }
 
 export const RecipeCollectionBrowser = ({
-  headerContent,
-  titleSectionHeight,
   onRecipePress,
   onCollectionPress,
   showCreateCollectionCard = false,
@@ -67,6 +75,10 @@ export const RecipeCollectionBrowser = ({
   isCreatingCollection = false,
   recipesEmptyMessage = "No recipes in your library yet",
   onTabBarScroll,
+  hideSearchBar = false,
+  externalSearchQuery,
+  onSearchQueryChange,
+  onFilterStateChange,
 }: RecipeCollectionBrowserProps) => {
   const theme = UnistylesRuntime.getTheme();
 
@@ -81,9 +93,6 @@ export const RecipeCollectionBrowser = ({
     hasActiveFilters,
     handleOpenFilters,
     filterButtonStyle,
-    headerHeight,
-    headerAnimatedStyle,
-    titleAnimatedStyle,
     recipesScrollHandler,
     collectionsScrollHandler,
     recipes,
@@ -92,14 +101,32 @@ export const RecipeCollectionBrowser = ({
     isFetchingNextRecipes,
     handleLoadMoreRecipes,
     collections,
-    isLoadingCollections,
+    isPendingCollections: isLoadingCollections,
     collectionsError,
     isRefreshing,
     handleRefresh,
   } = useRecipeCollectionBrowser({
-    titleSectionHeight,
     onTabBarScroll,
+    externalSearchQuery,
   });
+
+  // Sync search query changes with parent if callback provided
+  const handleSearchChange = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      onSearchQueryChange?.(query);
+    },
+    [setSearchQuery, onSearchQueryChange],
+  );
+
+  // Notify parent of filter state changes
+  useEffect(() => {
+    onFilterStateChange?.({
+      hasActiveFilters,
+      onOpenFilters: handleOpenFilters,
+      activeTab,
+    });
+  }, [onFilterStateChange, hasActiveFilters, handleOpenFilters, activeTab]);
 
   // Build collections list with optional create card
   const collectionsList: CollectionListItem[] = showCreateCollectionCard
@@ -197,60 +224,8 @@ export const RecipeCollectionBrowser = ({
     );
   };
 
-  const ListSpacer = useCallback(
-    () => <View style={{ height: headerHeight }} />,
-    [headerHeight],
-  );
-
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.headerContainer, headerAnimatedStyle]}>
-        <View style={styles.header}>
-          <Animated.View style={titleAnimatedStyle}>
-            {headerContent}
-          </Animated.View>
-          <View style={[styles.searchRow, styles.headerPadded]}>
-            <View style={styles.searchBarWrapper}>
-              <SearchBar
-                placeholder={
-                  activeTab === "recipes"
-                    ? "Search recipes..."
-                    : "Search collections..."
-                }
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-            <Animated.View
-              style={[styles.filterButtonWrapper, filterButtonStyle]}
-              pointerEvents={activeTab === "recipes" ? "auto" : "none"}
-            >
-              <TouchableOpacity
-                style={styles.filterButton}
-                onPress={handleOpenFilters}
-              >
-                <Ionicons
-                  name="options-outline"
-                  size={22}
-                  color={theme.colors.text}
-                />
-                {hasActiveFilters && <View style={styles.filterBadge} />}
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-          <VSpace size={16} />
-          <View style={styles.headerPadded}>
-            <SegmentedControl
-              options={tabOptions}
-              value={activeTab}
-              onValueChange={(tab) => switchTab(tab)}
-              scrollProgress={scrollProgress}
-              fullWidth
-            />
-          </View>
-          <VSpace size={16} />
-        </View>
-      </Animated.View>
       <SwipeableTabView
         activeIndex={activeTabIndex}
         onIndexChange={handleSwipeTabChange}
@@ -259,18 +234,16 @@ export const RecipeCollectionBrowser = ({
       >
         {isLoadingRecipes ? (
           <View style={styles.skeletonContainer}>
-            <View style={{ height: headerHeight }} />
             <MyRecipesListSkeleton />
           </View>
         ) : (
           <AnimatedLegendList
-            entering={ReanimatedFadeIn.duration(200)}
             data={recipes}
             renderItem={renderRecipe}
             keyExtractor={(item) => item.id.toString()}
             onEndReached={handleLoadMoreRecipes}
             onEndReachedThreshold={0.5}
-            ListHeaderComponent={ListSpacer}
+            ListHeaderComponent={ListHeaderSpacer}
             ListFooterComponent={renderRecipesFooter}
             ListEmptyComponent={renderRecipesEmpty}
             showsVerticalScrollIndicator={false}
@@ -282,7 +255,6 @@ export const RecipeCollectionBrowser = ({
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={handleRefresh}
-                progressViewOffset={headerHeight}
                 tintColor={theme.colors.primary}
               />
             }
@@ -290,16 +262,14 @@ export const RecipeCollectionBrowser = ({
         )}
         {isLoadingCollections ? (
           <View style={styles.skeletonContainer}>
-            <View style={{ height: headerHeight }} />
             <CollectionsListSkeleton />
           </View>
         ) : (
           <AnimatedLegendList
-            entering={ReanimatedFadeIn.duration(200)}
             data={collectionsList}
             renderItem={renderCollection}
             keyExtractor={(item) => item.id.toString()}
-            ListHeaderComponent={ListSpacer}
+            ListHeaderComponent={ListHeaderSpacer}
             ListEmptyComponent={
               showCreateCollectionCard ? undefined : renderCollectionsEmpty
             }
@@ -313,15 +283,85 @@ export const RecipeCollectionBrowser = ({
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={handleRefresh}
-                progressViewOffset={headerHeight}
                 tintColor={theme.colors.primary}
               />
             }
           />
         )}
       </SwipeableTabView>
+      <View style={styles.headerContainer}>
+        <LinearGradient
+          colors={[theme.colors.background, "#FFFFFFE6", "#FFFFFF00"]}
+          style={styles.headerGradient}
+          pointerEvents="none"
+        />
+        <View
+          style={[
+            styles.header,
+            hideSearchBar && {
+              paddingTop: UnistylesRuntime.insets.top + SEARCH_BAR_ROW_HEIGHT,
+            },
+          ]}
+        >
+          {!hideSearchBar && (
+            <>
+              <View style={[styles.searchRow, styles.headerPadded]}>
+                <View style={styles.searchBarWrapper}>
+                  <SearchBar
+                    placeholder={
+                      activeTab === "recipes"
+                        ? "Search recipes..."
+                        : "Search collections..."
+                    }
+                    value={searchQuery}
+                    onChangeText={handleSearchChange}
+                  />
+                </View>
+                <Animated.View
+                  style={[styles.filterButtonWrapper, filterButtonStyle]}
+                  pointerEvents={activeTab === "recipes" ? "auto" : "none"}
+                >
+                  <TouchableOpacity
+                    style={styles.filterButton}
+                    onPress={handleOpenFilters}
+                  >
+                    <Ionicons
+                      name="options-outline"
+                      size={22}
+                      color={theme.colors.text}
+                    />
+                    {hasActiveFilters && <View style={styles.filterBadge} />}
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+              <VSpace size={8} />
+            </>
+          )}
+          <View style={styles.headerPadded}>
+            <SegmentedControl
+              options={tabOptions}
+              value={activeTab}
+              onValueChange={(tab) => switchTab(tab)}
+              scrollProgress={scrollProgress}
+              fullWidth
+            />
+          </View>
+          <VSpace size={32} />
+        </View>
+      </View>
     </View>
   );
+};
+
+// Header content heights
+// Full: search (50) + VSpace (8) + segmented (44) + VSpace (32) = 134
+const HEADER_CONTENT_HEIGHT = 134;
+const SEARCH_BAR_ROW_HEIGHT = 58; // search (50) + VSpace (8)
+
+// Spacer component for list header (LegendList doesn't respect paddingTop in contentContainerStyle)
+const ListHeaderSpacer = () => {
+  const insets = UnistylesRuntime.insets;
+  return <VSpace size={insets.top + HEADER_CONTENT_HEIGHT} />;
 };
 
 const styles = StyleSheet.create((theme, rt) => ({
@@ -334,13 +374,22 @@ const styles = StyleSheet.create((theme, rt) => ({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: theme.colors.background,
     zIndex: 10,
   },
   skeletonContainer: {
     flex: 1,
+    paddingTop: rt.insets.top + HEADER_CONTENT_HEIGHT,
   },
-  header: {},
+  header: {
+    paddingTop: rt.insets.top,
+  },
+  headerGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   headerPadded: {
     paddingHorizontal: 20,
   },
@@ -391,7 +440,8 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   separatorContainer: {
     paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingLeft: 134, // 20 (card padding) + 100 (thumbnail) + 14 (gap)
+    paddingRight: 20,
   },
   separator: {
     height: 1,

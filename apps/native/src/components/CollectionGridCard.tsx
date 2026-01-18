@@ -17,6 +17,7 @@ interface Collection {
 interface Props {
   collection: Collection;
   onPress?: () => void;
+  width?: number;
 }
 
 const ImageGrid = ({ images }: { images: string[] }) => {
@@ -197,12 +198,16 @@ const gridStyles = StyleSheet.create((theme) => ({
   },
 }));
 
-export const CollectionGridCard = ({ collection, onPress }: Props) => {
+export const CollectionGridCard = ({ collection, onPress, width }: Props) => {
   const previewImages = collection.previewImages || [];
   const recipeCount = collection.recipeCount ?? 0;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={[styles.card, width != null && { flex: undefined, width }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <ImageGrid images={previewImages} />
       <View style={styles.content}>
         <Text type="headline" numberOfLines={1}>

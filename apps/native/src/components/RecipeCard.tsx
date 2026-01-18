@@ -64,28 +64,26 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
         <Text type="headline" numberOfLines={2}>
           {recipe.name}
         </Text>
-        <View style={styles.metaRow}>
-          {recipe.totalTime && (
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={14} style={styles.metaIcon} />
-              <Text type="subheadline" style={styles.metaText}>
-                {formatMinutes(recipe.totalTime)}
-              </Text>
-            </View>
-          )}
-          {recipe.sourceUrl && (
-            <View style={styles.metaItem}>
-              <Ionicons name="link-outline" size={14} style={styles.metaIcon} />
-              <Text
-                type="subheadline"
-                style={styles.metaText}
-                numberOfLines={1}
-              >
-                {new URL(recipe.sourceUrl).hostname.replace(/^www\./, "")}
-              </Text>
-            </View>
-          )}
-        </View>
+        {recipe.totalTime && (
+          <View style={styles.metaItem}>
+            <Ionicons name="time-outline" size={14} style={styles.metaIcon} />
+            <Text type="subheadline" style={styles.metaText}>
+              {formatMinutes(recipe.totalTime)}
+            </Text>
+          </View>
+        )}
+        {recipe.sourceUrl && (
+          <View style={styles.metaItem}>
+            <Ionicons name="link-outline" size={14} style={styles.metaIcon} />
+            <Text
+              type="subheadline"
+              style={styles.metaText}
+              numberOfLines={1}
+            >
+              {new URL(recipe.sourceUrl).hostname.replace(/^www\./, "")}
+            </Text>
+          </View>
+        )}
       </View>
 
       <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
@@ -98,7 +96,6 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: theme.colors.background,
-    paddingVertical: 12,
     paddingHorizontal: 20,
     gap: 14,
   },
@@ -124,12 +121,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   content: {
     flex: 1,
-    gap: 8,
-  },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    gap: 4,
   },
   metaItem: {
     flexDirection: "row",

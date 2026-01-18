@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { getAisleOrder } from "@repo/shared";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useMemo, useCallback, useState } from "react";
 import {
   View,
@@ -10,6 +11,8 @@ import {
   ScrollView,
   TextInput,
   Alert,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import {
@@ -20,6 +23,7 @@ import {
 import Animated, {
   useAnimatedStyle,
   withSpring,
+  withTiming,
   useSharedValue,
   useAnimatedReaction,
   interpolate,
@@ -76,6 +80,7 @@ interface Recipe {
 }
 
 const INPUT_SECTION_HEIGHT = 68;
+const HEADER_HEIGHT = 52; // Height of the title row
 
 interface SwipeableItemProps {
   item: ShoppingListItem;
@@ -228,9 +233,9 @@ const SectionCheck = ({ isComplete }: { isComplete: boolean }) => {
     (current, previous) => {
       if (current !== previous) {
         scale.value = withSpring(current ? 1 : 0, {
-          damping: 12,
+          damping: 50,
           stiffness: 300,
-          mass: 1,
+          mass: 2,
         });
       }
     },
@@ -259,6 +264,11 @@ export const ShoppingListScreen = () => {
 
   // Track keyboard height for empty state centering
   const keyboardHeight = useSharedValue(0);
+
+  // Scroll tracking for header fade
+  const titleOpacity = useSharedValue(1);
+  const clearButtonOpacity = useSharedValue(1);
+
   useKeyboardHandler({
     onMove: (e) => {
       "worklet";
@@ -271,7 +281,7 @@ export const ShoppingListScreen = () => {
   });
 
   // Base padding for when keyboard is closed and tab bar is visible
-  const basePadding = FLOATING_TAB_BAR_HEIGHT + insets.bottom - 8;
+  const basePadding = FLOATING_TAB_BAR_HEIGHT + 4;
 
   const inputTransformAnimatedStyle = useAnimatedStyle(() => {
     // When keyboard is closed, slide out with tab bar using same spring config
@@ -317,12 +327,44 @@ export const ShoppingListScreen = () => {
     };
   });
 
+  // Animated styles for header fade
+  const titleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+  }));
+
+  const clearButtonAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: clearButtonOpacity.value,
+  }));
+
+  // Scroll handler with header fade
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const y = event.nativeEvent.contentOffset.y;
+
+      // Fade out when scrolling past the header
+      const titleShouldHide = y > 5;
+      titleOpacity.value = withTiming(titleShouldHide ? 0 : 1, {
+        duration: 150,
+      });
+
+      const clearShouldHide = y > 10;
+      clearButtonOpacity.value = withTiming(clearShouldHide ? 0 : 1, {
+        duration: 150,
+      });
+
+      // Also handle tab bar visibility
+      onTabBarScroll(event);
+    },
+    [titleOpacity, clearButtonOpacity, onTabBarScroll],
+  );
+
   const { data, isLoading, error } = useGetShoppingList();
   const toggleMutation = useToggleItemChecked();
   const removeMutation = useRemoveItem();
   const clearMutation = useClearCheckedItems();
   const removeRecipeMutation = useRemoveRecipeFromList();
   const addManualMutation = useAddManualItem();
+  const { theme } = useUnistyles();
 
   const items = data?.items || [];
   const recipes = data?.recipes || [];
@@ -512,22 +554,9 @@ export const ShoppingListScreen = () => {
   };
 
   const listHeaderComponent = (
-    <View style={{ paddingTop: insets.top }}>
-      <VSpace size={8} />
-      {/* Title */}
-      <View style={styles.largeTitleContainer}>
-        <Text type="title1">Shopping List</Text>
-        {checkedCount > 0 && (
-          <TouchableOpacity
-            onPress={handleClearChecked}
-            style={styles.clearButton}
-            disabled={clearMutation.isPending}
-          >
-            <Text style={styles.clearButtonText}>Clear ({checkedCount})</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <VSpace size={16} />
+    <View>
+      {/* Space for fixed header */}
+      <VSpace size={insets.top + HEADER_HEIGHT} />
       {/* Recipe Cards Carousel */}
       <ScrollView
         horizontal
@@ -576,10 +605,32 @@ export const ShoppingListScreen = () => {
             { paddingBottom: INPUT_SECTION_HEIGHT + insets.bottom },
             sections.length === 0 && styles.emptyListContent,
           ]}
-          onScroll={onTabBarScroll}
+          onScroll={handleScroll}
           scrollEventThrottle={16}
         />
       </SkeletonContainer>
+
+      {/* Fixed Header */}
+      <View style={styles.fixedHeader}>
+        <View style={styles.largeTitleContainer}>
+          <Animated.View style={titleAnimatedStyle}>
+            <Text type="title1">Shopping List</Text>
+          </Animated.View>
+          {checkedCount > 0 && (
+            <Animated.View style={clearButtonAnimatedStyle}>
+              <TouchableOpacity
+                onPress={handleClearChecked}
+                style={styles.clearButton}
+                disabled={clearMutation.isPending}
+              >
+                <Text style={styles.clearButtonText}>
+                  Clear ({checkedCount})
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+        </View>
+      </View>
       {/* Bottom Input - sticks to keyboard */}
       <KeyboardStickyView
         style={styles.inputWrapper}
@@ -588,46 +639,62 @@ export const ShoppingListScreen = () => {
           opened: -12,
         }}
       >
-        <Animated.View
-          style={[styles.inputSection, inputTransformAnimatedStyle]}
-        >
-          <TextInput
-            style={styles.input}
-            placeholder="Add item (e.g., 2 cups milk)"
-            value={manualItemText}
-            onChangeText={setManualItemText}
-            onSubmitEditing={handleAddManualItem}
-            returnKeyType="done"
-            autoCapitalize="none"
-            placeholderTextColor={styles.inputPlaceholder.color}
-          />
-          <TouchableOpacity
-            style={[
-              styles.addButton,
-              !manualItemText.trim() && styles.addButtonDisabled,
+        <Animated.View style={inputTransformAnimatedStyle}>
+          <LinearGradient
+            colors={[
+              `${theme.colors.background}00`,
+              theme.colors.background,
+              theme.colors.background,
             ]}
-            onPress={handleAddManualItem}
-            disabled={!manualItemText.trim() || addManualMutation.isPending}
+            style={styles.inputGradient}
+            pointerEvents="box-none"
           >
-            <Ionicons
-              name="add-circle"
-              size={50}
-              style={[
-                styles.addIcon,
-                !manualItemText.trim() && styles.addIconDisabled,
-              ]}
-            />
-          </TouchableOpacity>
+            <View style={styles.inputSection}>
+              <TextInput
+                style={styles.input}
+                placeholder="Add item (e.g., 2 cups milk)"
+                value={manualItemText}
+                onChangeText={setManualItemText}
+                onSubmitEditing={handleAddManualItem}
+                returnKeyType="done"
+                autoCapitalize="none"
+                placeholderTextColor={styles.inputPlaceholder.color}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.addButton,
+                  !manualItemText.trim() && styles.addButtonDisabled,
+                ]}
+                onPress={handleAddManualItem}
+                disabled={!manualItemText.trim() || addManualMutation.isPending}
+              >
+                <Ionicons
+                  name="add-circle"
+                  size={50}
+                  style={[
+                    styles.addIcon,
+                    !manualItemText.trim() && styles.addIconDisabled,
+                  ]}
+                />
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
         </Animated.View>
       </KeyboardStickyView>
     </View>
   );
 };
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  fixedHeader: {
+    position: "absolute",
+    top: rt.insets.top,
+    left: 0,
+    right: 0,
   },
   largeTitleContainer: {
     flexDirection: "row",
@@ -639,7 +706,7 @@ const styles = StyleSheet.create((theme) => ({
     height: 36,
     paddingHorizontal: 14,
     borderRadius: 18,
-    backgroundColor: theme.colors.secondaryButtonBackground,
+    backgroundColor: theme.colors.inputBackground,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -733,20 +800,16 @@ const styles = StyleSheet.create((theme) => ({
     right: 0,
     bottom: 0,
   },
-  inputBackgroundFill: {
-    height: 200,
-    backgroundColor: theme.colors.background,
-    marginTop: -1,
+  inputGradient: {
+    flex: 1,
+    paddingBottom: rt.insets.bottom + FLOATING_TAB_BAR_HEIGHT,
+    marginBottom: -(rt.insets.bottom + FLOATING_TAB_BAR_HEIGHT),
   },
   inputSection: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-    gap: 12,
+    paddingVertical: 8,
   },
   input: {
     flex: 1,

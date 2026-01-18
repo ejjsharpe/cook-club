@@ -82,7 +82,7 @@ const styles = StyleSheet.create((theme) => ({
     fontFamily: theme.fonts.albertRegular,
   },
   placeholder: {
-    color: theme.colors.textTertiary,
+    color: theme.colors.placeholderText,
   },
   clearButton: {
     marginLeft: 8,

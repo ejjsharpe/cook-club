@@ -1,10 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, SectionList, TouchableOpacity } from "react-native";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  View,
+  SectionList,
+  TouchableOpacity,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
+import {
+  StyleSheet,
+  useUnistyles,
+  UnistylesRuntime,
+} from "react-native-unistyles";
 
 import {
   useGetMealPlans,
@@ -13,7 +28,6 @@ import {
   type MealPlanEntry,
 } from "@/api/mealPlan";
 import { FLOATING_TAB_BAR_HEIGHT } from "@/components/FloatingTabBar";
-import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { DayGroup, DayHeader } from "@/components/mealPlan";
 import { useTabBarScroll } from "@/lib/tabBarContext";
@@ -24,6 +38,9 @@ interface DaySection {
   isToday: boolean;
   data: [{ date: Date; dateString: string; isToday: boolean }];
 }
+
+// Constants
+const HEADER_HEIGHT = 48; // Height of the title row
 
 // Helper to format date as YYYY-MM-DD
 const formatDateString = (date: Date): string => {
@@ -69,8 +86,40 @@ export const MealPlanScreen = () => {
     >(null);
   const hasScrolledToToday = useRef(false);
 
-  // State
-  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
+  // Scroll tracking for header fade
+  const titleOpacity = useSharedValue(1);
+  const headerButtonsOpacity = useSharedValue(1);
+
+  // Animated styles for header fade
+  const titleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+  }));
+
+  const headerButtonsAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headerButtonsOpacity.value,
+  }));
+
+  // Scroll handler with header fade
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const y = event.nativeEvent.contentOffset.y;
+
+      // Fade out when scrolling past the header
+      const titleShouldHide = y > 5;
+      titleOpacity.value = withTiming(titleShouldHide ? 0 : 1, {
+        duration: 150,
+      });
+
+      const buttonsShouldHide = y > 10;
+      headerButtonsOpacity.value = withTiming(buttonsShouldHide ? 0 : 1, {
+        duration: 150,
+      });
+
+      // Also handle tab bar visibility
+      onTabBarScroll(event);
+    },
+    [titleOpacity, headerButtonsOpacity, onTabBarScroll],
+  );
 
   // Calculate date range (2 weeks: 1 week back, 1 week forward)
   const today = useMemo(() => new Date(), []);
@@ -89,12 +138,9 @@ export const MealPlanScreen = () => {
   const { data: mealPlans, isLoading: isLoadingPlans } = useGetMealPlans();
   const activePlan = useMemo(() => {
     if (!mealPlans || mealPlans.length === 0) return null;
-    if (selectedPlanId) {
-      return mealPlans.find((p) => p.id === selectedPlanId) || mealPlans[0];
-    }
     // Default to first plan (should be the default plan)
     return mealPlans[0];
-  }, [mealPlans, selectedPlanId]);
+  }, [mealPlans]);
 
   const { data: entries } = useGetMealPlanEntries({
     mealPlanId: activePlan?.id ?? 0,
@@ -229,13 +275,20 @@ export const MealPlanScreen = () => {
     return () => clearTimeout(timer);
   }, [todaySectionIndex]);
 
+  const insets = UnistylesRuntime.insets;
+
   if (isLoadingPlans) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={styles.fixedHeader}>
           <Text type="title1">Meal Plan</Text>
         </View>
-        <View style={styles.loadingContainer}>
+        <View
+          style={[
+            styles.loadingContainer,
+            { paddingTop: insets.top + HEADER_HEIGHT },
+          ]}
+        >
           <Text type="bodyFaded">Loading...</Text>
         </View>
       </View>
@@ -244,71 +297,54 @@ export const MealPlanScreen = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text type="title1">Meal Plan</Text>
-          <View style={styles.headerButtons}>
-            {activePlan?.isOwner && (
-              <TouchableOpacity
-                style={styles.headerButton}
-                onPress={() =>
-                  SheetManager.show("meal-plan-share-sheet", {
-                    payload: {
-                      mealPlanId: activePlan.id,
-                      planName: activePlan.name,
-                    },
-                  })
-                }
-              >
-                <Ionicons
-                  name="share-outline"
-                  size={22}
-                  color={theme.colors.text}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Plan selector */}
-        {activePlan && (
-          <TouchableOpacity
-            style={styles.planSelector}
-            onPress={() =>
-              SheetManager.show("meal-plan-picker-sheet", {
-                payload: {
-                  activePlanId: activePlan.id,
-                  onSelectPlan: setSelectedPlanId,
-                },
-              })
-            }
-          >
-            <Text type="subheadline">{activePlan.name}</Text>
-            <Ionicons
-              name="chevron-down"
-              size={16}
-              color={theme.colors.textSecondary}
-            />
-          </TouchableOpacity>
-        )}
+      {/* Calendar - wrapped with top padding so sticky headers stop 8px below safe area */}
+      <View style={{ flex: 1, paddingTop: insets.top - 8 }}>
+        <SectionList
+          ref={sectionListRef}
+          sections={sections}
+          keyExtractor={(item) => item.dateString}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          renderSectionFooter={renderSectionFooter}
+          ListHeaderComponent={<View style={{ height: HEADER_HEIGHT }} />}
+          stickySectionHeadersEnabled
+          contentContainerStyle={styles.listContent}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        />
       </View>
 
-      <VSpace size={8} />
-
-      {/* Calendar */}
-      <SectionList
-        ref={sectionListRef}
-        sections={sections}
-        keyExtractor={(item) => item.dateString}
-        renderItem={renderItem}
-        renderSectionHeader={renderSectionHeader}
-        renderSectionFooter={renderSectionFooter}
-        stickySectionHeadersEnabled
-        contentContainerStyle={styles.listContent}
-        onScroll={onTabBarScroll}
-        scrollEventThrottle={16}
-      />
+      {/* Fixed Header */}
+      <View style={styles.fixedHeader}>
+        <View style={styles.headerRow}>
+          <Animated.View style={titleAnimatedStyle}>
+            <Text type="title1">Meal Plan</Text>
+          </Animated.View>
+          <Animated.View style={headerButtonsAnimatedStyle}>
+            <View style={styles.headerButtons}>
+              {activePlan?.isOwner && (
+                <TouchableOpacity
+                  style={styles.headerButton}
+                  onPress={() =>
+                    SheetManager.show("meal-plan-share-sheet", {
+                      payload: {
+                        mealPlanId: activePlan.id,
+                        planName: activePlan.name,
+                      },
+                    })
+                  }
+                >
+                  <Ionicons
+                    name="share-outline"
+                    size={22}
+                    color={theme.colors.text}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          </Animated.View>
+        </View>
+      </View>
     </View>
   );
 };
@@ -317,11 +353,13 @@ const styles = StyleSheet.create((theme, rt) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-    paddingTop: rt.insets.top,
   },
-  header: {
+  fixedHeader: {
+    position: "absolute",
+    top: rt.insets.top,
+    left: 0,
+    right: 0,
     paddingHorizontal: 20,
-    paddingTop: 16,
   },
   headerRow: {
     flexDirection: "row",
@@ -334,17 +372,6 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   headerButton: {
     padding: 8,
-  },
-  planSelector: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: 8,
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.small,
   },
   listContent: {
     paddingBottom: FLOATING_TAB_BAR_HEIGHT + rt.insets.bottom + 20,

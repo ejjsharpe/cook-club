@@ -1,12 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { View, TouchableOpacity, ScrollView } from "react-native";
+import { useCallback } from "react";
+import {
+  View,
+  TouchableOpacity,
+  ScrollView,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+
+const HEADER_HEIGHT = 52;
 
 const ActionRow = ({
   icon,
@@ -63,6 +76,25 @@ const ActionRow = ({
 
 export const AddRecipeScreen = () => {
   const { navigate } = useNavigation();
+  const insets = UnistylesRuntime.insets;
+
+  // Scroll tracking for header fade
+  const titleOpacity = useSharedValue(1);
+
+  const titleAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+  }));
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const y = event.nativeEvent.contentOffset.y;
+      const titleShouldHide = y > 5;
+      titleOpacity.value = withTiming(titleShouldHide ? 0 : 1, {
+        duration: 150,
+      });
+    },
+    [titleOpacity],
+  );
 
   const handleRecipeParsed = (
     result: ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"],
@@ -98,18 +130,17 @@ export const AddRecipeScreen = () => {
   };
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.screen}>
+    <View style={styles.screen}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
-        <VSpace size={8} />
-        <View style={styles.headerPadded}>
-          <Text type="title1">Add recipe</Text>
-        </View>
+        <VSpace size={insets.top + HEADER_HEIGHT} />
 
-        <VSpace size={24} />
+        <VSpace size={16} />
 
         {/* Import Section */}
         <Text style={styles.sectionTitle}>Import</Text>
@@ -166,11 +197,18 @@ export const AddRecipeScreen = () => {
           />
         </View>
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Fixed Header */}
+      <View style={styles.fixedHeader}>
+        <Animated.View style={titleAnimatedStyle}>
+          <Text type="title1">Add recipe</Text>
+        </Animated.View>
+      </View>
+    </View>
   );
 };
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -181,7 +219,11 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     paddingBottom: 40,
   },
-  headerPadded: {
+  fixedHeader: {
+    position: "absolute",
+    top: rt.insets.top,
+    left: 0,
+    right: 0,
     paddingHorizontal: 20,
   },
   sectionTitle: {

@@ -43,8 +43,6 @@ const RecipeSeparator = () => (
   </View>
 );
 
-const TITLE_HEIGHT = 50;
-
 export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
   const { mealPlanId, date, mealType } = props.payload || {};
   const [selectedCollectionId, setSelectedCollectionId] = useState<
@@ -108,17 +106,6 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
       />
     ),
     [handleSelectRecipe],
-  );
-
-  const headerContent = (
-    <View style={styles.header}>
-      <Text type="title2">Add to {mealTypeLabel}</Text>
-      <TouchableOpacity
-        onPress={() => SheetManager.hide("recipe-picker-sheet")}
-      >
-        <Ionicons name="close" size={28} style={styles.closeIcon} />
-      </TouchableOpacity>
-    </View>
   );
 
   return (
@@ -187,14 +174,22 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
           </View>
         ) : (
           // Recipe collection browser
-          <RecipeCollectionBrowser
-            headerContent={headerContent}
-            titleSectionHeight={TITLE_HEIGHT}
-            onRecipePress={handleRecipePress}
-            onCollectionPress={handleCollectionPress}
-            showCreateCollectionCard={false}
-            recipesEmptyMessage="You don't have any recipes yet"
-          />
+          <View style={styles.container}>
+            <View style={styles.header}>
+              <Text type="title2">Add to {mealTypeLabel}</Text>
+              <TouchableOpacity
+                onPress={() => SheetManager.hide("recipe-picker-sheet")}
+              >
+                <Ionicons name="close" size={28} style={styles.closeIcon} />
+              </TouchableOpacity>
+            </View>
+            <RecipeCollectionBrowser
+              onRecipePress={handleRecipePress}
+              onCollectionPress={handleCollectionPress}
+              showCreateCollectionCard={false}
+              recipesEmptyMessage="You don't have any recipes yet"
+            />
+          </View>
         )}
       </View>
     </ActionSheet>
