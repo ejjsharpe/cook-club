@@ -368,7 +368,7 @@ export const MyRecipesScreen = () => {
         {/* Fixed Title Header */}
         <View style={styles.fixedHeader}>
           <Animated.View style={titleAnimatedStyle}>
-            <Text type="title1">My Recipes</Text>
+            <Text type="screenTitle">My Recipes</Text>
           </Animated.View>
         </View>
       </Animated.View>
@@ -472,7 +472,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     paddingHorizontal: HORIZONTAL_PADDING,
   },
   browseContent: {
-    paddingTop: rt.insets.top + HEADER_HEIGHT,
+    paddingTop: rt.insets.top + HEADER_HEIGHT + 8,
     paddingBottom: rt.insets.bottom + 100,
   },
   searchContainer: {

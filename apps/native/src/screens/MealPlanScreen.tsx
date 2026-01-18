@@ -25,9 +25,12 @@ import {
   useGetMealPlans,
   useGetMealPlanEntries,
   useRemoveFromMealPlan,
+  useGetShareStatus,
   type MealPlanEntry,
 } from "@/api/mealPlan";
+import { useUser } from "@/api/user";
 import { FLOATING_TAB_BAR_HEIGHT } from "@/components/FloatingTabBar";
+import { StackedAvatars } from "@/components/StackedAvatars";
 import { Text } from "@/components/Text";
 import { DayGroup, DayHeader } from "@/components/mealPlan";
 import { useTabBarScroll } from "@/lib/tabBarContext";
@@ -40,7 +43,7 @@ interface DaySection {
 }
 
 // Constants
-const HEADER_HEIGHT = 48; // Height of the title row
+const HEADER_HEIGHT = 52; // Height of the title row
 
 // Helper to format date as YYYY-MM-DD
 const formatDateString = (date: Date): string => {
@@ -149,6 +152,14 @@ export const MealPlanScreen = () => {
     enabled: !!activePlan,
   });
 
+  const { data: shareStatus } = useGetShareStatus({
+    mealPlanId: activePlan?.id ?? 0,
+    enabled: !!activePlan,
+  });
+
+  const { data: userData } = useUser();
+  const currentUser = userData?.user;
+
   // Mutations
   const removeEntry = useRemoveFromMealPlan();
 
@@ -211,6 +222,59 @@ export const MealPlanScreen = () => {
     },
     [entriesByDate, removeEntry],
   );
+
+  // Build list of users who can edit (current user + shared users with edit permission)
+  const editableUsers = useMemo(() => {
+    const users: { id: string; name: string; image?: string | null }[] = [];
+
+    // Add current user first
+    if (currentUser) {
+      users.push({
+        id: currentUser.id,
+        name: currentUser.name,
+        image: currentUser.image,
+      });
+    }
+
+    // Add shared users who can edit
+    if (shareStatus) {
+      shareStatus
+        .filter((status) => status.canEdit)
+        .forEach((status) => {
+          users.push({
+            id: status.userId,
+            name: status.userName,
+            image: status.userImage,
+          });
+        });
+    }
+
+    return users;
+  }, [currentUser, shareStatus]);
+
+  const handleOpenSharedUsers = useCallback(() => {
+    if (!activePlan) return;
+
+    // If no one is shared yet, open the share sheet directly
+    if (!shareStatus || shareStatus.length === 0) {
+      SheetManager.show("meal-plan-share-sheet", {
+        payload: {
+          mealPlanId: activePlan.id,
+          planName: activePlan.name,
+        },
+      });
+    } else {
+      // Otherwise show the shared users sheet
+      SheetManager.show("shared-users-sheet", {
+        payload: {
+          mealPlanId: activePlan.id,
+          planName: activePlan.name,
+          sharedUsers: shareStatus,
+          isOwner: activePlan.isOwner,
+        },
+      });
+    }
+  }, [activePlan, shareStatus]);
 
   // Render section header
   const renderSectionHeader = useCallback(
@@ -281,7 +345,7 @@ export const MealPlanScreen = () => {
     return (
       <View style={styles.container}>
         <View style={styles.fixedHeader}>
-          <Text type="title1">Meal Plan</Text>
+          <Text type="screenTitle">Meal Plan</Text>
         </View>
         <View
           style={[
@@ -318,27 +382,30 @@ export const MealPlanScreen = () => {
       <View style={styles.fixedHeader}>
         <View style={styles.headerRow}>
           <Animated.View style={titleAnimatedStyle}>
-            <Text type="title1">Meal Plan</Text>
+            <Text type="screenTitle">Meal Plan</Text>
           </Animated.View>
           <Animated.View style={headerButtonsAnimatedStyle}>
             <View style={styles.headerButtons}>
-              {activePlan?.isOwner && (
+              {editableUsers.length > 0 && (
                 <TouchableOpacity
-                  style={styles.headerButton}
-                  onPress={() =>
-                    SheetManager.show("meal-plan-share-sheet", {
-                      payload: {
-                        mealPlanId: activePlan.id,
-                        planName: activePlan.name,
-                      },
-                    })
-                  }
+                  style={styles.inviteStack}
+                  activeOpacity={0.7}
+                  onPress={handleOpenSharedUsers}
                 >
-                  <Ionicons
-                    name="share-outline"
-                    size={22}
-                    color={theme.colors.text}
-                  />
+                  <View style={styles.inviteIconWrapper}>
+                    <Ionicons
+                      name="people"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                    />
+                  </View>
+                  <View style={styles.stackedAvatarsWrapper}>
+                    <StackedAvatars
+                      users={editableUsers}
+                      maxVisible={3}
+                      size={44}
+                    />
+                  </View>
                 </TouchableOpacity>
               )}
             </View>
@@ -372,6 +439,25 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   headerButton: {
     padding: 8,
+  },
+  inviteStack: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 44,
+  },
+  inviteIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: theme.colors.background,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  stackedAvatarsWrapper: {
+    marginLeft: -22,
   },
   listContent: {
     paddingBottom: FLOATING_TAB_BAR_HEIGHT + rt.insets.bottom + 20,

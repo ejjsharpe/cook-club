@@ -69,9 +69,9 @@ const Header = memo(
       <View style={styles.headerContainer}>
         <View style={styles.headerRow}>
           <Animated.View style={titleAnimatedStyle}>
-            <Text type="title1" style={styles.headerTitle}>
+            <Text type="screenTitle" style={styles.headerTitle}>
               cook
-              <Text type="title1" style={[styles.headerTitle, styles.clubText]}>
+              <Text type="screenTitle" style={[styles.headerTitle, styles.clubText]}>
                 club
               </Text>
             </Text>
@@ -378,7 +378,7 @@ export const HomeScreen = () => {
   const BrowseListHeader = useMemo(
     () => (
       <>
-        <VSpace size={insets.top + HEADER_HEIGHT} />
+        <VSpace size={insets.top + HEADER_HEIGHT + 8} />
         <Pressable
           ref={searchBarRef}
           style={[
@@ -640,9 +640,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     alignItems: "center",
     textAlignVertical: "center",
   },
-  headerTitle: {
-    lineHeight: 40,
-  },
+  headerTitle: {},
   clubText: {
     color: theme.colors.primary,
   },

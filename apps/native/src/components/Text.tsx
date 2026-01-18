@@ -6,6 +6,7 @@ interface Props extends TextProps {
     | "body"
     | "bodyFaded"
     | "largeTitle"
+    | "screenTitle"
     | "title1"
     | "title2"
     | "title3"
@@ -33,6 +34,14 @@ const styles = StyleSheet.create((theme) => ({
         largeTitle: {
           fontSize: 34,
           lineHeight: 41,
+          color: theme.colors.text,
+          fontFamily: theme.fonts.baskervilleBold,
+          letterSpacing: -1,
+        },
+        // Screen Title: Same as title1 but with 44 line height for tab headers
+        screenTitle: {
+          fontSize: 28,
+          lineHeight: 44,
           color: theme.colors.text,
           fontFamily: theme.fonts.baskervilleBold,
           letterSpacing: -1,

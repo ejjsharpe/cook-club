@@ -556,7 +556,7 @@ export const ShoppingListScreen = () => {
   const listHeaderComponent = (
     <View>
       {/* Space for fixed header */}
-      <VSpace size={insets.top + HEADER_HEIGHT} />
+      <VSpace size={insets.top + HEADER_HEIGHT + 8} />
       {/* Recipe Cards Carousel */}
       <ScrollView
         horizontal
@@ -614,7 +614,7 @@ export const ShoppingListScreen = () => {
       <View style={styles.fixedHeader}>
         <View style={styles.largeTitleContainer}>
           <Animated.View style={titleAnimatedStyle}>
-            <Text type="title1">Shopping List</Text>
+            <Text type="screenTitle">Shopping List</Text>
           </Animated.View>
           {checkedCount > 0 && (
             <Animated.View style={clearButtonAnimatedStyle}>

@@ -1,5 +1,6 @@
 import { SheetDefinition, SheetRegister } from "react-native-actions-sheet";
 
+import type { ShareStatus } from "@/api/mealPlan";
 import { BasicImportSheet } from "@/components/BasicImportSheet";
 import { CollectionSelectorSheet } from "@/components/CollectionSelectorSheet";
 import { CommentsSheet } from "@/components/CommentsSheet";
@@ -11,6 +12,7 @@ import { SmartImportSheet } from "@/components/SmartImportSheet";
 import { MealPlanPickerSheet } from "@/components/mealPlan/MealPlanPickerSheet";
 import { MealPlanShareSheet } from "@/components/mealPlan/MealPlanShareSheet";
 import { RecipePickerSheet } from "@/components/mealPlan/RecipePickerSheet";
+import { SharedUsersSheet } from "@/components/mealPlan/SharedUsersSheet";
 
 // Type declarations for sheets
 declare module "react-native-actions-sheet" {
@@ -79,6 +81,14 @@ declare module "react-native-actions-sheet" {
         planName: string;
       };
     }>;
+    "shared-users-sheet": SheetDefinition<{
+      payload: {
+        mealPlanId: number;
+        planName: string;
+        sharedUsers: ShareStatus[];
+        isOwner: boolean;
+      };
+    }>;
   }
 }
 
@@ -97,6 +107,7 @@ export const Sheets = () => {
         "recipe-picker-sheet": RecipePickerSheet,
         "meal-plan-picker-sheet": MealPlanPickerSheet,
         "meal-plan-share-sheet": MealPlanShareSheet,
+        "shared-users-sheet": SharedUsersSheet,
       }}
     />
   );

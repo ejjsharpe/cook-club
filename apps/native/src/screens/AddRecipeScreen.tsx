@@ -138,9 +138,7 @@ export const AddRecipeScreen = () => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        <VSpace size={insets.top + HEADER_HEIGHT} />
-
-        <VSpace size={16} />
+        <VSpace size={insets.top + HEADER_HEIGHT + 8} />
 
         {/* Import Section */}
         <Text style={styles.sectionTitle}>Import</Text>
@@ -201,7 +199,7 @@ export const AddRecipeScreen = () => {
       {/* Fixed Header */}
       <View style={styles.fixedHeader}>
         <Animated.View style={titleAnimatedStyle}>
-          <Text type="title1">Add recipe</Text>
+          <Text type="screenTitle">Add recipe</Text>
         </Animated.View>
       </View>
     </View>
