@@ -8,17 +8,23 @@ interface Props {
   onPress: () => void;
   disabled?: boolean;
   variant?: "list" | "grid";
+  width?: number;
 }
 
 export const CreateCollectionCard = ({
   onPress,
   disabled,
   variant = "list",
+  width,
 }: Props) => {
   if (variant === "grid") {
     return (
       <TouchableOpacity
-        style={[styles.gridCard, disabled && styles.cardDisabled]}
+        style={[
+          styles.gridCard,
+          width != null ? { width } : { flex: 1 },
+          disabled && styles.cardDisabled,
+        ]}
         onPress={onPress}
         activeOpacity={0.7}
         disabled={disabled}
@@ -109,9 +115,7 @@ const styles = StyleSheet.create((theme) => ({
   },
 
   // Grid variant styles
-  gridCard: {
-    flex: 1,
-  },
+  gridCard: {},
   gridIconContainer: {
     aspectRatio: 1,
     borderRadius: theme.borderRadius.medium,

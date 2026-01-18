@@ -26,10 +26,11 @@ import {
 } from "@/api/collection";
 import { useGetUserRecipes, type RecipeListItem } from "@/api/recipe";
 import { CollectionGridCard } from "@/components/CollectionGridCard";
+import { CreateCollectionCard } from "@/components/CreateCollectionCard";
 import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeCollectionBrowser } from "@/components/RecipeCollectionBrowser";
 import { SafeAreaView } from "@/components/SafeAreaView";
-import { SearchBar, SEARCH_BAR_HEIGHT } from "@/components/SearchBar";
+import { SearchBar } from "@/components/SearchBar";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import type {
@@ -292,28 +293,39 @@ export const MyRecipesScreen = () => {
           <VSpace size={32} />
 
           {/* Collections Section */}
-          {collections.length > 0 && (
-            <View>
-              <Text type="title3" style={styles.sectionTitle}>
-                Collections
-              </Text>
-              <FlatList<CollectionWithMetadata>
-                horizontal
-                data={collections}
-                renderItem={({ item }) => (
+          <View>
+            <Text type="title3" style={styles.sectionTitle}>
+              Collections
+            </Text>
+            <FlatList<CollectionWithMetadata | { id: "create"; type: "create" }>
+              horizontal
+              data={[{ id: "create", type: "create" } as const, ...collections]}
+              renderItem={({ item }) => {
+                if ("type" in item && item.type === "create") {
+                  return (
+                    <CreateCollectionCard
+                      variant="grid"
+                      onPress={handleCreateCollection}
+                      disabled={createCollectionMutation.isPending}
+                      width={COLLECTION_CARD_WIDTH}
+                    />
+                  );
+                }
+                const collection = item as CollectionWithMetadata;
+                return (
                   <CollectionGridCard
-                    collection={item}
-                    onPress={() => handleCollectionPress(item.id)}
+                    collection={collection}
+                    onPress={() => handleCollectionPress(collection.id)}
                     width={COLLECTION_CARD_WIDTH}
                   />
-                )}
-                keyExtractor={(item) => item.id.toString()}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-                ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-              />
-            </View>
-          )}
+                );
+              }}
+              keyExtractor={(item) => item.id.toString()}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalList}
+              ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            />
+          </View>
 
           {/* Recently Added Section */}
           {recentRecipes.length > 0 && (
@@ -374,9 +386,6 @@ export const MyRecipesScreen = () => {
           <RecipeCollectionBrowser
             onRecipePress={handleRecipePress}
             onCollectionPress={handleCollectionPress}
-            showCreateCollectionCard
-            onCreateCollection={handleCreateCollection}
-            isCreatingCollection={createCollectionMutation.isPending}
             recipesEmptyMessage="No recipes in your library yet. Import recipes from the feed or add your own!"
             onTabBarScroll={onTabBarScroll}
             hideSearchBar

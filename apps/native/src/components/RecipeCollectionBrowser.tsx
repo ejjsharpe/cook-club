@@ -291,7 +291,7 @@ export const RecipeCollectionBrowser = ({
       </SwipeableTabView>
       <View style={styles.headerContainer}>
         <LinearGradient
-          colors={[theme.colors.background, "#FFFFFFE6", "#FFFFFF00"]}
+          colors={[theme.colors.background, `${theme.colors.background}00`]}
           style={styles.headerGradient}
           pointerEvents="none"
         />
