@@ -96,10 +96,15 @@ const DeleteAction = ({
   onRemove: () => void;
 }) => {
   const deleteButtonStyle = useAnimatedStyle(() => {
-    const scale = interpolate(swipeProgress.value, [0.5, 0.7, 1], [0, 0.8, 1], {
-      extrapolateLeft: Extrapolation.CLAMP,
-      extrapolateRight: Extrapolation.CLAMP,
-    });
+    const scale = interpolate(
+      swipeProgress.value,
+      [0.5, 0.7, 1, 1.2],
+      [0, 0.5, 1, 1.05],
+      {
+        extrapolateLeft: Extrapolation.CLAMP,
+        extrapolateRight: Extrapolation.CLAMP,
+      },
+    );
 
     // Scale up slightly on over-swipe (kicks in later)
     const overSwipeScale = interpolate(
