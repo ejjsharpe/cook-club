@@ -100,8 +100,20 @@ const DeleteAction = ({
       extrapolateLeft: Extrapolation.CLAMP,
       extrapolateRight: Extrapolation.CLAMP,
     });
+
+    // Scale up slightly on over-swipe (kicks in later)
+    const overSwipeScale = interpolate(
+      swipeProgress.value,
+      [1.15, 1.4],
+      [1, 1.08],
+      {
+        extrapolateLeft: Extrapolation.CLAMP,
+        extrapolateRight: Extrapolation.CLAMP,
+      },
+    );
+
     return {
-      transform: [{ scale }],
+      transform: [{ scale: scale * overSwipeScale }],
       opacity: interpolate(swipeProgress.value, [0.5, 0.6], [0, 1], {
         extrapolateLeft: Extrapolation.CLAMP,
         extrapolateRight: Extrapolation.CLAMP,
@@ -109,12 +121,24 @@ const DeleteAction = ({
     };
   });
 
+  // Animate pill width to expand on over-swipe
+  const pillStyle = useAnimatedStyle(() => {
+    const width = interpolate(swipeProgress.value, [1, 1.3], [60, 83], {
+      extrapolateLeft: Extrapolation.CLAMP,
+      extrapolateRight: Extrapolation.EXTEND,
+    });
+
+    return { width };
+  });
+
   return (
     <View style={styles.deleteActionContainer}>
       <Animated.View style={deleteButtonStyle}>
-        <TouchableOpacity style={styles.deleteActionPill} onPress={onRemove}>
-          <Ionicons name="trash" size={20} color="#fff" />
-        </TouchableOpacity>
+        <Animated.View style={[styles.deleteActionPill, pillStyle]}>
+          <TouchableOpacity onPress={onRemove}>
+            <Ionicons name="trash" size={20} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -939,8 +963,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     paddingRight: 20,
   },
   deleteActionPill: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    height: 44,
     borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.destructive,
     justifyContent: "center",
