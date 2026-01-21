@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect, memo } from "react";
 import {
   View,
   Alert,
@@ -8,17 +8,24 @@ import {
   TouchableOpacity,
   ScrollView,
   FlatList,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
+  Dimensions,
 } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useAnimatedReaction,
+  measure,
   withTiming,
   interpolate,
   Easing,
+  runOnUI,
+  runOnJS,
+  type SharedValue,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { scheduleOnRN, scheduleOnUI } from "react-native-worklets";
 
 import {
   useCreateCollection,
@@ -41,6 +48,7 @@ import type {
 import { useTabBarScroll } from "@/lib/tabBarContext";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 20;
 const HEADER_HEIGHT = 52;
 const COLLECTION_CARD_WIDTH = 140;
@@ -48,6 +56,58 @@ const BACK_BUTTON_WIDTH = 44;
 const BACK_BUTTON_GAP = 12;
 const FILTER_BUTTON_SIZE = 50;
 const FILTER_BUTTON_GAP = 12;
+
+// Search mode layout constants (from RecipeCollectionBrowser)
+const SEARCH_HEADER_CONTENT_HEIGHT = 134; // search (50) + VSpace (8) + segmented (44) + VSpace (32)
+const RECIPE_CARD_HEIGHT = 100;
+const RECIPE_SEPARATOR_HEIGHT = 17; // 8px padding + 1px line + 8px padding
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+
+// Static separator component - defined outside to avoid recreation
+const CollectionSeparator = () => <View style={styles.collectionSeparator} />;
+
+// ─── Animated Recipe Overlay ─────────────────────────────────────────────────
+interface AnimatedRecipeOverlayProps {
+  recipe: RecipeListItem;
+  browseY: number;
+  searchY: number;
+  searchProgress: SharedValue<number>;
+}
+
+const AnimatedRecipeOverlay = memo(function AnimatedRecipeOverlay({
+  recipe,
+  browseY,
+  searchY,
+  searchProgress,
+}: AnimatedRecipeOverlayProps) {
+  // Use transform instead of top for GPU-accelerated animation
+  const deltaY = searchY - browseY;
+
+  // Memoize static top position style to avoid recreation on each render
+  const topStyle = useMemo(() => ({ top: browseY }), [browseY]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    "worklet";
+    const translateY = interpolate(searchProgress.value, [0, 1], [0, deltaY]);
+    return {
+      transform: [{ translateY }],
+      // Stay fully visible until animation completes, then hide
+      // (the underlying list appears at progress >= 1)
+      opacity: searchProgress.value < 1 ? 1 : 0,
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[styles.recipeOverlay, topStyle, animatedStyle]}
+      pointerEvents="none"
+    >
+      <RecipeCard recipe={recipe} />
+    </Animated.View>
+  );
+});
 
 export const MyRecipesScreen = () => {
   const navigation = useNavigation();
@@ -67,9 +127,12 @@ export const MyRecipesScreen = () => {
   } | null>(null);
 
   // Track the search bar's Y position relative to the screen
-  const searchBarRef = useRef<View>(null);
+  const searchBarRef = useAnimatedRef<Animated.View>();
   const searchBarY = useSharedValue(0);
-  const searchBarMeasuredY = useRef(0);
+
+  // Recipe card position tracking for shared element transition
+  const firstRecipeRef = useAnimatedRef<Animated.View>();
+  const browsePositions = useRef<{ id: number; y: number }[]>([]);
 
   // Animation progress (0 = browse, 1 = search)
   const searchProgress = useSharedValue(0);
@@ -83,6 +146,18 @@ export const MyRecipesScreen = () => {
   // Target Y position for search mode (matching RecipeCollectionBrowser's search bar)
   const searchModeY = insets.top;
 
+  // Calculate search mode target Y position for a recipe at given index
+  // ListHeaderSpacer always uses insets.top + HEADER_CONTENT_HEIGHT (134)
+  const getSearchTargetY = useCallback(
+    (index: number) => {
+      const headerHeight = insets.top + SEARCH_HEADER_CONTENT_HEIGHT;
+      return (
+        headerHeight + index * (RECIPE_CARD_HEIGHT + RECIPE_SEPARATOR_HEIGHT)
+      );
+    },
+    [insets.top],
+  );
+
   const animationConfig = useMemo(
     () => ({
       duration: 300,
@@ -91,16 +166,39 @@ export const MyRecipesScreen = () => {
     [],
   );
 
+  // Trigger for measuring search bar on UI thread (incremented to trigger measurement)
+  const measureTrigger = useSharedValue(0);
+
+  // Measure search bar position on UI thread when triggered
+  useAnimatedReaction(
+    () => measureTrigger.value,
+    (current, previous) => {
+      if (current !== previous && current > 0) {
+        const measurement = measure(searchBarRef);
+        if (measurement && measurement.pageY > 0) {
+          searchBarY.value = measurement.pageY;
+        }
+      }
+    },
+  );
+
   useEffect(() => {
     if (isSearchActive) {
+      // First frame: mount components
       setShowFloatingSearch(true);
-      searchProgress.value = withTiming(1, animationConfig);
+      // Second frame: components are mounted, start animation
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          searchProgress.value = withTiming(1, animationConfig);
+        });
+      });
     } else {
-      searchProgress.value = withTiming(0, animationConfig);
-      const timeout = setTimeout(() => {
-        setShowFloatingSearch(false);
-      }, animationConfig.duration);
-      return () => clearTimeout(timeout);
+      searchProgress.value = withTiming(0, animationConfig, (finished) => {
+        "worklet";
+        if (finished) {
+          scheduleOnRN(setShowFloatingSearch, false);
+        }
+      });
     }
   }, [isSearchActive, animationConfig, searchProgress]);
 
@@ -122,6 +220,16 @@ export const MyRecipesScreen = () => {
     search: "",
   });
   const collections = (collectionsData ?? []) as CollectionWithMetadata[];
+
+  // Memoize collections list with create button to avoid recreating array every render
+  const collectionsWithCreate = useMemo(
+    () =>
+      [{ id: "create", type: "create" } as const, ...collections] as (
+        | CollectionWithMetadata
+        | { id: "create"; type: "create" }
+      )[],
+    [collections],
+  );
 
   // Recent recipes (first 5)
   const { data: recentRecipesData } = useGetUserRecipes({ limit: 5 });
@@ -167,96 +275,167 @@ export const MyRecipesScreen = () => {
   }, [createCollectionMutation]);
 
   const handleSearchFocus = useCallback(() => {
-    searchBarRef.current?.measureInWindow((_x, y) => {
-      searchBarMeasuredY.current = y;
-      searchBarY.value = y;
+    // Helper to store positions and start animation (called from UI thread)
+    const startAnimation = (positions: { id: number; y: number }[]) => {
+      browsePositions.current = positions;
+      measureTrigger.value = measureTrigger.value + 1;
       setIsSearchActive(true);
+    };
+
+    // Measure first recipe card on UI thread and calculate all positions
+    scheduleOnUI(() => {
+      "worklet";
+      const measurement = measure(firstRecipeRef);
+      if (measurement && measurement.pageY > 0) {
+        // Calculate all positions from first card (100px height + 12px spacing)
+        const positions = recentRecipes.map((recipe, index) => ({
+          id: recipe.id,
+          y: measurement.pageY + index * (RECIPE_CARD_HEIGHT + 12),
+        }));
+        scheduleOnRN(startAnimation, positions);
+      } else {
+        // Fallback: start without positions if measurement fails
+        scheduleOnRN(startAnimation, []);
+      }
     });
-  }, [searchBarY]);
+  }, [measureTrigger, recentRecipes, firstRecipeRef]);
 
   const handleExitSearch = useCallback(() => {
     setIsSearchActive(false);
     setSearchQuery("");
   }, []);
 
-  // ─── Scroll Handler with Title Fade ────────────────────────────────────────────
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const y = event.nativeEvent.contentOffset.y;
+  // Memoized renderItem for collections FlatList
+  const renderCollectionItem = useCallback(
+    ({
+      item,
+    }: {
+      item: CollectionWithMetadata | { id: "create"; type: "create" };
+    }) => {
+      if ("type" in item && item.type === "create") {
+        return (
+          <CreateCollectionCard
+            variant="grid"
+            onPress={handleCreateCollection}
+            disabled={createCollectionMutation.isPending}
+            width={COLLECTION_CARD_WIDTH}
+          />
+        );
+      }
+      const collection = item as CollectionWithMetadata;
+      return (
+        <CollectionGridCard
+          collection={collection}
+          onPress={() => handleCollectionPress(collection.id)}
+          width={COLLECTION_CARD_WIDTH}
+        />
+      );
+    },
+    [
+      handleCreateCollection,
+      createCollectionMutation.isPending,
+      handleCollectionPress,
+    ],
+  );
 
+  // ─── Scroll Handler with Title Fade ────────────────────────────────────────────
+  const handleScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      "worklet";
       // Fade out title when scrolling up (search bar would collide with header)
-      const titleShouldHide = y > 5;
+      const titleShouldHide = event.contentOffset.y > 5;
       titleOpacity.value = withTiming(titleShouldHide ? 0 : 1, {
         duration: 150,
       });
     },
-    [titleOpacity],
-  );
+  });
 
   // ─── Animation Styles ─────────────────────────────────────────────────────────
-  const browseAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(searchProgress.value, [0, 1], [1, 0]),
-  }));
+  const browseAnimatedStyle = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      opacity: interpolate(searchProgress.value, [0, 1], [1, 0]),
+    };
+  });
 
-  const searchAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: searchProgress.value,
-  }));
+  const searchAnimatedStyle = useAnimatedStyle(() => {
+    "worklet";
+    // Fade in with the animation so segmented control spring is visible
+    return {
+      opacity: searchProgress.value,
+    };
+  });
 
-  const titleAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: titleOpacity.value,
-  }));
+  const titleAnimatedStyle = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      opacity: titleOpacity.value,
+    };
+  });
 
-  // Floating search bar animates from browse position to search mode position (shorter, with space for back button and filter)
+  // Floating search bar animates from browse position to search mode position
+  // Using transforms for GPU-accelerated animation (translateX, translateY, width)
   const floatingSearchBarStyle = useAnimatedStyle(() => {
+    "worklet";
+    // Calculate Y delta for transform
+    const deltaY = searchModeY - searchBarY.value;
     // Filter button takes up space when visible (on recipes tab)
     const filterSpace =
       (FILTER_BUTTON_SIZE + FILTER_BUTTON_GAP) * filterButtonProgress.value;
+
+    // Calculate width change instead of animating left/right (layout properties)
+    const startWidth = SCREEN_WIDTH - HORIZONTAL_PADDING * 2;
+    const endWidth =
+      SCREEN_WIDTH -
+      HORIZONTAL_PADDING * 2 -
+      BACK_BUTTON_WIDTH -
+      BACK_BUTTON_GAP -
+      filterSpace;
+
     return {
-      position: "absolute",
-      top: interpolate(
-        searchProgress.value,
-        [0, 1],
-        [searchBarY.value, searchModeY],
-      ),
-      left: interpolate(
-        searchProgress.value,
-        [0, 1],
-        [
-          HORIZONTAL_PADDING,
-          HORIZONTAL_PADDING + BACK_BUTTON_WIDTH + BACK_BUTTON_GAP,
-        ],
-      ),
-      right: interpolate(
-        searchProgress.value,
-        [0, 1],
-        [HORIZONTAL_PADDING, HORIZONTAL_PADDING + filterSpace],
-      ),
+      position: "absolute" as const,
+      top: searchBarY.value,
+      left: HORIZONTAL_PADDING,
+      width: interpolate(searchProgress.value, [0, 1], [startWidth, endWidth]),
       zIndex: 100,
+      // Use transforms for GPU-accelerated animation
+      transform: [
+        {
+          translateX: interpolate(
+            searchProgress.value,
+            [0, 1],
+            [0, BACK_BUTTON_WIDTH + BACK_BUTTON_GAP],
+          ),
+        },
+        { translateY: interpolate(searchProgress.value, [0, 1], [0, deltaY]) },
+      ],
     };
   });
 
   // Filter button animates based on active tab (visible on recipes, hidden on collections)
-  const filterButtonAnimatedStyle = useAnimatedStyle(() => ({
-    position: "absolute",
-    top: searchModeY,
-    right: HORIZONTAL_PADDING,
-    opacity: filterButtonProgress.value * searchProgress.value,
-    transform: [{ scale: 0.8 + 0.2 * filterButtonProgress.value }],
-    width: FILTER_BUTTON_SIZE * filterButtonProgress.value,
-    zIndex: 100,
-  }));
+  // Filter button uses scale transform for GPU-accelerated show/hide
+  const filterButtonAnimatedStyle = useAnimatedStyle(() => {
+    "worklet";
+    const scale = interpolate(
+      filterButtonProgress.value * searchProgress.value,
+      [0, 1],
+      [0, 1],
+    );
+    return {
+      opacity: filterButtonProgress.value * searchProgress.value,
+      transform: [{ scale }],
+    };
+  });
 
-  // Back button fades in and slides from left
-  const backButtonAnimatedStyle = useAnimatedStyle(() => ({
-    position: "absolute",
-    top: searchModeY,
-    left: HORIZONTAL_PADDING,
-    opacity: searchProgress.value,
-    transform: [
-      { translateX: interpolate(searchProgress.value, [0, 1], [-20, 0]) },
-    ],
-    zIndex: 101,
-  }));
+  // Back button scales in like the filter button
+  const backButtonAnimatedStyle = useAnimatedStyle(() => {
+    "worklet";
+    const scale = searchProgress.value;
+    return {
+      opacity: searchProgress.value,
+      transform: [{ scale }],
+    };
+  });
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -266,14 +445,14 @@ export const MyRecipesScreen = () => {
         style={[styles.listContainer, browseAnimatedStyle]}
         pointerEvents={showFloatingSearch ? "none" : "auto"}
       >
-        <ScrollView
+        <AnimatedScrollView
           contentContainerStyle={styles.browseContent}
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
           {/* Pressable Search Bar Button (not a real input) */}
-          <Pressable
+          <AnimatedPressable
             ref={searchBarRef}
             style={[
               styles.searchContainer,
@@ -288,7 +467,7 @@ export const MyRecipesScreen = () => {
                 placeholder="Search recipes, collections..."
               />
             </View>
-          </Pressable>
+          </AnimatedPressable>
 
           <VSpace size={32} />
 
@@ -299,31 +478,12 @@ export const MyRecipesScreen = () => {
             </Text>
             <FlatList<CollectionWithMetadata | { id: "create"; type: "create" }>
               horizontal
-              data={[{ id: "create", type: "create" } as const, ...collections]}
-              renderItem={({ item }) => {
-                if ("type" in item && item.type === "create") {
-                  return (
-                    <CreateCollectionCard
-                      variant="grid"
-                      onPress={handleCreateCollection}
-                      disabled={createCollectionMutation.isPending}
-                      width={COLLECTION_CARD_WIDTH}
-                    />
-                  );
-                }
-                const collection = item as CollectionWithMetadata;
-                return (
-                  <CollectionGridCard
-                    collection={collection}
-                    onPress={() => handleCollectionPress(collection.id)}
-                    width={COLLECTION_CARD_WIDTH}
-                  />
-                );
-              }}
+              data={collectionsWithCreate}
+              renderItem={renderCollectionItem}
               keyExtractor={(item) => item.id.toString()}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.horizontalList}
-              ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+              ItemSeparatorComponent={CollectionSeparator}
             />
           </View>
 
@@ -335,13 +495,17 @@ export const MyRecipesScreen = () => {
               </Text>
               <View style={styles.recentRecipesList}>
                 {recentRecipes.map((recipe, index) => (
-                  <View key={recipe.id}>
+                  <Animated.View
+                    key={recipe.id}
+                    ref={index === 0 ? firstRecipeRef : undefined}
+                    style={showFloatingSearch ? styles.hiddenCard : undefined}
+                  >
                     <RecipeCard
                       recipe={recipe}
                       onPress={() => handleRecipePress(recipe)}
                     />
                     {index < recentRecipes.length - 1 && <VSpace size={12} />}
-                  </View>
+                  </Animated.View>
                 ))}
               </View>
             </View>
@@ -363,7 +527,7 @@ export const MyRecipesScreen = () => {
               </Text>
             </View>
           )}
-        </ScrollView>
+        </AnimatedScrollView>
 
         {/* Fixed Title Header */}
         <View style={styles.fixedHeader}>
@@ -392,6 +556,7 @@ export const MyRecipesScreen = () => {
             externalSearchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
             onFilterStateChange={setFilterState}
+            headerAnimationProgress={searchProgress}
           />
         </SafeAreaView>
       </Animated.View>
@@ -413,7 +578,14 @@ export const MyRecipesScreen = () => {
 
       {/* Back Button Overlay (appears in search mode) */}
       {showFloatingSearch && (
-        <Animated.View style={backButtonAnimatedStyle}>
+        <Animated.View
+          style={[
+            styles.backButtonContainer,
+            { top: searchModeY },
+            backButtonAnimatedStyle,
+          ]}
+          pointerEvents={isSearchActive ? "auto" : "none"}
+        >
           <TouchableOpacity
             onPress={handleExitSearch}
             style={styles.backButton}
@@ -427,7 +599,11 @@ export const MyRecipesScreen = () => {
       {/* Filter Button (appears in search mode on recipes tab) */}
       {showFloatingSearch && filterState && (
         <Animated.View
-          style={filterButtonAnimatedStyle}
+          style={[
+            styles.filterButtonContainer,
+            { top: searchModeY },
+            filterButtonAnimatedStyle,
+          ]}
           pointerEvents={filterState.activeTab === "recipes" ? "auto" : "none"}
         >
           <TouchableOpacity
@@ -446,6 +622,22 @@ export const MyRecipesScreen = () => {
           </TouchableOpacity>
         </Animated.View>
       )}
+
+      {/* Recipe Transition Overlay (animating recipe cards) */}
+      {showFloatingSearch &&
+        recentRecipes.map((recipe, index) => {
+          const browsePos = browsePositions.current[index];
+          if (!browsePos) return null;
+          return (
+            <AnimatedRecipeOverlay
+              key={`overlay-${recipe.id}`}
+              recipe={recipe}
+              browseY={browsePos.y}
+              searchY={getSearchTargetY(index)}
+              searchProgress={searchProgress}
+            />
+          );
+        })}
     </View>
   );
 };
@@ -491,8 +683,30 @@ const styles = StyleSheet.create((theme, rt) => ({
   horizontalList: {
     paddingHorizontal: HORIZONTAL_PADDING,
   },
+  collectionSeparator: {
+    width: 12,
+  },
   recentRecipesList: {
     // RecipeCard already has horizontal padding
+  },
+  hiddenCard: {
+    opacity: 0,
+  },
+  recipeOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 50,
+  },
+  backButtonContainer: {
+    position: "absolute",
+    left: HORIZONTAL_PADDING,
+    zIndex: 101,
+  },
+  filterButtonContainer: {
+    position: "absolute",
+    right: HORIZONTAL_PADDING,
+    zIndex: 100,
   },
   emptyState: {
     flex: 1,

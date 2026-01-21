@@ -1,25 +1,21 @@
-import { Ionicons } from "@expo/vector-icons";
-import { LegendList } from "@legendapp/list";
-import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
-import {
-  View,
-  TouchableOpacity,
-  Dimensions,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
-import Animated, { FadeIn as ReanimatedFadeIn } from "react-native-reanimated";
+import { View, Dimensions } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  type SharedValue,
+} from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { CollectionGridCard, GRID_GAP } from "./CollectionGridCard";
-import { CreateCollectionCard } from "./CreateCollectionCard";
+import { CollectionGrid, type CollectionListItem } from "./CollectionGrid";
+import { CollectionGridCard } from "./CollectionGridCard";
 import { RecipeCard } from "./RecipeCard";
-import { SearchBar } from "./SearchBar";
-import { SegmentedControl, type TabOption } from "./SegmentedControl";
+import {
+  RecipeCollectionHeader,
+  HEADER_CONTENT_HEIGHT,
+} from "./RecipeCollectionHeader";
+import { RecipeList } from "./RecipeList";
 import { MyRecipesListSkeleton, CollectionsListSkeleton } from "./Skeleton";
-import { VSpace } from "./Space";
 import { SwipeableTabView } from "./SwipeableTabView";
 import { Text } from "./Text";
 
@@ -30,20 +26,10 @@ import {
   type TabType,
 } from "@/hooks/useRecipeCollectionBrowser";
 
-const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
-  props: React.ComponentProps<typeof LegendList<T>> & { entering?: any },
-) => React.ReactElement;
+// Re-export types for consumers
+export type { Recipe, CollectionWithMetadata, TabType };
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-// Special item type for the create collection button
-type CreateCollectionItem = { id: "create"; type: "create" };
-type CollectionListItem = CollectionWithMetadata | CreateCollectionItem;
-
-const tabOptions: TabOption<TabType>[] = [
-  { value: "recipes", label: "Recipes" },
-  { value: "collections", label: "Collections" },
-];
 
 interface RecipeCollectionBrowserProps {
   onRecipePress: (recipe: Recipe) => void;
@@ -65,6 +51,8 @@ interface RecipeCollectionBrowserProps {
     onOpenFilters: () => void;
     activeTab: TabType;
   }) => void;
+  /** Animation progress for header entrance (0 = hidden, 1 = visible) */
+  headerAnimationProgress?: SharedValue<number>;
 }
 
 export const RecipeCollectionBrowser = ({
@@ -79,9 +67,8 @@ export const RecipeCollectionBrowser = ({
   externalSearchQuery,
   onSearchQueryChange,
   onFilterStateChange,
+  headerAnimationProgress,
 }: RecipeCollectionBrowserProps) => {
-  const theme = UnistylesRuntime.getTheme();
-
   const {
     activeTab,
     activeTabIndex,
@@ -96,12 +83,12 @@ export const RecipeCollectionBrowser = ({
     recipesScrollHandler,
     collectionsScrollHandler,
     recipes,
-    isPendingRecipes: isLoadingRecipes,
+    isPendingRecipes,
     recipesError,
     isFetchingNextRecipes,
     handleLoadMoreRecipes,
     collections,
-    isPendingCollections: isLoadingCollections,
+    isPendingCollections,
     collectionsError,
     isRefreshing,
     handleRefresh,
@@ -128,11 +115,21 @@ export const RecipeCollectionBrowser = ({
     });
   }, [onFilterStateChange, hasActiveFilters, handleOpenFilters, activeTab]);
 
-  // Build collections list with optional create card
-  const collectionsList: CollectionListItem[] = showCreateCollectionCard
-    ? [{ id: "create", type: "create" } as CreateCollectionItem, ...collections]
-    : collections;
+  // Hide list content until animation completes (prevents double recipe cards with overlay)
+  const listEntranceStyle = useAnimatedStyle(() => {
+    "worklet";
+    if (!headerAnimationProgress) {
+      return {};
+    }
+    return {
+      opacity: headerAnimationProgress.value >= 1 ? 1 : 0,
+    };
+  });
 
+  const insets = UnistylesRuntime.insets;
+  const headerPaddingTop = insets.top + HEADER_CONTENT_HEIGHT;
+
+  // Render item callbacks
   const renderRecipe = useCallback(
     ({ item }: { item: Recipe }) => (
       <RecipeCard recipe={item} onPress={() => onRecipePress(item)} />
@@ -140,26 +137,12 @@ export const RecipeCollectionBrowser = ({
     [onRecipePress],
   );
 
-  const RecipeSeparator = () => (
-    <View style={styles.separatorContainer}>
-      <View style={styles.separator} />
-    </View>
-  );
-
   const renderCollection = useCallback(
     ({ item }: { item: CollectionListItem }) => {
-      // Handle create collection item
+      // Create card is handled internally by CollectionGrid
       if ("type" in item && item.type === "create") {
-        if (!onCreateCollection) return null;
-        return (
-          <CreateCollectionCard
-            variant="grid"
-            onPress={onCreateCollection}
-            disabled={isCreatingCollection}
-          />
-        );
+        return null;
       }
-
       const collection = item as CollectionWithMetadata;
       return (
         <CollectionGridCard
@@ -168,13 +151,22 @@ export const RecipeCollectionBrowser = ({
         />
       );
     },
-    [onCreateCollection, isCreatingCollection, onCollectionPress],
+    [onCollectionPress],
   );
 
-  const renderRecipesEmpty = () => {
+  // Render recipes tab content
+  const renderRecipesContent = () => {
+    if (isPendingRecipes) {
+      return (
+        <View style={[styles.stateContainer, { paddingTop: headerPaddingTop }]}>
+          <MyRecipesListSkeleton />
+        </View>
+      );
+    }
+
     if (recipesError) {
       return (
-        <View style={styles.centered}>
+        <View style={[styles.centered, { paddingTop: headerPaddingTop }]}>
           <Text type="subheadline" style={styles.centeredText}>
             Failed to load recipes
           </Text>
@@ -182,21 +174,45 @@ export const RecipeCollectionBrowser = ({
       );
     }
 
+    if (recipes.length === 0) {
+      return (
+        <View style={[styles.centered, { paddingTop: headerPaddingTop }]}>
+          <Text type="subheadline" style={styles.centeredText}>
+            {searchQuery
+              ? "No recipes found for your search"
+              : recipesEmptyMessage}
+          </Text>
+        </View>
+      );
+    }
+
     return (
-      <View style={styles.centered}>
-        <Text type="subheadline" style={styles.centeredText}>
-          {searchQuery
-            ? "No recipes found for your search"
-            : recipesEmptyMessage}
-        </Text>
-      </View>
+      <RecipeList
+        recipes={recipes}
+        renderItem={renderRecipe}
+        onLoadMore={handleLoadMoreRecipes}
+        isFetchingMore={isFetchingNextRecipes}
+        onScroll={recipesScrollHandler}
+        isRefreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        headerHeight={HEADER_CONTENT_HEIGHT}
+      />
     );
   };
 
-  const renderCollectionsEmpty = () => {
+  // Render collections tab content
+  const renderCollectionsContent = () => {
+    if (isPendingCollections) {
+      return (
+        <View style={[styles.stateContainer, { paddingTop: headerPaddingTop }]}>
+          <CollectionsListSkeleton />
+        </View>
+      );
+    }
+
     if (collectionsError) {
       return (
-        <View style={styles.centered}>
+        <View style={[styles.centered, { paddingTop: headerPaddingTop }]}>
           <Text type="subheadline" style={styles.centeredText}>
             Failed to load collections
           </Text>
@@ -204,225 +220,73 @@ export const RecipeCollectionBrowser = ({
       );
     }
 
-    return (
-      <View style={styles.centered}>
-        <Text type="subheadline" style={styles.centeredText}>
-          {searchQuery
-            ? "No collections found for your search"
-            : "No collections yet"}
-        </Text>
-      </View>
-    );
-  };
+    // Show empty state only if not showing create card
+    if (collections.length === 0 && !showCreateCollectionCard) {
+      return (
+        <View style={[styles.centered, { paddingTop: headerPaddingTop }]}>
+          <Text type="subheadline" style={styles.centeredText}>
+            {searchQuery
+              ? "No collections found for your search"
+              : "No collections yet"}
+          </Text>
+        </View>
+      );
+    }
 
-  const renderRecipesFooter = () => {
-    if (!isFetchingNextRecipes) return null;
     return (
-      <View style={styles.footer}>
-        <ActivityIndicator />
-      </View>
+      <CollectionGrid
+        collections={collections}
+        renderItem={renderCollection}
+        showCreateCard={showCreateCollectionCard}
+        onCreateCollection={onCreateCollection}
+        isCreatingCollection={isCreatingCollection}
+        onScroll={collectionsScrollHandler}
+        isRefreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        headerHeight={HEADER_CONTENT_HEIGHT}
+      />
     );
   };
 
   return (
     <View style={styles.container}>
-      <SwipeableTabView
-        activeIndex={activeTabIndex}
-        onIndexChange={handleSwipeTabChange}
-        containerWidth={SCREEN_WIDTH}
-        scrollProgress={scrollProgress}
-      >
-        {isLoadingRecipes ? (
-          <View style={styles.skeletonContainer}>
-            <MyRecipesListSkeleton />
-          </View>
-        ) : (
-          <AnimatedLegendList
-            data={recipes}
-            renderItem={renderRecipe}
-            keyExtractor={(item) => item.id.toString()}
-            onEndReached={handleLoadMoreRecipes}
-            onEndReachedThreshold={0.5}
-            ListHeaderComponent={ListHeaderSpacer}
-            ListFooterComponent={renderRecipesFooter}
-            ListEmptyComponent={renderRecipesEmpty}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={RecipeSeparator}
-            onScroll={recipesScrollHandler}
-            scrollEventThrottle={32}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                tintColor={theme.colors.primary}
-              />
-            }
-          />
-        )}
-        {isLoadingCollections ? (
-          <View style={styles.skeletonContainer}>
-            <CollectionsListSkeleton />
-          </View>
-        ) : (
-          <AnimatedLegendList
-            data={collectionsList}
-            renderItem={renderCollection}
-            keyExtractor={(item) => item.id.toString()}
-            ListHeaderComponent={ListHeaderSpacer}
-            ListEmptyComponent={
-              showCreateCollectionCard ? undefined : renderCollectionsEmpty
-            }
-            showsVerticalScrollIndicator={false}
-            numColumns={2}
-            contentContainerStyle={styles.collectionsGridContent}
-            columnWrapperStyle={styles.collectionsRow as any}
-            onScroll={collectionsScrollHandler}
-            scrollEventThrottle={20}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                tintColor={theme.colors.primary}
-              />
-            }
-          />
-        )}
-      </SwipeableTabView>
-      <View style={styles.headerContainer}>
-        <LinearGradient
-          colors={[theme.colors.background, `${theme.colors.background}00`]}
-          style={styles.headerGradient}
-          pointerEvents="none"
-        />
-        <View
-          style={[
-            styles.header,
-            hideSearchBar && {
-              paddingTop: UnistylesRuntime.insets.top + SEARCH_BAR_ROW_HEIGHT,
-            },
-          ]}
+      <Animated.View style={[styles.listWrapper, listEntranceStyle]}>
+        <SwipeableTabView
+          activeIndex={activeTabIndex}
+          onIndexChange={handleSwipeTabChange}
+          containerWidth={SCREEN_WIDTH}
+          scrollProgress={scrollProgress}
         >
-          {!hideSearchBar && (
-            <>
-              <View style={[styles.searchRow, styles.headerPadded]}>
-                <View style={styles.searchBarWrapper}>
-                  <SearchBar
-                    placeholder={
-                      activeTab === "recipes"
-                        ? "Search recipes..."
-                        : "Search collections..."
-                    }
-                    value={searchQuery}
-                    onChangeText={handleSearchChange}
-                  />
-                </View>
-                <Animated.View
-                  style={[styles.filterButtonWrapper, filterButtonStyle]}
-                  pointerEvents={activeTab === "recipes" ? "auto" : "none"}
-                >
-                  <TouchableOpacity
-                    style={styles.filterButton}
-                    onPress={handleOpenFilters}
-                  >
-                    <Ionicons
-                      name="options-outline"
-                      size={22}
-                      color={theme.colors.text}
-                    />
-                    {hasActiveFilters && <View style={styles.filterBadge} />}
-                  </TouchableOpacity>
-                </Animated.View>
-              </View>
-              <VSpace size={8} />
-            </>
-          )}
-          <View style={styles.headerPadded}>
-            <SegmentedControl
-              options={tabOptions}
-              value={activeTab}
-              onValueChange={(tab) => switchTab(tab)}
-              scrollProgress={scrollProgress}
-              fullWidth
-            />
-          </View>
-          <VSpace size={32} />
-        </View>
-      </View>
+          {renderRecipesContent()}
+          {renderCollectionsContent()}
+        </SwipeableTabView>
+      </Animated.View>
+      <RecipeCollectionHeader
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        hideSearchBar={hideSearchBar}
+        activeTab={activeTab}
+        onTabChange={switchTab}
+        scrollProgress={scrollProgress}
+        hasActiveFilters={hasActiveFilters}
+        onOpenFilters={handleOpenFilters}
+        filterButtonStyle={filterButtonStyle}
+        headerAnimationProgress={headerAnimationProgress}
+      />
     </View>
   );
 };
 
-// Header content heights
-// Full: search (50) + VSpace (8) + segmented (44) + VSpace (32) = 134
-const HEADER_CONTENT_HEIGHT = 134;
-const SEARCH_BAR_ROW_HEIGHT = 58; // search (50) + VSpace (8)
-
-// Spacer component for list header (LegendList doesn't respect paddingTop in contentContainerStyle)
-const ListHeaderSpacer = () => {
-  const insets = UnistylesRuntime.insets;
-  return <VSpace size={insets.top + HEADER_CONTENT_HEIGHT} />;
-};
-
-const styles = StyleSheet.create((theme, rt) => ({
+const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  headerContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  skeletonContainer: {
-    flex: 1,
-    paddingTop: rt.insets.top + HEADER_CONTENT_HEIGHT,
-  },
-  header: {
-    paddingTop: rt.insets.top,
-  },
-  headerGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  headerPadded: {
-    paddingHorizontal: 20,
-  },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  searchBarWrapper: {
+  listWrapper: {
     flex: 1,
   },
-  filterButtonWrapper: {
-    overflow: "hidden",
-  },
-  filterButton: {
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.full,
-    width: 50,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  filterBadge: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: theme.colors.primary,
-  },
-  listContent: {
-    paddingBottom: rt.insets.bottom + 48,
-    flexGrow: 1,
+  stateContainer: {
+    flex: 1,
   },
   centered: {
     flex: 1,
@@ -433,26 +297,5 @@ const styles = StyleSheet.create((theme, rt) => ({
   centeredText: {
     textAlign: "center",
     color: theme.colors.textSecondary,
-  },
-  footer: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-  separatorContainer: {
-    paddingVertical: 8,
-    paddingLeft: 134, // 20 (card padding) + 100 (thumbnail) + 14 (gap)
-    paddingRight: 20,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: theme.colors.border,
-  },
-  collectionsGridContent: {
-    paddingHorizontal: 30,
-    paddingBottom: rt.insets.bottom + 48,
-  },
-  collectionsRow: {
-    gap: GRID_GAP,
-    marginBottom: GRID_GAP,
   },
 }));
