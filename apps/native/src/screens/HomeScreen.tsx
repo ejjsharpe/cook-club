@@ -71,7 +71,10 @@ const Header = memo(
           <Animated.View style={titleAnimatedStyle}>
             <Text type="screenTitle" style={styles.headerTitle}>
               cook
-              <Text type="screenTitle" style={[styles.headerTitle, styles.clubText]}>
+              <Text
+                type="screenTitle"
+                style={[styles.headerTitle, styles.clubText]}
+              >
                 club
               </Text>
             </Text>

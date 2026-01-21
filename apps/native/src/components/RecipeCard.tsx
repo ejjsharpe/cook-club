@@ -75,11 +75,7 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
         {recipe.sourceUrl && (
           <View style={styles.metaItem}>
             <Ionicons name="link-outline" size={14} style={styles.metaIcon} />
-            <Text
-              type="subheadline"
-              style={styles.metaText}
-              numberOfLines={1}
-            >
+            <Text type="subheadline" style={styles.metaText} numberOfLines={1}>
               {new URL(recipe.sourceUrl).hostname.replace(/^www\./, "")}
             </Text>
           </View>

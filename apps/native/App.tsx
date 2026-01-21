@@ -10,7 +10,7 @@ import {
   LibreBaskerville_700Bold,
   LibreBaskerville_400Regular_Italic,
 } from "@expo-google-fonts/libre-baskerville";
-import { DefaultTheme, DarkTheme } from "@react-navigation/native";
+import { DefaultTheme } from "@react-navigation/native";
 import { Asset } from "expo-asset";
 import { useFonts } from "expo-font";
 import { Image } from "expo-image";
@@ -22,11 +22,7 @@ import { SheetProvider } from "react-native-actions-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import {
-  StyleSheet,
-  UnistylesRuntime,
-  useUnistyles,
-} from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import startImage1 from "@/assets/images/start-food-1.jpg";
 import startImage10 from "@/assets/images/start-food-10.jpg";

@@ -4,7 +4,7 @@ import { useTRPC } from "@repo/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   View,
   TouchableOpacity,
@@ -12,23 +12,21 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  FlatList,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { SheetManager } from "react-native-actions-sheet";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   interpolate,
   Extrapolation,
   useAnimatedRef,
-  scrollTo,
-  withSpring,
-  useAnimatedReaction,
   useAnimatedScrollHandler,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
-import { scheduleOnRN } from "react-native-worklets";
 
 import { useCreateCookingReview } from "@/api/activity";
 import {
@@ -145,99 +143,18 @@ export const RecipeDetailScreen = () => {
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [menuVisible, setMenuVisible] = useState(false);
-  const imageListRef = useAnimatedRef<Animated.FlatList<unknown>>();
-  const imageScrollOffset = useSharedValue(0);
-  const gestureStartIndex = useSharedValue(0);
 
-  const updateImageIndex = (index: number) => {
-    setCurrentImageIndex(index);
-  };
-
-  // Sync scroll position with animated offset value (clamped for FlatList)
-  useAnimatedReaction(
-    () => imageScrollOffset.value,
-    (offset) => {
-      const imageCount = recipe?.images?.length ?? 1;
-      const maxOffset = (imageCount - 1) * SCREEN_WIDTH;
-      const clampedOffset = Math.max(0, Math.min(offset, maxOffset));
-      scrollTo(imageListRef, clampedOffset, 0, false);
+  // Handler for image carousel page changes
+  const handleImageScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      const newIndex = Math.round(offsetX / SCREEN_WIDTH);
+      if (newIndex !== currentImageIndex) {
+        setCurrentImageIndex(newIndex);
+      }
     },
+    [currentImageIndex],
   );
-
-  // Animated style for overscroll effect on image container
-  const imageOverscrollStyle = useAnimatedStyle(() => {
-    const imageCount = recipe?.images?.length ?? 1;
-    const maxOffset = (imageCount - 1) * SCREEN_WIDTH;
-    const offset = imageScrollOffset.value;
-
-    let overscrollX = 0;
-    if (offset < 0) {
-      overscrollX = -offset; // Move right when pulling past start
-    } else if (offset > maxOffset) {
-      overscrollX = -(offset - maxOffset); // Move left when pulling past end
-    }
-
-    return { transform: [{ translateX: overscrollX }] };
-  });
-
-  // Native gesture for ScrollView to coordinate with image gesture
-  const scrollViewNativeGesture = Gesture.Native();
-
-  // Gesture handler for image carousel swipes
-  const FLICK_VELOCITY_THRESHOLD = 500;
-  const imageGesture = Gesture.Pan()
-    .activeOffsetX([-10, 10]) // Activate after 10px horizontal movement
-    .failOffsetY([-10, 10]) // Fail if vertical movement exceeds 10px first
-    .blocksExternalGesture(scrollViewNativeGesture) // Block ScrollView when horizontal swipe detected
-    .onStart(() => {
-      gestureStartIndex.value = Math.round(
-        imageScrollOffset.value / SCREEN_WIDTH,
-      );
-    })
-    .onUpdate((event) => {
-      const imageCount = recipe?.images?.length ?? 1;
-      const maxOffset = (imageCount - 1) * SCREEN_WIDTH;
-      const startOffset = gestureStartIndex.value * SCREEN_WIDTH;
-      let newOffset = startOffset - event.translationX;
-
-      // Rubber band effect when overscrolling
-      if (newOffset < 0) {
-        newOffset = newOffset * 0.3;
-      } else if (newOffset > maxOffset) {
-        newOffset = maxOffset + (newOffset - maxOffset) * 0.3;
-      }
-
-      imageScrollOffset.value = newOffset;
-    })
-    .onEnd((event) => {
-      const imageCount = recipe?.images?.length ?? 1;
-      const velocity = -event.velocityX;
-      const currentIndex = gestureStartIndex.value;
-
-      // Snap to nearest image, or use velocity to determine direction
-      let targetIndex: number;
-      if (Math.abs(velocity) > FLICK_VELOCITY_THRESHOLD) {
-        // Fast flick - advance in flick direction
-        if (velocity > 0) {
-          targetIndex = Math.min(currentIndex + 1, imageCount - 1);
-        } else {
-          targetIndex = Math.max(currentIndex - 1, 0);
-        }
-      } else {
-        // Slow drag - snap to nearest based on position
-        const nearestIndex = Math.round(imageScrollOffset.value / SCREEN_WIDTH);
-        targetIndex = Math.max(0, Math.min(nearestIndex, imageCount - 1));
-      }
-
-      const targetOffset = targetIndex * SCREEN_WIDTH;
-      imageScrollOffset.value = withSpring(targetOffset, {
-        velocity,
-        damping: 100,
-        stiffness: 100,
-        mass: 0.5,
-      });
-      scheduleOnRN(updateImageIndex, targetIndex);
-    });
 
   // Shared value for syncing tab swipe with underline
   const scrollProgress = useSharedValue(0);
@@ -263,25 +180,23 @@ export const RecipeDetailScreen = () => {
     };
   });
 
-  // Animated style for image (scale up on pull down, parallax on scroll up)
+  // Animated style for image carousel (scale on overscroll, parallax on scroll)
   const imageAnimatedStyle = useAnimatedStyle(() => {
+    // Scale up when overscrolling (pulling down)
+    const scale = interpolate(scrollY.value, [-200, 0], [2, 1], {
+      extrapolateLeft: Extrapolation.EXTEND,
+      extrapolateRight: Extrapolation.CLAMP,
+    });
+
+    // Anchor to bottom: offset translateY to keep bottom edge fixed when scaling
+    // When scale > 1, we translate down by half the extra height
+
+    // Parallax: only apply when scrolling down, not during pull-to-refresh
+    const parallax = scrollY.value > 0 ? scrollY.value / 2 : 0;
+
     return {
-      transform: [
-        {
-          translateY: interpolate(
-            -scrollY.value,
-            [-IMAGE_HEIGHT, 0, IMAGE_HEIGHT],
-            [-IMAGE_HEIGHT / 2, 0, IMAGE_HEIGHT * 0.75],
-          ),
-        },
-        {
-          scale: interpolate(
-            scrollY.value,
-            [-IMAGE_HEIGHT, 0, IMAGE_HEIGHT],
-            [2.5, 1, 1],
-          ),
-        },
-      ],
+      transformOrigin: "center",
+      transform: [{ scale }, { translateY: parallax }],
     };
   });
 
@@ -624,30 +539,6 @@ export const RecipeDetailScreen = () => {
     >
       {recipe ? (
         <View style={styles.screen}>
-          {/* Fixed Image Section */}
-          <Animated.View
-            style={[styles.fixedImageContainer, imageAnimatedStyle]}
-          >
-            {recipe.images && recipe.images.length > 0 && (
-              <Animated.FlatList
-                ref={imageListRef}
-                data={recipe.images}
-                renderItem={renderImage}
-                keyExtractor={(item) => item.id.toString()}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                scrollEnabled={false}
-                style={imageOverscrollStyle}
-              />
-            )}
-
-            {/* Page Indicator */}
-            <PageIndicator
-              currentPage={currentImageIndex + 1}
-              totalPages={recipe.images.length}
-            />
-          </Animated.View>
-
           {/* Top Buttons - outside ScrollView for consistent positioning */}
           {/* pointerEvents box-none lets touches pass through to image carousel between buttons */}
           <Animated.View
@@ -688,209 +579,231 @@ export const RecipeDetailScreen = () => {
             )}
           </Animated.View>
 
-          <GestureDetector gesture={scrollViewNativeGesture}>
-            <Animated.ScrollView
-              ref={scrollRef}
-              style={styles.scrollView}
-              showsVerticalScrollIndicator={false}
-              scrollEventThrottle={32}
-              onScroll={scrollHandler}
-            >
-              {/* Spacer to push white card below image initially - also handles image swipe gestures */}
-              <GestureDetector gesture={imageGesture}>
-                <View style={styles.imageSpacer} />
-              </GestureDetector>
+          <Animated.ScrollView
+            ref={scrollRef}
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            onScroll={scrollHandler}
+          >
+            {/* Image Carousel */}
+            {recipe.images && recipe.images.length > 0 && (
+              <View style={styles.imageCarouselContainer}>
+                <Animated.View style={imageAnimatedStyle}>
+                  <FlatList
+                    data={recipe.images}
+                    renderItem={renderImage}
+                    keyExtractor={(item) => item.id.toString()}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={handleImageScroll}
+                  />
+                </Animated.View>
+                <PageIndicator
+                  currentPage={currentImageIndex + 1}
+                  totalPages={recipe.images.length}
+                />
+                <View
+                  style={{
+                    backgroundColor: "white",
+                    bottom: 0,
+                    height: 64,
+                    width: "100%",
+                    borderTopLeftRadius: 28,
+                    borderTopRightRadius: 28,
+                    position: "absolute",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ paddingTop: 16 }} type="title1">
+                    {recipe.name}
+                  </Text>
+                </View>
+              </View>
+            )}
 
-              {/* White Card Section */}
-              <View style={styles.whiteCard}>
-                {/* Title */}
-                <Text type="title1">{recipe.name}</Text>
+            {/* White Card Section */}
+            <View style={styles.whiteCard}>
+              {/* Title */}
 
-                <VSpace size={16} />
+              <VSpace size={16} />
 
-                {/* Cook Times */}
-                <View style={styles.timesRow}>
-                  {recipe.prepTime && (
-                    <View style={styles.timeItem}>
-                      <Ionicons
-                        name="timer-outline"
-                        size={18}
-                        style={styles.timeIcon}
-                      />
-                      <Text type="subheadline" style={styles.timeIcon}>
-                        Prep: {formatMinutesShort(recipe.prepTime)}
-                      </Text>
-                    </View>
-                  )}
-                  {recipe.cookTime && (
-                    <View style={styles.timeItem}>
-                      <Ionicons
-                        name="flame-outline"
-                        size={18}
-                        style={styles.timeIcon}
-                      />
-                      <Text type="subheadline" style={styles.timeIcon}>
-                        Cook: {formatMinutesShort(recipe.cookTime)}
-                      </Text>
-                    </View>
-                  )}
+              {/* Cook Times */}
+              <View style={styles.timesRow}>
+                {recipe.prepTime && (
+                  <View style={styles.timeItem}>
+                    <Ionicons
+                      name="timer-outline"
+                      size={18}
+                      style={styles.timeIcon}
+                    />
+                    <Text type="subheadline" style={styles.timeIcon}>
+                      Prep: {formatMinutesShort(recipe.prepTime)}
+                    </Text>
+                  </View>
+                )}
+                {recipe.cookTime && (
+                  <View style={styles.timeItem}>
+                    <Ionicons
+                      name="flame-outline"
+                      size={18}
+                      style={styles.timeIcon}
+                    />
+                    <Text type="subheadline" style={styles.timeIcon}>
+                      Cook: {formatMinutesShort(recipe.cookTime)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Attribution for imported recipes */}
+              {isOwnRecipe &&
+                recipe.sourceType === "user" &&
+                recipe.originalOwner && (
+                  <>
+                    <VSpace size={8} />
+                    <Text type="footnote" style={styles.attributionText}>
+                      Originally from @{recipe.originalOwner.name}
+                    </Text>
+                  </>
+                )}
+
+              <VSpace size={24} />
+
+              {/* Servings Row with Review Button or Author Info */}
+              <View style={styles.servingsRow}>
+                <View style={styles.servingsStepper}>
+                  <TouchableOpacity
+                    style={styles.stepperButton}
+                    onPress={() => setServings(Math.max(1, servings - 1))}
+                  >
+                    <Ionicons
+                      name="remove"
+                      size={20}
+                      style={styles.stepperIcon}
+                    />
+                  </TouchableOpacity>
+                  <View style={styles.servingsDisplay}>
+                    <Text type="caption" style={styles.servingsLabel}>
+                      Servings
+                    </Text>
+                    <Text style={styles.servingsNumber}>{servings}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.stepperButton}
+                    onPress={() => setServings(servings + 1)}
+                  >
+                    <Ionicons name="add" size={20} style={styles.stepperIcon} />
+                  </TouchableOpacity>
                 </View>
 
-                {/* Attribution for imported recipes */}
-                {isOwnRecipe &&
-                  recipe.sourceType === "user" &&
-                  recipe.originalOwner && (
-                    <>
-                      <VSpace size={8} />
-                      <Text type="footnote" style={styles.attributionText}>
-                        Originally from @{recipe.originalOwner.name}
-                      </Text>
-                    </>
-                  )}
-
-                <VSpace size={24} />
-
-                {/* Servings Row with Review Button or Author Info */}
-                <View style={styles.servingsRow}>
-                  <View style={styles.servingsStepper}>
-                    <TouchableOpacity
-                      style={styles.stepperButton}
-                      onPress={() => setServings(Math.max(1, servings - 1))}
-                    >
-                      <Ionicons
-                        name="remove"
-                        size={20}
-                        style={styles.stepperIcon}
-                      />
-                    </TouchableOpacity>
-                    <View style={styles.servingsDisplay}>
-                      <Text type="caption" style={styles.servingsLabel}>
-                        Servings
-                      </Text>
-                      <Text style={styles.servingsNumber}>{servings}</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.stepperButton}
-                      onPress={() => setServings(servings + 1)}
-                    >
-                      <Ionicons
-                        name="add"
-                        size={20}
-                        style={styles.stepperIcon}
-                      />
-                    </TouchableOpacity>
+                {isPreviewMode ? (
+                  // Preview mode: show placeholder
+                  <View style={styles.previewAuthorPlaceholder}>
+                    <Ionicons
+                      name="bookmark-outline"
+                      size={20}
+                      style={styles.previewPlaceholderIcon}
+                    />
+                    <Text type="caption" style={styles.previewPlaceholderText}>
+                      Will be saved to your recipes
+                    </Text>
                   </View>
-
-                  {isPreviewMode ? (
-                    // Preview mode: show placeholder
-                    <View style={styles.previewAuthorPlaceholder}>
-                      <Ionicons
-                        name="bookmark-outline"
-                        size={20}
-                        style={styles.previewPlaceholderIcon}
-                      />
-                      <Text
-                        type="caption"
-                        style={styles.previewPlaceholderText}
-                      >
-                        Will be saved to your recipes
-                      </Text>
-                    </View>
-                  ) : isOwnRecipe ? (
-                    <TouchableOpacity
-                      style={styles.reviewButton}
-                      onPress={handleReview}
-                    >
-                      {recipe.userReviewRating ? (
-                        <View style={styles.starRatingContainer}>
-                          {Array.from({ length: recipe.userReviewRating }).map(
-                            (_, i) => (
-                              <Ionicons
-                                key={i}
-                                name="star"
-                                size={18}
-                                style={styles.reviewIcon}
-                              />
-                            ),
-                          )}
-                        </View>
-                      ) : (
-                        <>
-                          <Ionicons
-                            name="star-outline"
-                            size={18}
-                            style={styles.reviewIcon}
-                          />
-                          <Text style={styles.reviewText}>Review</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.authorCard}
-                      onPress={() =>
-                        navigation.navigate("UserProfile", {
-                          userId: recipe.owner.id,
-                        })
-                      }
-                      activeOpacity={0.7}
-                    >
-                      {recipe.owner.image ? (
-                        <Image
-                          source={{
-                            uri: getImageUrl(recipe.owner.image, "avatar-sm"),
-                          }}
-                          style={styles.authorAvatarImage}
+                ) : isOwnRecipe ? (
+                  <TouchableOpacity
+                    style={styles.reviewButton}
+                    onPress={handleReview}
+                  >
+                    {recipe.userReviewRating ? (
+                      <View style={styles.starRatingContainer}>
+                        {Array.from({ length: recipe.userReviewRating }).map(
+                          (_, i) => (
+                            <Ionicons
+                              key={i}
+                              name="star"
+                              size={18}
+                              style={styles.reviewIcon}
+                            />
+                          ),
+                        )}
+                      </View>
+                    ) : (
+                      <>
+                        <Ionicons
+                          name="star-outline"
+                          size={18}
+                          style={styles.reviewIcon}
                         />
-                      ) : (
-                        <View style={styles.authorAvatarPlaceholder}>
-                          <Text style={styles.authorAvatarText}>
-                            {recipe.owner.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.authorInfo}>
-                        <Text type="headline" numberOfLines={1}>
-                          {recipe.owner.name}
-                        </Text>
-                        <Text type="caption">
-                          {recipe.userRecipesCount} recipes
+                        <Text style={styles.reviewText}>Review</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.authorCard}
+                    onPress={() =>
+                      navigation.navigate("UserProfile", {
+                        userId: recipe.owner.id,
+                      })
+                    }
+                    activeOpacity={0.7}
+                  >
+                    {recipe.owner.image ? (
+                      <Image
+                        source={{
+                          uri: getImageUrl(recipe.owner.image, "avatar-sm"),
+                        }}
+                        style={styles.authorAvatarImage}
+                      />
+                    ) : (
+                      <View style={styles.authorAvatarPlaceholder}>
+                        <Text style={styles.authorAvatarText}>
+                          {recipe.owner.name.charAt(0).toUpperCase()}
                         </Text>
                       </View>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <VSpace size={24} />
-
-                {/* Full Width Tabs */}
-                <SegmentedControl
-                  options={TAB_OPTIONS}
-                  value={activeTab}
-                  onValueChange={handleTabChange}
-                  scrollProgress={scrollProgress}
-                  fullWidth
-                />
-
-                <VSpace size={24} />
-
-                {/* Swipeable Tab Content - breaks out of card padding for edge-to-edge swipe */}
-                <View style={styles.tabViewWrapper}>
-                  <SwipeableTabView
-                    activeIndex={activeTabIndex}
-                    onIndexChange={handleSwipeTabChange}
-                    containerWidth={SCREEN_WIDTH}
-                    scrollProgress={scrollProgress}
-                  >
-                    {renderIngredients()}
-                    {renderMethod()}
-                  </SwipeableTabView>
-                </View>
-
-                <VSpace size={isPreviewMode || !isOwnRecipe ? 100 : 40} />
+                    )}
+                    <View style={styles.authorInfo}>
+                      <Text type="headline" numberOfLines={1}>
+                        {recipe.owner.name}
+                      </Text>
+                      <Text type="caption">
+                        {recipe.userRecipesCount} recipes
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
               </View>
-            </Animated.ScrollView>
-          </GestureDetector>
+
+              <VSpace size={24} />
+
+              {/* Full Width Tabs */}
+              <SegmentedControl
+                options={TAB_OPTIONS}
+                value={activeTab}
+                onValueChange={handleTabChange}
+                scrollProgress={scrollProgress}
+                fullWidth
+              />
+
+              <VSpace size={24} />
+
+              {/* Swipeable Tab Content - breaks out of card padding for edge-to-edge swipe */}
+              <View style={styles.tabViewWrapper}>
+                <SwipeableTabView
+                  activeIndex={activeTabIndex}
+                  onIndexChange={handleSwipeTabChange}
+                  containerWidth={SCREEN_WIDTH}
+                  scrollProgress={scrollProgress}
+                >
+                  {renderIngredients()}
+                  {renderMethod()}
+                </SwipeableTabView>
+              </View>
+
+              <VSpace size={isPreviewMode || !isOwnRecipe ? 100 : 40} />
+            </View>
+          </Animated.ScrollView>
 
           {/* Sticky Footer */}
           {isPreviewMode ? (
@@ -1019,21 +932,14 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
   },
 
-  // Fixed Image Section - behind ScrollView so card scrolls over it
-  fixedImageContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+  // Image carousel container
+  imageCarouselContainer: {
     height: IMAGE_HEIGHT,
-  },
-  imageSpacer: {
-    height: IMAGE_HEIGHT - 24, // Account for white card overlap
   },
   imageContainer: {
-    flex: 1,
     width: SCREEN_WIDTH,
     height: IMAGE_HEIGHT,
+    paddingBottom: 40,
   },
   recipeImage: {
     width: "100%",
@@ -1064,9 +970,7 @@ const styles = StyleSheet.create((theme) => ({
   // White Card
   whiteCard: {
     backgroundColor: theme.colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 28,
+
     paddingHorizontal: 20,
     minHeight: 400,
   },
