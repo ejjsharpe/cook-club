@@ -14,11 +14,7 @@ import ActionSheet, {
   SheetProps,
   ScrollView,
 } from "react-native-actions-sheet";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
-} from "react-native-reanimated";
+import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Input } from "./Input";
@@ -284,10 +280,7 @@ export const SmartImportSheet = (props: SheetProps<"smart-import-sheet">) => {
             <VSpace size={24} />
 
             {mode === "url" && (
-              <Animated.View
-                entering={FadeIn.duration(200)}
-                exiting={FadeOut.duration(150)}
-              >
+              <Animated.View entering={FadeIn.duration(200)}>
                 <Text type="subheadline" style={styles.label}>
                   Recipe URL
                 </Text>
@@ -309,10 +302,7 @@ export const SmartImportSheet = (props: SheetProps<"smart-import-sheet">) => {
             )}
 
             {mode === "text" && (
-              <Animated.View
-                entering={FadeIn.duration(200)}
-                exiting={FadeOut.duration(150)}
-              >
+              <Animated.View entering={FadeIn.duration(200)}>
                 <Text type="subheadline" style={styles.label}>
                   Recipe Text
                 </Text>
@@ -336,10 +326,7 @@ export const SmartImportSheet = (props: SheetProps<"smart-import-sheet">) => {
             )}
 
             {mode === "image" && (
-              <Animated.View
-                entering={FadeIn.duration(200)}
-                exiting={FadeOut.duration(150)}
-              >
+              <Animated.View entering={FadeIn.duration(200)}>
                 <Text type="subheadline" style={styles.label}>
                   Recipe Image
                 </Text>
