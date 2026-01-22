@@ -34,7 +34,6 @@ import { CollectionGridCard } from "@/components/CollectionGridCard";
 import { CreateCollectionCard } from "@/components/CreateCollectionCard";
 import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeCollectionBrowser } from "@/components/RecipeCollectionBrowser";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { SearchBar } from "@/components/SearchBar";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
