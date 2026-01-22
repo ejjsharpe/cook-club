@@ -548,7 +548,7 @@ export const MyRecipesScreen = () => {
         ]}
         pointerEvents={isSearchActive ? "auto" : "none"}
       >
-        <SafeAreaView edges={[]} style={styles.searchModeContent}>
+        <View style={styles.searchModeContent}>
           <RecipeCollectionBrowser
             onRecipePress={handleRecipePress}
             onCollectionPress={handleCollectionPress}
@@ -560,7 +560,7 @@ export const MyRecipesScreen = () => {
             onFilterStateChange={setFilterState}
             headerAnimationProgress={searchProgress}
           />
-        </SafeAreaView>
+        </View>
       </Animated.View>
 
       {/* Floating Search Bar - always mounted for worklet pre-warming */}
