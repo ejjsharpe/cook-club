@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRef, useEffect } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { View, TextInput, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -12,27 +12,26 @@ interface Props {
   onFocus?: () => void;
   onBlur?: () => void;
   autoFocus?: boolean;
+  ref?: RefObject<TextInput | null>;
 }
 
-export const SearchBar = ({
+export function SearchBar({
   value,
   onChangeText,
   placeholder = "Search recipes, collections, users...",
   onFocus,
   onBlur,
   autoFocus = false,
-}: Props) => {
-  const inputRef = useRef<TextInput>(null);
+  ref,
+}: Props) {
+  const internalRef = useRef<TextInput>(null);
+  const inputRef = ref ?? internalRef;
 
   useEffect(() => {
     if (autoFocus && inputRef.current) {
-      // Small delay to ensure the component is fully mounted
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
+      inputRef.current.focus();
     }
-  }, [autoFocus]);
+  }, [autoFocus, inputRef]);
 
   return (
     <View style={styles.container}>
@@ -60,7 +59,7 @@ export const SearchBar = ({
       )}
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create((theme) => ({
   container: {

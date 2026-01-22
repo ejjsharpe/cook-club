@@ -9,19 +9,17 @@ import {
   ScrollView,
   FlatList,
   Dimensions,
+  type TextInput,
 } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedRef,
   useAnimatedScrollHandler,
-  useAnimatedReaction,
   measure,
   withTiming,
   interpolate,
   Easing,
-  runOnUI,
-  runOnJS,
   type SharedValue,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
@@ -74,6 +72,7 @@ interface AnimatedRecipeOverlayProps {
   browseY: number;
   searchY: number;
   searchProgress: SharedValue<number>;
+  isVisible: SharedValue<boolean>;
 }
 
 const AnimatedRecipeOverlay = memo(function AnimatedRecipeOverlay({
@@ -81,6 +80,7 @@ const AnimatedRecipeOverlay = memo(function AnimatedRecipeOverlay({
   browseY,
   searchY,
   searchProgress,
+  isVisible,
 }: AnimatedRecipeOverlayProps) {
   // Use transform instead of top for GPU-accelerated animation
   const deltaY = searchY - browseY;
@@ -93,9 +93,8 @@ const AnimatedRecipeOverlay = memo(function AnimatedRecipeOverlay({
     const translateY = interpolate(searchProgress.value, [0, 1], [0, deltaY]);
     return {
       transform: [{ translateY }],
-      // Stay fully visible until animation completes, then hide
-      // (the underlying list appears at progress >= 1)
-      opacity: searchProgress.value < 1 ? 1 : 0,
+      // Visible during animation cycle, hidden when idle or when search fully active
+      opacity: isVisible.value && searchProgress.value < 1 ? 1 : 0,
     };
   });
 
@@ -116,8 +115,8 @@ export const MyRecipesScreen = () => {
 
   // ─── State ────────────────────────────────────────────────────────────────────
   const [isSearchActive, setIsSearchActive] = useState(false);
-  const [showFloatingSearch, setShowFloatingSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<TextInput>(null);
 
   // Filter state from RecipeCollectionBrowser
   const [filterState, setFilterState] = useState<{
@@ -136,6 +135,8 @@ export const MyRecipesScreen = () => {
 
   // Animation progress (0 = browse, 1 = search)
   const searchProgress = useSharedValue(0);
+  // Tracks whether floating search should be visible (true during entire animation cycle)
+  const isFloatingVisible = useSharedValue(false);
 
   // Scroll-based title fade (like HomeScreen)
   const titleOpacity = useSharedValue(1);
@@ -166,41 +167,21 @@ export const MyRecipesScreen = () => {
     [],
   );
 
-  // Trigger for measuring search bar on UI thread (incremented to trigger measurement)
-  const measureTrigger = useSharedValue(0);
-
-  // Measure search bar position on UI thread when triggered
-  useAnimatedReaction(
-    () => measureTrigger.value,
-    (current, previous) => {
-      if (current !== previous && current > 0) {
-        const measurement = measure(searchBarRef);
-        if (measurement && measurement.pageY > 0) {
-          searchBarY.value = measurement.pageY;
-        }
-      }
-    },
-  );
-
   useEffect(() => {
     if (isSearchActive) {
-      // First frame: mount components
-      setShowFloatingSearch(true);
-      // Second frame: components are mounted, start animation
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          searchProgress.value = withTiming(1, animationConfig);
-        });
-      });
+      isFloatingVisible.value = true;
+      searchProgress.value = withTiming(1, animationConfig);
+      searchInputRef.current?.focus();
     } else {
+      searchInputRef.current?.blur();
       searchProgress.value = withTiming(0, animationConfig, (finished) => {
         "worklet";
         if (finished) {
-          scheduleOnRN(setShowFloatingSearch, false);
+          isFloatingVisible.value = false;
         }
       });
     }
-  }, [isSearchActive, animationConfig, searchProgress]);
+  }, [isSearchActive, animationConfig, searchProgress, isFloatingVisible]);
 
   // Animate filter button visibility based on active tab
   useEffect(() => {
@@ -275,30 +256,34 @@ export const MyRecipesScreen = () => {
   }, [createCollectionMutation]);
 
   const handleSearchFocus = useCallback(() => {
-    // Helper to store positions and start animation (called from UI thread)
+    // Helper to store positions and start animation (called from RN thread)
     const startAnimation = (positions: { id: number; y: number }[]) => {
       browsePositions.current = positions;
-      measureTrigger.value = measureTrigger.value + 1;
       setIsSearchActive(true);
     };
 
-    // Measure first recipe card on UI thread and calculate all positions
+    // Measure search bar and first recipe card on UI thread
     scheduleOnUI(() => {
       "worklet";
-      const measurement = measure(firstRecipeRef);
-      if (measurement && measurement.pageY > 0) {
-        // Calculate all positions from first card (100px height + 12px spacing)
+      // Measure search bar position
+      const searchBarMeasurement = measure(searchBarRef);
+      if (searchBarMeasurement && searchBarMeasurement.pageY > 0) {
+        searchBarY.value = searchBarMeasurement.pageY;
+      }
+
+      // Measure first recipe card and calculate all positions
+      const recipeMeasurement = measure(firstRecipeRef);
+      if (recipeMeasurement && recipeMeasurement.pageY > 0) {
         const positions = recentRecipes.map((recipe, index) => ({
           id: recipe.id,
-          y: measurement.pageY + index * (RECIPE_CARD_HEIGHT + 12),
+          y: recipeMeasurement.pageY + index * (RECIPE_CARD_HEIGHT + 12),
         }));
         scheduleOnRN(startAnimation, positions);
       } else {
-        // Fallback: start without positions if measurement fails
         scheduleOnRN(startAnimation, []);
       }
     });
-  }, [measureTrigger, recentRecipes, firstRecipeRef]);
+  }, [searchBarRef, searchBarY, recentRecipes, firstRecipeRef]);
 
   const handleExitSearch = useCallback(() => {
     setIsSearchActive(false);
@@ -351,18 +336,27 @@ export const MyRecipesScreen = () => {
   });
 
   // ─── Animation Styles ─────────────────────────────────────────────────────────
+  // Browse view fades with animation (title, collections visible during transition)
   const browseAnimatedStyle = useAnimatedStyle(() => {
     "worklet";
     return {
-      opacity: interpolate(searchProgress.value, [0, 1], [1, 0]),
+      opacity: interpolate(searchProgress.value, [0, 0.5], [1, 0]),
     };
   });
 
+  // Search view fades with animation progress
   const searchAnimatedStyle = useAnimatedStyle(() => {
     "worklet";
-    // Fade in with the animation so segmented control spring is visible
     return {
       opacity: searchProgress.value,
+    };
+  });
+
+  // Recipe cards stay hidden until animation fully completes (overlays handle the transition)
+  const recipeCardsStyle = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      opacity: isFloatingVisible.value ? 0 : 1,
     };
   });
 
@@ -394,10 +388,12 @@ export const MyRecipesScreen = () => {
 
     return {
       position: "absolute" as const,
-      top: searchBarY.value,
+      top: searchBarY.value || searchModeY,
       left: HORIZONTAL_PADDING,
       width: interpolate(searchProgress.value, [0, 1], [startWidth, endWidth]),
       zIndex: 100,
+      // Visible during entire animation cycle
+      opacity: isFloatingVisible.value ? 1 : 0,
       // Use transforms for GPU-accelerated animation
       transform: [
         {
@@ -409,6 +405,14 @@ export const MyRecipesScreen = () => {
         },
         { translateY: interpolate(searchProgress.value, [0, 1], [0, deltaY]) },
       ],
+    };
+  });
+
+  // Inline search bar hides when floating one is visible
+  const inlineSearchBarStyle = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      opacity: isFloatingVisible.value ? 0 : 1,
     };
   });
 
@@ -443,7 +447,7 @@ export const MyRecipesScreen = () => {
       {/* Browse Mode */}
       <Animated.View
         style={[styles.listContainer, browseAnimatedStyle]}
-        pointerEvents={showFloatingSearch ? "none" : "auto"}
+        pointerEvents={isSearchActive ? "none" : "auto"}
       >
         <AnimatedScrollView
           contentContainerStyle={styles.browseContent}
@@ -454,10 +458,7 @@ export const MyRecipesScreen = () => {
           {/* Pressable Search Bar Button (not a real input) */}
           <AnimatedPressable
             ref={searchBarRef}
-            style={[
-              styles.searchContainer,
-              showFloatingSearch && styles.searchBarHidden,
-            ]}
+            style={[styles.searchContainer, inlineSearchBarStyle]}
             onPress={handleSearchFocus}
           >
             <View pointerEvents="none">
@@ -493,12 +494,13 @@ export const MyRecipesScreen = () => {
               <Text type="title3" style={styles.sectionTitle}>
                 Recently Added
               </Text>
-              <View style={styles.recentRecipesList}>
+              <Animated.View
+                style={[styles.recentRecipesList, recipeCardsStyle]}
+              >
                 {recentRecipes.map((recipe, index) => (
                   <Animated.View
                     key={recipe.id}
                     ref={index === 0 ? firstRecipeRef : undefined}
-                    style={showFloatingSearch ? styles.hiddenCard : undefined}
                   >
                     <RecipeCard
                       recipe={recipe}
@@ -507,7 +509,7 @@ export const MyRecipesScreen = () => {
                     {index < recentRecipes.length - 1 && <VSpace size={12} />}
                   </Animated.View>
                 ))}
-              </View>
+              </Animated.View>
             </View>
           )}
 
@@ -561,50 +563,50 @@ export const MyRecipesScreen = () => {
         </SafeAreaView>
       </Animated.View>
 
-      {/* Floating Search Bar (animates during transition, becomes interactive in search mode) */}
-      {showFloatingSearch && (
-        <Animated.View
-          style={floatingSearchBarStyle}
-          pointerEvents={isSearchActive ? "auto" : "none"}
-        >
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search recipes, collections..."
-            autoFocus={isSearchActive}
-          />
-        </Animated.View>
-      )}
+      {/* Floating Search Bar - always mounted for worklet pre-warming */}
+      <Animated.View
+        style={floatingSearchBarStyle}
+        pointerEvents={isSearchActive ? "auto" : "none"}
+      >
+        <SearchBar
+          ref={searchInputRef}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search recipes, collections..."
+        />
+      </Animated.View>
 
-      {/* Back Button Overlay (appears in search mode) */}
-      {showFloatingSearch && (
-        <Animated.View
-          style={[
-            styles.backButtonContainer,
-            { top: searchModeY },
-            backButtonAnimatedStyle,
-          ]}
-          pointerEvents={isSearchActive ? "auto" : "none"}
+      {/* Back Button - always mounted for worklet pre-warming */}
+      <Animated.View
+        style={[
+          styles.backButtonContainer,
+          { top: searchModeY },
+          backButtonAnimatedStyle,
+        ]}
+        pointerEvents={isSearchActive ? "auto" : "none"}
+      >
+        <TouchableOpacity
+          onPress={handleExitSearch}
+          style={styles.backButton}
+          activeOpacity={0.7}
         >
-          <TouchableOpacity
-            onPress={handleExitSearch}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={24} style={styles.backIcon} />
-          </TouchableOpacity>
-        </Animated.View>
-      )}
+          <Ionicons name="arrow-back" size={24} style={styles.backIcon} />
+        </TouchableOpacity>
+      </Animated.View>
 
-      {/* Filter Button (appears in search mode on recipes tab) */}
-      {showFloatingSearch && filterState && (
+      {/* Filter Button - always mounted for worklet pre-warming */}
+      {filterState && (
         <Animated.View
           style={[
             styles.filterButtonContainer,
             { top: searchModeY },
             filterButtonAnimatedStyle,
           ]}
-          pointerEvents={filterState.activeTab === "recipes" ? "auto" : "none"}
+          pointerEvents={
+            filterState.activeTab === "recipes" && isSearchActive
+              ? "auto"
+              : "none"
+          }
         >
           <TouchableOpacity
             style={styles.filterButton}
@@ -623,21 +625,20 @@ export const MyRecipesScreen = () => {
         </Animated.View>
       )}
 
-      {/* Recipe Transition Overlay (animating recipe cards) */}
-      {showFloatingSearch &&
-        recentRecipes.map((recipe, index) => {
-          const browsePos = browsePositions.current[index];
-          if (!browsePos) return null;
-          return (
-            <AnimatedRecipeOverlay
-              key={`overlay-${recipe.id}`}
-              recipe={recipe}
-              browseY={browsePos.y}
-              searchY={getSearchTargetY(index)}
-              searchProgress={searchProgress}
-            />
-          );
-        })}
+      {/* Recipe Transition Overlay (animating recipe cards) - always mounted */}
+      {recentRecipes.map((recipe, index) => {
+        const browsePos = browsePositions.current[index];
+        return (
+          <AnimatedRecipeOverlay
+            key={`overlay-${recipe.id}`}
+            recipe={recipe}
+            browseY={browsePos?.y ?? 0}
+            searchY={getSearchTargetY(index)}
+            searchProgress={searchProgress}
+            isVisible={isFloatingVisible}
+          />
+        );
+      })}
     </View>
   );
 };
