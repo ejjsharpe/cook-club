@@ -14,18 +14,22 @@ const animationConfig = {
 };
 
 interface UseTabNavigationOptions {
+  /** Initial tab to display */
+  initialTab?: TabType;
   /** Callback when tab changes (for external animations like filter button) */
   onTabChange?: (tab: TabType, animationProgress: SharedValue<number>) => void;
 }
 
 export const useTabNavigation = ({
+  initialTab = "recipes",
   onTabChange,
 }: UseTabNavigationOptions = {}) => {
-  const [activeTab, setActiveTab] = useState<TabType>("recipes");
-  const scrollProgress = useSharedValue(0);
-  const activeTabIndex = useSharedValue(0);
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const initialIndex = initialTab === "recipes" ? 0 : 1;
+  const scrollProgress = useSharedValue(initialIndex);
+  const activeTabIndex = useSharedValue(initialIndex);
   // Animation progress for tab-dependent animations (1 = recipes visible, 0 = collections visible)
-  const tabAnimationProgress = useSharedValue(1);
+  const tabAnimationProgress = useSharedValue(initialTab === "recipes" ? 1 : 0);
 
   const switchTab = useCallback(
     (tab: TabType) => {

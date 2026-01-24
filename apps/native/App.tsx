@@ -17,7 +17,7 @@ import { Image } from "expo-image";
 import * as Linking from "expo-linking";
 import { ShareIntentProvider } from "expo-share-intent";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, StrictMode } from "react";
 import { SheetProvider } from "react-native-actions-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -127,31 +127,33 @@ export default function App() {
   };
 
   return (
-    <SafeAreaProvider>
-      <KeyboardProvider>
-        <ShareIntentProvider>
-          <ReactQueryProvider>
-            <SessionProvider>
-              <TRPCProvider>
-                <SignedInProvider>
-                  <ShareIntentStorageHandler />
-                  <GestureHandlerRootView style={styles.rootView}>
-                    <SheetProvider>
-                      <Sheets />
-                      <Navigation
-                        onReady={onNavigationReady}
-                        linking={linking}
-                        theme={navigationTheme}
-                      />
-                    </SheetProvider>
-                  </GestureHandlerRootView>
-                </SignedInProvider>
-              </TRPCProvider>
-            </SessionProvider>
-          </ReactQueryProvider>
-        </ShareIntentProvider>
-      </KeyboardProvider>
-    </SafeAreaProvider>
+    <StrictMode>
+      <SafeAreaProvider>
+        <KeyboardProvider>
+          <ShareIntentProvider>
+            <ReactQueryProvider>
+              <SessionProvider>
+                <TRPCProvider>
+                  <SignedInProvider>
+                    <ShareIntentStorageHandler />
+                    <GestureHandlerRootView style={styles.rootView}>
+                      <SheetProvider>
+                        <Sheets />
+                        <Navigation
+                          onReady={onNavigationReady}
+                          linking={linking}
+                          theme={navigationTheme}
+                        />
+                      </SheetProvider>
+                    </GestureHandlerRootView>
+                  </SignedInProvider>
+                </TRPCProvider>
+              </SessionProvider>
+            </ReactQueryProvider>
+          </ShareIntentProvider>
+        </KeyboardProvider>
+      </SafeAreaProvider>
+    </StrictMode>
   );
 }
 

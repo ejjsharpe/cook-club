@@ -1,11 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { View, TouchableOpacity } from "react-native";
+import { useState } from "react";
+import { View, TouchableOpacity, type LayoutChangeEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
 const GRID_GAP = 20;
+
+// Proportional ratios relative to card width
+const ICON_SIZE_RATIO = 0.25;
+const BORDER_RADIUS_RATIO = 0.12; // ~14px at 156px width
 
 interface Collection {
   id: number;
@@ -20,16 +25,32 @@ interface Props {
   width?: number;
 }
 
-const ImageGrid = ({ images }: { images: string[] }) => {
+const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
   const count = Math.min(images.length, 4);
+  const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
+
+  const handleLayout = (event: LayoutChangeEvent) => {
+    const { width: layoutWidth } = event.nativeEvent.layout;
+    setMeasuredWidth(layoutWidth);
+  };
+
+  // Use explicit width prop if provided, otherwise use measured width
+  const effectiveWidth = width ?? measuredWidth;
+
+  // Calculate proportional values based on width
+  const iconSize = effectiveWidth != null ? effectiveWidth * ICON_SIZE_RATIO : 40;
+  const borderRadius =
+    effectiveWidth != null ? effectiveWidth * BORDER_RADIUS_RATIO : 14;
+
+  const containerStyle = [gridStyles.container, { borderRadius }];
 
   if (count === 0) {
     return (
-      <View style={gridStyles.container}>
+      <View style={containerStyle} onLayout={handleLayout}>
         <View style={gridStyles.placeholder}>
           <Ionicons
             name="albums-outline"
-            size={40}
+            size={iconSize}
             style={gridStyles.placeholderIcon}
           />
         </View>
@@ -39,7 +60,7 @@ const ImageGrid = ({ images }: { images: string[] }) => {
 
   if (count === 1) {
     return (
-      <View style={gridStyles.container}>
+      <View style={containerStyle} onLayout={handleLayout}>
         <Image
           source={{ uri: images[0] }}
           style={gridStyles.fullImage}
@@ -52,7 +73,7 @@ const ImageGrid = ({ images }: { images: string[] }) => {
 
   if (count === 2) {
     return (
-      <View style={gridStyles.container}>
+      <View style={containerStyle} onLayout={handleLayout}>
         <View style={gridStyles.row}>
           <View style={gridStyles.imageWrapper}>
             <Image
@@ -77,7 +98,7 @@ const ImageGrid = ({ images }: { images: string[] }) => {
 
   if (count === 3) {
     return (
-      <View style={gridStyles.container}>
+      <View style={containerStyle} onLayout={handleLayout}>
         <View style={gridStyles.threeImageLayout}>
           <View style={gridStyles.largeImageWrapper}>
             <Image
@@ -111,7 +132,7 @@ const ImageGrid = ({ images }: { images: string[] }) => {
   }
 
   return (
-    <View style={gridStyles.container}>
+    <View style={containerStyle} onLayout={handleLayout}>
       <View style={gridStyles.row}>
         <View style={gridStyles.imageWrapper}>
           <Image
@@ -155,7 +176,6 @@ const ImageGrid = ({ images }: { images: string[] }) => {
 const gridStyles = StyleSheet.create((theme) => ({
   container: {
     aspectRatio: 1,
-    borderRadius: theme.borderRadius.medium,
     overflow: "hidden",
   },
   row: {
@@ -208,7 +228,7 @@ export const CollectionGridCard = ({ collection, onPress, width }: Props) => {
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <ImageGrid images={previewImages} />
+      <ImageGrid images={previewImages} width={width} />
       <View style={styles.content}>
         <Text type="headline" numberOfLines={1}>
           {collection.name}
@@ -221,7 +241,7 @@ export const CollectionGridCard = ({ collection, onPress, width }: Props) => {
   );
 };
 
-export { GRID_GAP };
+export { GRID_GAP, ImageGrid };
 
 const styles = StyleSheet.create((theme) => ({
   card: {

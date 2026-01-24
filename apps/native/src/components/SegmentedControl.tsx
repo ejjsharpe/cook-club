@@ -31,14 +31,13 @@ const AnimatedTabText = ({
   totalTabs: number;
 }) => {
   const animatedTheme = useAnimatedTheme();
+  // Create input range for all tabs
+  const inputRange = Array.from({ length: totalTabs }, (_, i) => i);
+  // Output range: this tab is active (1) at its index, inactive (0) at others
+  const outputRange = inputRange.map((i) => (i === index ? 1 : 0));
 
   const animatedStyle = useAnimatedStyle(() => {
     if (scrollProgress) {
-      // Create input range for all tabs
-      const inputRange = Array.from({ length: totalTabs }, (_, i) => i);
-      // Output range: this tab is active (1) at its index, inactive (0) at others
-      const outputRange = inputRange.map((i) => (i === index ? 1 : 0));
-
       const progress = interpolate(
         scrollProgress.value,
         inputRange,

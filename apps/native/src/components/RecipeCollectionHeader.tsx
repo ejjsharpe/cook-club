@@ -43,9 +43,7 @@ interface RecipeCollectionHeaderProps {
   onOpenFilters: () => void;
   filterButtonStyle: AnimatedStyle<{
     opacity: number;
-    transform: { scale: number }[];
-    width: number;
-    marginLeft: number;
+    transform: ({ translateX: number } | { scale: number })[];
   }>;
 
   // Animation
@@ -176,6 +174,8 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   filterButtonWrapper: {
     overflow: "hidden",
+    width: 50,
+    marginLeft: 12,
   },
   filterButton: {
     backgroundColor: theme.colors.inputBackground,

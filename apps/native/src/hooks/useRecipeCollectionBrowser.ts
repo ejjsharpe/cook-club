@@ -17,11 +17,14 @@ interface UseRecipeCollectionBrowserOptions {
   onTabBarScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /** External search query - when provided, uses this instead of internal state */
   externalSearchQuery?: string;
+  /** Initial tab to display */
+  initialTab?: TabType;
 }
 
 export const useRecipeCollectionBrowser = ({
   onTabBarScroll,
   externalSearchQuery,
+  initialTab,
 }: UseRecipeCollectionBrowserOptions = {}) => {
   // Search state
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
@@ -34,7 +37,7 @@ export const useRecipeCollectionBrowser = ({
     activeTabIndex,
     scrollProgress,
     switchTab: baseSwitchTab,
-  } = useTabNavigation();
+  } = useTabNavigation({ initialTab });
 
   // Compose filters with tab-aware animation
   const {

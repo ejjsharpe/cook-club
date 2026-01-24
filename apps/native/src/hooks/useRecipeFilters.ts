@@ -22,12 +22,19 @@ export const useRecipeFilters = () => {
   // Filter button visibility animation (1 = visible, 0 = hidden)
   const filterButtonProgress = useSharedValue(1);
 
-  const filterButtonStyle = useAnimatedStyle(() => ({
-    opacity: filterButtonProgress.value,
-    transform: [{ scale: 0.8 + 0.2 * filterButtonProgress.value }],
-    width: 50 * filterButtonProgress.value,
-    marginLeft: 12 * filterButtonProgress.value,
-  }));
+  // GPU-accelerated animation using transforms instead of layout properties
+  const filterButtonStyle = useAnimatedStyle(() => {
+    "worklet";
+    const progress = filterButtonProgress.value;
+    // Scale from 0.8 to 1 for a subtle size change
+    const scale = 0.8 + 0.2 * progress;
+    // Translate right as it fades out to simulate margin collapse
+    const translateX = (1 - progress) * 62; // 50 (width) + 12 (margin)
+    return {
+      opacity: progress,
+      transform: [{ translateX }, { scale }],
+    };
+  });
 
   const handleOpenFilters = useCallback(() => {
     SheetManager.show("filter-sheet", {

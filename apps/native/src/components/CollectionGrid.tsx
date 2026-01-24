@@ -1,7 +1,7 @@
 import { LegendList, type LegendListRenderItemProps } from "@legendapp/list";
 import { useCallback, useMemo } from "react";
 import { RefreshControl } from "react-native";
-import Animated from "react-native-reanimated";
+import Animated, { type AnimatedRef } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { GRID_GAP } from "./CollectionGridCard";
@@ -32,6 +32,8 @@ interface CollectionGridProps {
   isRefreshing?: boolean;
   onRefresh?: () => void;
   headerHeight?: number;
+  /** Ref attached to the first collection item for position measurement */
+  firstItemRef?: AnimatedRef<Animated.View>;
 }
 
 export const CollectionGrid = ({
@@ -44,6 +46,7 @@ export const CollectionGrid = ({
   isRefreshing = false,
   onRefresh,
   headerHeight = 0,
+  firstItemRef,
 }: CollectionGridProps) => {
   const theme = UnistylesRuntime.getTheme();
   const insets = UnistylesRuntime.insets;
@@ -68,7 +71,7 @@ export const CollectionGrid = ({
   // Wrap renderItem to handle create card internally
   const internalRenderItem = useCallback(
     (info: LegendListRenderItemProps<CollectionListItem>) => {
-      const { item } = info;
+      const { item, index } = info;
       // Handle create collection item
       if ("type" in item && item.type === "create") {
         if (!onCreateCollection) return null;
@@ -81,9 +84,27 @@ export const CollectionGrid = ({
         );
       }
       // Delegate to parent's renderItem for collection items
-      return renderItem(info);
+      const renderedItem = renderItem(info);
+
+      // Wrap the first collection card (accounting for create card offset) with ref for measurement
+      const isFirstCollection = showCreateCard ? index === 1 : index === 0;
+      if (isFirstCollection && firstItemRef) {
+        return (
+          <Animated.View ref={firstItemRef} style={styles.measureWrapper}>
+            {renderedItem}
+          </Animated.View>
+        );
+      }
+
+      return renderedItem;
     },
-    [onCreateCollection, isCreatingCollection, renderItem],
+    [
+      onCreateCollection,
+      isCreatingCollection,
+      renderItem,
+      showCreateCard,
+      firstItemRef,
+    ],
   );
 
   return (
@@ -119,5 +140,8 @@ const styles = StyleSheet.create((_theme, rt) => ({
   gridRow: {
     gap: GRID_GAP,
     marginBottom: GRID_GAP,
+  },
+  measureWrapper: {
+    flex: 1,
   },
 }));

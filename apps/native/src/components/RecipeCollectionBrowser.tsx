@@ -4,6 +4,7 @@ import { View, Dimensions } from "react-native";
 import Animated, {
   useAnimatedStyle,
   type SharedValue,
+  type AnimatedRef,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -53,6 +54,10 @@ interface RecipeCollectionBrowserProps {
   }) => void;
   /** Animation progress for header entrance (0 = hidden, 1 = visible) */
   headerAnimationProgress?: SharedValue<number>;
+  /** Initial tab to display */
+  initialTab?: TabType;
+  /** Ref attached to the first collection item for position measurement */
+  firstCollectionRef?: AnimatedRef<Animated.View>;
 }
 
 export const RecipeCollectionBrowser = ({
@@ -68,6 +73,8 @@ export const RecipeCollectionBrowser = ({
   onSearchQueryChange,
   onFilterStateChange,
   headerAnimationProgress,
+  initialTab,
+  firstCollectionRef,
 }: RecipeCollectionBrowserProps) => {
   const {
     activeTab,
@@ -95,6 +102,7 @@ export const RecipeCollectionBrowser = ({
   } = useRecipeCollectionBrowser({
     onTabBarScroll,
     externalSearchQuery,
+    initialTab,
   });
 
   // Sync search query changes with parent if callback provided
@@ -244,6 +252,7 @@ export const RecipeCollectionBrowser = ({
         isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
         headerHeight={HEADER_CONTENT_HEIGHT}
+        firstItemRef={firstCollectionRef}
       />
     );
   };
