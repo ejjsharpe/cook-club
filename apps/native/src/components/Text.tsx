@@ -32,24 +32,24 @@ const styles = StyleSheet.create((theme) => ({
       type: {
         // iOS Large Title: 34pt Regular
         largeTitle: {
-          fontSize: 38,
-          lineHeight: 45,
+          fontSize: 34,
+          lineHeight: 41,
           color: theme.colors.text,
           fontFamily: theme.fonts.black,
           letterSpacing: -1,
         },
-        // Screen Title: Same as title1 but with 44 line height for tab headers
+        // Screen Title: Same as title1 but with 40 line height for tab headers
         screenTitle: {
-          fontSize: 32,
-          lineHeight: 44,
+          fontSize: 28,
+          lineHeight: 40,
           color: theme.colors.text,
           fontFamily: theme.fonts.black,
           letterSpacing: -1,
         },
         // iOS Title 1: 28pt Regular
         title1: {
-          fontSize: 32,
-          lineHeight: 38,
+          fontSize: 28,
+          lineHeight: 34,
           color: theme.colors.text,
           fontFamily: theme.fonts.black,
           letterSpacing: -1,
@@ -59,7 +59,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 22,
           lineHeight: 28,
           color: theme.colors.text,
-          fontFamily: theme.fonts.bold,
+          fontFamily: theme.fonts.black,
           letterSpacing: 0.35,
         },
         // iOS Title 3: 20pt Regular
@@ -67,7 +67,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 20,
           lineHeight: 25,
           color: theme.colors.text,
-          fontFamily: theme.fonts.semiBold,
+          fontFamily: theme.fonts.bold,
           letterSpacing: 0.38,
         },
         // iOS Headline: 17pt Semibold
