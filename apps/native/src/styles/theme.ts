@@ -5,7 +5,7 @@ import { fonts } from "./fonts";
 export const lightTheme = {
   colors: {
     background: colors.white,
-    primary: colors.red,
+    primary: '#f90000',
     destructive: "#FF3B30",
     text: colors.black,
     textSecondary: "rgba(0, 0, 0, 0.5)",

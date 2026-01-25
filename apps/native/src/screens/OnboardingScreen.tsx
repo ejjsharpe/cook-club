@@ -281,7 +281,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   backButtonText: {
     fontSize: 16,
-    fontFamily: theme.fonts.albertMedium,
+    fontFamily: theme.fonts.medium,
     color: theme.colors.text,
   },
   nextButtonFlex: {

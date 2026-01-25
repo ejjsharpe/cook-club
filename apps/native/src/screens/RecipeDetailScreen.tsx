@@ -35,10 +35,6 @@ import {
   useDeleteRecipe,
   type ParsedRecipe,
 } from "@/api/recipe";
-import {
-  useAddRecipeToShoppingList,
-  useRemoveRecipeFromList,
-} from "@/api/shopping";
 import { useUser } from "@/api/user";
 import { DropdownMenu, DropdownMenuItem } from "@/components/DropdownMenu";
 import { PageIndicator } from "@/components/PageIndicator";
@@ -188,21 +184,22 @@ export const RecipeDetailScreen = () => {
       extrapolateRight: Extrapolation.CLAMP,
     });
 
-    // Anchor to bottom: offset translateY to keep bottom edge fixed when scaling
-    // When scale > 1, we translate down by half the extra height
+    // Anchor scaling to bottom edge: translate UP to compensate for scale growth
+    // When scale > 1, the bottom edge moves down - translate up to keep it fixed
+    const scaleCompensation = -(IMAGE_HEIGHT * (scale - 1)) / 2;
 
     // Parallax: only apply when scrolling down, not during pull-to-refresh
     const parallax = scrollY.value > 0 ? scrollY.value / 2 : 0;
 
     return {
-      transformOrigin: "center",
-      transform: [{ scale }, { translateY: parallax }],
+      transform: [
+        { translateY: scaleCompensation + parallax },
+        { scale },
+      ],
     };
   });
 
   // Mutations
-  const addToShoppingMutation = useAddRecipeToShoppingList();
-  const removeFromShoppingMutation = useRemoveRecipeFromList();
   const createReviewMutation = useCreateCookingReview();
   const importMutation = useImportRecipe();
   const deleteMutation = useDeleteRecipe();
@@ -227,17 +224,51 @@ export const RecipeDetailScreen = () => {
     });
   };
 
-  const handleToggleShoppingList = () => {
+  // Handler for Adjust button - opens adjust sheet
+  const handleOpenAdjustSheet = () => {
+    SheetManager.show("adjust-recipe-sheet", {
+      payload: {
+        servings,
+        onServingsChange: setServings,
+      },
+    });
+  };
+
+  // Handler for Shop button - opens shopping list selector
+  const handleOpenShoppingListSheet = () => {
     if (!recipe) return;
 
-    if (recipe.isInShoppingList) {
-      removeFromShoppingMutation.mutate({ recipeId: recipe.id });
-    } else {
-      addToShoppingMutation.mutate({
+    // Flatten ingredients from all sections
+    const allIngredients = recipe.ingredientSections.flatMap((section) =>
+      section.ingredients.map((ing) => ({
+        id: ing.id,
+        quantity: ing.quantity
+          ? (parseFloat(ing.quantity) * servingMultiplier).toString()
+          : null,
+        unit: ing.unit,
+        name: ing.name,
+        preparation: ing.preparation,
+      })),
+    );
+
+    SheetManager.show("shopping-list-selector-sheet", {
+      payload: {
         recipeId: recipe.id,
-        servings: servings !== recipe.servings ? servings : undefined,
-      });
-    }
+        recipeName: recipe.name,
+        ingredients: allIngredients,
+        servings,
+      },
+    });
+  };
+
+  // Handler for Cook Mode button
+  const handleStartCookMode = () => {
+    if (!recipe) return;
+
+    navigation.navigate("CookMode", {
+      recipeName: recipe.name,
+      instructionSections: recipe.instructionSections,
+    });
   };
 
   const handleReview = () => {
@@ -347,14 +378,6 @@ export const RecipeDetailScreen = () => {
       label: "Edit Recipe",
       icon: "create-outline",
       onPress: handleEditRecipe,
-    },
-    {
-      key: "shopping",
-      label: recipe?.isInShoppingList
-        ? "Remove from Shopping List"
-        : "Add to Shopping List",
-      icon: recipe?.isInShoppingList ? "cart" : "cart-outline",
-      onPress: handleToggleShoppingList,
     },
     {
       key: "collections",
@@ -603,31 +626,65 @@ export const RecipeDetailScreen = () => {
                   currentPage={currentImageIndex + 1}
                   totalPages={recipe.images.length}
                 />
-                <View
-                  style={{
-                    backgroundColor: "white",
-                    bottom: 0,
-                    height: 64,
-                    width: "100%",
-                    borderTopLeftRadius: 28,
-                    borderTopRightRadius: 28,
-                    position: "absolute",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ paddingTop: 16 }} type="title1">
+                {/* Image Overlay - Title and Action Button */}
+                <View style={styles.imageOverlay}>
+                  {/* Title - bottom left */}
+                  <Text type="title1" style={styles.overlayTitle} numberOfLines={2}>
                     {recipe.name}
                   </Text>
+
+                  {/* Action Button - bottom right */}
+                  {!isPreviewMode && (
+                    isOwnRecipe ? (
+                      // Cook Button for owned recipes
+                      <TouchableOpacity
+                        style={styles.cookButton}
+                        onPress={handleStartCookMode}
+                      >
+                        <BlurView
+                          intensity={80}
+                          tint="dark"
+                          style={styles.cookButtonBlur}
+                        >
+                          <Ionicons name="play" size={24} color="white" />
+                        </BlurView>
+                      </TouchableOpacity>
+                    ) : (
+                      // Import Button for non-owned recipes
+                      <TouchableOpacity
+                        style={styles.cookButton}
+                        onPress={handleImportRecipe}
+                        disabled={importMutation.isPending}
+                      >
+                        <BlurView
+                          intensity={80}
+                          tint="dark"
+                          style={styles.cookButtonBlur}
+                        >
+                          {importMutation.isPending ? (
+                            <ActivityIndicator size="small" color="white" />
+                          ) : (
+                            <Ionicons name="download-outline" size={24} color="white" />
+                          )}
+                        </BlurView>
+                      </TouchableOpacity>
+                    )
+                  )}
                 </View>
               </View>
             )}
 
             {/* White Card Section */}
             <View style={styles.whiteCard}>
-              {/* Title */}
-
-              <VSpace size={16} />
+              {/* Description (if exists) */}
+              {recipe.description && (
+                <>
+                  <Text type="body" style={styles.recipeDescription}>
+                    {recipe.description}
+                  </Text>
+                  <VSpace size={16} />
+                </>
+              )}
 
               {/* Cook Times */}
               <View style={styles.timesRow}>
@@ -669,77 +726,43 @@ export const RecipeDetailScreen = () => {
                   </>
                 )}
 
-              <VSpace size={24} />
+              <VSpace size={16} />
 
-              {/* Servings Row with Review Button or Author Info */}
-              <View style={styles.servingsRow}>
-                <View style={styles.servingsStepper}>
-                  <TouchableOpacity
-                    style={styles.stepperButton}
-                    onPress={() => setServings(Math.max(1, servings - 1))}
-                  >
-                    <Ionicons
-                      name="remove"
-                      size={20}
-                      style={styles.stepperIcon}
-                    />
-                  </TouchableOpacity>
-                  <View style={styles.servingsDisplay}>
-                    <Text type="caption" style={styles.servingsLabel}>
-                      Servings
-                    </Text>
-                    <Text style={styles.servingsNumber}>{servings}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.stepperButton}
-                    onPress={() => setServings(servings + 1)}
-                  >
-                    <Ionicons name="add" size={20} style={styles.stepperIcon} />
-                  </TouchableOpacity>
-                </View>
+              {/* Action Buttons Row - Own recipes only */}
+              {isOwnRecipe && !isPreviewMode && (
+                <>
+                  <View style={styles.actionButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={handleOpenAdjustSheet}
+                    >
+                      <Ionicons
+                        name="options-outline"
+                        size={22}
+                        style={styles.actionButtonIcon}
+                      />
+                      <Text style={styles.actionButtonText}>Adjust</Text>
+                    </TouchableOpacity>
 
-                {isPreviewMode ? (
-                  // Preview mode: show placeholder
-                  <View style={styles.previewAuthorPlaceholder}>
-                    <Ionicons
-                      name="bookmark-outline"
-                      size={20}
-                      style={styles.previewPlaceholderIcon}
-                    />
-                    <Text type="caption" style={styles.previewPlaceholderText}>
-                      Will be saved to your recipes
-                    </Text>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={handleOpenShoppingListSheet}
+                    >
+                      <Ionicons
+                        name="cart-outline"
+                        size={22}
+                        style={styles.actionButtonIcon}
+                      />
+                      <Text style={styles.actionButtonText}>Shop</Text>
+                    </TouchableOpacity>
                   </View>
-                ) : isOwnRecipe ? (
-                  <TouchableOpacity
-                    style={styles.reviewButton}
-                    onPress={handleReview}
-                  >
-                    {recipe.userReviewRating ? (
-                      <View style={styles.starRatingContainer}>
-                        {Array.from({ length: recipe.userReviewRating }).map(
-                          (_, i) => (
-                            <Ionicons
-                              key={i}
-                              name="star"
-                              size={18}
-                              style={styles.reviewIcon}
-                            />
-                          ),
-                        )}
-                      </View>
-                    ) : (
-                      <>
-                        <Ionicons
-                          name="star-outline"
-                          size={18}
-                          style={styles.reviewIcon}
-                        />
-                        <Text style={styles.reviewText}>Review</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                ) : (
+                  <VSpace size={16} />
+                </>
+              )}
+
+              {/* Author card for non-owned recipes */}
+              {!isOwnRecipe && !isPreviewMode && (
+                <>
                   <TouchableOpacity
                     style={styles.authorCard}
                     onPress={() =>
@@ -772,10 +795,9 @@ export const RecipeDetailScreen = () => {
                       </Text>
                     </View>
                   </TouchableOpacity>
-                )}
-              </View>
-
-              <VSpace size={24} />
+                  <VSpace size={16} />
+                </>
+              )}
 
               {/* Full Width Tabs */}
               <SegmentedControl
@@ -841,33 +863,6 @@ export const RecipeDetailScreen = () => {
                       style={styles.saveButtonIcon}
                     />
                     <Text style={styles.saveButtonText}>Save</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : !isOwnRecipe ? (
-            // Non-owned recipe: Import button
-            <View
-              style={[
-                styles.stickyFooter,
-                { paddingBottom: insets.bottom + 12 },
-              ]}
-            >
-              <TouchableOpacity
-                style={styles.importButton}
-                onPress={handleImportRecipe}
-                disabled={importMutation.isPending}
-              >
-                {importMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name="download-outline"
-                      size={20}
-                      style={styles.importIcon}
-                    />
-                    <Text style={styles.importText}>Import Recipe</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -939,7 +934,6 @@ const styles = StyleSheet.create((theme) => ({
   imageContainer: {
     width: SCREEN_WIDTH,
     height: IMAGE_HEIGHT,
-    paddingBottom: 40,
   },
   recipeImage: {
     width: "100%",
@@ -967,10 +961,42 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: "rgba(0, 0, 0, 0.1)",
   },
 
+  // Image Overlay
+  imageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    padding: 16,
+  },
+  overlayTitle: {
+    flex: 1,
+    color: "white",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  cookButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+    marginLeft: 12,
+  },
+  cookButtonBlur: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
+  },
+
   // White Card
   whiteCard: {
     backgroundColor: theme.colors.background,
-
+    paddingVertical: 20,
     paddingHorizontal: 20,
     minHeight: 400,
   },
@@ -987,8 +1013,36 @@ const styles = StyleSheet.create((theme) => ({
   timeIcon: {
     color: theme.colors.textSecondary,
   },
+  recipeDescription: {
+    color: theme.colors.textSecondary,
+    lineHeight: 22,
+  },
 
-  // Author Card (in servings row)
+  // Action Buttons
+  actionButtonsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: theme.colors.inputBackground,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  actionButtonIcon: {
+    color: theme.colors.text,
+  },
+  actionButtonText: {
+    fontSize: 15,
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+  },
+
+  // Author Card
   authorCard: {
     flex: 1,
     flexDirection: "row",
@@ -1016,7 +1070,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   authorAvatarText: {
     fontSize: 15,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
     color: theme.colors.buttonText,
   },
   authorInfo: {
@@ -1062,7 +1116,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   servingsNumber: {
     fontSize: 20,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
   reviewButton: {
     flex: 1,
@@ -1084,7 +1138,7 @@ const styles = StyleSheet.create((theme) => ({
   reviewText: {
     color: theme.colors.buttonText,
     fontSize: 17,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
 
   // Tab Content
@@ -1104,7 +1158,7 @@ const styles = StyleSheet.create((theme) => ({
     textTransform: "uppercase",
     color: theme.colors.textSecondary,
     letterSpacing: 0.5,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
 
   // Ingredients
@@ -1126,7 +1180,7 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
   },
   ingredientQuantity: {
-    fontFamily: theme.fonts.albertBold,
+    fontFamily: theme.fonts.bold,
   },
   ingredientName: {
     fontSize: 17,
@@ -1148,7 +1202,7 @@ const styles = StyleSheet.create((theme) => ({
   stepNumber: {
     fontSize: 34,
     lineHeight: 40,
-    fontFamily: theme.fonts.albertBold,
+    fontFamily: theme.fonts.bold,
     color: theme.colors.primary,
     opacity: 0.3,
   },
@@ -1194,7 +1248,7 @@ const styles = StyleSheet.create((theme) => ({
   importText: {
     color: theme.colors.buttonText,
     fontSize: 17,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
 
   // Preview Mode
@@ -1212,7 +1266,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   previewBannerText: {
     color: theme.colors.primary,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
     fontSize: 15,
   },
   previewBannerSubtext: {
@@ -1241,7 +1295,7 @@ const styles = StyleSheet.create((theme) => ({
   editButtonText: {
     color: theme.colors.text,
     fontSize: 17,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
   saveButton: {
     flex: 1,
@@ -1259,7 +1313,7 @@ const styles = StyleSheet.create((theme) => ({
   saveButtonText: {
     color: theme.colors.buttonText,
     fontSize: 17,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
   previewAuthorPlaceholder: {
     flex: 1,

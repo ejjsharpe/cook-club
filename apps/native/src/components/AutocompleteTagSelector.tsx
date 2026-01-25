@@ -179,7 +179,7 @@ const styles = StyleSheet.create((theme) => ({
   input: {
     flex: 1,
     fontSize: 16,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     color: theme.colors.text,
   },
   dropdown: {
@@ -201,7 +201,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   dropdownText: {
     fontSize: 16,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     color: theme.colors.text,
   },
   chipsContainer: {
@@ -229,7 +229,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   chipText: {
     fontSize: 14,
-    fontFamily: theme.fonts.albertMedium,
+    fontFamily: theme.fonts.medium,
   },
   chipTextDefault: {
     color: theme.colors.text,

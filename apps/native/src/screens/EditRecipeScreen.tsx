@@ -947,7 +947,7 @@ const styles = StyleSheet.create((theme) => ({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     color: theme.colors.textSecondary,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
     marginBottom: 12,
     marginLeft: 4,
   },
@@ -1075,7 +1075,7 @@ const styles = StyleSheet.create((theme) => ({
   servingButtonText: {
     fontSize: 20,
     color: theme.colors.text,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
   servingsDisplay: {
     flex: 1,
@@ -1084,7 +1084,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   servingsNumber: {
     fontSize: 17,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
   },
 
@@ -1156,7 +1156,7 @@ const styles = StyleSheet.create((theme) => ({
   addSectionText: {
     color: theme.colors.textSecondary,
     fontSize: 15,
-    fontFamily: theme.fonts.albertMedium,
+    fontFamily: theme.fonts.medium,
   },
   previewButton: {
     marginTop: 8,
@@ -1169,7 +1169,7 @@ const styles = StyleSheet.create((theme) => ({
   previewButtonText: {
     color: theme.colors.primary,
     fontSize: 15,
-    fontFamily: theme.fonts.albertMedium,
+    fontFamily: theme.fonts.medium,
   },
 
   // Method Steps
@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create((theme) => ({
   stepNumber: {
     fontSize: 13,
     color: theme.colors.textSecondary,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },

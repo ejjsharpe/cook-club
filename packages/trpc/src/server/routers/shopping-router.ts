@@ -610,6 +610,210 @@ export const shoppingRouter = router({
     }),
 
   /**
+   * Get all user's shopping lists
+   */
+  getUserShoppingLists: authedProcedure.query(async ({ ctx }) => {
+    try {
+      const lists = await ctx.db
+        .select({
+          id: shoppingLists.id,
+          name: shoppingLists.name,
+          createdAt: shoppingLists.createdAt,
+        })
+        .from(shoppingLists)
+        .where(eq(shoppingLists.userId, ctx.user.id))
+        .orderBy(desc(shoppingLists.createdAt));
+
+      return lists;
+    } catch (err) {
+      console.error("Error fetching shopping lists:", err);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch shopping lists",
+      });
+    }
+  }),
+
+  /**
+   * Create a new shopping list
+   */
+  createShoppingList: authedProcedure
+    .input(
+      type({
+        name: "string",
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { name } = input;
+
+      if (!name.trim()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Shopping list name is required",
+        });
+      }
+
+      try {
+        const [newList] = await ctx.db
+          .insert(shoppingLists)
+          .values({
+            userId: ctx.user.id,
+            name: name.trim(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+
+        return newList;
+      } catch (err) {
+        console.error("Error creating shopping list:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create shopping list",
+        });
+      }
+    }),
+
+  /**
+   * Add recipe ingredients to a specific shopping list
+   */
+  addRecipeToSpecificList: authedProcedure
+    .input(
+      type({
+        recipeId: "number",
+        shoppingListId: "number",
+        "servings?": "number",
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { recipeId, shoppingListId, servings } = input;
+
+      try {
+        // Verify the shopping list belongs to the user
+        const shoppingList = await ctx.db
+          .select()
+          .from(shoppingLists)
+          .where(
+            and(
+              eq(shoppingLists.id, shoppingListId),
+              eq(shoppingLists.userId, ctx.user.id),
+            ),
+          )
+          .then((rows) => rows[0]);
+
+        if (!shoppingList) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Shopping list not found",
+          });
+        }
+
+        // Check if recipe already in this shopping list
+        const existingRecipe = await ctx.db
+          .select()
+          .from(shoppingListRecipes)
+          .where(
+            and(
+              eq(shoppingListRecipes.shoppingListId, shoppingListId),
+              eq(shoppingListRecipes.recipeId, recipeId),
+            ),
+          )
+          .then((rows) => rows[0]);
+
+        if (existingRecipe) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Recipe already in this shopping list",
+          });
+        }
+
+        // Get recipe details
+        const recipe = await ctx.db
+          .select({
+            id: recipes.id,
+            name: recipes.name,
+            servings: recipes.servings,
+          })
+          .from(recipes)
+          .where(eq(recipes.id, recipeId))
+          .then((rows) => rows[0]);
+
+        if (!recipe) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Recipe not found",
+          });
+        }
+
+        // Get first recipe image
+        const firstImage = await ctx.db
+          .select({ url: recipeImages.url })
+          .from(recipeImages)
+          .where(eq(recipeImages.recipeId, recipeId))
+          .limit(1)
+          .then((rows) => rows[0]);
+
+        // Get recipe ingredients (through ingredient sections)
+        const ingredients = await ctx.db
+          .select({
+            quantity: recipeIngredients.quantity,
+            unit: recipeIngredients.unit,
+            name: recipeIngredients.name,
+          })
+          .from(recipeIngredients)
+          .innerJoin(
+            ingredientSections,
+            eq(recipeIngredients.sectionId, ingredientSections.id),
+          )
+          .where(eq(ingredientSections.recipeId, recipeId))
+          .orderBy(ingredientSections.index, recipeIngredients.index);
+
+        // Calculate scaling factor if custom servings requested
+        const scalingFactor =
+          servings && recipe.servings ? servings / recipe.servings : 1;
+
+        // Use a transaction for atomicity
+        await ctx.db.transaction(async (tx) => {
+          // Add recipe to shopping list recipes
+          await tx.insert(shoppingListRecipes).values({
+            shoppingListId: shoppingListId,
+            recipeId: recipe.id,
+            recipeName: recipe.name,
+            recipeImageUrl: firstImage?.url || null,
+            createdAt: new Date(),
+          });
+
+          // Process each ingredient
+          for (const ing of ingredients) {
+            const baseQuantity = ing.quantity ? parseFloat(ing.quantity) : null;
+            const scaledQuantity = baseQuantity
+              ? baseQuantity * scalingFactor
+              : null;
+
+            await insertShoppingListItem(tx, {
+              shoppingListId: shoppingListId,
+              ingredientName: ing.name,
+              quantity: scaledQuantity,
+              unit: ing.unit,
+              displayName: ing.name,
+              sourceRecipeId: recipeId,
+              sourceRecipeName: recipe.name,
+            });
+          }
+        });
+
+        return { success: true };
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error adding recipe to shopping list:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to add recipe to shopping list",
+        });
+      }
+    }),
+
+  /**
    * Edit an ingredient's quantity - this UNLINKS it from all recipes
    * When a user edits an aggregated item, we:
    * 1. Delete all recipe-linked items for this ingredient

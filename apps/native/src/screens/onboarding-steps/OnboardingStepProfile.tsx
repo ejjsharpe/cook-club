@@ -159,7 +159,7 @@ const styles = StyleSheet.create((theme) => ({
   editBadgeText: {
     color: theme.colors.buttonText,
     fontSize: 12,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
   photoHint: {
     textAlign: "center",

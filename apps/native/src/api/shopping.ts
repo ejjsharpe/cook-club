@@ -9,6 +9,52 @@ export const useGetShoppingList = () => {
   return useQuery(trpc.shopping.getShoppingList.queryOptions());
 };
 
+// Get all user's shopping lists
+export const useGetUserShoppingLists = () => {
+  const trpc = useTRPC();
+  return useQuery(trpc.shopping.getUserShoppingLists.queryOptions());
+};
+
+// Create a new shopping list
+export const useCreateShoppingList = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions = trpc.shopping.createShoppingList.mutationOptions({
+    onSuccess: () => {
+      const shoppingListsFilter = trpc.shopping.getUserShoppingLists.pathFilter();
+      queryClient.invalidateQueries(shoppingListsFilter);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to create shopping list");
+    },
+  });
+
+  return useMutation(mutationOptions);
+};
+
+// Add recipe to a specific shopping list
+export const useAddRecipeToSpecificList = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions = trpc.shopping.addRecipeToSpecificList.mutationOptions({
+    onSuccess: () => {
+      // Invalidate both the specific lists and the main shopping list
+      const shoppingListsFilter = trpc.shopping.getUserShoppingLists.pathFilter();
+      const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
+      queryClient.invalidateQueries(shoppingListsFilter);
+      queryClient.invalidateQueries(shoppingListFilter);
+    },
+    onError: (error) => {
+      const message = error.message || "Failed to add recipe to shopping list";
+      Alert.alert("Error", message);
+    },
+  });
+
+  return useMutation(mutationOptions);
+};
+
 // Add recipe to shopping list with optimistic updates
 export const useAddRecipeToShoppingList = () => {
   const trpc = useTRPC();

@@ -15,6 +15,7 @@ import {
 } from "@/lib/signedInContext";
 import { AddRecipeToShoppingListScreen } from "@/screens/AddRecipeToShoppingListScreen";
 import { CollectionDetailScreen } from "@/screens/CollectionDetailScreen";
+import { CookModeScreen } from "@/screens/CookModeScreen";
 import { EditProfileScreen } from "@/screens/EditProfileScreen";
 import EditRecipeScreen from "@/screens/EditRecipeScreen";
 import { FollowsScreen } from "@/screens/FollowsScreen";
@@ -46,6 +47,18 @@ declare global {
       };
       RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
       CollectionDetail: { collectionId: number };
+      CookMode: {
+        recipeName: string;
+        instructionSections: {
+          id: number;
+          name: string | null;
+          instructions: {
+            id: number;
+            instruction: string;
+            imageUrl?: string | null;
+          }[];
+        }[];
+      };
       [key: string]: undefined;
     }
   }
@@ -86,6 +99,13 @@ const RootStack = createNativeStackNavigator({
         RecipeDetail: { screen: RecipeDetailScreen },
         CollectionDetail: { screen: CollectionDetailScreen },
         AddRecipeToShoppingList: { screen: AddRecipeToShoppingListScreen },
+        CookMode: {
+          screen: CookModeScreen,
+          options: {
+            presentation: "fullScreenModal",
+            animation: "slide_from_bottom",
+          },
+        },
       },
     },
 

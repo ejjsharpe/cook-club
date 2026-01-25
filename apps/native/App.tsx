@@ -1,15 +1,4 @@
 import "@/styles/unistyles";
-import {
-  AlbertSans_400Regular,
-  AlbertSans_500Medium,
-  AlbertSans_600SemiBold,
-  AlbertSans_700Bold,
-} from "@expo-google-fonts/albert-sans";
-import {
-  LibreBaskerville_400Regular,
-  LibreBaskerville_700Bold,
-  LibreBaskerville_400Regular_Italic,
-} from "@expo-google-fonts/libre-baskerville";
 import { DefaultTheme } from "@react-navigation/native";
 import { Asset } from "expo-asset";
 import { useFonts } from "expo-font";
@@ -65,13 +54,10 @@ function cacheImages(images: any[]) {
 
 export default function App() {
   const [isFontsLoaded, isFontsError] = useFonts({
-    AlbertSans_400Regular,
-    AlbertSans_500Medium,
-    AlbertSans_600SemiBold,
-    AlbertSans_700Bold,
-    LibreBaskerville_400Regular,
-    LibreBaskerville_700Bold,
-    LibreBaskerville_400Regular_Italic,
+    "Satoshi-Regular": require("@/assets/fonts/Satoshi/Satoshi-Regular.otf"),
+    "Satoshi-Bold": require("@/assets/fonts/Satoshi/Satoshi-Bold.otf"),
+    "Satoshi-Black": require("@/assets/fonts/Satoshi/Satoshi-Black.otf"),
+    "Satoshi-Italic": require("@/assets/fonts/Satoshi/Satoshi-Italic.otf"),
   });
   const isFontsReady = isFontsLoaded || isFontsError;
   const [isImagesReady, setIsImagesReady] = useState(false);

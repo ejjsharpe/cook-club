@@ -164,7 +164,7 @@ const styles = StyleSheet.create((theme) => ({
   avatarInitials: {
     color: theme.colors.buttonText,
     fontSize: 14,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
   replyAvatarInitials: {
     fontSize: 11,
@@ -197,10 +197,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   actionText: {
     color: theme.colors.textSecondary,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
   deleteText: {
     color: theme.colors.destructive,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
 }));

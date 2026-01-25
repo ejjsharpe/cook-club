@@ -32,26 +32,26 @@ const styles = StyleSheet.create((theme) => ({
       type: {
         // iOS Large Title: 34pt Regular
         largeTitle: {
-          fontSize: 34,
-          lineHeight: 41,
+          fontSize: 38,
+          lineHeight: 45,
           color: theme.colors.text,
-          fontFamily: theme.fonts.baskervilleBold,
+          fontFamily: theme.fonts.black,
           letterSpacing: -1,
         },
         // Screen Title: Same as title1 but with 44 line height for tab headers
         screenTitle: {
-          fontSize: 28,
+          fontSize: 32,
           lineHeight: 44,
           color: theme.colors.text,
-          fontFamily: theme.fonts.baskervilleBold,
+          fontFamily: theme.fonts.black,
           letterSpacing: -1,
         },
         // iOS Title 1: 28pt Regular
         title1: {
-          fontSize: 28,
-          lineHeight: 34,
+          fontSize: 32,
+          lineHeight: 38,
           color: theme.colors.text,
-          fontFamily: theme.fonts.baskervilleBold,
+          fontFamily: theme.fonts.black,
           letterSpacing: -1,
         },
         // iOS Title 2: 22pt Regular
@@ -59,7 +59,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 22,
           lineHeight: 28,
           color: theme.colors.text,
-          fontFamily: theme.fonts.albertBold,
+          fontFamily: theme.fonts.bold,
           letterSpacing: 0.35,
         },
         // iOS Title 3: 20pt Regular
@@ -67,7 +67,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 20,
           lineHeight: 25,
           color: theme.colors.text,
-          fontFamily: theme.fonts.albertSemiBold,
+          fontFamily: theme.fonts.semiBold,
           letterSpacing: 0.38,
         },
         // iOS Headline: 17pt Semibold
@@ -75,7 +75,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 17,
           lineHeight: 22,
           color: theme.colors.text,
-          fontFamily: theme.fonts.albertSemiBold,
+          fontFamily: theme.fonts.semiBold,
           letterSpacing: -0.41,
         },
         // iOS Body: 17pt Regular
@@ -83,7 +83,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 17,
           lineHeight: 22,
           color: theme.colors.text,
-          fontFamily: theme.fonts.albertRegular,
+          fontFamily: theme.fonts.regular,
           letterSpacing: -0.41,
         },
         // Highlight variant (same as body but primary color)
@@ -91,7 +91,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 17,
           lineHeight: 22,
           color: theme.colors.primary,
-          fontFamily: theme.fonts.albertSemiBold,
+          fontFamily: theme.fonts.semiBold,
           letterSpacing: -0.41,
         },
         // Body faded variant
@@ -99,7 +99,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 17,
           lineHeight: 22,
           color: theme.colors.textSecondary,
-          fontFamily: theme.fonts.albertRegular,
+          fontFamily: theme.fonts.regular,
           letterSpacing: -0.41,
         },
         // iOS Callout: 16pt Regular
@@ -107,7 +107,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 16,
           lineHeight: 21,
           color: theme.colors.text,
-          fontFamily: theme.fonts.albertRegular,
+          fontFamily: theme.fonts.regular,
           letterSpacing: -0.32,
         },
         // iOS Subheadline: 15pt Regular
@@ -115,7 +115,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 15,
           lineHeight: 20,
           color: theme.colors.text,
-          fontFamily: theme.fonts.albertRegular,
+          fontFamily: theme.fonts.regular,
           letterSpacing: -0.24,
         },
         // iOS Footnote: 13pt Regular
@@ -123,7 +123,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 13,
           lineHeight: 18,
           color: theme.colors.text,
-          fontFamily: theme.fonts.albertRegular,
+          fontFamily: theme.fonts.regular,
           letterSpacing: -0.08,
         },
         // iOS Caption 1: 12pt Regular
@@ -131,7 +131,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 12,
           lineHeight: 16,
           color: theme.colors.textSecondary,
-          fontFamily: theme.fonts.albertRegular,
+          fontFamily: theme.fonts.regular,
           letterSpacing: 0,
         },
         // iOS Caption 2: 11pt Regular
@@ -139,7 +139,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 11,
           lineHeight: 13,
           color: theme.colors.textSecondary,
-          fontFamily: theme.fonts.albertRegular,
+          fontFamily: theme.fonts.regular,
           letterSpacing: 0.07,
         },
         // Alias: heading -> headline (for backwards compatibility)
@@ -147,7 +147,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 17,
           lineHeight: 22,
           color: theme.colors.text,
-          fontFamily: theme.fonts.albertSemiBold,
+          fontFamily: theme.fonts.semiBold,
           letterSpacing: -0.41,
         },
         // Alias: caption -> footnote (for backwards compatibility)
@@ -155,7 +155,7 @@ const styles = StyleSheet.create((theme) => ({
           fontSize: 13,
           lineHeight: 18,
           color: theme.colors.textSecondary,
-          fontFamily: theme.fonts.albertRegular,
+          fontFamily: theme.fonts.regular,
           letterSpacing: -0.08,
         },
       },

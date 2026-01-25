@@ -742,7 +742,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   clearButtonText: {
     color: theme.colors.primary,
     fontSize: 15,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
 
   // Recipe Cards Carousel
@@ -773,7 +773,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   recipeCardText: {
     fontSize: 13,
-    fontFamily: theme.fonts.albertMedium,
+    fontFamily: theme.fonts.medium,
     color: theme.colors.text,
     marginTop: 8,
     lineHeight: 16,
@@ -817,7 +817,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   addRecipeText: {
     fontSize: 13,
-    fontFamily: theme.fonts.albertMedium,
+    fontFamily: theme.fonts.medium,
     color: theme.colors.primary,
     marginTop: 8,
   },
@@ -847,7 +847,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.inputBackground,
     fontSize: 17,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     color: theme.colors.text,
   },
   inputPlaceholder: {
@@ -882,7 +882,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   sectionTitle: {
     color: theme.colors.text,
     fontSize: 20,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
   sectionCheck: {
     width: 22,

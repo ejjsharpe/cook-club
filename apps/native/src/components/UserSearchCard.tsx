@@ -121,7 +121,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   followText: {
     color: "white",
-    fontFamily: theme.fonts.albertBold,
+    fontFamily: theme.fonts.bold,
     fontSize: 14,
   },
 }));

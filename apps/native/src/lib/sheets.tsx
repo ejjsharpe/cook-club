@@ -1,11 +1,13 @@
 import { SheetDefinition, SheetRegister } from "react-native-actions-sheet";
 
 import type { ShareStatus } from "@/api/mealPlan";
+import { AdjustRecipeSheet } from "@/components/AdjustRecipeSheet";
 import { BasicImportSheet } from "@/components/BasicImportSheet";
 import { CollectionSelectorSheet } from "@/components/CollectionSelectorSheet";
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { CookingReviewSheet } from "@/components/CookingReviewSheet";
 import { FilterSheet } from "@/components/FilterBottomSheet";
+import { ShoppingListSelectorSheet } from "@/components/ShoppingListSelectorSheet";
 import { SignInSheet } from "@/components/SignInSheet";
 import { SignUpSheet } from "@/components/SignUpSheet";
 import { SmartImportSheet } from "@/components/SmartImportSheet";
@@ -29,6 +31,26 @@ declare module "react-native-actions-sheet" {
         maxTotalTime?: string;
         onTimeChange: (time: string | undefined) => void;
         allTags?: { id: number; name: string; type: string; count?: number }[];
+      };
+    }>;
+    "adjust-recipe-sheet": SheetDefinition<{
+      payload: {
+        servings: number;
+        onServingsChange: (servings: number) => void;
+      };
+    }>;
+    "shopping-list-selector-sheet": SheetDefinition<{
+      payload: {
+        recipeId: number;
+        recipeName: string;
+        ingredients: {
+          id: number;
+          quantity: string | null;
+          unit: string | null;
+          name: string;
+          preparation?: string | null;
+        }[];
+        servings?: number;
       };
     }>;
     "collection-selector-sheet": SheetDefinition<{
@@ -100,6 +122,8 @@ export const Sheets = () => {
         "sign-up-sheet": SignUpSheet,
         "comments-sheet": CommentsSheet,
         "filter-sheet": FilterSheet,
+        "adjust-recipe-sheet": AdjustRecipeSheet,
+        "shopping-list-selector-sheet": ShoppingListSelectorSheet,
         "collection-selector-sheet": CollectionSelectorSheet,
         "cooking-review-sheet": CookingReviewSheet,
         "smart-import-sheet": SmartImportSheet,

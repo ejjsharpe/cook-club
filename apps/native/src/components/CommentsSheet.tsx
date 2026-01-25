@@ -302,7 +302,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 12,
     fontSize: 16,
     color: theme.colors.text,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     maxHeight: 100,
     minHeight: 44,
   },

@@ -78,7 +78,7 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     fontSize: 17,
     color: theme.colors.text,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
   },
   placeholder: {
     color: theme.colors.placeholderText,

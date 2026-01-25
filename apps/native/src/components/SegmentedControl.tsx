@@ -263,6 +263,6 @@ const styles = StyleSheet.create((theme) => ({
 
 const tabTextStyles = StyleSheet.create((theme) => ({
   text: {
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
 }));

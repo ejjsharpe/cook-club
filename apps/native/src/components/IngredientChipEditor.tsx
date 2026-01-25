@@ -155,7 +155,7 @@ const styles = StyleSheet.create((theme) => ({
   input: {
     flex: 1,
     fontSize: 16,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     color: theme.colors.text,
     paddingVertical: 4,
     minWidth: 100,

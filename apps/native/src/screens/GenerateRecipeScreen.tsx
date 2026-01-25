@@ -277,13 +277,13 @@ const styles = StyleSheet.create((theme) => ({
   userText: {
     color: "#fff",
     fontSize: 16,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     lineHeight: 22,
   },
   assistantText: {
     color: theme.colors.text,
     fontSize: 16,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     lineHeight: 22,
   },
   suggestedReplies: {
@@ -301,7 +301,7 @@ const styles = StyleSheet.create((theme) => ({
   suggestionText: {
     color: theme.colors.primary,
     fontSize: 14,
-    fontFamily: theme.fonts.albertMedium,
+    fontFamily: theme.fonts.medium,
   },
   loadingContainer: {
     flexDirection: "row",
@@ -329,7 +329,7 @@ const styles = StyleSheet.create((theme) => ({
         ? "rgba(0,0,0,0.04)"
         : "rgba(255,255,255,0.06)",
     fontSize: 16,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     color: theme.colors.text,
   },
   sendButton: {

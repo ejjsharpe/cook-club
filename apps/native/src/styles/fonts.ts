@@ -1,9 +1,8 @@
 export const fonts = {
-  albertRegular: "AlbertSans_400Regular",
-  albertMedium: "AlbertSans_500Medium",
-  albertSemiBold: "AlbertSans_600SemiBold",
-  albertBold: "AlbertSans_700Bold",
-  baskervilleRegular: "LibreBaskerville_400Regular",
-  baskervilleBold: "LibreBaskerville_700Bold",
-  baskervileItalic: "LibreBaskerville_400Regular_Italic",
+  regular: "Satoshi-Regular",
+  medium: "Satoshi-Medium",
+  semiBold: "Satoshi-Bold",
+  bold: "Satoshi-Bold",
+  black: "Satoshi-Black",
+  italic: "Satoshi-Italic",
 };

@@ -36,7 +36,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 20,
     borderRadius: 25,
     backgroundColor: theme.colors.inputBackground,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     fontSize: 17,
     color: theme.colors.text,
   },

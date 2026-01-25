@@ -475,7 +475,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 14,
     borderRadius: theme.borderRadius.large,
     backgroundColor: theme.colors.inputBackground,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
     fontSize: 16,
     color: theme.colors.text,
   },

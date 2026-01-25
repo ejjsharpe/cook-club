@@ -227,7 +227,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   sectionTitle: {
     color: theme.colors.text,
     fontSize: 20,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
     marginLeft: 24,
   },
   section: {

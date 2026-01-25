@@ -117,6 +117,6 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   subheader: { fontSize: 21 },
   masterpiecesText: {
-    fontFamily: theme.fonts.baskervileItalic,
+    fontFamily: theme.fonts.italic,
   },
 }));

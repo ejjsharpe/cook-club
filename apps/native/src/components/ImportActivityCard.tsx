@@ -246,7 +246,7 @@ const styles = StyleSheet.create((theme) => ({
   avatarInitials: {
     color: theme.colors.buttonText,
     fontSize: 17,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
   },
   userInfo: {
     flex: 1,

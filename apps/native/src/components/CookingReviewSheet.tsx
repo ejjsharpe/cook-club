@@ -284,7 +284,7 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 16,
     color: theme.colors.text,
     minHeight: 100,
-    fontFamily: theme.fonts.albertRegular,
+    fontFamily: theme.fonts.regular,
   },
   imagesRow: {
     gap: 12,

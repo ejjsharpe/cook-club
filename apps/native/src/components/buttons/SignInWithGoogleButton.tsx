@@ -39,7 +39,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   text: {
     fontSize: 17,
-    fontFamily: theme.fonts.albertSemiBold,
+    fontFamily: theme.fonts.semiBold,
     color: theme.colors.text,
   },
 }));
