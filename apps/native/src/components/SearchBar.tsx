@@ -65,7 +65,7 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    height: SEARCH_BAR_HEIGHT,
+    minHeight: SEARCH_BAR_HEIGHT,
     backgroundColor: theme.colors.inputBackground,
     borderRadius: SEARCH_BAR_HEIGHT / 2,
     paddingHorizontal: 16,

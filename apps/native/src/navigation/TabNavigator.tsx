@@ -1,32 +1,68 @@
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeBottomTabNavigator } from "@react-navigation/bottom-tabs/unstable";
 
-import { FloatingTabBar } from "@/components/FloatingTabBar";
 import { ShareIntentHandler } from "@/components/ShareIntentHandler";
-import { TabBarProvider } from "@/lib/tabBarContext";
 import { AddRecipeScreen } from "@/screens/AddRecipeScreen";
 import { HomeScreen } from "@/screens/HomeScreen";
 import { MealPlanScreen } from "@/screens/MealPlanScreen";
 import { MyRecipesScreen } from "@/screens/MyRecipesScreen";
 import { ShoppingListScreen } from "@/screens/ShoppingListScreen";
+import { ThemeContext } from "@react-navigation/native";
+import { UnistylesRuntime } from "react-native-unistyles";
 
-const Tab = createBottomTabNavigator();
+const Tab = createNativeBottomTabNavigator();
 
 export const TabNavigator = () => {
+  const  theme = UnistylesRuntime.getTheme()
   return (
-    <TabBarProvider>
+    <>
       <ShareIntentHandler />
       <Tab.Navigator
-        tabBar={(props) => <FloatingTabBar {...props} />}
         screenOptions={{
           headerShown: false,
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarMinimizeBehavior: "onScrollDown",
         }}
       >
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="My Recipes" component={MyRecipesScreen} />
-        <Tab.Screen name="Add recipe" component={AddRecipeScreen} />
-        <Tab.Screen name="Meal Plan" component={MealPlanScreen} />
-        <Tab.Screen name="Shopping List" component={ShoppingListScreen} />
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
+            tabBarIcon: { type: "sfSymbol", name: "house.fill" },
+          }}
+        />
+        <Tab.Screen
+          name="My Recipes"
+          component={MyRecipesScreen}
+          options={{
+            tabBarIcon: { type: "sfSymbol", name: "book.fill" },
+          }}
+        />
+        <Tab.Screen
+          name="Add recipe"
+          component={AddRecipeScreen}
+          options={{
+            tabBarIcon: { type: "sfSymbol", name: "plus.circle.fill" },
+          }}
+        />
+        <Tab.Screen
+          name="Meal Plan"
+          component={MealPlanScreen}
+          options={{
+                      tabBarLabelVisibilityMode: 'selected',
+
+            tabBarIcon: { type: "sfSymbol", name: "calendar" },
+          }}
+        />
+        <Tab.Screen
+          name="Shopping List"
+          component={ShoppingListScreen}
+          options={{
+                      tabBarLabelVisibilityMode: 'selected',
+
+            tabBarIcon: { type: "sfSymbol", name: "cart.fill" },
+          }}
+        />
       </Tab.Navigator>
-    </TabBarProvider>
+    </>
   );
 };

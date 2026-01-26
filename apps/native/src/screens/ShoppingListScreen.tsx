@@ -46,11 +46,9 @@ import {
   useRemoveRecipeFromList,
   useAddManualItem,
 } from "@/api/shopping";
-import { FLOATING_TAB_BAR_HEIGHT } from "@/components/FloatingTabBar";
 import { ShoppingListSkeleton, SkeletonContainer } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { useTabBar, useTabBarScroll } from "@/lib/tabBarContext";
 
 interface ShoppingListItem {
   id: number;
@@ -283,11 +281,11 @@ const SectionCheck = ({ isComplete }: { isComplete: boolean }) => {
   );
 };
 
+const TAB_BAR_HEIGHT = 80; // Approximate native tab bar height
+
 export const ShoppingListScreen = () => {
   const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
-  const { isVisible } = useTabBar();
-  const { onScroll: onTabBarScroll } = useTabBarScroll();
   const [manualItemText, setManualItemText] = useState("");
   const { progress: keyboardswipeProgress } = useReanimatedKeyboardAnimation();
 
@@ -310,31 +308,11 @@ export const ShoppingListScreen = () => {
   });
 
   // Base padding for when keyboard is closed and tab bar is visible
-  const basePadding = FLOATING_TAB_BAR_HEIGHT + 4;
+  const basePadding = TAB_BAR_HEIGHT + 4;
 
   const inputTransformAnimatedStyle = useAnimatedStyle(() => {
-    // When keyboard is closed, slide out with tab bar using same spring config
-    const closedOffset =
-      isVisible.value === 1 ? 0 : INPUT_SECTION_HEIGHT + basePadding;
-
-    // Interpolate between closed and open states based on keyboard progress
-    const translateY = interpolate(
-      keyboardswipeProgress.value,
-      [0, 1],
-      [closedOffset, basePadding],
-    );
-
     return {
       paddingBottom: basePadding,
-      transform: [
-        {
-          translateY: withSpring(translateY, {
-            damping: 200,
-            stiffness: 400,
-            mass: 2,
-          }),
-        },
-      ],
     };
   });
 
@@ -380,11 +358,8 @@ export const ShoppingListScreen = () => {
       clearButtonOpacity.value = withTiming(clearShouldHide ? 0 : 1, {
         duration: 150,
       });
-
-      // Also handle tab bar visibility
-      onTabBarScroll(event);
     },
-    [titleOpacity, clearButtonOpacity, onTabBarScroll],
+    [titleOpacity, clearButtonOpacity],
   );
 
   const { data, isLoading, error } = useGetShoppingList();
@@ -831,8 +806,8 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   inputGradient: {
     flex: 1,
-    paddingBottom: rt.insets.bottom + FLOATING_TAB_BAR_HEIGHT,
-    marginBottom: -(rt.insets.bottom + FLOATING_TAB_BAR_HEIGHT),
+    paddingBottom: rt.insets.bottom + TAB_BAR_HEIGHT,
+    marginBottom: -(rt.insets.bottom + TAB_BAR_HEIGHT),
   },
   inputSection: {
     flexDirection: "row",

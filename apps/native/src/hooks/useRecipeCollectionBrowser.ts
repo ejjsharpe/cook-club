@@ -1,7 +1,5 @@
 import { useCallback, useState } from "react";
-import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { useAnimatedScrollHandler } from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
 
 import { useCollectionData } from "./useCollectionData";
 import { useRecipeData } from "./useRecipeData";
@@ -14,7 +12,6 @@ export type { CollectionWithMetadata } from "./useCollectionData";
 export type { TabType } from "./useTabNavigation";
 
 interface UseRecipeCollectionBrowserOptions {
-  onTabBarScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /** External search query - when provided, uses this instead of internal state */
   externalSearchQuery?: string;
   /** Initial tab to display */
@@ -22,7 +19,6 @@ interface UseRecipeCollectionBrowserOptions {
 }
 
 export const useRecipeCollectionBrowser = ({
-  onTabBarScroll,
   externalSearchQuery,
   initialTab,
 }: UseRecipeCollectionBrowserOptions = {}) => {
@@ -100,38 +96,18 @@ export const useRecipeCollectionBrowser = ({
     setIsRefreshing(false);
   }, [refetchRecipes, refetchCollections]);
 
-  // Scroll handlers that delegate to external callback
+  // Scroll handlers (native tab bar handles visibility automatically)
   const recipesScrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
+    onScroll: () => {
       "worklet";
-      const offsetY = event.contentOffset.y;
-
-      if (onTabBarScroll) {
-        scheduleOnRN(onTabBarScroll, {
-          nativeEvent: {
-            contentOffset: { y: offsetY },
-            contentSize: { height: event.contentSize.height },
-            layoutMeasurement: { height: event.layoutMeasurement.height },
-          },
-        } as NativeSyntheticEvent<NativeScrollEvent>);
-      }
+      // Native tab bar handles minimize behavior automatically
     },
   });
 
   const collectionsScrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
+    onScroll: () => {
       "worklet";
-      const offsetY = event.contentOffset.y;
-
-      if (onTabBarScroll) {
-        scheduleOnRN(onTabBarScroll, {
-          nativeEvent: {
-            contentOffset: { y: offsetY },
-            contentSize: { height: event.contentSize.height },
-            layoutMeasurement: { height: event.layoutMeasurement.height },
-          },
-        } as NativeSyntheticEvent<NativeScrollEvent>);
-      }
+      // Native tab bar handles minimize behavior automatically
     },
   });
 

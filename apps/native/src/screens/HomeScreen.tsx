@@ -44,7 +44,6 @@ import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { UserSearchCard } from "@/components/UserSearchCard";
 import { useDebounce } from "@/hooks/useDebounce";
-import { useTabBarScroll } from "@/lib/tabBarContext";
 
 // ─── Header Component ─────────────────────────────────────────────────────────
 
@@ -109,7 +108,6 @@ export const HomeScreen = () => {
   const searchBarRef = useRef<View>(null);
   useScrollToTop(browseScrollRef);
   const navigation = useNavigation();
-  const { onScroll: onTabBarScroll } = useTabBarScroll();
   const insets = UnistylesRuntime.insets;
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -325,11 +323,8 @@ export const HomeScreen = () => {
       avatarOpacity.value = withTiming(avatarShouldHide ? 0 : 1, {
         duration: 150,
       });
-
-      // Also handle tab bar visibility
-      onTabBarScroll(event);
     },
-    [scrollY, titleOpacity, avatarOpacity, onTabBarScroll],
+    [scrollY, titleOpacity, avatarOpacity],
   );
 
   // ─── Render Functions ─────────────────────────────────────────────────────────

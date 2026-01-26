@@ -3,11 +3,12 @@ import { memo } from "react";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { FLOATING_TAB_BAR_HEIGHT } from "./FloatingTabBar";
 import { SEARCH_BAR_HEIGHT } from "./SearchBar";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
 import { BaseButton } from "./buttons/BaseButton";
+
+const TAB_BAR_HEIGHT = 80; // Approximate native tab bar height
 
 // Header height: VSpace(8) + HeaderRow(44) + VSpace(20) + SearchBar + VSpace(16)
 const HEADER_HEIGHT = 8 + 44 + 20 + SEARCH_BAR_HEIGHT + 16;
@@ -47,7 +48,7 @@ const styles = StyleSheet.create((theme, rt) => ({
       rt.screen.height -
       rt.insets.top -
       HEADER_HEIGHT -
-      FLOATING_TAB_BAR_HEIGHT -
+      TAB_BAR_HEIGHT -
       rt.insets.bottom,
     alignItems: "center",
     justifyContent: "center",

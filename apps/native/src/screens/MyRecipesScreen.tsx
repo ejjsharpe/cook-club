@@ -43,17 +43,16 @@ import type {
   CollectionWithMetadata,
   TabType,
 } from "@/hooks/useRecipeCollectionBrowser";
-import { useTabBarScroll } from "@/lib/tabBarContext";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 20;
 const HEADER_HEIGHT = 52;
 const COLLECTION_CARD_WIDTH = 140;
-const BACK_BUTTON_WIDTH = 44;
-const BACK_BUTTON_GAP = 12;
+const BACK_BUTTON_WIDTH = 50;
+const BACK_BUTTON_GAP = 8;
 const FILTER_BUTTON_SIZE = 50;
-const FILTER_BUTTON_GAP = 12;
+const FILTER_BUTTON_GAP = 8;
 
 // Search mode layout constants (from RecipeCollectionBrowser)
 const SEARCH_HEADER_CONTENT_HEIGHT = 134; // search (50) + VSpace (8) + segmented (44) + VSpace (32)
@@ -234,7 +233,6 @@ const AnimatedCollectionOverlay = memo(function AnimatedCollectionOverlay({
 
 export const MyRecipesScreen = () => {
   const navigation = useNavigation();
-  const { onScroll: onTabBarScroll } = useTabBarScroll();
   const insets = UnistylesRuntime.insets;
 
   // ─── State ────────────────────────────────────────────────────────────────────
@@ -981,7 +979,6 @@ export const MyRecipesScreen = () => {
             onRecipePress={handleRecipePress}
             onCollectionPress={handleCollectionPress}
             recipesEmptyMessage="No recipes in your library yet. Import recipes from the feed or add your own!"
-            onTabBarScroll={onTabBarScroll}
             hideSearchBar
             externalSearchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}

@@ -29,11 +29,9 @@ import {
   type MealPlanEntry,
 } from "@/api/mealPlan";
 import { useUser } from "@/api/user";
-import { FLOATING_TAB_BAR_HEIGHT } from "@/components/FloatingTabBar";
 import { StackedAvatars } from "@/components/StackedAvatars";
 import { Text } from "@/components/Text";
 import { DayGroup, DayHeader } from "@/components/mealPlan";
-import { useTabBarScroll } from "@/lib/tabBarContext";
 
 interface DaySection {
   date: Date;
@@ -75,7 +73,6 @@ const generateDateRange = (startDate: Date, days: number): Date[] => {
 
 export const MealPlanScreen = () => {
   const { theme } = useUnistyles();
-  const { onScroll: onTabBarScroll } = useTabBarScroll();
   const navigation =
     useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList>>();
 
@@ -117,11 +114,8 @@ export const MealPlanScreen = () => {
       headerButtonsOpacity.value = withTiming(buttonsShouldHide ? 0 : 1, {
         duration: 150,
       });
-
-      // Also handle tab bar visibility
-      onTabBarScroll(event);
     },
-    [titleOpacity, headerButtonsOpacity, onTabBarScroll],
+    [titleOpacity, headerButtonsOpacity],
   );
 
   // Calculate date range (2 weeks: 1 week back, 1 week forward)
@@ -460,7 +454,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     marginLeft: -22,
   },
   listContent: {
-    paddingBottom: FLOATING_TAB_BAR_HEIGHT + rt.insets.bottom + 20,
+    paddingBottom: rt.insets.bottom + 100,
   },
   sectionFooter: {
     height: 16,

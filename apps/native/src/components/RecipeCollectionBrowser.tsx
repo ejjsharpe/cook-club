@@ -1,5 +1,4 @@
 import { useCallback, useEffect } from "react";
-import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { View, Dimensions } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -39,7 +38,6 @@ interface RecipeCollectionBrowserProps {
   onCreateCollection?: () => void;
   isCreatingCollection?: boolean;
   recipesEmptyMessage?: string;
-  onTabBarScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   /** Hide the search bar (when using external search bar) */
   hideSearchBar?: boolean;
   /** External search query to sync with internal state */
@@ -67,7 +65,6 @@ export const RecipeCollectionBrowser = ({
   onCreateCollection,
   isCreatingCollection = false,
   recipesEmptyMessage = "No recipes in your library yet",
-  onTabBarScroll,
   hideSearchBar = false,
   externalSearchQuery,
   onSearchQueryChange,
@@ -100,7 +97,6 @@ export const RecipeCollectionBrowser = ({
     isRefreshing,
     handleRefresh,
   } = useRecipeCollectionBrowser({
-    onTabBarScroll,
     externalSearchQuery,
     initialTab,
   });

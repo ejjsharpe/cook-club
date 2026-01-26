@@ -1,3 +1,4 @@
+import { Appearance } from "react-native";
 import { UnistylesRuntime } from "react-native-unistyles";
 
 import { storage } from "./mmkv";
@@ -18,9 +19,13 @@ export function setThemePreference(theme: ThemePreference): void {
 export function applyThemePreference(preference: ThemePreference): void {
   if (preference === "system") {
     UnistylesRuntime.setAdaptiveThemes(true);
+    // Set to current system color scheme for native components
+    const systemScheme = Appearance.getColorScheme() ?? "light";
+    Appearance.setColorScheme(systemScheme);
   } else {
     UnistylesRuntime.setAdaptiveThemes(false);
     UnistylesRuntime.setTheme(preference);
+    Appearance.setColorScheme(preference);
   }
 }
 
