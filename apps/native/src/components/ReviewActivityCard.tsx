@@ -288,7 +288,7 @@ const styles = StyleSheet.create((theme) => ({
   card: {
     backgroundColor: theme.colors.background,
     paddingVertical: 16,
-    gap: 14,
+    gap: 12,
   },
   userHeader: {
     flexDirection: "row",
