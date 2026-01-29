@@ -43,7 +43,7 @@ export default function StartScreen() {
         offset={0}
         spacing={12}
         direction="horizontal"
-        speed={0.3}
+        speed={0.12}
         style={{ marginTop: -16, paddingVertical: 8 }}
       >
         <View style={{ flexDirection: "row", gap: 12 }}>
@@ -54,7 +54,7 @@ export default function StartScreen() {
         offset={22}
         spacing={12}
         direction="horizontal"
-        speed={0.2}
+        speed={0.08}
         reverse
         style={{ paddingVertical: 6 }}
       >
@@ -66,7 +66,7 @@ export default function StartScreen() {
         offset={64}
         spacing={12}
         direction="horizontal"
-        speed={0.25}
+        speed={0.1}
         style={{ paddingVertical: 6 }}
       >
         <View style={{ flexDirection: "row", gap: 12 }}>

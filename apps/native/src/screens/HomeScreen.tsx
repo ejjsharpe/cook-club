@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LegendList, type LegendListRef } from "@legendapp/list";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, useCallback, useMemo, useRef, memo, useEffect } from "react";
 import {
@@ -103,7 +103,7 @@ const HEADER_HEIGHT = 52; // Height of the cook club title + avatar row
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const HomeScreen = () => {
-  const browseScrollRef = useRef<LegendListRef>(null);
+  const browseScrollRef = useRef<FlashListRef<FeedItem>>(null);
   const searchListRef = useRef<FlatList>(null);
   const searchBarRef = useRef<View>(null);
   useScrollToTop(browseScrollRef);
@@ -505,7 +505,7 @@ export const HomeScreen = () => {
               />
             }
           >
-            <LegendList
+            <FlashList
               ref={browseScrollRef}
               data={activityFeedItems}
               renderItem={renderActivityItem}

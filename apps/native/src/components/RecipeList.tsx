@@ -1,25 +1,21 @@
-import { LegendList, type LegendListRenderItemProps } from "@legendapp/list";
+import {
+  AnimatedFlashList,
+  type ListRenderItemInfo,
+} from "@shopify/flash-list";
 import { useCallback } from "react";
 import { View, ActivityIndicator, RefreshControl } from "react-native";
-import Animated from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { VSpace } from "./Space";
 
 import type { Recipe } from "@/hooks/useRecipeData";
 
-const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
-  props: React.ComponentProps<typeof LegendList<T>>,
-) => React.ReactElement;
-
 interface RecipeListProps {
   recipes: Recipe[];
-  renderItem: (info: LegendListRenderItemProps<Recipe>) => React.ReactElement;
+  renderItem: (info: ListRenderItemInfo<Recipe>) => React.ReactElement;
   onLoadMore?: () => void;
   isFetchingMore?: boolean;
-  onScroll?: React.ComponentProps<
-    typeof AnimatedLegendList<Recipe>
-  >["onScroll"];
+  onScroll?: (event: any) => void;
   isRefreshing?: boolean;
   onRefresh?: () => void;
   headerHeight?: number;
@@ -59,7 +55,7 @@ export const RecipeList = ({
   };
 
   return (
-    <AnimatedLegendList
+    <AnimatedFlashList
       data={recipes}
       renderItem={renderItem}
       keyExtractor={(item) => item.id.toString()}

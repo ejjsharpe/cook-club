@@ -1,6 +1,9 @@
-import { LegendList, type LegendListRenderItemProps } from "@legendapp/list";
+import {
+  AnimatedFlashList,
+  type ListRenderItemInfo,
+} from "@shopify/flash-list";
 import { useCallback, useMemo } from "react";
-import { RefreshControl } from "react-native";
+import { View, RefreshControl } from "react-native";
 import Animated, { type AnimatedRef } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -10,10 +13,6 @@ import { VSpace } from "./Space";
 
 import type { CollectionWithMetadata } from "@/hooks/useCollectionData";
 
-const AnimatedLegendList = Animated.createAnimatedComponent(LegendList) as <T>(
-  props: React.ComponentProps<typeof LegendList<T>>,
-) => React.ReactElement;
-
 // Special item type for the create collection button
 type CreateCollectionItem = { id: "create"; type: "create" };
 export type CollectionListItem = CollectionWithMetadata | CreateCollectionItem;
@@ -21,14 +20,12 @@ export type CollectionListItem = CollectionWithMetadata | CreateCollectionItem;
 interface CollectionGridProps {
   collections: CollectionWithMetadata[];
   renderItem: (
-    info: LegendListRenderItemProps<CollectionListItem>,
+    info: ListRenderItemInfo<CollectionListItem>,
   ) => React.ReactElement | null;
   showCreateCard?: boolean;
   onCreateCollection?: () => void;
   isCreatingCollection?: boolean;
-  onScroll?: React.ComponentProps<
-    typeof AnimatedLegendList<CollectionListItem>
-  >["onScroll"];
+  onScroll?: (event: any) => void;
   isRefreshing?: boolean;
   onRefresh?: () => void;
   headerHeight?: number;
@@ -68,19 +65,30 @@ export const CollectionGrid = ({
     [insets.top, headerHeight],
   );
 
-  // Wrap renderItem to handle create card internally
+  // Wrap renderItem to handle create card internally and add grid gap styling
   const internalRenderItem = useCallback(
-    (info: LegendListRenderItemProps<CollectionListItem>) => {
+    (info: ListRenderItemInfo<CollectionListItem>) => {
       const { item, index } = info;
+      // Determine if this is in the left or right column
+      const isLeftColumn = index % 2 === 0;
+      const itemStyle = {
+        flex: 1,
+        marginLeft: isLeftColumn ? 0 : GRID_GAP / 2,
+        marginRight: isLeftColumn ? GRID_GAP / 2 : 0,
+        marginBottom: GRID_GAP,
+      };
+
       // Handle create collection item
       if ("type" in item && item.type === "create") {
         if (!onCreateCollection) return null;
         return (
-          <CreateCollectionCard
-            variant="grid"
-            onPress={onCreateCollection}
-            disabled={isCreatingCollection}
-          />
+          <View style={itemStyle}>
+            <CreateCollectionCard
+              variant="grid"
+              onPress={onCreateCollection}
+              disabled={isCreatingCollection}
+            />
+          </View>
         );
       }
       // Delegate to parent's renderItem for collection items
@@ -90,13 +98,16 @@ export const CollectionGrid = ({
       const isFirstCollection = showCreateCard ? index === 1 : index === 0;
       if (isFirstCollection && firstItemRef) {
         return (
-          <Animated.View ref={firstItemRef} style={styles.measureWrapper}>
+          <Animated.View
+            ref={firstItemRef}
+            style={[styles.measureWrapper, itemStyle]}
+          >
             {renderedItem}
           </Animated.View>
         );
       }
 
-      return renderedItem;
+      return <View style={itemStyle}>{renderedItem}</View>;
     },
     [
       onCreateCollection,
@@ -108,7 +119,7 @@ export const CollectionGrid = ({
   );
 
   return (
-    <AnimatedLegendList
+    <AnimatedFlashList
       data={collectionsList}
       renderItem={internalRenderItem}
       keyExtractor={(item) => item.id.toString()}
@@ -116,7 +127,6 @@ export const CollectionGrid = ({
       showsVerticalScrollIndicator={false}
       numColumns={2}
       contentContainerStyle={styles.gridContent}
-      columnWrapperStyle={styles.gridRow as any}
       onScroll={onScroll}
       scrollEventThrottle={20}
       refreshControl={

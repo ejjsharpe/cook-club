@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LegendList } from "@legendapp/list";
+import { FlashList } from "@shopify/flash-list";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -447,7 +447,7 @@ export const UserProfileScreen = () => {
         isLoading={isLoading || !profile}
         skeleton={<UserProfileSkeleton />}
       >
-        <LegendList
+        <FlashList
           data={activities}
           renderItem={renderActivityItem}
           keyExtractor={(item) => item.id}

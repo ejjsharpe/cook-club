@@ -134,6 +134,7 @@ interface AnimatedCollectionOverlayProps {
   searchProgress: SharedValue<number>;
   animatingTab: SharedValue<TabType>;
   isAnimating: Readonly<SharedValue<boolean>>;
+  fadeOnly?: boolean;
 }
 
 const AnimatedCollectionOverlay = memo(function AnimatedCollectionOverlay({
@@ -147,6 +148,7 @@ const AnimatedCollectionOverlay = memo(function AnimatedCollectionOverlay({
   searchProgress,
   animatingTab,
   isAnimating,
+  fadeOnly = false,
 }: AnimatedCollectionOverlayProps) {
   // Calculate deltas for transform
   const deltaX = searchX - browseX;
@@ -162,28 +164,40 @@ const AnimatedCollectionOverlay = memo(function AnimatedCollectionOverlay({
   // Shared translateX - computed once per frame, used by both imageStyle and textStyle
   const animatedTranslateX = useDerivedValue(() => {
     "worklet";
+    if (fadeOnly) return 0;
     return searchProgress.value * deltaX;
   });
 
   // Memoize static position style to avoid recreation on each render
   const positionStyle = useMemo(
     () => ({
-      top: browseY,
-      left: browseX,
-      width: browseWidth,
+      top: fadeOnly ? searchY : browseY,
+      left: fadeOnly ? searchX : browseX,
+      width: fadeOnly ? searchWidth : browseWidth,
     }),
-    [browseY, browseX, browseWidth],
+    [browseY, browseX, browseWidth, searchY, searchX, searchWidth, fadeOnly],
   );
 
   // Combined image style - handles visibility, position, and scale in one animated style
   const imageStyle = useAnimatedStyle(() => {
     "worklet";
+    const isVisible = animatingTab.value === "collections" && isAnimating.value;
+
+    if (fadeOnly) {
+      // Fade only: no transform, just fade in with progress
+      return {
+        opacity: isVisible ? searchProgress.value : 0,
+        transform: [],
+        transformOrigin: "top left",
+      };
+    }
+
     const translateY = searchProgress.value * deltaY;
     // Scale interpolates from 1 to imageScale: 1 + progress * (imageScale - 1)
     const scale = 1 + searchProgress.value * (imageScale - 1);
 
     return {
-      opacity: animatingTab.value === "collections" && isAnimating.value ? 1 : 0,
+      opacity: isVisible ? 1 : 0,
       transform: [
         { translateX: animatedTranslateX.value },
         { translateY },
@@ -196,11 +210,21 @@ const AnimatedCollectionOverlay = memo(function AnimatedCollectionOverlay({
   // Text only translates (no scale), accounts for image height change
   const textStyle = useAnimatedStyle(() => {
     "worklet";
+    const isVisible = animatingTab.value === "collections" && isAnimating.value;
+
+    if (fadeOnly) {
+      // Fade only: no transform, just fade in with progress
+      return {
+        opacity: isVisible ? searchProgress.value : 0,
+        transform: [],
+      };
+    }
+
     // Text needs to move down by deltaY plus the extra image height from scaling
     const translateY = searchProgress.value * (deltaY + imageHeightDelta);
 
     return {
-      opacity: animatingTab.value === "collections" && isAnimating.value ? 1 : 0,
+      opacity: isVisible ? 1 : 0,
       transform: [{ translateX: animatedTranslateX.value }, { translateY }],
     };
   });
@@ -209,14 +233,17 @@ const AnimatedCollectionOverlay = memo(function AnimatedCollectionOverlay({
     "previewImages" in collection ? collection.previewImages : [];
   const recipeCount = "recipeCount" in collection ? collection.recipeCount : 0;
 
+  // Use search dimensions when fading only (card was off-screen)
+  const displayWidth = fadeOnly ? searchWidth : browseWidth;
+
   return (
     <View
       style={[styles.collectionOverlay, positionStyle]}
       pointerEvents="none"
     >
       {/* Image with scale transform */}
-      <Animated.View style={[{ width: browseWidth }, imageStyle]}>
-        <ImageGrid images={previewImages} width={browseWidth} />
+      <Animated.View style={[{ width: displayWidth }, imageStyle]}>
+        <ImageGrid images={previewImages} width={displayWidth} />
       </Animated.View>
       {/* Text with translate only (no scale) */}
       <Animated.View style={[styles.collectionOverlayText, textStyle]}>
@@ -453,7 +480,7 @@ export const MyRecipesScreen = () => {
         y: number;
         width: number;
       }[] = [];
-      if (measurements.collectionX && measurements.collectionX > 0) {
+      if (measurements.collectionX != null) {
         for (let i = 0; i < collectionCount; i++) {
           const collectionId = collectionIds[i];
           if (collectionId !== undefined) {
@@ -461,8 +488,7 @@ export const MyRecipesScreen = () => {
               id: collectionId,
               x:
                 measurements.collectionX +
-                i * (COLLECTION_CARD_WIDTH + COLLECTION_SEPARATOR_WIDTH) -
-                measurements.scrollOffset,
+                i * (COLLECTION_CARD_WIDTH + COLLECTION_SEPARATOR_WIDTH),
               y: measurements.collectionY ?? 0,
               width: COLLECTION_CARD_WIDTH,
             });
@@ -579,7 +605,7 @@ export const MyRecipesScreen = () => {
         y: number;
         width: number;
       }[] = [];
-      if (measurements.collectionX && measurements.collectionX > 0) {
+      if (measurements.collectionX != null) {
         for (let i = 0; i < collectionCount; i++) {
           const collectionId = collectionIds[i];
           if (collectionId !== undefined) {
@@ -587,8 +613,7 @@ export const MyRecipesScreen = () => {
               id: collectionId,
               x:
                 measurements.collectionX +
-                i * (COLLECTION_CARD_WIDTH + COLLECTION_SEPARATOR_WIDTH) -
-                measurements.scrollOffset,
+                i * (COLLECTION_CARD_WIDTH + COLLECTION_SEPARATOR_WIDTH),
               y: measurements.collectionY ?? 0,
               width: COLLECTION_CARD_WIDTH,
             });
@@ -1074,14 +1099,13 @@ export const MyRecipesScreen = () => {
       {/* Collection Transition Overlay (animating collection cards) - always mounted */}
       {collections.map((collection, index) => {
         const browsePos = browseCollectionPositions.current[index];
-        // Skip collections that are outside the viewport or don't have positions
-        if (
-          !browsePos ||
-          browsePos.x < -COLLECTION_CARD_WIDTH ||
-          browsePos.x > SCREEN_WIDTH
-        ) {
+        // Skip collections that don't have positions
+        if (!browsePos) {
           return null;
         }
+        // Cards completely off-screen should fade in at their search position
+        const isOffScreen =
+          browsePos.x < -COLLECTION_CARD_WIDTH || browsePos.x > SCREEN_WIDTH;
         const searchTarget = searchCollectionTarget.current
           ? getCollectionSearchTarget(index, searchCollectionTarget.current)
           : { x: COLLECTION_GRID_PADDING, y: 0, width: browsePos.width };
@@ -1098,6 +1122,7 @@ export const MyRecipesScreen = () => {
             searchProgress={searchProgress}
             animatingTab={animatingTab}
             isAnimating={isAnimating}
+            fadeOnly={isOffScreen}
           />
         );
       })}
