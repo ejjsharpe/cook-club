@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
-import { useKeepAwake } from "expo-keep-awake";
 import { Image } from "expo-image";
+import { useKeepAwake } from "expo-keep-awake";
 import { useRef, useState, useCallback } from "react";
 import {
   View,
@@ -228,7 +228,12 @@ export const CookModeScreen = () => {
       />
 
       {/* Progress Indicator */}
-      <View style={[styles.progressContainer, { paddingBottom: insets.bottom + 16 }]}>
+      <View
+        style={[
+          styles.progressContainer,
+          { paddingBottom: insets.bottom + 16 },
+        ]}
+      >
         <View style={styles.progressDots}>
           {flattenedInstructions.map((_, index) => (
             <View

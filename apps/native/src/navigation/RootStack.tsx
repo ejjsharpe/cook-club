@@ -96,7 +96,20 @@ const RootStack = createNativeStackNavigator({
         DietaryPreferences: { screen: DietaryPreferencesScreen },
         UserProfile: { screen: UserProfileScreen },
         FollowsList: { screen: FollowsScreen },
-        RecipeDetail: { screen: RecipeDetailScreen },
+        RecipeDetail: {
+          screen: RecipeDetailScreen,
+          options: {
+            headerShown: true,
+            headerTransparent: true,
+            headerTitle: "",
+            scrollEdgeEffects: {
+              top: "hidden",
+              bottom: "hidden",
+              left: "hidden",
+              right: "hidden",
+            },
+          },
+        },
         CollectionDetail: { screen: CollectionDetailScreen },
         AddRecipeToShoppingList: { screen: AddRecipeToShoppingListScreen },
         CookMode: {

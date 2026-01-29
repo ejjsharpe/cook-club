@@ -38,7 +38,8 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
   const effectiveWidth = width ?? measuredWidth;
 
   // Calculate proportional values based on width
-  const iconSize = effectiveWidth != null ? effectiveWidth * ICON_SIZE_RATIO : 40;
+  const iconSize =
+    effectiveWidth != null ? effectiveWidth * ICON_SIZE_RATIO : 40;
   const borderRadius =
     effectiveWidth != null ? effectiveWidth * BORDER_RADIUS_RATIO : 14;
 

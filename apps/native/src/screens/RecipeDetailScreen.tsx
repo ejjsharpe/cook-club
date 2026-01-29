@@ -4,7 +4,15 @@ import { useTRPC } from "@repo/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 import {
   View,
   TouchableOpacity,
@@ -28,7 +36,6 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useCreateCookingReview } from "@/api/activity";
 import {
   useRecipeDetail,
   useImportRecipe,
@@ -36,10 +43,9 @@ import {
   type ParsedRecipe,
 } from "@/api/recipe";
 import { useUser } from "@/api/user";
-import { DropdownMenu, DropdownMenuItem } from "@/components/DropdownMenu";
 import { PageIndicator } from "@/components/PageIndicator";
 import { SegmentedControl, TabOption } from "@/components/SegmentedControl";
-import { RecipeDetailSkeleton, SkeletonContainer } from "@/components/Skeleton";
+import { Skeleton } from "@/components/Skeleton";
 import { VSpace, HSpace } from "@/components/Space";
 import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { Text } from "@/components/Text";
@@ -54,7 +60,7 @@ import {
 import { formatMinutesShort } from "@/utils/timeUtils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const IMAGE_HEIGHT = 400;
+const IMAGE_HEIGHT = SCREEN_WIDTH;
 
 type RecipeDetailScreenParams = {
   RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
@@ -138,7 +144,6 @@ export const RecipeDetailScreen = () => {
   const hasInitializedServings = useRef(false);
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [menuVisible, setMenuVisible] = useState(false);
 
   // Handler for image carousel page changes
   const handleImageScroll = useCallback(
@@ -164,17 +169,6 @@ export const RecipeDetailScreen = () => {
       scrollY.value = event.contentOffset.y;
     },
   });
-  // Animated style for top buttons (fade out on scroll down)
-  const topButtonsAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: interpolate(
-        scrollY.value,
-        [0, 200],
-        [1, 0],
-        Extrapolation.CLAMP,
-      ),
-    };
-  });
 
   // Animated style for image carousel (scale on overscroll, parallax on scroll)
   const imageAnimatedStyle = useAnimatedStyle(() => {
@@ -192,15 +186,11 @@ export const RecipeDetailScreen = () => {
     const parallax = scrollY.value > 0 ? scrollY.value / 2 : 0;
 
     return {
-      transform: [
-        { translateY: scaleCompensation + parallax },
-        { scale },
-      ],
+      transform: [{ translateY: scaleCompensation + parallax }, { scale }],
     };
   });
 
   // Mutations
-  const createReviewMutation = useCreateCookingReview();
   const importMutation = useImportRecipe();
   const deleteMutation = useDeleteRecipe();
 
@@ -214,15 +204,116 @@ export const RecipeDetailScreen = () => {
     }
   }, [recipe?.servings]);
 
-  const servingMultiplier = recipe?.servings ? servings / recipe.servings : 1;
+  // Configure native header items
+  useLayoutEffect(() => {
+    const headerLeftItems: any[] = [
+      {
+        type: "button" as const,
+        label: "Back",
+        icon: {
+          type: "sfSymbol" as const,
+          name: "chevron.backward",
+        },
+        onPress: () => navigation.goBack(),
+      },
+    ];
 
-  const handleSaveRecipe = () => {
-    if (!recipe) return;
+    const headerRightItems: any[] = [];
 
-    SheetManager.show("collection-selector-sheet", {
-      payload: { recipeId: recipe.id },
+    // Show menu only when viewing own recipe (not in preview mode)
+    if (!isPreviewMode && isOwnRecipe) {
+      headerRightItems.push({
+        type: "menu" as const,
+        label: "Options",
+        icon: {
+          type: "sfSymbol" as const,
+          name: "ellipsis",
+        },
+        menu: {
+          items: [
+            {
+              type: "action" as const,
+              label: "Edit Recipe",
+              icon: {
+                type: "sfSymbol" as const,
+                name: "pencil",
+              },
+              onPress: () => {
+                Alert.alert(
+                  "Coming Soon",
+                  "Edit functionality will be available soon.",
+                );
+              },
+            },
+            {
+              type: "action" as const,
+              label: "Manage Collections",
+              icon: {
+                type: "sfSymbol" as const,
+                name: "bookmark",
+              },
+              onPress: () => {
+                if (recipe) {
+                  SheetManager.show("collection-selector-sheet", {
+                    payload: { recipeId: recipe.id },
+                  });
+                }
+              },
+            },
+            {
+              type: "action" as const,
+              label: "Delete Recipe",
+              icon: {
+                type: "sfSymbol" as const,
+                name: "trash",
+              },
+              destructive: true,
+              onPress: () => {
+                if (recipeId === null) return;
+                const id = recipeId;
+                Alert.alert(
+                  "Delete Recipe",
+                  "Are you sure you want to delete this recipe? This cannot be undone.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: async () => {
+                        try {
+                          await deleteMutation.mutateAsync({ recipeId: id });
+                          navigation.goBack();
+                        } catch (err: any) {
+                          Alert.alert(
+                            "Error",
+                            err?.message || "Failed to delete recipe",
+                          );
+                        }
+                      },
+                    },
+                  ],
+                );
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    navigation.setOptions({
+      unstable_headerLeftItems: () => headerLeftItems,
+      unstable_headerRightItems: () => headerRightItems,
     });
-  };
+  }, [
+    navigation,
+    isPreviewMode,
+    isOwnRecipe,
+    recipe,
+    recipeId,
+    deleteMutation,
+  ]);
+
+  const servingMultiplier = recipe?.servings ? servings / recipe.servings : 1;
 
   // Handler for Adjust button - opens adjust sheet
   const handleOpenAdjustSheet = () => {
@@ -271,24 +362,6 @@ export const RecipeDetailScreen = () => {
     });
   };
 
-  const handleReview = () => {
-    if (!recipe) return;
-
-    SheetManager.show("cooking-review-sheet", {
-      payload: {
-        recipeName: recipe.name,
-        onSubmit: async (data) => {
-          await createReviewMutation.mutateAsync({
-            recipeId: recipe.id,
-            rating: data.rating,
-            reviewText: data.reviewText,
-            imageUrls: data.imageUrls,
-          });
-        },
-      },
-    });
-  };
-
   const handleImportRecipe = async () => {
     if (!recipe) return;
 
@@ -302,35 +375,6 @@ export const RecipeDetailScreen = () => {
         err?.message || "Something went wrong while importing the recipe.";
       Alert.alert("Import Failed", message);
     }
-  };
-
-  const handleDeleteRecipe = () => {
-    if (recipeId === null) return;
-
-    const id = recipeId;
-    Alert.alert(
-      "Delete Recipe",
-      "Are you sure you want to delete this recipe? This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteMutation.mutateAsync({ recipeId: id });
-              navigation.goBack();
-            } catch (err: any) {
-              Alert.alert("Error", err?.message || "Failed to delete recipe");
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleEditRecipe = () => {
-    Alert.alert("Coming Soon", "Edit functionality will be available soon.");
   };
 
   // Preview mode handlers
@@ -371,28 +415,6 @@ export const RecipeDetailScreen = () => {
     setActiveTabIndex(index);
     setActiveTab(index === 0 ? "ingredients" : "method");
   };
-
-  const menuItems: DropdownMenuItem[] = [
-    {
-      key: "edit",
-      label: "Edit Recipe",
-      icon: "create-outline",
-      onPress: handleEditRecipe,
-    },
-    {
-      key: "collections",
-      label: "Manage Collections",
-      icon: "bookmark-outline",
-      onPress: handleSaveRecipe,
-    },
-    {
-      key: "delete",
-      label: "Delete Recipe",
-      icon: "trash-outline",
-      destructive: true,
-      onPress: handleDeleteRecipe,
-    },
-  ];
 
   // Show error state only when not loading, not in preview mode, and there's an error or no recipe
   if (!isPreviewMode && !isPending && (error || !recipe)) {
@@ -555,127 +577,138 @@ export const RecipeDetailScreen = () => {
     );
   };
 
+  const isLoading = !isPreviewMode && isPending;
+
   return (
-    <SkeletonContainer
-      isLoading={!isPreviewMode && (isPending || !recipe)}
-      skeleton={<RecipeDetailSkeleton />}
-    >
-      {recipe ? (
-        <View style={styles.screen}>
-          {/* Top Buttons - outside ScrollView for consistent positioning */}
-          {/* pointerEvents box-none lets touches pass through to image carousel between buttons */}
-          <Animated.View
-            style={[
-              styles.topButtons,
-              { top: insets.top + 8 },
-              topButtonsAnimatedStyle,
-            ]}
-            pointerEvents="box-none"
-          >
-            <TouchableOpacity
-              style={styles.overlayButton}
-              onPress={() => navigation.goBack()}
-            >
-              <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
-                <Ionicons name="chevron-back" size={24} color="white" />
-              </BlurView>
-            </TouchableOpacity>
-
-            {/* Hide menu in preview mode */}
-            {!isPreviewMode && isOwnRecipe && (
-              <TouchableOpacity
-                style={styles.overlayButton}
-                onPress={() => setMenuVisible(true)}
-              >
-                <BlurView
-                  intensity={80}
-                  tint="dark"
-                  style={styles.blurContainer}
-                >
-                  <Ionicons
-                    name="ellipsis-horizontal"
-                    size={24}
-                    color="white"
-                  />
-                </BlurView>
-              </TouchableOpacity>
-            )}
-          </Animated.View>
-
-          <Animated.ScrollView
-            ref={scrollRef}
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
-            onScroll={scrollHandler}
-          >
-            {/* Image Carousel */}
-            {recipe.images && recipe.images.length > 0 && (
-              <View style={styles.imageCarouselContainer}>
-                <Animated.View style={imageAnimatedStyle}>
-                  <FlatList
-                    data={recipe.images}
-                    renderItem={renderImage}
-                    keyExtractor={(item) => item.id.toString()}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    onMomentumScrollEnd={handleImageScroll}
-                  />
-                </Animated.View>
-                <PageIndicator
-                  currentPage={currentImageIndex + 1}
-                  totalPages={recipe.images.length}
+    <View style={styles.screen}>
+      <Animated.ScrollView
+        ref={scrollRef}
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+      >
+        {/* Image Carousel */}
+        <View style={styles.imageCarouselContainer}>
+          {recipe?.images && recipe.images.length > 0 ? (
+            <>
+              <Animated.View style={imageAnimatedStyle}>
+                <FlatList
+                  data={recipe.images}
+                  renderItem={renderImage}
+                  keyExtractor={(item) => item.id.toString()}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={handleImageScroll}
                 />
-                {/* Image Overlay - Title and Action Button */}
-                <View style={styles.imageOverlay}>
-                  {/* Title - bottom left */}
-                  <Text type="title1" style={styles.overlayTitle} numberOfLines={2}>
-                    {recipe.name}
-                  </Text>
+              </Animated.View>
+              <PageIndicator
+                currentPage={currentImageIndex + 1}
+                totalPages={recipe.images.length}
+              />
+              {/* Image Overlay - Title and Action Button */}
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.6)"]}
+                style={styles.imageOverlay}
+              >
+                {/* Title - bottom left */}
+                <Text
+                  type="title1"
+                  style={styles.overlayTitle}
+                  numberOfLines={2}
+                >
+                  {recipe.name}
+                </Text>
 
-                  {/* Action Button - bottom right */}
-                  {!isPreviewMode && (
-                    isOwnRecipe ? (
-                      // Cook Button for owned recipes
-                      <TouchableOpacity
-                        style={styles.cookButton}
-                        onPress={handleStartCookMode}
+                {/* Action Button - bottom right */}
+                {!isPreviewMode &&
+                  (isOwnRecipe ? (
+                    // Cook Button for owned recipes
+                    <TouchableOpacity
+                      style={styles.cookButton}
+                      onPress={handleStartCookMode}
+                    >
+                      <Ionicons name="play" size={20} color="white" />
+                      <Text style={styles.cookButtonText}>Cook</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    // Import Button for non-owned recipes
+                    <TouchableOpacity
+                      style={styles.importOverlayButton}
+                      onPress={handleImportRecipe}
+                      disabled={importMutation.isPending}
+                    >
+                      <BlurView
+                        intensity={80}
+                        tint="dark"
+                        style={styles.importOverlayButtonBlur}
                       >
-                        <BlurView
-                          intensity={80}
-                          tint="dark"
-                          style={styles.cookButtonBlur}
-                        >
-                          <Ionicons name="play" size={24} color="white" />
-                        </BlurView>
-                      </TouchableOpacity>
-                    ) : (
-                      // Import Button for non-owned recipes
-                      <TouchableOpacity
-                        style={styles.cookButton}
-                        onPress={handleImportRecipe}
-                        disabled={importMutation.isPending}
-                      >
-                        <BlurView
-                          intensity={80}
-                          tint="dark"
-                          style={styles.cookButtonBlur}
-                        >
-                          {importMutation.isPending ? (
-                            <ActivityIndicator size="small" color="white" />
-                          ) : (
-                            <Ionicons name="download-outline" size={24} color="white" />
-                          )}
-                        </BlurView>
-                      </TouchableOpacity>
-                    )
-                  )}
-                </View>
+                        {importMutation.isPending ? (
+                          <ActivityIndicator size="small" color="white" />
+                        ) : (
+                          <Ionicons
+                            name="download-outline"
+                            size={24}
+                            color="white"
+                          />
+                        )}
+                      </BlurView>
+                    </TouchableOpacity>
+                  ))}
+              </LinearGradient>
+            </>
+          ) : (
+            <Skeleton
+              width={SCREEN_WIDTH}
+              height={IMAGE_HEIGHT}
+              borderRadius={0}
+            />
+          )}
+        </View>
+
+        {/* White Card Section */}
+        <View style={styles.whiteCard}>
+          {isLoading ? (
+            // Loading skeleton content
+            <>
+              {/* Times Row skeleton */}
+              <View style={styles.timesRow}>
+                <Skeleton width={100} height={18} borderRadius={4} />
+                <Skeleton width={100} height={18} borderRadius={4} />
               </View>
-            )}
 
-            {/* White Card Section */}
-            <View style={styles.whiteCard}>
+              <VSpace size={16} />
+
+              {/* Action buttons skeleton */}
+              <View style={styles.actionButtonsRow}>
+                <Skeleton width="48%" height={50} borderRadius={25} />
+                <Skeleton width="48%" height={50} borderRadius={25} />
+              </View>
+
+              <VSpace size={16} />
+
+              {/* Tab bar skeleton */}
+              <View style={styles.tabBarSkeleton}>
+                <Skeleton width="45%" height={20} borderRadius={4} />
+                <Skeleton width="45%" height={20} borderRadius={4} />
+              </View>
+
+              <VSpace size={24} />
+
+              {/* Ingredients skeleton */}
+              {[1, 2, 3, 4, 5].map((i) => (
+                <View key={i} style={styles.ingredientItemSkeleton}>
+                  <Skeleton width={8} height={8} borderRadius={4} />
+                  <View style={styles.ingredientContentSkeleton}>
+                    <Skeleton width={60} height={15} borderRadius={4} />
+                    <Skeleton width="70%" height={17} borderRadius={4} />
+                  </View>
+                </View>
+              ))}
+            </>
+          ) : recipe ? (
+            // Loaded recipe content
+            <>
               {/* Description (if exists) */}
               {recipe.description && (
                 <>
@@ -824,92 +857,84 @@ export const RecipeDetailScreen = () => {
               </View>
 
               <VSpace size={isPreviewMode || !isOwnRecipe ? 100 : 40} />
-            </View>
-          </Animated.ScrollView>
-
-          {/* Sticky Footer */}
-          {isPreviewMode ? (
-            // Preview mode: Save and Edit buttons
-            <View
-              style={[
-                styles.stickyFooter,
-                styles.previewFooter,
-                { paddingBottom: insets.bottom + 12 },
-              ]}
-            >
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={handleEditPreviewRecipe}
-              >
-                <Ionicons
-                  name="create-outline"
-                  size={20}
-                  style={styles.editButtonIcon}
-                />
-                <Text style={styles.editButtonText}>Edit</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSavePreviewRecipe}
-                disabled={saveRecipeMutation.isPending}
-              >
-                {saveRecipeMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name="checkmark"
-                      size={20}
-                      style={styles.saveButtonIcon}
-                    />
-                    <Text style={styles.saveButtonText}>Save</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+            </>
           ) : null}
+        </View>
+      </Animated.ScrollView>
 
-          {/* Dropdown Menu */}
-          <DropdownMenu
-            visible={menuVisible}
-            onClose={() => setMenuVisible(false)}
-            items={menuItems}
-            anchorPosition={{ top: insets.top + 48, right: 20 }}
-          />
-
-          {/* Full-screen image modal */}
-          <Modal
-            visible={expandedImageUrl !== null}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setExpandedImageUrl(null)}
+      {/* Sticky Footer */}
+      {isPreviewMode && recipe ? (
+        // Preview mode: Save and Edit buttons
+        <View
+          style={[
+            styles.stickyFooter,
+            styles.previewFooter,
+            { paddingBottom: insets.bottom + 12 },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={handleEditPreviewRecipe}
           >
-            <TouchableOpacity
-              style={styles.modalOverlay}
-              activeOpacity={1}
-              onPress={() => setExpandedImageUrl(null)}
-            >
-              <View style={styles.modalContent}>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setExpandedImageUrl(null)}
-                >
-                  <Ionicons name="close" size={32} color="#fff" />
-                </TouchableOpacity>
-
-                {expandedImageUrl && (
-                  <Image
-                    source={{ uri: getImageUrl(expandedImageUrl, "step-full") }}
-                    style={styles.expandedImage}
-                    contentFit="contain"
-                  />
-                )}
-              </View>
-            </TouchableOpacity>
-          </Modal>
+            <Ionicons
+              name="create-outline"
+              size={20}
+              style={styles.editButtonIcon}
+            />
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSavePreviewRecipe}
+            disabled={saveRecipeMutation.isPending}
+          >
+            {saveRecipeMutation.isPending ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons
+                  name="checkmark"
+                  size={20}
+                  style={styles.saveButtonIcon}
+                />
+                <Text style={styles.saveButtonText}>Save</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       ) : null}
-    </SkeletonContainer>
+
+      {/* Full-screen image modal */}
+      <Modal
+        visible={expandedImageUrl !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExpandedImageUrl(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setExpandedImageUrl(null)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setExpandedImageUrl(null)}
+            >
+              <Ionicons name="close" size={32} color="#fff" />
+            </TouchableOpacity>
+
+            {expandedImageUrl && (
+              <Image
+                source={{ uri: getImageUrl(expandedImageUrl, "step-full") }}
+                style={styles.expandedImage}
+                contentFit="contain"
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 };
 
@@ -940,26 +965,6 @@ const styles = StyleSheet.create((theme) => ({
     height: "100%",
     backgroundColor: theme.colors.border,
   },
-  topButtons: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    zIndex: 20,
-  },
-  overlayButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: "hidden",
-  },
-  blurContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.1)",
-  },
 
   // Image Overlay
   imageOverlay: {
@@ -969,8 +974,10 @@ const styles = StyleSheet.create((theme) => ({
     right: 0,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
-    padding: 16,
+    alignItems: "center",
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
   },
   overlayTitle: {
     flex: 1,
@@ -980,13 +987,29 @@ const styles = StyleSheet.create((theme) => ({
     textShadowRadius: 4,
   },
   cookButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: theme.colors.primary,
+    marginLeft: 12,
+  },
+  cookButtonText: {
+    color: "white",
+    fontSize: 15,
+    fontFamily: theme.fonts.semiBold,
+  },
+  importOverlayButton: {
     width: 56,
     height: 56,
     borderRadius: 28,
     overflow: "hidden",
     marginLeft: 12,
   },
-  cookButtonBlur: {
+  importOverlayButtonBlur: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
@@ -1016,6 +1039,24 @@ const styles = StyleSheet.create((theme) => ({
   recipeDescription: {
     color: theme.colors.textSecondary,
     lineHeight: 22,
+  },
+
+  // Loading skeleton styles
+  tabBarSkeleton: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  ingredientItemSkeleton: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    gap: 12,
+  },
+  ingredientContentSkeleton: {
+    flex: 1,
+    gap: 6,
   },
 
   // Action Buttons

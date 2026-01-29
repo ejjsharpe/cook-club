@@ -22,7 +22,8 @@ export const useCreateShoppingList = () => {
 
   const mutationOptions = trpc.shopping.createShoppingList.mutationOptions({
     onSuccess: () => {
-      const shoppingListsFilter = trpc.shopping.getUserShoppingLists.pathFilter();
+      const shoppingListsFilter =
+        trpc.shopping.getUserShoppingLists.pathFilter();
       queryClient.invalidateQueries(shoppingListsFilter);
     },
     onError: () => {
@@ -38,19 +39,23 @@ export const useAddRecipeToSpecificList = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  const mutationOptions = trpc.shopping.addRecipeToSpecificList.mutationOptions({
-    onSuccess: () => {
-      // Invalidate both the specific lists and the main shopping list
-      const shoppingListsFilter = trpc.shopping.getUserShoppingLists.pathFilter();
-      const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
-      queryClient.invalidateQueries(shoppingListsFilter);
-      queryClient.invalidateQueries(shoppingListFilter);
+  const mutationOptions = trpc.shopping.addRecipeToSpecificList.mutationOptions(
+    {
+      onSuccess: () => {
+        // Invalidate both the specific lists and the main shopping list
+        const shoppingListsFilter =
+          trpc.shopping.getUserShoppingLists.pathFilter();
+        const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
+        queryClient.invalidateQueries(shoppingListsFilter);
+        queryClient.invalidateQueries(shoppingListFilter);
+      },
+      onError: (error) => {
+        const message =
+          error.message || "Failed to add recipe to shopping list";
+        Alert.alert("Error", message);
+      },
     },
-    onError: (error) => {
-      const message = error.message || "Failed to add recipe to shopping list";
-      Alert.alert("Error", message);
-    },
-  });
+  );
 
   return useMutation(mutationOptions);
 };

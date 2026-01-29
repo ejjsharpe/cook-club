@@ -17,11 +17,10 @@ import {
   MeasurementSystem,
 } from "@/lib/measurementPreferences";
 
-export const AdjustRecipeSheet = (
-  props: SheetProps<"adjust-recipe-sheet">,
-) => {
+export const AdjustRecipeSheet = (props: SheetProps<"adjust-recipe-sheet">) => {
   const { servings, onServingsChange } = props.payload || {};
-  const [measurementSystem, setMeasurementSystemState] = useState<MeasurementSystem>(getMeasurementPreference);
+  const [measurementSystem, setMeasurementSystemState] =
+    useState<MeasurementSystem>(getMeasurementPreference);
 
   useEffect(() => {
     // Re-read preference when sheet opens

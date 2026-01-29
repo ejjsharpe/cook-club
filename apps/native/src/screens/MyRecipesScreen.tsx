@@ -697,7 +697,8 @@ export const MyRecipesScreen = () => {
   // Collection cards in browse mode stay hidden only when overlay is actually visible
   const collectionCardsStyle = useAnimatedStyle(() => {
     "worklet";
-    const overlayVisible = animatingTab.value === "collections" && isAnimating.value;
+    const overlayVisible =
+      animatingTab.value === "collections" && isAnimating.value;
     return {
       opacity: overlayVisible ? 0 : 1,
     };
@@ -737,17 +738,16 @@ export const MyRecipesScreen = () => {
       // Wrap first real collection (index 1 after create card) with ref for measurement
       if (index === 1) {
         return (
-          <Animated.View ref={firstBrowseCollectionRef} style={collectionCardsStyle}>
+          <Animated.View
+            ref={firstBrowseCollectionRef}
+            style={collectionCardsStyle}
+          >
             {card}
           </Animated.View>
         );
       }
 
-      return (
-        <Animated.View style={collectionCardsStyle}>
-          {card}
-        </Animated.View>
-      );
+      return <Animated.View style={collectionCardsStyle}>{card}</Animated.View>;
     },
     [
       handleCreateCollection,
@@ -798,7 +798,8 @@ export const MyRecipesScreen = () => {
   // Recipe cards stay hidden only when overlay is actually visible (synced with overlay)
   const recipeCardsStyle = useAnimatedStyle(() => {
     "worklet";
-    const overlayVisible = animatingTab.value === "recipes" && isAnimating.value;
+    const overlayVisible =
+      animatingTab.value === "recipes" && isAnimating.value;
     return {
       opacity: overlayVisible ? 0 : 1,
     };

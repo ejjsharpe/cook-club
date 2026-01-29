@@ -1,4 +1,5 @@
 import { createNativeBottomTabNavigator } from "@react-navigation/bottom-tabs/unstable";
+import { UnistylesRuntime } from "react-native-unistyles";
 
 import { ShareIntentHandler } from "@/components/ShareIntentHandler";
 import { AddRecipeScreen } from "@/screens/AddRecipeScreen";
@@ -6,13 +7,11 @@ import { HomeScreen } from "@/screens/HomeScreen";
 import { MealPlanScreen } from "@/screens/MealPlanScreen";
 import { MyRecipesScreen } from "@/screens/MyRecipesScreen";
 import { ShoppingListScreen } from "@/screens/ShoppingListScreen";
-import { ThemeContext } from "@react-navigation/native";
-import { UnistylesRuntime } from "react-native-unistyles";
 
 const Tab = createNativeBottomTabNavigator();
 
 export const TabNavigator = () => {
-  const  theme = UnistylesRuntime.getTheme()
+  const theme = UnistylesRuntime.getTheme();
   return (
     <>
       <ShareIntentHandler />
@@ -20,7 +19,7 @@ export const TabNavigator = () => {
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: theme.colors.primary,
-          tabBarMinimizeBehavior: "onScrollDown",
+          lazy: false,
         }}
       >
         <Tab.Screen
@@ -48,7 +47,7 @@ export const TabNavigator = () => {
           name="Meal Plan"
           component={MealPlanScreen}
           options={{
-                      tabBarLabelVisibilityMode: 'selected',
+            tabBarLabelVisibilityMode: "selected",
 
             tabBarIcon: { type: "sfSymbol", name: "calendar" },
           }}
@@ -57,7 +56,7 @@ export const TabNavigator = () => {
           name="Shopping List"
           component={ShoppingListScreen}
           options={{
-                      tabBarLabelVisibilityMode: 'selected',
+            tabBarLabelVisibilityMode: "selected",
 
             tabBarIcon: { type: "sfSymbol", name: "cart.fill" },
           }}

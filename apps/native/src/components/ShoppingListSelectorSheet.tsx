@@ -144,7 +144,11 @@ export const ShoppingListSelectorSheet = (
                   {ingredients.slice(0, 5).map((ing: Ingredient) => (
                     <View key={ing.id} style={styles.ingredientRow}>
                       <View style={styles.ingredientBullet} />
-                      <Text type="body" style={styles.ingredientText} numberOfLines={1}>
+                      <Text
+                        type="body"
+                        style={styles.ingredientText}
+                        numberOfLines={1}
+                      >
                         {formatIngredient(ing)}
                       </Text>
                     </View>
@@ -241,16 +245,22 @@ export const ShoppingListSelectorSheet = (
                       <TouchableOpacity
                         style={[
                           styles.createButton,
-                          (!newListName.trim() || createListMutation.isPending) &&
+                          (!newListName.trim() ||
+                            createListMutation.isPending) &&
                             styles.createButtonDisabled,
                         ]}
                         onPress={handleCreateList}
-                        disabled={!newListName.trim() || createListMutation.isPending}
+                        disabled={
+                          !newListName.trim() || createListMutation.isPending
+                        }
                       >
                         {createListMutation.isPending ? (
                           <ActivityIndicator size="small" color="#fff" />
                         ) : (
-                          <Text type="highlight" style={styles.createButtonText}>
+                          <Text
+                            type="highlight"
+                            style={styles.createButtonText}
+                          >
                             Create
                           </Text>
                         )}
