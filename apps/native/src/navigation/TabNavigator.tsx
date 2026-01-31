@@ -19,7 +19,7 @@ export const TabNavigator = () => {
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: theme.colors.primary,
-          lazy: false,
+          // lazy: false,
         }}
       >
         <Tab.Screen

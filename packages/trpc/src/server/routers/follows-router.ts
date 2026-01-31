@@ -3,6 +3,7 @@ import {
   followUser as followUserService,
   unfollowUser as unfollowUserService,
   getFollowList,
+  createNotification,
 } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
@@ -30,6 +31,15 @@ export const followsRouter = router({
           ctx.user.id,
           input.userId,
         );
+
+        // Create notification for the followed user
+        createNotification(ctx.db, {
+          recipientId: input.userId,
+          actorId: ctx.user.id,
+          type: "follow",
+        }).catch((err) => {
+          console.error("Error creating follow notification:", err);
+        });
 
         // Backfill feed with recent activities from the followed user
         backfillFeedFromUser(

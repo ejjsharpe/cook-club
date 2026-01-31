@@ -21,6 +21,7 @@ import EditRecipeScreen from "@/screens/EditRecipeScreen";
 import { FollowsScreen } from "@/screens/FollowsScreen";
 import FridgeSnapScreen from "@/screens/FridgeSnapScreen";
 import GenerateRecipeScreen from "@/screens/GenerateRecipeScreen";
+import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { RecipeDetailScreen } from "@/screens/RecipeDetailScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
 import { UserProfileScreen } from "@/screens/UserProfileScreen";
@@ -91,6 +92,7 @@ const RootStack = createNativeStackNavigator({
         FridgeSnap: { screen: FridgeSnapScreen },
         EditProfile: { screen: EditProfileScreen },
         Settings: { screen: SettingsScreen },
+        Notifications: { screen: NotificationsScreen },
         CuisinePreferences: { screen: CuisinePreferencesScreen },
         IngredientPreferences: { screen: IngredientPreferencesScreen },
         DietaryPreferences: { screen: DietaryPreferencesScreen },

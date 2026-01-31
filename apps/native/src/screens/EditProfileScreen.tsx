@@ -7,10 +7,10 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { useUser, useUpdateProfile } from "@/api/user";
 import { Input } from "@/components/Input";
+import { NavigationHeader } from "@/components/NavigationHeader";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { useAvatarUpload } from "@/hooks/useAvatarUpload";
 import { getImageUrl } from "@/utils/imageUrl";
@@ -90,17 +90,10 @@ export const EditProfileScreen = () => {
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
-        <VSpace size={8} />
-        <BackButton />
+        <NavigationHeader title="Edit Profile" />
 
         <View style={styles.content}>
-          <VSpace size={32} />
-
-          <Text type="title1" style={styles.title}>
-            Edit Profile
-          </Text>
-
-          <VSpace size={32} />
+          <VSpace size={24} />
 
           {/* Avatar with edit overlay */}
           <TouchableOpacity
@@ -169,14 +162,11 @@ const styles = StyleSheet.create((theme) => ({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   content: {
     flex: 1,
     alignItems: "center",
-  },
-  title: {
-    textAlign: "center",
+    paddingHorizontal: 20,
   },
   avatarContainer: {
     position: "relative",

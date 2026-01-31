@@ -6,7 +6,7 @@ import {
   recipes,
   user,
 } from "@repo/db/schemas";
-import { hydrateActivityIds } from "@repo/db/services";
+import { hydrateActivityIds, createNotification } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, desc, lt, and, sql, inArray } from "drizzle-orm";
@@ -376,9 +376,13 @@ export const activityRouter = router({
       const { activityEventId } = input;
 
       try {
-        // Check if activity exists
+        // Check if activity exists and get owner
         const activity = await ctx.db
-          .select({ id: activityEvents.id, likeCount: activityEvents.likeCount })
+          .select({
+            id: activityEvents.id,
+            userId: activityEvents.userId,
+            likeCount: activityEvents.likeCount,
+          })
           .from(activityEvents)
           .where(eq(activityEvents.id, activityEventId))
           .then((rows) => rows[0]);
@@ -430,6 +434,16 @@ export const activityRouter = router({
             .set({ likeCount: sql`${activityEvents.likeCount} + 1` })
             .where(eq(activityEvents.id, activityEventId))
             .returning({ likeCount: activityEvents.likeCount });
+
+          // Create notification for the activity owner
+          createNotification(ctx.db, {
+            recipientId: activity.userId,
+            actorId: ctx.user.id,
+            type: "activity_like",
+            activityEventId,
+          }).catch((err) => {
+            console.error("Error creating like notification:", err);
+          });
 
           return {
             liked: true,

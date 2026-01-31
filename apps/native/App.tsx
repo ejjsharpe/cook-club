@@ -6,6 +6,7 @@ import { Image } from "expo-image";
 import * as Linking from "expo-linking";
 import { ShareIntentProvider } from "expo-share-intent";
 import * as SplashScreen from "expo-splash-screen";
+import * as SystemUI from "expo-system-ui";
 import React, { useEffect, useState, StrictMode } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -32,6 +33,7 @@ import { TRPCProvider } from "@/lib/trpc";
 import { Navigation } from "@/navigation/RootStack";
 
 SplashScreen.preventAutoHideAsync();
+SystemUI.setBackgroundColorAsync(UnistylesRuntime.getTheme().colors.background);
 
 const prefix = Linking.createURL("/");
 const linking = {

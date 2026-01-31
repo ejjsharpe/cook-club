@@ -6,3 +6,4 @@ export * from "./activity-schema";
 export * from "./comments-schema";
 export * from "./user-preferences-schema";
 export * from "./meal-plan-schema";
+export * from "./notification-schema";

@@ -12,11 +12,11 @@ import {
 import { StyleSheet } from "react-native-unistyles";
 
 import { useGetCollectionDetail, useDeleteCollection } from "@/api/collection";
+import { NavigationHeader } from "@/components/NavigationHeader";
 import { RecipeCard } from "@/components/RecipeCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { BackButton } from "@/components/buttons/BackButton";
 
 type CollectionDetailScreenParams = {
   CollectionDetail: {
@@ -85,7 +85,7 @@ export const CollectionDetailScreen = () => {
   if (isPending) {
     return (
       <SafeAreaView style={styles.container}>
-        <BackButton />
+        <NavigationHeader title="" />
         <View style={styles.centered}>
           <ActivityIndicator size="large" />
         </View>
@@ -96,7 +96,7 @@ export const CollectionDetailScreen = () => {
   if (error || !collection) {
     return (
       <SafeAreaView style={styles.container}>
-        <BackButton />
+        <NavigationHeader title="" />
         <View style={styles.centered}>
           <Text type="bodyFaded">Failed to load collection</Text>
         </View>
@@ -104,11 +104,19 @@ export const CollectionDetailScreen = () => {
     );
   }
 
+  const deleteButton =
+    collection.defaultType === null ? (
+      <TouchableOpacity
+        onPress={handleDeleteCollection}
+        style={styles.deleteButton}
+      >
+        <Ionicons name="trash-outline" size={22} color="#ff3b30" />
+      </TouchableOpacity>
+    ) : undefined;
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.backButtonContainer}>
-        <BackButton />
-      </View>
+      <NavigationHeader title={collection.name} rightElement={deleteButton} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -116,29 +124,14 @@ export const CollectionDetailScreen = () => {
         }
         showsVerticalScrollIndicator={false}
       >
-        <VSpace size={28} />
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View style={styles.headerText}>
-              <Text type="title2">{collection.name}</Text>
-              <VSpace size={4} />
-              <Text type="bodyFaded">
-                {collection.recipeCount}{" "}
-                {collection.recipeCount === 1 ? "recipe" : "recipes"}
-              </Text>
-            </View>
-            {collection.defaultType === null && (
-              <TouchableOpacity
-                onPress={handleDeleteCollection}
-                style={styles.deleteButton}
-              >
-                <Ionicons name="trash-outline" size={24} color="#ff3b30" />
-              </TouchableOpacity>
-            )}
-          </View>
+        <View style={styles.recipeCount}>
+          <Text type="bodyFaded">
+            {collection.recipeCount}{" "}
+            {collection.recipeCount === 1 ? "recipe" : "recipes"}
+          </Text>
         </View>
 
-        <VSpace size={24} />
+        <VSpace size={16} />
 
         {collection.recipes.length === 0 ? (
           <View style={styles.emptyState}>
@@ -188,12 +181,6 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
   },
-  backButtonContainer: {
-    position: "absolute",
-    top: 60,
-    left: 20,
-    zIndex: 10,
-  },
   scrollContent: {
     paddingBottom: 40,
   },
@@ -202,20 +189,16 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     alignItems: "center",
   },
-  header: {
+  recipeCount: {
     paddingHorizontal: 20,
   },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  headerText: {
-    flex: 1,
-  },
   deleteButton: {
-    padding: 8,
-    marginLeft: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyState: {
     paddingVertical: 60,

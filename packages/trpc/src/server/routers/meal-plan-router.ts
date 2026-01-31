@@ -11,6 +11,7 @@ import {
   shareMealPlan as shareMealPlanService,
   unshareMealPlan as unshareMealPlanService,
   getShareStatus as getShareStatusService,
+  createNotification,
 } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
@@ -214,12 +215,24 @@ export const mealPlanRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        return await shareMealPlanService(ctx.db, {
+        const result = await shareMealPlanService(ctx.db, {
           userId: ctx.user.id,
           mealPlanId: input.mealPlanId,
           sharedWithUserId: input.userId,
           canEdit: input.canEdit ?? false,
         });
+
+        // Create notification for the user receiving the share
+        createNotification(ctx.db, {
+          recipientId: input.userId,
+          actorId: ctx.user.id,
+          type: "meal_plan_share",
+          mealPlanId: input.mealPlanId,
+        }).catch((err) => {
+          console.error("Error creating meal plan share notification:", err);
+        });
+
+        return result;
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         console.error("Error sharing meal plan:", err);

@@ -4,10 +4,10 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { useUpdatePreferences, useUser } from "@/api/user";
 import { AutocompleteTagSelector } from "@/components/AutocompleteTagSelector";
+import { NavigationHeader } from "@/components/NavigationHeader";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 
 export const DietaryPreferencesScreen = () => {
@@ -43,8 +43,7 @@ export const DietaryPreferencesScreen = () => {
     return (
       <View style={styles.screen}>
         <SafeAreaView style={styles.container}>
-          <VSpace size={8} />
-          <BackButton />
+          <NavigationHeader title="Dietary Requirements" />
           <View style={styles.centered}>
             <ActivityIndicator size="large" />
           </View>
@@ -56,23 +55,19 @@ export const DietaryPreferencesScreen = () => {
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
-        <VSpace size={8} />
-        <BackButton />
+        <NavigationHeader title="Dietary Requirements" />
 
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <VSpace size={24} />
-          <Text type="title1">Dietary Requirements</Text>
-          <VSpace size={8} />
           <Text type="bodyFaded">
             Set your dietary requirements to filter recipes that don't match
             your needs
           </Text>
 
-          <VSpace size={32} />
+          <VSpace size={24} />
 
           <View style={styles.section}>
             <Text type="heading" style={styles.sectionTitle}>

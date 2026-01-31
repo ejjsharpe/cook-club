@@ -5,11 +5,10 @@ import { View, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { useSignOut } from "@/api/auth";
+import { NavigationHeader } from "@/components/NavigationHeader";
 import { SafeAreaView } from "@/components/SafeAreaView";
-import { ScreenHeader } from "@/components/ScreenHeader";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { BackButton } from "@/components/buttons/BackButton";
 import {
   applyThemePreference,
   getThemePreference,
@@ -123,20 +122,15 @@ export const SettingsScreen = () => {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.container}>
-      <VSpace size={8} />
-      <View style={styles.headerRow}>
-        <BackButton />
-      </View>
+      <NavigationHeader title="Settings" />
 
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
       >
-        <ScreenHeader title="Settings" style={styles.screenHeader} />
-
         {/* Appearance Section */}
-        <VSpace size={32} />
+        <VSpace size={16} />
         <Text type="heading" style={styles.sectionTitle}>
           Appearance
         </Text>
@@ -211,12 +205,6 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  headerRow: {
-    paddingHorizontal: 20,
-  },
-  screenHeader: {
-    paddingHorizontal: 0,
   },
   scrollView: {
     flex: 1,

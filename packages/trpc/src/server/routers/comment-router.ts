@@ -1,4 +1,5 @@
 import { activityEvents, comments, user } from "@repo/db/schemas";
+import { createNotification } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, asc, sql } from "drizzle-orm";
@@ -78,6 +79,24 @@ export const commentRouter = router({
       try {
         const now = new Date();
 
+        // Fetch activity owner for notifications
+        const activity = await ctx.db
+          .select({ userId: activityEvents.userId })
+          .from(activityEvents)
+          .where(eq(activityEvents.id, activityEventId))
+          .then((rows) => rows[0]);
+
+        // Fetch parent comment author if this is a reply
+        let parentCommentAuthorId: string | null = null;
+        if (parentCommentId) {
+          const parentComment = await ctx.db
+            .select({ userId: comments.userId })
+            .from(comments)
+            .where(eq(comments.id, parentCommentId))
+            .then((rows) => rows[0]);
+          parentCommentAuthorId = parentComment?.userId ?? null;
+        }
+
         const [newComment] = await ctx.db
           .insert(comments)
           .values({
@@ -96,6 +115,33 @@ export const commentRouter = router({
             .update(activityEvents)
             .set({ commentCount: sql`${activityEvents.commentCount} + 1` })
             .where(eq(activityEvents.id, activityEventId));
+        }
+
+        // Create notifications
+        if (newComment) {
+          if (parentCommentId && parentCommentAuthorId) {
+            // Reply notification to the parent comment author
+            createNotification(ctx.db, {
+              recipientId: parentCommentAuthorId,
+              actorId: ctx.user.id,
+              type: "comment_reply",
+              activityEventId,
+              commentId: newComment.id,
+            }).catch((err) => {
+              console.error("Error creating comment reply notification:", err);
+            });
+          } else if (activity) {
+            // Comment notification to the activity owner
+            createNotification(ctx.db, {
+              recipientId: activity.userId,
+              actorId: ctx.user.id,
+              type: "activity_comment",
+              activityEventId,
+              commentId: newComment.id,
+            }).catch((err) => {
+              console.error("Error creating comment notification:", err);
+            });
+          }
         }
 
         return {

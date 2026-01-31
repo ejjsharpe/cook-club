@@ -4,10 +4,10 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { useUpdatePreferences, useUser } from "@/api/user";
 import { AutocompleteTagSelector } from "@/components/AutocompleteTagSelector";
+import { NavigationHeader } from "@/components/NavigationHeader";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 
 export const CuisinePreferencesScreen = () => {
@@ -54,8 +54,7 @@ export const CuisinePreferencesScreen = () => {
     return (
       <View style={styles.screen}>
         <SafeAreaView style={styles.container}>
-          <VSpace size={8} />
-          <BackButton />
+          <NavigationHeader title="Cuisine Preferences" />
           <View style={styles.centered}>
             <ActivityIndicator size="large" />
           </View>
@@ -67,23 +66,19 @@ export const CuisinePreferencesScreen = () => {
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
-        <VSpace size={8} />
-        <BackButton />
+        <NavigationHeader title="Cuisine Preferences" />
 
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <VSpace size={24} />
-          <Text type="title1">Cuisine Preferences</Text>
-          <VSpace size={8} />
           <Text type="bodyFaded">
             Update your cuisine preferences to personalize recipe
             recommendations
           </Text>
 
-          <VSpace size={32} />
+          <VSpace size={24} />
 
           <View style={styles.section}>
             <Text type="heading" style={styles.sectionTitle}>

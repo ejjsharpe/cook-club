@@ -186,16 +186,19 @@ export const useGetUserCollectionsWithMetadata = ({
 // Get collection detail with recipes
 interface UseGetCollectionDetailParams {
   collectionId: number;
+  enabled?: boolean;
 }
 
 export const useGetCollectionDetail = ({
   collectionId,
+  enabled = true,
 }: UseGetCollectionDetailParams) => {
   const trpc = useTRPC();
 
-  return useQuery(
-    trpc.collection.getCollectionDetail.queryOptions({ collectionId }),
-  );
+  return useQuery({
+    ...trpc.collection.getCollectionDetail.queryOptions({ collectionId }),
+    enabled,
+  });
 };
 
 // Delete a collection

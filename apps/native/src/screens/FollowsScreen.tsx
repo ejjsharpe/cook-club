@@ -9,12 +9,12 @@ import {
   useUserFollowing,
 } from "@/api/follows";
 import { Input } from "@/components/Input";
+import { NavigationHeader } from "@/components/NavigationHeader";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { UserCard } from "@/components/UserCard";
 import { UserSearchCard } from "@/components/UserSearchCard";
-import { BackButton } from "@/components/buttons/BackButton";
 
 type TabType = "following" | "followers" | "search";
 
@@ -194,19 +194,13 @@ export const FollowsScreen = () => {
   return (
     <View style={styles.screen}>
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <VSpace size={8} />
-          <BackButton />
-          <VSpace size={20} />
-          <Text type="title2">{userName}</Text>
-          <VSpace size={20} />
+        <NavigationHeader title={userName} />
 
-          {/* Tabs */}
-          <View style={styles.tabs}>
-            {renderTab("following", "Following", userFollowing?.length)}
-            {renderTab("followers", "Followers", userFollowers?.length)}
-            {renderTab("search", "Discover")}
-          </View>
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          {renderTab("following", "Following", userFollowing?.length)}
+          {renderTab("followers", "Followers", userFollowers?.length)}
+          {renderTab("search", "Discover")}
         </View>
 
         <VSpace size={20} />
@@ -225,10 +219,8 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: 20,
-  },
   tabs: {
+    marginHorizontal: 20,
     flexDirection: "row",
     justifyContent: "space-around",
     borderBottomWidth: 1,

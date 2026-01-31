@@ -4,6 +4,7 @@ import { collectionRouter } from "./routers/collection-router";
 import { commentRouter } from "./routers/comment-router";
 import { followsRouter } from "./routers/follows-router";
 import { mealPlanRouter } from "./routers/meal-plan-router";
+import { notificationRouter } from "./routers/notification-router";
 import { recipeRouter } from "./routers/recipe-router";
 import { shoppingRouter } from "./routers/shopping-router";
 import { uploadRouter } from "./routers/upload-router";
@@ -23,6 +24,7 @@ export const appRouter = router({
   upload: uploadRouter,
   comment: commentRouter,
   mealPlan: mealPlanRouter,
+  notification: notificationRouter,
 });
 
 export type AppRouter = typeof appRouter;

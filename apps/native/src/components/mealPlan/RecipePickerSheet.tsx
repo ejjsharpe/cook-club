@@ -76,6 +76,7 @@ export const RecipePickerSheet = forwardRef<
   const { data: collectionDetail, isLoading: isLoadingCollection } =
     useGetCollectionDetail({
       collectionId: selectedCollectionId ?? 0,
+      enabled: selectedCollectionId !== null,
     });
 
   const mealTypeLabel = mealType ? MEAL_TYPE_LABELS[mealType] : "";

@@ -856,12 +856,22 @@ export const MyRecipesScreen = () => {
     };
   });
 
-  // Inner search bar - full width, gets clipped by wrapper
+  // Inner search bar - full width during animation, snaps to endWidth when complete
   const floatingSearchInnerStyle = useAnimatedStyle(() => {
     "worklet";
-    return {
-      width: startWidth,
-    };
+    // When animation is complete, snap to endWidth so input area is fully visible
+    if (searchProgress.value === 1) {
+      const filterSpace =
+        (FILTER_BUTTON_SIZE + FILTER_BUTTON_GAP) * filterButtonProgress.value;
+      const endWidth =
+        SCREEN_WIDTH -
+        HORIZONTAL_PADDING * 2 -
+        BACK_BUTTON_WIDTH -
+        BACK_BUTTON_GAP -
+        filterSpace;
+      return { width: endWidth };
+    }
+    return { width: startWidth };
   });
 
   // Inline search bar hides when floating one is visible

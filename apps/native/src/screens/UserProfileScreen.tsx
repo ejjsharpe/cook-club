@@ -493,7 +493,6 @@ export const UserProfileScreen = () => {
 const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   headerRow: {
     flexDirection: "row",

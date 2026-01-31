@@ -12,6 +12,7 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
+  Dimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
@@ -23,6 +24,7 @@ import Animated, {
   interpolate,
   Easing,
   type SharedValue,
+  withSpring,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -32,6 +34,7 @@ import {
   FeedItem,
 } from "@/api/activity";
 import { useSearchUsers, SearchUser } from "@/api/follows";
+import { useUnreadNotificationCount } from "@/api/notification";
 import { useUser, User } from "@/api/user";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -40,6 +43,7 @@ import {
 } from "@/components/CommentsSheet";
 import { EmptyFeedState } from "@/components/EmptyFeedState";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
+import { NotificationBadge } from "@/components/NotificationBadge";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { SearchBar, SEARCH_BAR_HEIGHT } from "@/components/SearchBar";
 import { SearchEmptyState } from "@/components/SearchEmptyState";
@@ -54,19 +58,55 @@ import { useDebounce } from "@/hooks/useDebounce";
 interface HeaderProps {
   user: User | undefined;
   onAvatarPress: () => void;
+  onNotificationPress: () => void;
+  unreadCount: number;
   titleOpacity: SharedValue<number>;
   avatarOpacity: SharedValue<number>;
 }
 
 const Header = memo(
-  ({ user, onAvatarPress, titleOpacity, avatarOpacity }: HeaderProps) => {
+  ({
+    user,
+    onAvatarPress,
+    onNotificationPress,
+    unreadCount,
+    titleOpacity,
+    avatarOpacity,
+  }: HeaderProps) => {
+    const notificationScale = useSharedValue(1);
+    const avatarScale = useSharedValue(1);
+
     const titleAnimatedStyle = useAnimatedStyle(() => ({
       opacity: titleOpacity.value,
     }));
 
-    const avatarAnimatedStyle = useAnimatedStyle(() => ({
+    const avatarOpacityStyle = useAnimatedStyle(() => ({
       opacity: avatarOpacity.value,
     }));
+
+    const notificationAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: notificationScale.value }],
+    }));
+
+    const avatarAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: avatarScale.value }],
+    }));
+
+    const handleNotificationPressIn = () => {
+      notificationScale.value = withSpring(0.9, { mass: 1 });
+    };
+
+    const handleNotificationPressOut = () => {
+      notificationScale.value = withSpring(1);
+    };
+
+    const handleAvatarPressIn = () => {
+      avatarScale.value = withSpring(0.9, { mass: 1 });
+    };
+
+    const handleAvatarPressOut = () => {
+      avatarScale.value = withSpring(1);
+    };
 
     return (
       <View style={styles.headerContainer}>
@@ -82,16 +122,36 @@ const Header = memo(
               </Text>
             </Text>
           </Animated.View>
-          {user && (
-            <Animated.View style={avatarAnimatedStyle}>
-              <Avatar
-                imageUrl={user.image}
-                name={user.name}
-                size={44}
-                onPress={onAvatarPress}
-              />
+          <View style={styles.headerActions}>
+            <Animated.View
+              style={[avatarOpacityStyle, notificationAnimatedStyle]}
+            >
+              <Pressable
+                onPress={onNotificationPress}
+                onPressIn={handleNotificationPressIn}
+                onPressOut={handleNotificationPressOut}
+                style={styles.notificationButton}
+              >
+                <Ionicons
+                  name="notifications"
+                  size={24}
+                  style={styles.notificationIcon}
+                />
+                <NotificationBadge count={unreadCount} />
+              </Pressable>
             </Animated.View>
-          )}
+            {user && (
+              <Animated.View style={[avatarOpacityStyle, avatarAnimatedStyle]}>
+                <Pressable
+                  onPress={onAvatarPress}
+                  onPressIn={handleAvatarPressIn}
+                  onPressOut={handleAvatarPressOut}
+                >
+                  <Avatar imageUrl={user.image} name={user.name} size={44} />
+                </Pressable>
+              </Animated.View>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -99,6 +159,7 @@ const Header = memo(
 );
 
 // ─── Constants ───────────────────────────────────────────────────────────────
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 20;
 const BACK_BUTTON_WIDTH = 44;
 const HEADER_GAP = 12;
@@ -184,6 +245,12 @@ export const HomeScreen = () => {
   const { data: userData } = useUser();
   const user = userData?.user;
 
+  // Notification unread count (poll every 60s)
+  const { data: unreadData } = useUnreadNotificationCount({
+    refetchInterval: 60000,
+  });
+  const unreadCount = unreadData?.count ?? 0;
+
   // Activity feed
   const {
     data: activityData,
@@ -224,6 +291,10 @@ export const HomeScreen = () => {
       navigation.navigate("UserProfile", { userId: user.id });
     }
   }, [user?.id, navigation]);
+
+  const handleNotificationPress = useCallback(() => {
+    navigation.navigate("Notifications");
+  }, [navigation]);
 
   const handleRecipePress = useCallback(
     (recipeId: number) => {
@@ -470,36 +541,49 @@ export const HomeScreen = () => {
   }));
 
   // Floating search bar animates from its scroll position to fixed position
-  const floatingSearchBarStyle = useAnimatedStyle(() => {
+  // Using a two-layer clip technique for GPU-accelerated animation:
+  // 1. Outer clip wrapper with overflow:hidden animates position (transforms) and width
+  // 2. Inner search bar width snaps to endWidth when animation completes for proper input visibility
+  const startWidth = SCREEN_WIDTH - HORIZONTAL_PADDING * 2;
+  const endWidth =
+    SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - BACK_BUTTON_WIDTH - HEADER_GAP;
+  const BACK_BUTTON_OFFSET = BACK_BUTTON_WIDTH + HEADER_GAP;
+
+  // Outer clip wrapper - animates position and clips content
+  const floatingSearchClipStyle = useAnimatedStyle(() => {
+    "worklet";
+    const baseY = searchBarY.value || searchModeY;
+    const deltaY = searchModeY - baseY;
+    const clipWidth =
+      startWidth + searchProgress.value * (endWidth - startWidth);
+
     return {
-      position: "absolute",
-      top: interpolate(
-        searchProgress.value,
-        [0, 1],
-        [searchBarY.value, searchModeY],
-      ),
-      left: interpolate(
-        searchProgress.value,
-        [0, 1],
-        [
-          HORIZONTAL_PADDING,
-          HORIZONTAL_PADDING + BACK_BUTTON_WIDTH + HEADER_GAP,
-        ],
-      ),
-      right: HORIZONTAL_PADDING,
-      zIndex: 100,
+      top: baseY,
+      width: clipWidth,
+      overflow: "hidden" as const,
+      // GPU-accelerated position animation
+      transform: [
+        { translateX: searchProgress.value * BACK_BUTTON_OFFSET },
+        { translateY: searchProgress.value * deltaY },
+      ],
     };
   });
 
-  // Back button slides in from left
+  // Inner search bar - full width during animation, snaps to endWidth when complete
+  const floatingSearchInnerStyle = useAnimatedStyle(() => {
+    "worklet";
+    // When animation is complete, snap to endWidth so input area is fully visible
+    const width = searchProgress.value === 1 ? endWidth : startWidth;
+    return { width };
+  });
+
+  // Back button scales in
   const backButtonAnimatedStyle = useAnimatedStyle(() => ({
     position: "absolute",
     top: searchModeY,
     left: HORIZONTAL_PADDING,
     opacity: searchProgress.value,
-    transform: [
-      { translateX: interpolate(searchProgress.value, [0, 1], [-20, 0]) },
-    ],
+    transform: [{ scale: searchProgress.value }],
   }));
 
   // ─── Render ───────────────────────────────────────────────────────────────────
@@ -555,6 +639,8 @@ export const HomeScreen = () => {
           <Header
             user={user}
             onAvatarPress={handleAvatarPress}
+            onNotificationPress={handleNotificationPress}
+            unreadCount={unreadCount}
             titleOpacity={titleOpacity}
             avatarOpacity={avatarOpacity}
           />
@@ -605,15 +691,17 @@ export const HomeScreen = () => {
           </Animated.View>
 
           <Animated.View
-            style={floatingSearchBarStyle}
+            style={[styles.floatingSearchClip, floatingSearchClipStyle]}
             pointerEvents={isSearchActive ? "auto" : "none"}
           >
-            <SearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus={isSearchActive}
-              placeholder="Search users..."
-            />
+            <Animated.View style={floatingSearchInnerStyle}>
+              <SearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus={isSearchActive}
+                placeholder="Search users..."
+              />
+            </Animated.View>
           </Animated.View>
         </>
       )}
@@ -667,11 +755,34 @@ const styles = StyleSheet.create((theme, rt) => ({
   clubText: {
     color: theme.colors.primary,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  notificationButton: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 22,
+  },
+  notificationIcon: {
+    color: theme.colors.text,
+  },
   searchContainer: {
     paddingHorizontal: 20,
   },
   searchBarHidden: {
     opacity: 0,
+  },
+  floatingSearchClip: {
+    position: "absolute",
+    left: HORIZONTAL_PADDING,
+    zIndex: 100,
+    borderRadius: SEARCH_BAR_HEIGHT / 2,
+    overflow: "hidden",
   },
   searchModeHeader: {
     flexDirection: "row",
