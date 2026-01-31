@@ -36,6 +36,7 @@ import { CreateCollectionCard } from "@/components/CreateCollectionCard";
 import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeCollectionBrowser } from "@/components/RecipeCollectionBrowser";
 import { SearchBar, SEARCH_BAR_HEIGHT } from "@/components/SearchBar";
+import { Skeleton, RecipeCardSkeleton, FadeIn } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import type {
@@ -73,6 +74,60 @@ const AnimatedFlatList = Animated.createAnimatedComponent(
 
 // Static separator component - defined outside to avoid recreation
 const CollectionSeparator = () => <View style={styles.collectionSeparator} />;
+
+// Horizontal collection skeleton for loading state
+const HorizontalCollectionsSkeleton = () => (
+  <View style={styles.horizontalList}>
+    <View style={styles.horizontalSkeletonRow}>
+      <View style={styles.collectionSkeletonCard}>
+        <Skeleton
+          width={COLLECTION_CARD_WIDTH}
+          height={COLLECTION_CARD_WIDTH}
+          borderRadius={16}
+        />
+        <VSpace size={8} />
+        <Skeleton width={100} height={17} borderRadius={4} />
+        <VSpace size={4} />
+        <Skeleton width={60} height={14} borderRadius={4} />
+      </View>
+      <View style={styles.collectionSeparator} />
+      <View style={styles.collectionSkeletonCard}>
+        <Skeleton
+          width={COLLECTION_CARD_WIDTH}
+          height={COLLECTION_CARD_WIDTH}
+          borderRadius={16}
+        />
+        <VSpace size={8} />
+        <Skeleton width={80} height={17} borderRadius={4} />
+        <VSpace size={4} />
+        <Skeleton width={70} height={14} borderRadius={4} />
+      </View>
+      <View style={styles.collectionSeparator} />
+      <View style={styles.collectionSkeletonCard}>
+        <Skeleton
+          width={COLLECTION_CARD_WIDTH}
+          height={COLLECTION_CARD_WIDTH}
+          borderRadius={16}
+        />
+        <VSpace size={8} />
+        <Skeleton width={90} height={17} borderRadius={4} />
+        <VSpace size={4} />
+        <Skeleton width={65} height={14} borderRadius={4} />
+      </View>
+    </View>
+  </View>
+);
+
+// Recipe list skeleton for loading state
+const RecentRecipesSkeleton = () => (
+  <View>
+    <RecipeCardSkeleton />
+    <VSpace size={12} />
+    <RecipeCardSkeleton />
+    <VSpace size={12} />
+    <RecipeCardSkeleton />
+  </View>
+);
 
 // Animation config - static, moved to module scope to avoid hook overhead
 const ANIMATION_CONFIG = {
@@ -374,9 +429,10 @@ export const MyRecipesScreen = () => {
   const createCollectionMutation = useCreateCollection();
 
   // Collections for horizontal list
-  const { data: collectionsData } = useGetUserCollectionsWithMetadata({
-    search: "",
-  });
+  const { data: collectionsData, isLoading: isLoadingCollections } =
+    useGetUserCollectionsWithMetadata({
+      search: "",
+    });
   const collections = (collectionsData ?? []) as CollectionWithMetadata[];
 
   // Memoize collections list with create button to avoid recreating array every render
@@ -390,7 +446,8 @@ export const MyRecipesScreen = () => {
   );
 
   // Recent recipes (first 5)
-  const { data: recentRecipesData } = useGetUserRecipes({ limit: 5 });
+  const { data: recentRecipesData, isLoading: isLoadingRecipes } =
+    useGetUserRecipes({ limit: 5 });
   const recentRecipes = useMemo(() => {
     return recentRecipesData?.pages[0]?.items ?? [];
   }, [recentRecipesData]);
@@ -938,65 +995,82 @@ export const MyRecipesScreen = () => {
           <Text type="title3" style={styles.sectionTitle}>
             Collections
           </Text>
-          <AnimatedFlatList
-            horizontal
-            data={collectionsWithCreate}
-            renderItem={renderCollectionItem}
-            keyExtractor={(item) => item.id.toString()}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-            ItemSeparatorComponent={CollectionSeparator}
-            onScroll={collectionsHorizontalScroll}
-            scrollEventThrottle={16}
-          />
+          {isLoadingCollections ? (
+            <HorizontalCollectionsSkeleton />
+          ) : (
+            <FadeIn>
+              <AnimatedFlatList
+                horizontal
+                data={collectionsWithCreate}
+                renderItem={renderCollectionItem}
+                keyExtractor={(item) => item.id.toString()}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+                ItemSeparatorComponent={CollectionSeparator}
+                onScroll={collectionsHorizontalScroll}
+                scrollEventThrottle={16}
+              />
+            </FadeIn>
+          )}
 
           {/* Recently Added Section */}
-          {recentRecipes.length > 0 && (
+          {(isLoadingRecipes || recentRecipes.length > 0) && (
             <View style={styles.section}>
               <Text type="title3" style={styles.sectionTitle}>
                 Recently Added
               </Text>
-              <Animated.View
-                style={[styles.recentRecipesList, recipeCardsStyle]}
-              >
-                {recentRecipes.map((recipe, index) => (
+              {isLoadingRecipes ? (
+                <RecentRecipesSkeleton />
+              ) : (
+                <FadeIn>
                   <Animated.View
-                    key={recipe.id}
-                    ref={index === 0 ? firstRecipeRef : undefined}
+                    style={[styles.recentRecipesList, recipeCardsStyle]}
                   >
-                    <RecipeCard
-                      recipe={recipe}
-                      onPress={() => handleRecipePress(recipe)}
-                    />
-                    {index < recentRecipes.length - 1 && <VSpace size={12} />}
+                    {recentRecipes.map((recipe, index) => (
+                      <Animated.View
+                        key={recipe.id}
+                        ref={index === 0 ? firstRecipeRef : undefined}
+                      >
+                        <RecipeCard
+                          recipe={recipe}
+                          onPress={() => handleRecipePress(recipe)}
+                        />
+                        {index < recentRecipes.length - 1 && (
+                          <VSpace size={12} />
+                        )}
+                      </Animated.View>
+                    ))}
                   </Animated.View>
-                ))}
-              </Animated.View>
+                </FadeIn>
+              )}
             </View>
           )}
 
           {/* Empty State */}
-          {collections.length === 0 && recentRecipes.length === 0 && (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="book-outline"
-                size={48}
-                style={styles.emptyIcon}
-              />
-              <Text type="headline" style={styles.emptyTitle}>
-                No recipes yet
-              </Text>
-              <Text type="body" style={styles.emptySubtitle}>
-                Import recipes from the feed or add your own to get started
-              </Text>
-            </View>
-          )}
+          {!isLoadingCollections &&
+            !isLoadingRecipes &&
+            collections.length === 0 &&
+            recentRecipes.length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons
+                  name="book-outline"
+                  size={48}
+                  style={styles.emptyIcon}
+                />
+                <Text type="headline" style={styles.emptyTitle}>
+                  No recipes yet
+                </Text>
+                <Text type="body" style={styles.emptySubtitle}>
+                  Import recipes from the feed or add your own to get started
+                </Text>
+              </View>
+            )}
         </AnimatedScrollView>
 
         {/* Fixed Title Header */}
         <View style={styles.fixedHeader}>
           <Animated.View style={titleAnimatedStyle}>
-            <Text type="screenTitle">My Recipes</Text>
+            <Text type="screenTitle">Recipes</Text>
           </Animated.View>
         </View>
       </Animated.View>
@@ -1192,6 +1266,12 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   collectionSeparator: {
     width: 12,
+  },
+  horizontalSkeletonRow: {
+    flexDirection: "row",
+  },
+  collectionSkeletonCard: {
+    width: COLLECTION_CARD_WIDTH,
   },
   recentRecipesList: {
     // RecipeCard already has horizontal padding

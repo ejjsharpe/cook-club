@@ -327,6 +327,80 @@ export const ShoppingListSkeleton = () => {
   );
 };
 
+// ─── Meal Plan Skeleton ─────────────────────────────────────────────────────
+
+const MealSlotSkeleton = () => (
+  <View style={styles.mealSlotContainer}>
+    {/* Recipe image placeholder */}
+    <Skeleton width={40} height={40} borderRadius={10} />
+    {/* Text stack */}
+    <View style={styles.mealSlotContent}>
+      <Skeleton width={60} height={12} borderRadius={4} />
+      <Skeleton width="70%" height={17} borderRadius={4} />
+    </View>
+    {/* Chevron placeholder */}
+    <Skeleton width={20} height={20} borderRadius={4} />
+  </View>
+);
+
+const MealSlotSeparator = () => (
+  <View style={styles.mealSlotSeparator}>
+    <View style={styles.mealSlotSeparatorLine} />
+  </View>
+);
+
+const DayGroupSkeleton = () => (
+  <View>
+    <MealSlotSkeleton />
+    <MealSlotSeparator />
+    <MealSlotSkeleton />
+    <MealSlotSeparator />
+    <MealSlotSkeleton />
+  </View>
+);
+
+const DayHeaderSkeleton = ({ showTodayBadge = false }: { showTodayBadge?: boolean }) => (
+  <View style={styles.dayHeaderContainer}>
+    <View style={styles.dayHeaderContent}>
+      <Skeleton width={50} height={20} borderRadius={4} />
+      <View style={styles.dayHeaderDateRow}>
+        <Skeleton width={55} height={14} borderRadius={4} />
+        {showTodayBadge && (
+          <View style={styles.todayBadgeSkeleton}>
+            <Skeleton width={40} height={18} borderRadius={9} />
+          </View>
+        )}
+      </View>
+    </View>
+  </View>
+);
+
+const DayFooterSkeleton = () => <View style={styles.dayFooterSkeleton} />;
+
+export const MealPlanSkeleton = () => (
+  <View>
+    {/* Day 1 */}
+    <DayHeaderSkeleton showTodayBadge />
+    <DayGroupSkeleton />
+    <DayFooterSkeleton />
+
+    {/* Day 2 */}
+    <DayHeaderSkeleton />
+    <DayGroupSkeleton />
+    <DayFooterSkeleton />
+
+    {/* Day 3 */}
+    <DayHeaderSkeleton />
+    <DayGroupSkeleton />
+    <DayFooterSkeleton />
+
+    {/* Day 4 */}
+    <DayHeaderSkeleton />
+    <DayGroupSkeleton />
+    <DayFooterSkeleton />
+  </View>
+);
+
 // ─── User Profile Skeleton ───────────────────────────────────────────────────
 
 export const UserProfileSkeleton = () => {
@@ -597,6 +671,48 @@ const styles = StyleSheet.create((theme) => ({
   shoppingItemContent: {
     flex: 1,
     gap: 6,
+  },
+
+  // Meal Plan styles
+  mealSlotContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    gap: 16,
+    height: 72,
+  },
+  mealSlotContent: {
+    flex: 1,
+    gap: 6,
+  },
+  mealSlotSeparator: {
+    paddingLeft: 72,
+    paddingRight: 20,
+  },
+  mealSlotSeparatorLine: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    opacity: 0.5,
+  },
+  dayHeaderContainer: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    height: 56,
+    justifyContent: "center",
+  },
+  dayHeaderContent: {
+    gap: 4,
+  },
+  dayHeaderDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  todayBadgeSkeleton: {
+    marginLeft: 4,
+  },
+  dayFooterSkeleton: {
+    height: 16,
   },
 
   // Recipe Detail styles

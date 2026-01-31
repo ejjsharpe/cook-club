@@ -30,7 +30,7 @@ export const TabNavigator = () => {
           }}
         />
         <Tab.Screen
-          name="My Recipes"
+          name="Recipes"
           component={MyRecipesScreen}
           options={{
             tabBarIcon: { type: "sfSymbol", name: "book.fill" },

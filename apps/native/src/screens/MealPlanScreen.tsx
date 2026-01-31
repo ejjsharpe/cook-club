@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   FlashList,
   type FlashListRef,
   type ListRenderItemInfo,
 } from "@shopify/flash-list";
+import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, TouchableOpacity } from "react-native";
-import Animated from "react-native-reanimated";
 import {
   StyleSheet,
   useUnistyles,
@@ -23,6 +23,7 @@ import {
   type MealPlanEntry,
 } from "@/api/mealPlan";
 import { useUser } from "@/api/user";
+import { MealPlanSkeleton } from "@/components/Skeleton";
 import { StackedAvatars } from "@/components/StackedAvatars";
 import { Text } from "@/components/Text";
 import { DayGroup, DayHeader } from "@/components/mealPlan";
@@ -42,7 +43,6 @@ import {
   useMealPlanDates,
   type MealPlanListItem,
 } from "@/hooks/useMealPlanDates";
-import { useMealPlanHeader } from "@/hooks/useMealPlanHeader";
 
 // Constants
 const HEADER_HEIGHT = 52; // Height of the title row
@@ -55,7 +55,6 @@ export const MealPlanScreen = () => {
 
   // Refs
   const flashListRef = useRef<FlashListRef<MealPlanListItem>>(null);
-  const hasScrolledToToday = useRef(false);
 
   // Sheet refs
   const recipePickerSheetRef = useRef<RecipePickerSheetRef>(null);
@@ -95,10 +94,6 @@ export const MealPlanScreen = () => {
     endDate: endDateString,
     enabled: !!activePlan,
   });
-
-  // Header animations
-  const { titleAnimatedStyle, headerButtonsAnimatedStyle, handleScroll } =
-    useMealPlanHeader();
 
   const { data: shareStatus } = useGetShareStatus({
     mealPlanId: activePlan?.id ?? 0,
@@ -262,56 +257,45 @@ export const MealPlanScreen = () => {
       flashListRef.current?.scrollToIndex({
         index: todayHeaderIndex,
         animated,
-        viewOffset: HEADER_HEIGHT,
+        viewOffset: -(insets.top + HEADER_HEIGHT),
       });
     },
-    [todayHeaderIndex],
+    [todayHeaderIndex, insets.top],
   );
-
-  // Scroll to today when screen is focused and data is loaded
-  useFocusEffect(
-    useCallback(() => {
-      if (!entriesFetched || todayHeaderIndex < 0) return;
-
-      if (!hasScrolledToToday.current) {
-        // Small delay to ensure list is laid out, no animation for initial scroll
-        const timer = setTimeout(() => {
-          scrollToToday(false);
-          hasScrolledToToday.current = true;
-        }, 100);
-        return () => clearTimeout(timer);
-      }
-    }, [entriesFetched, todayHeaderIndex, scrollToToday]),
-  );
+  const isFocused = useIsFocused();
 
   useEffect(() => {
     //  @ts-expect-error navigation type
     const unsubscribe = navigation.addListener("tabPress", () => {
-      scrollToToday(true);
+      if (isFocused) {
+        scrollToToday(true);
+      }
     });
 
     return unsubscribe;
-  }, [navigation, scrollToToday]);
+  }, [navigation, scrollToToday, isFocused]);
 
-  // List header component
+  // List header component - includes safe area top + header height
   const ListHeaderComponent = useMemo(
-    () => <View style={{ height: HEADER_HEIGHT }} />,
-    [],
+    () => <View style={{ height: insets.top + HEADER_HEIGHT }} />,
+    [insets.top],
   );
 
   if (isLoadingPlans) {
     return (
       <View style={styles.container}>
         <View style={styles.fixedHeader}>
-          <Text type="screenTitle">Meal Plan</Text>
+          <LinearGradient
+            colors={[theme.colors.background, `${theme.colors.background}00`]}
+            style={styles.headerGradient}
+            pointerEvents="none"
+          />
+          <View style={styles.headerRow}>
+            <Text type="screenTitle">Meal Plan</Text>
+          </View>
         </View>
-        <View
-          style={[
-            styles.loadingContainer,
-            { paddingTop: insets.top + HEADER_HEIGHT },
-          ]}
-        >
-          <Text type="bodyFaded">Loading...</Text>
+        <View style={{ paddingTop: insets.top + HEADER_HEIGHT }}>
+          <MealPlanSkeleton />
         </View>
       </View>
     );
@@ -320,7 +304,7 @@ export const MealPlanScreen = () => {
   return (
     <View style={styles.container}>
       {/* Calendar */}
-      <View style={{ flex: 1, paddingTop: insets.top - 8 }}>
+      <View style={styles.listContainer}>
         <FlashList
           ref={flashListRef}
           data={flattenedData}
@@ -335,43 +319,48 @@ export const MealPlanScreen = () => {
           maintainVisibleContentPosition={{ disabled: false }}
           ListHeaderComponent={ListHeaderComponent}
           contentContainerStyle={styles.listContent}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
+          initialScrollIndexParams={{
+            viewOffset: -(insets.top + HEADER_HEIGHT),
+          }}
+          initialScrollIndex={
+            todayHeaderIndex >= 0 ? todayHeaderIndex : undefined
+          }
         />
       </View>
 
-      {/* Fixed Header */}
+      {/* Fixed Header with Gradient */}
       <View style={styles.fixedHeader}>
+        <LinearGradient
+          colors={[theme.colors.background, `${theme.colors.background}00`]}
+          style={styles.headerGradient}
+          pointerEvents="none"
+        />
         <View style={styles.headerRow}>
-          <Animated.View style={titleAnimatedStyle}>
-            <Text type="screenTitle">Meal Plan</Text>
-          </Animated.View>
-          <Animated.View style={headerButtonsAnimatedStyle}>
-            <View style={styles.headerButtons}>
-              {editableUsers.length > 0 && (
-                <TouchableOpacity
-                  style={styles.inviteStack}
-                  activeOpacity={0.7}
-                  onPress={handleOpenSharedUsers}
-                >
-                  <View style={styles.inviteIconWrapper}>
-                    <Ionicons
-                      name="people"
-                      size={20}
-                      color={theme.colors.textSecondary}
-                    />
-                  </View>
-                  <View style={styles.stackedAvatarsWrapper}>
-                    <StackedAvatars
-                      users={editableUsers}
-                      maxVisible={3}
-                      size={44}
-                    />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          </Animated.View>
+          <Text type="screenTitle">Meal Plan</Text>
+          <View style={styles.headerButtons}>
+            {editableUsers.length > 0 && (
+              <TouchableOpacity
+                style={styles.inviteStack}
+                activeOpacity={0.7}
+                onPress={handleOpenSharedUsers}
+              >
+                <View style={styles.inviteIconWrapper}>
+                  <Ionicons
+                    name="people"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                </View>
+                <View style={styles.stackedAvatarsWrapper}>
+                  <StackedAvatars
+                    users={editableUsers}
+                    maxVisible={3}
+                    size={44}
+                  />
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
@@ -404,12 +393,23 @@ const styles = StyleSheet.create((theme, rt) => ({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
+  listContainer: {
+    flex: 1,
+  },
   fixedHeader: {
     position: "absolute",
-    top: rt.insets.top,
+    top: 0,
     left: 0,
     right: 0,
+    paddingTop: rt.insets.top,
     paddingHorizontal: 20,
+  },
+  headerGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: rt.insets.top + 72,
   },
   headerRow: {
     flexDirection: "row",
@@ -443,14 +443,9 @@ const styles = StyleSheet.create((theme, rt) => ({
     marginLeft: -22,
   },
   listContent: {
-    paddingBottom: rt.insets.bottom + 100,
+    paddingBottom: 100,
   },
   sectionFooter: {
     height: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
 }));

@@ -71,7 +71,7 @@ export const CollectionDetailScreen = () => {
               { collectionId: collection.id },
               {
                 onSuccess: () => {
-                  // Navigate back to My Recipes screen
+                  // Navigate back to Recipes screen
                   navigation.goBack();
                 },
               },
