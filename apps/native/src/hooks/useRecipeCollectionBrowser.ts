@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { useAnimatedScrollHandler } from "react-native-reanimated";
 
 import { useCollectionData } from "./useCollectionData";
 import { useRecipeData } from "./useRecipeData";
@@ -101,21 +100,6 @@ export const useRecipeCollectionBrowser = ({
     setIsRefreshing(false);
   }, [refetchRecipes, refetchCollections]);
 
-  // Scroll handlers (native tab bar handles visibility automatically)
-  const recipesScrollHandler = useAnimatedScrollHandler({
-    onScroll: () => {
-      "worklet";
-      // Native tab bar handles minimize behavior automatically
-    },
-  });
-
-  const collectionsScrollHandler = useAnimatedScrollHandler({
-    onScroll: () => {
-      "worklet";
-      // Native tab bar handles minimize behavior automatically
-    },
-  });
-
   return {
     // Tab state
     activeTab,
@@ -143,10 +127,6 @@ export const useRecipeCollectionBrowser = ({
       onTimeChange: setMaxTotalTime,
       allTags,
     },
-
-    // Scroll handlers
-    recipesScrollHandler,
-    collectionsScrollHandler,
 
     // Recipes data
     recipes,

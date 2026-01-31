@@ -28,7 +28,6 @@ import {
 } from "@/components/CommentsSheet";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { SkeletonContainer, UserProfileSkeleton } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -230,18 +229,20 @@ export const UserProfileScreen = () => {
   };
 
   const insets = UnistylesRuntime.insets;
+  const HEADER_HEIGHT = 52;
 
   if (error) {
     return (
-      <SafeAreaView edges={["top"]} style={styles.container}>
-        <VSpace size={8} />
-        <View style={styles.headerRow}>
-          <BackButton />
+      <View style={styles.container}>
+        <View style={[styles.headerRow, { paddingTop: insets.top + 8 }]}>
+          <View style={styles.headerButton}>
+            <BackButton />
+          </View>
         </View>
         <View style={styles.centered}>
           <Text type="bodyFaded">User not found</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -440,13 +441,15 @@ export const UserProfileScreen = () => {
   };
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      <VSpace size={8} />
-      <View style={styles.headerRow}>
-        <BackButton />
+    <View style={styles.container}>
+      {/* Floating header */}
+      <View style={[styles.headerRow, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.headerButton}>
+          <BackButton />
+        </View>
         {isOwnProfile && profile && (
           <TouchableOpacity
-            style={styles.settingsButton}
+            style={styles.headerButton}
             onPress={handleSettings}
             activeOpacity={0.7}
           >
@@ -475,7 +478,10 @@ export const UserProfileScreen = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: insets.bottom + 20 },
+            {
+              paddingTop: insets.top + HEADER_HEIGHT + 8,
+              paddingBottom: insets.bottom + 20,
+            },
           ]}
           ItemSeparatorComponent={() => <VSpace size={16} />}
         />
@@ -486,7 +492,7 @@ export const UserProfileScreen = () => {
         ref={commentsSheetRef}
         activityEventId={commentActivityId}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -495,12 +501,17 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
   },
   headerRow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
+    zIndex: 100,
   },
-  settingsButton: {
+  headerButton: {
     width: 44,
     height: 44,
     borderRadius: 22,

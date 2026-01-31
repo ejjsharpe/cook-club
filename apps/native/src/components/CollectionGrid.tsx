@@ -25,7 +25,6 @@ interface CollectionGridProps {
   showCreateCard?: boolean;
   onCreateCollection?: () => void;
   isCreatingCollection?: boolean;
-  onScroll?: (event: any) => void;
   isRefreshing?: boolean;
   onRefresh?: () => void;
   headerHeight?: number;
@@ -39,7 +38,6 @@ export const CollectionGrid = ({
   showCreateCard = false,
   onCreateCollection,
   isCreatingCollection = false,
-  onScroll,
   isRefreshing = false,
   onRefresh,
   headerHeight = 0,
@@ -60,7 +58,7 @@ export const CollectionGrid = ({
     [showCreateCard, collections],
   );
 
-  const ListHeaderSpacer = useCallback(
+  const ListHeader = useMemo(
     () => <VSpace size={insets.top + headerHeight} />,
     [insets.top, headerHeight],
   );
@@ -123,11 +121,10 @@ export const CollectionGrid = ({
       data={collectionsList}
       renderItem={internalRenderItem}
       keyExtractor={(item) => item.id.toString()}
-      ListHeaderComponent={ListHeaderSpacer}
+      ListHeaderComponent={ListHeader}
       showsVerticalScrollIndicator={false}
       numColumns={2}
       contentContainerStyle={styles.gridContent}
-      onScroll={onScroll}
       scrollEventThrottle={20}
       refreshControl={
         onRefresh ? (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useMemo } from "react";
 import { View, Dimensions } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -87,8 +87,6 @@ export const RecipeCollectionBrowser = ({
     hasActiveFilters,
     filterButtonStyle,
     filterSheetProps,
-    recipesScrollHandler,
-    collectionsScrollHandler,
     recipes,
     isPendingRecipes,
     recipesError,
@@ -165,8 +163,7 @@ export const RecipeCollectionBrowser = ({
     [onCollectionPress],
   );
 
-  // Render recipes tab content
-  const renderRecipesContent = () => {
+  const recipesContent = useMemo(() => {
     if (isPendingRecipes) {
       return (
         <View style={[styles.stateContainer, { paddingTop: headerPaddingTop }]}>
@@ -203,16 +200,26 @@ export const RecipeCollectionBrowser = ({
         renderItem={renderRecipe}
         onLoadMore={handleLoadMoreRecipes}
         isFetchingMore={isFetchingNextRecipes}
-        onScroll={recipesScrollHandler}
         isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
         headerHeight={HEADER_CONTENT_HEIGHT}
       />
     );
-  };
+  }, [
+    isPendingRecipes,
+    recipesError,
+    recipes,
+    searchQuery,
+    recipesEmptyMessage,
+    headerPaddingTop,
+    renderRecipe,
+    handleLoadMoreRecipes,
+    isFetchingNextRecipes,
+    isRefreshing,
+    handleRefresh,
+  ]);
 
-  // Render collections tab content
-  const renderCollectionsContent = () => {
+  const collectionsContent = useMemo(() => {
     if (isPendingCollections) {
       return (
         <View style={[styles.stateContainer, { paddingTop: headerPaddingTop }]}>
@@ -251,14 +258,26 @@ export const RecipeCollectionBrowser = ({
         showCreateCard={showCreateCollectionCard}
         onCreateCollection={onCreateCollection}
         isCreatingCollection={isCreatingCollection}
-        onScroll={collectionsScrollHandler}
         isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
         headerHeight={HEADER_CONTENT_HEIGHT}
         firstItemRef={firstCollectionRef}
       />
     );
-  };
+  }, [
+    isPendingCollections,
+    collectionsError,
+    collections,
+    searchQuery,
+    showCreateCollectionCard,
+    headerPaddingTop,
+    renderCollection,
+    onCreateCollection,
+    isCreatingCollection,
+    isRefreshing,
+    handleRefresh,
+    firstCollectionRef,
+  ]);
 
   return (
     <View style={styles.container}>
@@ -269,8 +288,8 @@ export const RecipeCollectionBrowser = ({
           containerWidth={SCREEN_WIDTH}
           scrollProgress={scrollProgress}
         >
-          {renderRecipesContent()}
-          {renderCollectionsContent()}
+          {recipesContent}
+          {collectionsContent}
         </SwipeableTabView>
       </Animated.View>
       <RecipeCollectionHeader
