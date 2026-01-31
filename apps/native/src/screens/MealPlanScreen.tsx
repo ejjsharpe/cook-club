@@ -28,6 +28,10 @@ import { StackedAvatars } from "@/components/StackedAvatars";
 import { Text } from "@/components/Text";
 import { DayGroup, DayHeader } from "@/components/mealPlan";
 import {
+  MealPlanPickerSheet,
+  type MealPlanPickerSheetRef,
+} from "@/components/mealPlan/MealPlanPickerSheet";
+import {
   MealPlanShareSheet,
   type MealPlanShareSheetRef,
 } from "@/components/mealPlan/MealPlanShareSheet";
@@ -43,6 +47,7 @@ import {
   useMealPlanDates,
   type MealPlanListItem,
 } from "@/hooks/useMealPlanDates";
+import { useSelectedMealPlan } from "@/lib/mealPlanPreferences";
 
 // Constants
 const HEADER_HEIGHT = 52; // Height of the title row
@@ -60,6 +65,7 @@ export const MealPlanScreen = () => {
   const recipePickerSheetRef = useRef<RecipePickerSheetRef>(null);
   const shareSheetRef = useRef<MealPlanShareSheetRef>(null);
   const sharedUsersSheetRef = useRef<SharedUsersSheetRef>(null);
+  const mealPlanPickerSheetRef = useRef<MealPlanPickerSheetRef>(null);
 
   // State for recipe picker props
   const [recipePickerProps, setRecipePickerProps] = useState<{
@@ -68,12 +74,32 @@ export const MealPlanScreen = () => {
     mealType?: "breakfast" | "lunch" | "dinner";
   }>({});
 
+  // Reactive meal plan selection from MMKV
+  const {
+    selectedPlan: storedPlan,
+    setSelectedPlan,
+    clearSelectedPlan,
+  } = useSelectedMealPlan();
+
   // Queries
   const { data: mealPlans, isLoading: isLoadingPlans } = useGetMealPlans();
   const activePlan = useMemo(() => {
     if (!mealPlans || mealPlans.length === 0) return null;
-    return mealPlans[0];
-  }, [mealPlans]);
+
+    // Check if stored plan is still valid
+    if (storedPlan !== null) {
+      const foundPlan = mealPlans.find((p) => p.id === storedPlan.id);
+      if (foundPlan) {
+        return foundPlan;
+      }
+      // Stored plan no longer valid (deleted/unshared), clear it
+      clearSelectedPlan();
+    }
+
+    // Fall back to default plan or first plan
+    const defaultPlan = mealPlans.find((p) => p.isDefault);
+    return defaultPlan ?? mealPlans[0];
+  }, [mealPlans, storedPlan, clearSelectedPlan]);
 
   // Date range management and infinite scroll
   const {
@@ -187,6 +213,20 @@ export const MealPlanScreen = () => {
     shareSheetRef.current?.present();
   }, []);
 
+  const handleSelectMealPlan = useCallback(
+    (planId: number) => {
+      const plan = mealPlans?.find((p) => p.id === planId);
+      if (plan) {
+        setSelectedPlan(planId, plan.name);
+      }
+    },
+    [mealPlans, setSelectedPlan],
+  );
+
+  const handleOpenMealPlanPicker = useCallback(() => {
+    mealPlanPickerSheetRef.current?.present();
+  }, []);
+
   // Render item based on type
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<MealPlanListItem>) => {
@@ -291,7 +331,15 @@ export const MealPlanScreen = () => {
             pointerEvents="none"
           />
           <View style={styles.headerRow}>
-            <Text type="screenTitle">Meal Plan</Text>
+            <View style={styles.titleButton}>
+              <Text type="screenTitle">{storedPlan?.name ?? "Meal Plan"}</Text>
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                color={theme.colors.text}
+                style={styles.titleChevron}
+              />
+            </View>
           </View>
         </View>
         <View style={{ paddingTop: insets.top + HEADER_HEIGHT }}>
@@ -336,7 +384,19 @@ export const MealPlanScreen = () => {
           pointerEvents="none"
         />
         <View style={styles.headerRow}>
-          <Text type="screenTitle">Meal Plan</Text>
+          <TouchableOpacity
+            style={styles.titleButton}
+            onPress={handleOpenMealPlanPicker}
+            activeOpacity={0.7}
+          >
+            <Text type="screenTitle">{activePlan?.name ?? "Meal Plan"}</Text>
+            <Ionicons
+              name="chevron-down"
+              size={20}
+              color={theme.colors.text}
+              style={styles.titleChevron}
+            />
+          </TouchableOpacity>
           <View style={styles.headerButtons}>
             {editableUsers.length > 0 && (
               <TouchableOpacity
@@ -384,6 +444,11 @@ export const MealPlanScreen = () => {
         isOwner={activePlan?.isOwner}
         onManageSharing={handleManageSharing}
       />
+      <MealPlanPickerSheet
+        ref={mealPlanPickerSheetRef}
+        activePlanId={activePlan?.id}
+        onSelectPlan={handleSelectMealPlan}
+      />
     </View>
   );
 };
@@ -415,6 +480,14 @@ const styles = StyleSheet.create((theme, rt) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  titleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  titleChevron: {
+    marginLeft: 4,
+    marginTop: 2,
   },
   headerButtons: {
     flexDirection: "row",
