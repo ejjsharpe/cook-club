@@ -590,9 +590,7 @@ export const ShoppingListScreen = () => {
           getItemType={getItemType}
           keyExtractor={keyExtractor}
           overrideItemLayout={overrideItemLayout}
-          ListHeaderComponent={
-            flattenedData.length > 0 ? listHeaderComponent : null
-          }
+          ListHeaderComponent={listHeaderComponent}
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
@@ -868,6 +866,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
+    top: -80,
   },
   emptyIcon: {
     color: theme.colors.border,

@@ -464,7 +464,11 @@ export const UserProfileScreen = () => {
 
       <SkeletonContainer
         isLoading={isLoading || !profile}
-        skeleton={<UserProfileSkeleton />}
+        skeleton={
+          <View style={{ paddingTop: insets.top + HEADER_HEIGHT + 8 }}>
+            <UserProfileSkeleton />
+          </View>
+        }
       >
         <FlashList
           data={activities}
