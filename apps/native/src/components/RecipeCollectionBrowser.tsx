@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { View, Dimensions } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -9,6 +9,7 @@ import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { CollectionGrid, type CollectionListItem } from "./CollectionGrid";
 import { CollectionGridCard } from "./CollectionGridCard";
+import { FilterSheet, type FilterSheetRef } from "./FilterBottomSheet";
 import { RecipeCard } from "./RecipeCard";
 import {
   RecipeCollectionHeader,
@@ -73,6 +74,8 @@ export const RecipeCollectionBrowser = ({
   initialTab,
   firstCollectionRef,
 }: RecipeCollectionBrowserProps) => {
+  const filterSheetRef = useRef<FilterSheetRef>(null);
+
   const {
     activeTab,
     activeTabIndex,
@@ -82,8 +85,8 @@ export const RecipeCollectionBrowser = ({
     searchQuery,
     setSearchQuery,
     hasActiveFilters,
-    handleOpenFilters,
     filterButtonStyle,
+    filterSheetProps,
     recipesScrollHandler,
     collectionsScrollHandler,
     recipes,
@@ -100,6 +103,10 @@ export const RecipeCollectionBrowser = ({
     externalSearchQuery,
     initialTab,
   });
+
+  const handleOpenFilters = useCallback(() => {
+    filterSheetRef.current?.present();
+  }, []);
 
   // Sync search query changes with parent if callback provided
   const handleSearchChange = useCallback(
@@ -278,6 +285,9 @@ export const RecipeCollectionBrowser = ({
         filterButtonStyle={filterButtonStyle}
         headerAnimationProgress={headerAnimationProgress}
       />
+
+      {/* Filter Sheet */}
+      <FilterSheet ref={filterSheetRef} {...filterSheetProps} />
     </View>
   );
 };

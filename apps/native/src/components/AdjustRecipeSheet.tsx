@@ -1,10 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useEffect } from "react";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import { forwardRef, useState, useImperativeHandle, useRef } from "react";
 import { View, TouchableOpacity } from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
-} from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
 import { MeasurementToggle } from "./MeasurementToggle";
@@ -17,15 +14,28 @@ import {
   MeasurementSystem,
 } from "@/lib/measurementPreferences";
 
-export const AdjustRecipeSheet = (props: SheetProps<"adjust-recipe-sheet">) => {
-  const { servings, onServingsChange } = props.payload || {};
-  const [measurementSystem, setMeasurementSystemState] =
-    useState<MeasurementSystem>(getMeasurementPreference);
+export interface AdjustRecipeSheetProps {
+  servings: number;
+  onServingsChange: (servings: number) => void;
+}
 
-  useEffect(() => {
-    // Re-read preference when sheet opens
-    setMeasurementSystemState(getMeasurementPreference());
-  }, []);
+export interface AdjustRecipeSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const AdjustRecipeSheet = forwardRef<
+  AdjustRecipeSheetRef,
+  AdjustRecipeSheetProps
+>(({ servings, onServingsChange }, ref) => {
+  const sheetRef = useRef<TrueSheet>(null);
+  const [measurementSystem, setMeasurementSystemState] =
+    useState<MeasurementSystem>(getMeasurementPreference());
+
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
 
   const handleMeasurementChange = (system: MeasurementSystem) => {
     setMeasurementPreference(system);
@@ -44,21 +54,17 @@ export const AdjustRecipeSheet = (props: SheetProps<"adjust-recipe-sheet">) => {
     }
   };
 
+  const handleDismiss = () => {
+    sheetRef.current?.dismiss();
+  };
+
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled
-      indicatorStyle={styles.indicator}
-    >
+    <TrueSheet ref={sheetRef} detents={["auto"]} grabber cornerRadius={20}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <Text type="title2">Adjust Recipe</Text>
-          <TouchableOpacity
-            onPress={() => SheetManager.hide("adjust-recipe-sheet")}
-          >
+          <TouchableOpacity onPress={handleDismiss}>
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -108,22 +114,16 @@ export const AdjustRecipeSheet = (props: SheetProps<"adjust-recipe-sheet">) => {
           <VSpace size={24} />
 
           {/* Done Button */}
-          <TouchableOpacity
-            style={styles.doneButton}
-            onPress={() => SheetManager.hide("adjust-recipe-sheet")}
-          >
+          <TouchableOpacity style={styles.doneButton} onPress={handleDismiss}>
             <Text style={styles.doneButtonText}>Done</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </ActionSheet>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
-  indicator: {
-    backgroundColor: theme.colors.border,
-  },
   container: {
     paddingBottom: 20,
   },

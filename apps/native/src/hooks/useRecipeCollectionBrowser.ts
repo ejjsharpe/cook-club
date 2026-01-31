@@ -38,12 +38,17 @@ export const useRecipeCollectionBrowser = ({
   // Compose filters with tab-aware animation
   const {
     hasActiveFilters,
-    handleOpenFilters,
     filterButtonProgress,
     filterButtonStyle,
     parsedTagIds,
     parsedMaxTotalTime,
     setFilterButtonVisible,
+    // Filter sheet props
+    selectedTagIds,
+    setSelectedTagIds,
+    maxTotalTime,
+    setMaxTotalTime,
+    allTags,
   } = useRecipeFilters();
 
   // Override switchTab to also animate filter button
@@ -125,11 +130,19 @@ export const useRecipeCollectionBrowser = ({
 
     // Filters
     hasActiveFilters,
-    handleOpenFilters,
 
     // Filter button animation
     filterButtonProgress,
     filterButtonStyle,
+
+    // Filter sheet props (for rendering FilterSheet)
+    filterSheetProps: {
+      selectedTagIds,
+      onTagsChange: setSelectedTagIds,
+      maxTotalTime,
+      onTimeChange: setMaxTotalTime,
+      allTags,
+    },
 
     // Scroll handlers
     recipesScrollHandler,

@@ -34,6 +34,10 @@ import {
 import { useSearchUsers, SearchUser } from "@/api/follows";
 import { useUser, User } from "@/api/user";
 import { Avatar } from "@/components/Avatar";
+import {
+  CommentsSheet,
+  type CommentsSheetRef,
+} from "@/components/CommentsSheet";
 import { EmptyFeedState } from "@/components/EmptyFeedState";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
@@ -106,6 +110,7 @@ export const HomeScreen = () => {
   const browseScrollRef = useRef<FlashListRef<FeedItem>>(null);
   const searchListRef = useRef<FlatList>(null);
   const searchBarRef = useRef<View>(null);
+  const commentsSheetRef = useRef<CommentsSheetRef>(null);
   useScrollToTop(browseScrollRef);
   const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
@@ -118,6 +123,7 @@ export const HomeScreen = () => {
   const [showFloatingSearch, setShowFloatingSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [commentActivityId, setCommentActivityId] = useState<number>(0);
 
   // Track the search bar's Y position relative to the screen
   const searchBarY = useSharedValue(0);
@@ -306,6 +312,11 @@ export const HomeScreen = () => {
     [toggleLike],
   );
 
+  const handleCommentPress = useCallback((activityEventId: number) => {
+    setCommentActivityId(activityEventId);
+    commentsSheetRef.current?.present();
+  }, []);
+
   // ─── Scroll Handler with Header Fade ────────────────────────────────────────────
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -351,6 +362,7 @@ export const HomeScreen = () => {
             onPress={() => handleRecipePress(item.recipe.id)}
             onUserPress={() => handleUserPress(item.actor.id)}
             onLikePress={() => handleLikePress(activityId)}
+            onCommentPress={() => handleCommentPress(activityId)}
             onImportPress={handleImportRecipe}
           />
         );
@@ -362,11 +374,18 @@ export const HomeScreen = () => {
           onPress={() => handleRecipePress(item.recipe.id)}
           onUserPress={() => handleUserPress(item.actor.id)}
           onLikePress={() => handleLikePress(activityId)}
+          onCommentPress={() => handleCommentPress(activityId)}
           onImportPress={handleImportRecipe}
         />
       );
     },
-    [handleRecipePress, handleUserPress, handleLikePress, handleImportRecipe],
+    [
+      handleRecipePress,
+      handleUserPress,
+      handleLikePress,
+      handleCommentPress,
+      handleImportRecipe,
+    ],
   );
 
   const activityKeyExtractor = useCallback((item: FeedItem) => item.id, []);
@@ -598,6 +617,12 @@ export const HomeScreen = () => {
           </Animated.View>
         </>
       )}
+
+      {/* Comments Sheet */}
+      <CommentsSheet
+        ref={commentsSheetRef}
+        activityEventId={commentActivityId}
+      />
     </View>
   );
 };

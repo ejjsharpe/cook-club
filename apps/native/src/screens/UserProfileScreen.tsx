@@ -4,7 +4,7 @@ import { useTRPC } from "@repo/trpc/client";
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback, useState, useRef } from "react";
 import {
   View,
   ActivityIndicator,
@@ -22,6 +22,10 @@ import type {
 import { useUserActivities } from "@/api/activity";
 import { useUserProfile, useFollowUser, useUnfollowUser } from "@/api/follows";
 import { useUser } from "@/api/user";
+import {
+  CommentsSheet,
+  type CommentsSheetRef,
+} from "@/components/CommentsSheet";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
@@ -49,8 +53,11 @@ export const UserProfileScreen = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
+  const commentsSheetRef = useRef<CommentsSheetRef>(null);
+
   const [isImporting, setIsImporting] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [commentActivityId, setCommentActivityId] = useState<number>(0);
 
   const { data: currentUser } = useUser();
   const { data: profile, isLoading, error } = useUserProfile({ userId });
@@ -139,8 +146,15 @@ export const UserProfileScreen = () => {
     [isImporting, queryClient, trpc, navigation],
   );
 
+  const handleCommentPress = useCallback((activityEventId: number) => {
+    setCommentActivityId(activityEventId);
+    commentsSheetRef.current?.present();
+  }, []);
+
   const renderActivityItem = useCallback(
     ({ item }: { item: FeedItem }) => {
+      const activityId = parseInt(item.id, 10);
+
       if (item.type === "cooking_review") {
         return (
           <ReviewActivityCard
@@ -153,6 +167,7 @@ export const UserProfileScreen = () => {
             onUserPress={() =>
               navigation.navigate("UserProfile", { userId: item.actor.id })
             }
+            onCommentPress={() => handleCommentPress(activityId)}
             onImportPress={handleImportRecipe}
           />
         );
@@ -168,11 +183,12 @@ export const UserProfileScreen = () => {
           onUserPress={() =>
             navigation.navigate("UserProfile", { userId: item.actor.id })
           }
+          onCommentPress={() => handleCommentPress(activityId)}
           onImportPress={handleImportRecipe}
         />
       );
     },
-    [navigation, handleImportRecipe],
+    [navigation, handleImportRecipe, handleCommentPress],
   );
 
   const renderEmpty = () => {
@@ -464,6 +480,12 @@ export const UserProfileScreen = () => {
           ItemSeparatorComponent={() => <VSpace size={16} />}
         />
       </SkeletonContainer>
+
+      {/* Comments Sheet */}
+      <CommentsSheet
+        ref={commentsSheetRef}
+        activityEventId={commentActivityId}
+      />
     </SafeAreaView>
   );
 };

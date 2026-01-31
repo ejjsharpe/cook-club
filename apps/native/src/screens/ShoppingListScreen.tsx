@@ -1,16 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { getAisleOrder } from "@repo/shared";
+import {
+  FlashList,
+  type FlashListRef,
+  type ListRenderItemInfo,
+} from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback, useState, memo, useRef } from "react";
 import {
   View,
-  SectionList,
   TouchableOpacity,
   ScrollView,
   TextInput,
   Alert,
+  LayoutAnimation,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
@@ -22,14 +26,12 @@ import {
 } from "react-native-keyboard-controller";
 import Animated, {
   useAnimatedStyle,
-  withSpring,
   withTiming,
   useSharedValue,
   useAnimatedReaction,
   interpolate,
   interpolateColor,
   Extrapolation,
-  LinearTransition,
   type SharedValue,
 } from "react-native-reanimated";
 import {
@@ -49,27 +51,14 @@ import {
 import { ShoppingListSkeleton, SkeletonContainer } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-
-interface ShoppingListItem {
-  id: number;
-  ingredientName: string;
-  quantity: number;
-  unit: string | null;
-  displayText: string;
-  isChecked: boolean;
-  aisle: string;
-  sourceItems: {
-    id: number;
-    quantity: number | null;
-    sourceRecipeId: number | null;
-    sourceRecipeName: string | null;
-  }[];
-}
-
-interface Section {
-  title: string;
-  data: ShoppingListItem[];
-}
+import { ShoppingListSectionHeader } from "@/components/shopping/ShoppingListSectionHeader";
+import {
+  useShoppingListData,
+  type ShoppingListFlashItem,
+  type ShoppingListItem,
+  SECTION_HEADER_HEIGHT,
+  ITEM_HEIGHT,
+} from "@/hooks/useShoppingListData";
 
 interface Recipe {
   id: number;
@@ -81,7 +70,7 @@ const INPUT_SECTION_HEIGHT = 68;
 const HEADER_HEIGHT = 52; // Height of the title row
 
 interface SwipeableItemProps {
-  item: ShoppingListItem;
+  item: ShoppingListFlashItem & { type: "item" };
   onToggle: (id: number) => void;
   onRemove: (id: number) => void;
 }
@@ -152,7 +141,7 @@ const ItemContent = ({
   swipeProgress,
   onToggle,
 }: {
-  item: ShoppingListItem;
+  item: ShoppingListFlashItem & { type: "item" };
   swipeProgress: SharedValue<number>;
   onToggle: () => void;
 }) => {
@@ -218,24 +207,24 @@ const ProgressSyncer = ({
   return null;
 };
 
-const SwipeableItem = ({ item, onToggle, onRemove }: SwipeableItemProps) => {
-  const swipeProgress = useSharedValue(0);
+const SwipeableItem = memo(
+  ({ item, onToggle, onRemove }: SwipeableItemProps) => {
+    const swipeProgress = useSharedValue(0);
 
-  const renderRightActions = useCallback(
-    (progress: SharedValue<number>) => (
-      <>
-        <ProgressSyncer source={progress} target={swipeProgress} />
-        <DeleteAction
-          swipeProgress={progress}
-          onRemove={() => onRemove(item.id)}
-        />
-      </>
-    ),
-    [item.id, onRemove, swipeProgress],
-  );
+    const renderRightActions = useCallback(
+      (progress: SharedValue<number>) => (
+        <>
+          <ProgressSyncer source={progress} target={swipeProgress} />
+          <DeleteAction
+            swipeProgress={progress}
+            onRemove={() => onRemove(item.itemId)}
+          />
+        </>
+      ),
+      [item.itemId, onRemove, swipeProgress],
+    );
 
-  return (
-    <Animated.View layout={LinearTransition}>
+    return (
       <Swipeable
         renderRightActions={renderRightActions}
         overshootRight
@@ -245,41 +234,14 @@ const SwipeableItem = ({ item, onToggle, onRemove }: SwipeableItemProps) => {
         <ItemContent
           item={item}
           swipeProgress={swipeProgress}
-          onToggle={() => onToggle(item.id)}
+          onToggle={() => onToggle(item.itemId)}
         />
       </Swipeable>
-    </Animated.View>
-  );
-};
+    );
+  },
+);
 
-const SectionCheck = ({ isComplete }: { isComplete: boolean }) => {
-  const scale = useSharedValue(isComplete ? 1 : 0);
-
-  useAnimatedReaction(
-    () => isComplete,
-    (current, previous) => {
-      if (current !== previous) {
-        scale.value = withSpring(current ? 1 : 0, {
-          damping: 50,
-          stiffness: 300,
-          mass: 2,
-        });
-      }
-    },
-    [isComplete],
-  );
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: scale.value,
-  }));
-
-  return (
-    <Animated.View style={[styles.sectionCheck, animatedStyle]}>
-      <Ionicons name="checkmark" size={14} style={styles.sectionCheckIcon} />
-    </Animated.View>
-  );
-};
+SwipeableItem.displayName = "SwipeableItem";
 
 const TAB_BAR_HEIGHT = 80; // Approximate native tab bar height
 
@@ -288,6 +250,7 @@ export const ShoppingListScreen = () => {
   const insets = UnistylesRuntime.insets;
   const [manualItemText, setManualItemText] = useState("");
   const { progress: keyboardswipeProgress } = useReanimatedKeyboardAnimation();
+  const listRef = useRef<FlashListRef<ShoppingListFlashItem>>(null);
 
   // Track keyboard height for empty state centering
   const keyboardHeight = useSharedValue(0);
@@ -370,41 +333,31 @@ export const ShoppingListScreen = () => {
   const addManualMutation = useAddManualItem();
   const { theme } = useUnistyles();
 
-  const items = data?.items || [];
+  const items = (data?.items || []) as ShoppingListItem[];
   const recipes = data?.recipes || [];
   const checkedCount = items.filter(
     (item: ShoppingListItem) => item.isChecked,
   ).length;
 
-  // Group items by aisle for SectionList
-  const sections = useMemo((): Section[] => {
-    if (!items.length) return [];
+  // Get flattened data for FlashList
+  const { flattenedData } = useShoppingListData({ items });
 
-    // Group by aisle
-    const groups = new Map<string, ShoppingListItem[]>();
-    for (const item of items) {
-      const aisle = item.aisle || "Other";
-      const existing = groups.get(aisle) || [];
-      existing.push(item);
-      groups.set(aisle, existing);
-    }
+  const handleToggleCheck = useCallback(
+    (itemId: number) => {
+      toggleMutation.mutate({ itemId });
+    },
+    [toggleMutation],
+  );
 
-    // Convert to SectionList format, ordered by aisle order
-    return Array.from(groups.entries())
-      .sort((a, b) => getAisleOrder(a[0] as any) - getAisleOrder(b[0] as any))
-      .map(([aisle, data]) => ({
-        title: aisle,
-        data,
-      }));
-  }, [items]);
-
-  const handleToggleCheck = (itemId: number) => {
-    toggleMutation.mutate({ itemId });
-  };
-
-  const handleRemoveItem = (itemId: number) => {
-    removeMutation.mutate({ itemId });
-  };
+  const handleRemoveItem = useCallback(
+    (itemId: number) => {
+      // Prepare FlashList for layout animation before removing
+      listRef.current?.prepareForLayoutAnimationRender();
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      removeMutation.mutate({ itemId });
+    },
+    [removeMutation],
+  );
 
   const handleClearChecked = () => {
     if (checkedCount === 0) return;
@@ -417,7 +370,13 @@ export const ShoppingListScreen = () => {
         {
           text: "Clear",
           style: "destructive",
-          onPress: () => clearMutation.mutate(),
+          onPress: () => {
+            listRef.current?.prepareForLayoutAnimationRender();
+            LayoutAnimation.configureNext(
+              LayoutAnimation.Presets.easeInEaseOut,
+            );
+            clearMutation.mutate();
+          },
         },
       ],
     );
@@ -432,7 +391,13 @@ export const ShoppingListScreen = () => {
         {
           text: "Remove",
           style: "destructive",
-          onPress: () => removeRecipeMutation.mutate({ recipeId }),
+          onPress: () => {
+            listRef.current?.prepareForLayoutAnimationRender();
+            LayoutAnimation.configureNext(
+              LayoutAnimation.Presets.easeInEaseOut,
+            );
+            removeRecipeMutation.mutate({ recipeId });
+          },
         },
       ],
     );
@@ -515,25 +480,56 @@ export const ShoppingListScreen = () => {
     </TouchableOpacity>
   );
 
-  const renderItem = ({ item }: { item: ShoppingListItem }) => (
-    <SwipeableItem
-      item={item}
-      onToggle={handleToggleCheck}
-      onRemove={handleRemoveItem}
-    />
+  // FlashList render item - switch on type
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<ShoppingListFlashItem>) => {
+      switch (item.type) {
+        case "section-header":
+          return (
+            <ShoppingListSectionHeader
+              title={item.title}
+              isComplete={item.isComplete}
+            />
+          );
+        case "item":
+          return (
+            <SwipeableItem
+              item={item}
+              onToggle={handleToggleCheck}
+              onRemove={handleRemoveItem}
+            />
+          );
+      }
+    },
+    [handleToggleCheck, handleRemoveItem],
   );
 
-  const renderSectionHeader = ({ section }: { section: Section }) => {
-    const allChecked =
-      section.data.length > 0 && section.data.every((item) => item.isChecked);
+  // Item type for FlashList recycling optimization
+  const getItemType = useCallback(
+    (item: ShoppingListFlashItem) => item.type,
+    [],
+  );
 
-    return (
-      <Animated.View layout={LinearTransition} style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{section.title}</Text>
-        <SectionCheck isComplete={allChecked} />
-      </Animated.View>
-    );
-  };
+  // Key extractor
+  const keyExtractor = useCallback(
+    (item: ShoppingListFlashItem) => item.id,
+    [],
+  );
+
+  // Override item layout for proper sizing
+  const overrideItemLayout = useCallback(
+    (layout: { size?: number; span?: number }, item: ShoppingListFlashItem) => {
+      switch (item.type) {
+        case "section-header":
+          layout.size = SECTION_HEADER_HEIGHT;
+          break;
+        case "item":
+          layout.size = ITEM_HEIGHT;
+          break;
+      }
+    },
+    [],
+  );
 
   const renderEmpty = () => {
     if (error) {
@@ -557,23 +553,26 @@ export const ShoppingListScreen = () => {
     );
   };
 
-  const listHeaderComponent = (
-    <View>
-      {/* Space for fixed header */}
-      <VSpace size={insets.top + HEADER_HEIGHT + 8} />
-      {/* Recipe Cards Carousel */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.recipeCardsContainer}
-      >
-        {recipes.map((recipe: Recipe) => (
-          <View key={recipe.id}>{renderRecipeCard({ item: recipe })}</View>
-        ))}
-        {renderAddRecipeCard()}
-      </ScrollView>
-      <VSpace size={8} />
-    </View>
+  const listHeaderComponent = useMemo(
+    () => (
+      <View>
+        {/* Space for fixed header */}
+        <VSpace size={insets.top + HEADER_HEIGHT + 8} />
+        {/* Recipe Cards Carousel */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.recipeCardsContainer}
+        >
+          {recipes.map((recipe: Recipe) => (
+            <View key={recipe.id}>{renderRecipeCard({ item: recipe })}</View>
+          ))}
+          {renderAddRecipeCard()}
+        </ScrollView>
+        <VSpace size={8} />
+      </View>
+    ),
+    [insets.top, recipes],
   );
 
   return (
@@ -582,33 +581,30 @@ export const ShoppingListScreen = () => {
       <SkeletonContainer
         isLoading={isLoading}
         skeleton={
-          <SectionList
-            sections={[]}
+          <FlashList
+            data={[]}
             renderItem={() => null}
             ListHeaderComponent={listHeaderComponent}
             ListEmptyComponent={ShoppingListSkeleton}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.listContent,
-              { paddingBottom: INPUT_SECTION_HEIGHT + insets.bottom },
-            ]}
+            contentContainerStyle={styles.listContent}
           />
         }
       >
-        <SectionList
-          sections={sections}
+        <FlashList
+          ref={listRef}
+          data={flattenedData}
           renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-          keyExtractor={(item) => item.id.toString()}
+          getItemType={getItemType}
+          keyExtractor={keyExtractor}
+          overrideItemLayout={overrideItemLayout}
           ListHeaderComponent={listHeaderComponent}
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
-          stickySectionHeadersEnabled={false}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: INPUT_SECTION_HEIGHT + insets.bottom },
-            sections.length === 0 && styles.emptyListContent,
-          ]}
+          contentContainerStyle={{
+            ...styles.listContent,
+            paddingBottom: INPUT_SECTION_HEIGHT + insets.bottom,
+          }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         />

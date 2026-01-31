@@ -1,5 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useCallback } from "react";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import {
+  forwardRef,
+  useState,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+} from "react";
 import {
   View,
   TouchableOpacity,
@@ -9,14 +16,6 @@ import {
   Keyboard,
   Alert,
 } from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
-} from "react-native-actions-sheet";
-import {
-  KeyboardStickyView,
-  useReanimatedKeyboardAnimation,
-} from "react-native-keyboard-controller";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -31,82 +30,133 @@ import {
 } from "@/api/comment";
 import { useUser } from "@/api/user";
 
-export const CommentsSheet = (props: SheetProps<"comments-sheet">) => {
-  const { activityEventId } = props.payload || { activityEventId: 0 };
-  const { data: currentUser } = useUser();
-  const currentUserId = currentUser?.user?.id;
-  const unistyles = useUnistyles();
+export interface CommentsSheetProps {
+  activityEventId: number;
+}
 
-  const [commentText, setCommentText] = useState("");
-  const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
+export interface CommentsSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
 
-  const { data: comments, isLoading } = useComments(activityEventId);
-  const createCommentMutation = useCreateComment();
-  const deleteCommentMutation = useDeleteComment(activityEventId);
+export const CommentsSheet = forwardRef<CommentsSheetRef, CommentsSheetProps>(
+  ({ activityEventId }, ref) => {
+    const sheetRef = useRef<TrueSheet>(null);
+    const { theme } = useUnistyles();
+    const { data: currentUser } = useUser();
+    const currentUserId = currentUser?.user?.id;
 
-  // Keyboard height for animating empty state
-  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
+    const [commentText, setCommentText] = useState("");
+    const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
 
-  const emptyStateAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: keyboardHeight.value / 2.5 }],
-  }));
+    const { data: comments, isLoading } = useComments(activityEventId);
+    const createCommentMutation = useCreateComment();
+    const deleteCommentMutation = useDeleteComment(activityEventId);
 
-  const handleSubmit = useCallback(async () => {
-    if (!commentText.trim()) return;
+    const emptyStateAnimatedStyle = useAnimatedStyle(() => ({
+      flex: 1,
+    }));
 
-    Keyboard.dismiss();
+    useImperativeHandle(ref, () => ({
+      present: () => sheetRef.current?.present(),
+      dismiss: () => sheetRef.current?.dismiss(),
+    }));
 
-    try {
-      await createCommentMutation.mutateAsync({
-        activityEventId,
-        parentCommentId: replyingTo?.id,
-        content: commentText.trim(),
-      });
-      setCommentText("");
-      setReplyingTo(null);
-    } catch {
-      Alert.alert("Error", "Failed to post comment. Please try again.");
-    }
-  }, [commentText, activityEventId, replyingTo, createCommentMutation]);
+    const handleDismiss = useCallback(() => {
+      sheetRef.current?.dismiss();
+    }, []);
 
-  const handleReply = useCallback((comment: Comment) => {
-    setReplyingTo(comment);
-  }, []);
+    const handleSubmit = useCallback(async () => {
+      if (!commentText.trim()) return;
 
-  const handleCancelReply = useCallback(() => {
-    setReplyingTo(null);
-  }, []);
+      Keyboard.dismiss();
 
-  const handleDelete = useCallback(
-    async (commentId: number) => {
       try {
-        await deleteCommentMutation.mutateAsync({ commentId });
+        await createCommentMutation.mutateAsync({
+          activityEventId,
+          parentCommentId: replyingTo?.id,
+          content: commentText.trim(),
+        });
+        setCommentText("");
+        setReplyingTo(null);
       } catch {
-        Alert.alert("Error", "Failed to delete comment. Please try again.");
+        Alert.alert("Error", "Failed to post comment. Please try again.");
       }
-    },
-    [deleteCommentMutation],
-  );
+    }, [commentText, activityEventId, replyingTo, createCommentMutation]);
 
-  const canSubmit =
-    commentText.trim().length > 0 && !createCommentMutation.isPending;
+    const handleReply = useCallback((comment: Comment) => {
+      setReplyingTo(comment);
+    }, []);
 
-  return (
-    <ActionSheet
-      id={props.sheetId}
-      initialSnapIndex={0}
-      snapPoints={[100]}
-      gestureEnabled
-      enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}
-      containerStyle={{ flex: 0.8 }}
-      keyboardHandlerEnabled={false}
-    >
-      <View style={{ flex: 1 }}>
+    const handleCancelReply = useCallback(() => {
+      setReplyingTo(null);
+    }, []);
+
+    const handleDelete = useCallback(
+      async (commentId: number) => {
+        try {
+          await deleteCommentMutation.mutateAsync({ commentId });
+        } catch {
+          Alert.alert("Error", "Failed to delete comment. Please try again.");
+        }
+      },
+      [deleteCommentMutation],
+    );
+
+    const canSubmit =
+      commentText.trim().length > 0 && !createCommentMutation.isPending;
+
+    const FooterComponent = (
+      <View style={styles.inputArea}>
+        {replyingTo && (
+          <View style={styles.replyingToBar}>
+            <Text type="footnote" style={styles.replyingToText}>
+              Replying to {replyingTo.user.name}
+            </Text>
+            <TouchableOpacity onPress={handleCancelReply}>
+              <Ionicons name="close" size={18} style={styles.cancelReplyIcon} />
+            </TouchableOpacity>
+          </View>
+        )}
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
+            placeholderTextColor="#999"
+            value={commentText}
+            onChangeText={setCommentText}
+            multiline
+            maxLength={500}
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, !canSubmit && styles.sendButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={!canSubmit}
+            activeOpacity={0.7}
+          >
+            {createCommentMutation.isPending ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <Ionicons name="send" size={18} style={styles.sendIcon} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+
+    return (
+      <TrueSheet
+        ref={sheetRef}
+        detents={[0.8]}
+        grabber
+        footer={FooterComponent}
+        scrollable
+        backgroundColor={theme.colors.background}
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text type="title2">Comments</Text>
-          <TouchableOpacity onPress={() => SheetManager.hide("comments-sheet")}>
+          <TouchableOpacity onPress={handleDismiss}>
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -119,7 +169,6 @@ export const CommentsSheet = (props: SheetProps<"comments-sheet">) => {
         ) : comments && comments.length > 0 ? (
           <FlatList
             data={comments}
-            style={styles.list}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
@@ -163,66 +212,12 @@ export const CommentsSheet = (props: SheetProps<"comments-sheet">) => {
             </Text>
           </Animated.View>
         )}
-      </View>
-
-      {/* Input Area */}
-      <KeyboardStickyView
-        offset={{
-          opened: unistyles.rt.insets.bottom + 20,
-          closed: unistyles.rt.insets.bottom,
-        }}
-      >
-        <View style={styles.inputArea}>
-          {replyingTo && (
-            <View style={styles.replyingToBar}>
-              <Text type="footnote" style={styles.replyingToText}>
-                Replying to {replyingTo.user.name}
-              </Text>
-              <TouchableOpacity onPress={handleCancelReply}>
-                <Ionicons
-                  name="close"
-                  size={18}
-                  style={styles.cancelReplyIcon}
-                />
-              </TouchableOpacity>
-            </View>
-          )}
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
-              placeholderTextColor="#999"
-              value={commentText}
-              onChangeText={setCommentText}
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                !canSubmit && styles.sendButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={!canSubmit}
-              activeOpacity={0.7}
-            >
-              {createCommentMutation.isPending ? (
-                <ActivityIndicator color="white" size="small" />
-              ) : (
-                <Ionicons name="send" size={18} style={styles.sendIcon} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardStickyView>
-    </ActionSheet>
-  );
-};
+      </TrueSheet>
+    );
+  },
+);
 
 const styles = StyleSheet.create((theme) => ({
-  indicator: {
-    backgroundColor: theme.colors.border,
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -240,9 +235,7 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  list: {
-    flex: 1,
+    paddingVertical: 60,
   },
   listContent: {
     paddingHorizontal: 20,
@@ -250,10 +243,10 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: 20,
   },
   emptyContainer: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
+    paddingVertical: 60,
   },
   emptyIcon: {
     color: theme.colors.border,

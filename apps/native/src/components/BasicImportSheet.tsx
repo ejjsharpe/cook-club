@@ -1,19 +1,21 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
-import { View, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import { forwardRef, useState, useImperativeHandle, useRef } from "react";
+import {
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
   ScrollView,
-} from "react-native-actions-sheet";
-import { StyleSheet } from "react-native-unistyles";
+} from "react-native";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { Input } from "./Input";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
 import { PrimaryButton } from "./buttons/PrimaryButton";
 
-import { useParseRecipeFromUrlBasic } from "@/api/recipe";
+import { useParseRecipeFromUrlBasic, type ParsedRecipe } from "@/api/recipe";
 
 // Domains that don't have structured recipe data
 const UNSUPPORTED_DOMAINS = [
@@ -39,16 +41,33 @@ function isUnsupportedUrl(url: string): boolean {
   }
 }
 
-export const BasicImportSheet = (props: SheetProps<"basic-import-sheet">) => {
-  const { onRecipeParsed } = props.payload || {};
+export interface BasicImportSheetProps {
+  onRecipeParsed?: (data: ParsedRecipe) => void;
+}
 
+export interface BasicImportSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const BasicImportSheet = forwardRef<
+  BasicImportSheetRef,
+  BasicImportSheetProps
+>(({ onRecipeParsed }, ref) => {
+  const theme = UnistylesRuntime.getTheme();
+  const sheetRef = useRef<TrueSheet>(null);
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const { refetch: fetchFromUrl } = useParseRecipeFromUrlBasic({ url });
 
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
+
   const handleClose = () => {
-    SheetManager.hide("basic-import-sheet");
+    sheetRef.current?.dismiss();
   };
 
   const handleImport = async () => {
@@ -92,88 +111,78 @@ export const BasicImportSheet = (props: SheetProps<"basic-import-sheet">) => {
   };
 
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled={!isLoading}
-      closable={!isLoading}
-      indicatorStyle={styles.indicator}
+    <TrueSheet
+      ref={sheetRef}
+      detents={["auto"]}
+      grabber={false}
+      dismissible={!isLoading}
+      backgroundColor={theme.colors.background}
     >
-      <View>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <Text type="headline">Basic Import</Text>
-          <TouchableOpacity
-            onPress={handleClose}
-            disabled={isLoading}
-            style={styles.closeButton}
-          >
-            <View style={styles.closeButtonCircle}>
-              <Ionicons name="close" size={16} style={styles.closeIcon} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          style={styles.scrollView}
-          keyboardShouldPersistTaps="handled"
+      <View style={styles.header}>
+        <View style={styles.headerSpacer} />
+        <Text type="headline">Basic Import</Text>
+        <TouchableOpacity
+          onPress={handleClose}
+          disabled={isLoading}
+          style={styles.closeButton}
         >
-          <View style={styles.content}>
-            <Text type="subheadline" style={styles.label}>
-              Recipe URL
-            </Text>
-            <VSpace size={8} />
-            <Input
-              placeholder="https://example.com/recipe"
-              value={url}
-              onChangeText={setUrl}
-              keyboardType="url"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-            />
-            <VSpace size={8} />
-            <Text type="caption" style={styles.hint}>
-              Works with most recipe websites that use standard recipe markup
-            </Text>
-
-            <VSpace size={24} />
-
-            <PrimaryButton onPress={handleImport} disabled={isLoading}>
-              {isLoading ? "Importing..." : "Import Recipe"}
-            </PrimaryButton>
-
-            {isLoading && (
-              <View style={styles.loadingContainer}>
-                <VSpace size={16} />
-                <ActivityIndicator size="small" />
-                <VSpace size={8} />
-                <Text type="caption" style={styles.loadingText}>
-                  Fetching recipe data...
-                </Text>
-              </View>
-            )}
+          <View style={styles.closeButtonCircle}>
+            <Ionicons name="close" size={16} style={styles.closeIcon} />
           </View>
-        </ScrollView>
+        </TouchableOpacity>
       </View>
-    </ActionSheet>
+
+      <ScrollView keyboardShouldPersistTaps="handled">
+        <View style={styles.content}>
+          <Text type="subheadline" style={styles.label}>
+            Recipe URL
+          </Text>
+          <VSpace size={8} />
+          <Input
+            placeholder="https://example.com/recipe"
+            value={url}
+            onChangeText={setUrl}
+            keyboardType="url"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isLoading}
+          />
+          <VSpace size={8} />
+          <Text type="caption" style={styles.hint}>
+            Works with most recipe websites that use standard recipe markup
+          </Text>
+
+          <VSpace size={24} />
+
+          <PrimaryButton onPress={handleImport} disabled={isLoading}>
+            {isLoading ? "Importing..." : "Import Recipe"}
+          </PrimaryButton>
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <VSpace size={16} />
+              <ActivityIndicator size="small" />
+              <VSpace size={8} />
+              <Text type="caption" style={styles.loadingText}>
+                Fetching recipe data...
+              </Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
-  indicator: {
-    backgroundColor: theme.colors.border,
-    width: 36,
+  sheet: {
+    backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 16,
+    paddingVertical: 12,
   },
   headerSpacer: {
     width: 30,
@@ -192,18 +201,15 @@ const styles = StyleSheet.create((theme) => ({
   closeIcon: {
     color: theme.colors.textSecondary,
   },
-  scrollView: {
-    maxHeight: 300,
-  },
   content: {
     paddingHorizontal: 20,
   },
   label: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
     marginLeft: 4,
   },
   hint: {
-    color: theme.colors.textTertiary,
+    color: theme.colors.textSecondary,
     marginLeft: 4,
   },
   loadingContainer: {

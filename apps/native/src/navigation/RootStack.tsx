@@ -102,12 +102,7 @@ const RootStack = createNativeStackNavigator({
             headerShown: true,
             headerTransparent: true,
             headerTitle: "",
-            scrollEdgeEffects: {
-              top: "hidden",
-              bottom: "hidden",
-              left: "hidden",
-              right: "hidden",
-            },
+            headerBackButtonDisplayMode: "minimal",
           },
         },
         CollectionDetail: { screen: CollectionDetailScreen },

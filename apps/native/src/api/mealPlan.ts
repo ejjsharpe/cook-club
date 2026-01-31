@@ -67,12 +67,14 @@ export const useGetMealPlanEntries = ({
 }: UseGetMealPlanEntriesParams) => {
   const trpc = useTRPC();
 
-  return useQuery(
-    trpc.mealPlan.getEntries.queryOptions(
+  return useQuery({
+    ...trpc.mealPlan.getEntries.queryOptions(
       { mealPlanId, startDate, endDate },
       { enabled },
     ),
-  );
+    // Keep previous data while loading new date range to prevent flash
+    placeholderData: (previousData) => previousData,
+  });
 };
 
 // Add a recipe to a meal slot

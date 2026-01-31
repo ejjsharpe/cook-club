@@ -1,17 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useCallback } from "react";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import {
+  forwardRef,
+  useState,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+} from "react";
 import {
   View,
   TouchableOpacity,
   ActivityIndicator,
   Image,
   Alert,
-} from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
   ScrollView,
-} from "react-native-actions-sheet";
+} from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import {
@@ -107,10 +110,21 @@ const FriendItem = ({
   );
 };
 
-export const MealPlanShareSheet = (
-  props: SheetProps<"meal-plan-share-sheet">,
-) => {
-  const { mealPlanId, planName } = props.payload || {};
+export interface MealPlanShareSheetProps {
+  mealPlanId?: number;
+  planName?: string;
+}
+
+export interface MealPlanShareSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const MealPlanShareSheet = forwardRef<
+  MealPlanShareSheetRef,
+  MealPlanShareSheetProps
+>(({ mealPlanId, planName }, ref) => {
+  const sheetRef = useRef<TrueSheet>(null);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
   const { data: shareableUsers, isLoading: isLoadingUsers } =
@@ -122,6 +136,15 @@ export const MealPlanShareSheet = (
 
   const shareMutation = useShareMealPlan();
   const unshareMutation = useUnshareMealPlan();
+
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
+
+  const handleClose = () => {
+    sheetRef.current?.dismiss();
+  };
 
   // Convert share status to a map for easy lookup
   const shareStatusMap = new Map<string, ShareStatus>();
@@ -164,14 +187,7 @@ export const MealPlanShareSheet = (
   const sharedCount = shareStatus?.length ?? 0;
 
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled
-      enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}
-    >
+    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
       <View>
         {/* Header */}
         <View style={styles.header}>
@@ -183,9 +199,7 @@ export const MealPlanShareSheet = (
               </Text>
             )}
           </View>
-          <TouchableOpacity
-            onPress={() => SheetManager.hide("meal-plan-share-sheet")}
-          >
+          <TouchableOpacity onPress={handleClose}>
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -246,9 +260,9 @@ export const MealPlanShareSheet = (
           </View>
         </ScrollView>
       </View>
-    </ActionSheet>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {

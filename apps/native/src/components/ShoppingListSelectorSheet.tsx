@@ -1,16 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import {
+  forwardRef,
+  useState,
+  useImperativeHandle,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-} from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
   ScrollView,
-} from "react-native-actions-sheet";
+} from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { VSpace } from "./Space";
@@ -31,10 +34,23 @@ interface Ingredient {
   preparation?: string | null;
 }
 
-export const ShoppingListSelectorSheet = (
-  props: SheetProps<"shopping-list-selector-sheet">,
-) => {
-  const { recipeId, recipeName, ingredients, servings } = props.payload || {};
+export interface ShoppingListSelectorSheetProps {
+  recipeId?: number;
+  recipeName?: string;
+  ingredients?: Ingredient[];
+  servings?: number;
+}
+
+export interface ShoppingListSelectorSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const ShoppingListSelectorSheet = forwardRef<
+  ShoppingListSelectorSheetRef,
+  ShoppingListSelectorSheetProps
+>(({ recipeId, recipeName, ingredients, servings }, ref) => {
+  const sheetRef = useRef<TrueSheet>(null);
   const [selectedListId, setSelectedListId] = useState<number | null>(null);
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [newListName, setNewListName] = useState("");
@@ -42,6 +58,15 @@ export const ShoppingListSelectorSheet = (
   const { data: lists, isLoading } = useGetUserShoppingLists();
   const createListMutation = useCreateShoppingList();
   const addRecipeMutation = useAddRecipeToSpecificList();
+
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
+
+  const handleDismiss = useCallback(() => {
+    sheetRef.current?.dismiss();
+  }, []);
 
   const handleSelectList = (listId: number) => {
     setSelectedListId(listId);
@@ -74,7 +99,7 @@ export const ShoppingListSelectorSheet = (
         shoppingListId: selectedListId,
         servings,
       });
-      SheetManager.hide("shopping-list-selector-sheet");
+      handleDismiss();
     } catch {
       // Error handled in mutation
     }
@@ -112,21 +137,12 @@ export const ShoppingListSelectorSheet = (
   };
 
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled
-      enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}
-    >
+    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
       <View>
         {/* Header */}
         <View style={styles.header}>
           <Text type="title2">Add to Shopping List</Text>
-          <TouchableOpacity
-            onPress={() => SheetManager.hide("shopping-list-selector-sheet")}
-          >
+          <TouchableOpacity onPress={handleDismiss}>
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -312,14 +328,11 @@ export const ShoppingListSelectorSheet = (
           </View>
         </ScrollView>
       </View>
-    </ActionSheet>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
-  indicator: {
-    backgroundColor: theme.colors.border,
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

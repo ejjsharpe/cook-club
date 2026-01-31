@@ -1,12 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { SheetManager } from "react-native-actions-sheet";
 
 import { authClient } from "@/lib/authClient";
-
-const dismissAuthSheets = () => {
-  SheetManager.hide("sign-in-sheet");
-  SheetManager.hide("sign-up-sheet");
-};
 
 export const useSignInWithEmail = () => {
   const queryClient = useQueryClient();
@@ -14,7 +8,6 @@ export const useSignInWithEmail = () => {
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       authClient.signIn.email({ email, password }),
     onSuccess: () => {
-      dismissAuthSheets();
       queryClient.invalidateQueries();
     },
   });
@@ -33,7 +26,6 @@ export const useSignUpWithEmail = () => {
       name: string;
     }) => authClient.signUp.email({ email, password, name }),
     onSuccess: () => {
-      dismissAuthSheets();
       queryClient.invalidateQueries();
     },
   });
@@ -46,7 +38,6 @@ export const useSignInWithSocial = () => {
     mutationFn: ({ provider }: { provider: "google" | "facebook" | "apple" }) =>
       authClient.signIn.social({ provider, callbackURL: "/" }),
     onSuccess: () => {
-      dismissAuthSheets();
       queryClient.invalidateQueries();
     },
   });

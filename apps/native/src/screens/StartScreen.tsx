@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
+import { useRef, useCallback } from "react";
 import { View } from "react-native";
-import { SheetManager } from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
 import startImage1 from "@/assets/images/start-food-1.jpg";
@@ -17,6 +17,8 @@ import startImage8 from "@/assets/images/start-food-8.jpg";
 import startImage9 from "@/assets/images/start-food-9.jpg";
 import { Marquee } from "@/components/Marquee";
 import { SafeAreaView } from "@/components/SafeAreaView";
+import { SignInSheet, type SignInSheetRef } from "@/components/SignInSheet";
+import { SignUpSheet, type SignUpSheetRef } from "@/components/SignUpSheet";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
@@ -35,7 +37,18 @@ const getImageRow = (imageArr: string[]) =>
   ));
 
 export default function StartScreen() {
-  const onPressGetStarted = () => SheetManager.show("sign-up-sheet");
+  const signInSheetRef = useRef<SignInSheetRef>(null);
+  const signUpSheetRef = useRef<SignUpSheetRef>(null);
+
+  const onPressGetStarted = () => signUpSheetRef.current?.present();
+
+  const handleSwitchToSignIn = useCallback(() => {
+    signInSheetRef.current?.present();
+  }, []);
+
+  const handleSwitchToSignUp = useCallback(() => {
+    signUpSheetRef.current?.present();
+  }, []);
 
   return (
     <View style={styles.screenContainer}>
@@ -93,11 +106,21 @@ export default function StartScreen() {
         </View>
         <PrimaryButton onPress={onPressGetStarted}>Get started</PrimaryButton>
       </SafeAreaView>
+
+      {/* Auth Sheets */}
+      <SignInSheet
+        ref={signInSheetRef}
+        onSwitchToSignUp={handleSwitchToSignUp}
+      />
+      <SignUpSheet
+        ref={signUpSheetRef}
+        onSwitchToSignIn={handleSwitchToSignIn}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create((theme, rt) => ({
+const styles = StyleSheet.create((theme) => ({
   screenContainer: {
     flex: 1,
     backgroundColor: theme.colors.background,

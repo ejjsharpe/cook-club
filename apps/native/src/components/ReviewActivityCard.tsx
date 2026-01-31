@@ -9,7 +9,6 @@ import {
   Alert,
   useWindowDimensions,
 } from "react-native";
-import { SheetManager } from "react-native-actions-sheet";
 import Animated from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -24,6 +23,7 @@ interface Props {
   onUserPress?: () => void;
   onLikePress?: () => void;
   onImportPress?: (sourceUrl: string) => void;
+  onCommentPress?: (activityEventId: number) => void;
 }
 
 const getInitials = (name: string): string => {
@@ -72,7 +72,14 @@ const starStyles = StyleSheet.create((theme) => ({
 const AnimatedFlatList = Animated.FlatList;
 
 export const ReviewActivityCard = memo(
-  ({ activity, onPress, onUserPress, onLikePress, onImportPress }: Props) => {
+  ({
+    activity,
+    onPress,
+    onUserPress,
+    onLikePress,
+    onImportPress,
+    onCommentPress,
+  }: Props) => {
     const { width: screenWidth } = useWindowDimensions();
     const imageWidth = screenWidth - 40; // 20px padding on each side
     const importMutation = useImportRecipe();
@@ -110,10 +117,8 @@ export const ReviewActivityCard = memo(
     }, [activity.recipe, onImportPress, importMutation]);
 
     const handleComment = useCallback(() => {
-      SheetManager.show("comments-sheet", {
-        payload: { activityEventId: parseInt(activity.id, 10) },
-      });
-    }, [activity.id]);
+      onCommentPress?.(parseInt(activity.id, 10));
+    }, [activity.id, onCommentPress]);
 
     return (
       <View style={styles.card}>

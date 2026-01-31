@@ -175,36 +175,94 @@ export const useToggleItemChecked = () => {
   return useMutation(mutationOptions);
 };
 
-// Remove individual item
+// Remove individual item with optimistic updates
 export const useRemoveItem = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
   const mutationOptions = trpc.shopping.removeItem.mutationOptions({
-    onSuccess: () => {
+    onMutate: async (variables) => {
+      const { itemId } = variables;
+
+      // Cancel outgoing refetches
+      const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
+      await queryClient.cancelQueries(shoppingListFilter);
+
+      // Snapshot previous value
+      const shoppingListQueryKey = trpc.shopping.getShoppingList.queryKey();
+      const previous = queryClient.getQueryData(shoppingListQueryKey);
+
+      // Optimistically remove the item
+      queryClient.setQueryData(shoppingListQueryKey, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.filter((item: any) => item.id !== itemId),
+        };
+      });
+
+      return { previous, shoppingListQueryKey };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previous && context?.shoppingListQueryKey) {
+        queryClient.setQueryData(
+          context.shoppingListQueryKey,
+          context.previous,
+        );
+      }
+      Alert.alert("Error", "Failed to remove item");
+    },
+    onSettled: () => {
+      // Invalidate to ensure sync with server
       const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
       queryClient.invalidateQueries(shoppingListFilter);
-    },
-    onError: () => {
-      Alert.alert("Error", "Failed to remove item");
     },
   });
 
   return useMutation(mutationOptions);
 };
 
-// Clear all checked items
+// Clear all checked items with optimistic updates
 export const useClearCheckedItems = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
   const mutationOptions = trpc.shopping.clearCheckedItems.mutationOptions({
-    onSuccess: () => {
+    onMutate: async () => {
+      // Cancel outgoing refetches
+      const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
+      await queryClient.cancelQueries(shoppingListFilter);
+
+      // Snapshot previous value
+      const shoppingListQueryKey = trpc.shopping.getShoppingList.queryKey();
+      const previous = queryClient.getQueryData(shoppingListQueryKey);
+
+      // Optimistically remove all checked items
+      queryClient.setQueryData(shoppingListQueryKey, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.filter((item: any) => !item.isChecked),
+        };
+      });
+
+      return { previous, shoppingListQueryKey };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previous && context?.shoppingListQueryKey) {
+        queryClient.setQueryData(
+          context.shoppingListQueryKey,
+          context.previous,
+        );
+      }
+      Alert.alert("Error", "Failed to clear checked items");
+    },
+    onSettled: () => {
+      // Invalidate to ensure sync with server
       const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
       queryClient.invalidateQueries(shoppingListFilter);
-    },
-    onError: () => {
-      Alert.alert("Error", "Failed to clear checked items");
     },
   });
 
@@ -237,6 +295,10 @@ export const useRemoveRecipeFromList = () => {
       const previousRecipeDetail =
         queryClient.getQueryData<RecipeDetailOutput>(recipeDetailQueryKey);
 
+      const shoppingListQueryKey = trpc.shopping.getShoppingList.queryKey();
+      const previousShoppingList =
+        queryClient.getQueryData(shoppingListQueryKey);
+
       // Optimistically update recipe detail to show it's not in shopping list
       if (previousRecipeDetail) {
         queryClient.setQueryData(recipeDetailQueryKey, {
@@ -245,11 +307,31 @@ export const useRemoveRecipeFromList = () => {
         });
       }
 
-      return { previousRecipeDetail, recipeDetailQueryKey };
-    },
-    onSuccess: () => {
-      const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
-      queryClient.invalidateQueries(shoppingListFilter);
+      // Optimistically remove items from this recipe from the shopping list
+      queryClient.setQueryData(shoppingListQueryKey, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          // Remove items that have this recipe as their only source
+          items: old.items.filter((item: any) => {
+            // Keep items that have no source items or have sources from other recipes
+            if (!item.sourceItems || item.sourceItems.length === 0) return true;
+            const hasOtherSources = item.sourceItems.some(
+              (si: any) => si.sourceRecipeId !== recipeId,
+            );
+            return hasOtherSources;
+          }),
+          // Remove the recipe from the recipes list
+          recipes: old.recipes?.filter((r: any) => r.id !== recipeId) || [],
+        };
+      });
+
+      return {
+        previousRecipeDetail,
+        recipeDetailQueryKey,
+        previousShoppingList,
+        shoppingListQueryKey,
+      };
     },
     onError: (_error, _variables, context) => {
       // Rollback on error
@@ -259,13 +341,21 @@ export const useRemoveRecipeFromList = () => {
           context.previousRecipeDetail,
         );
       }
+      if (context?.previousShoppingList && context?.shoppingListQueryKey) {
+        queryClient.setQueryData(
+          context.shoppingListQueryKey,
+          context.previousShoppingList,
+        );
+      }
 
       Alert.alert("Error", "Failed to remove recipe from list");
     },
     onSettled: () => {
       // Invalidate to ensure sync with server
       const recipeDetailFilter = trpc.recipe.getRecipeDetail.pathFilter();
+      const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
       queryClient.invalidateQueries(recipeDetailFilter);
+      queryClient.invalidateQueries(shoppingListFilter);
     },
   });
 

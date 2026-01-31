@@ -1,16 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import { forwardRef, useState, useImperativeHandle, useRef } from "react";
 import {
   View,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-} from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
   ScrollView,
-} from "react-native-actions-sheet";
+} from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import {
@@ -93,10 +90,21 @@ const PlanItem = ({
   );
 };
 
-export const MealPlanPickerSheet = (
-  props: SheetProps<"meal-plan-picker-sheet">,
-) => {
-  const { activePlanId, onSelectPlan } = props.payload || {};
+export interface MealPlanPickerSheetProps {
+  activePlanId?: number;
+  onSelectPlan?: (planId: number) => void;
+}
+
+export interface MealPlanPickerSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const MealPlanPickerSheet = forwardRef<
+  MealPlanPickerSheetRef,
+  MealPlanPickerSheetProps
+>(({ activePlanId, onSelectPlan }, ref) => {
+  const sheetRef = useRef<TrueSheet>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newPlanName, setNewPlanName] = useState("");
   const [planToDelete, setPlanToDelete] = useState<number | null>(null);
@@ -105,9 +113,18 @@ export const MealPlanPickerSheet = (
   const createMutation = useCreateMealPlan();
   const deleteMutation = useDeleteMealPlan();
 
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
+
+  const handleClose = () => {
+    sheetRef.current?.dismiss();
+  };
+
   const handleSelectPlan = (planId: number) => {
     onSelectPlan?.(planId);
-    SheetManager.hide("meal-plan-picker-sheet");
+    sheetRef.current?.dismiss();
   };
 
   const handleCreatePlan = async () => {
@@ -122,7 +139,7 @@ export const MealPlanPickerSheet = (
       }
       setNewPlanName("");
       setIsCreating(false);
-      SheetManager.hide("meal-plan-picker-sheet");
+      sheetRef.current?.dismiss();
     } catch {
       // Error handled by mutation
     }
@@ -150,21 +167,12 @@ export const MealPlanPickerSheet = (
   const sharedPlans = mealPlans?.filter((p) => !p.isOwner) ?? [];
 
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled
-      enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}
-    >
+    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
       <View>
         {/* Header */}
         <View style={styles.header}>
           <Text type="title2">Select Meal Plan</Text>
-          <TouchableOpacity
-            onPress={() => SheetManager.hide("meal-plan-picker-sheet")}
-          >
+          <TouchableOpacity onPress={handleClose}>
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -286,9 +294,9 @@ export const MealPlanPickerSheet = (
           </View>
         </ScrollView>
       </View>
-    </ActionSheet>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {

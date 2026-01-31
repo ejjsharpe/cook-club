@@ -1,21 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
+import { forwardRef, useState, useImperativeHandle, useRef } from "react";
 import {
   View,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Alert,
-} from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
   ScrollView,
-} from "react-native-actions-sheet";
+} from "react-native";
 import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { Input } from "./Input";
 import { VSpace } from "./Space";
@@ -26,6 +23,7 @@ import {
   useParseRecipeFromUrl,
   useParseRecipeFromText,
   useParseRecipeFromImage,
+  type ParsedRecipe,
 } from "@/api/recipe";
 import { imageToBase64 } from "@/utils/imageUtils";
 
@@ -108,9 +106,21 @@ const modeStyles = StyleSheet.create((theme) => ({
   },
 }));
 
-export const SmartImportSheet = (props: SheetProps<"smart-import-sheet">) => {
-  const { onRecipeParsed } = props.payload || {};
+export interface SmartImportSheetProps {
+  onRecipeParsed?: (data: ParsedRecipe) => void;
+}
 
+export interface SmartImportSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const SmartImportSheet = forwardRef<
+  SmartImportSheetRef,
+  SmartImportSheetProps
+>(({ onRecipeParsed }, ref) => {
+  const theme = UnistylesRuntime.getTheme();
+  const sheetRef = useRef<TrueSheet>(null);
   const [mode, setMode] = useState<ImportMode>("url");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
@@ -121,8 +131,13 @@ export const SmartImportSheet = (props: SheetProps<"smart-import-sheet">) => {
   const { refetch: fetchFromText } = useParseRecipeFromText({ text });
   const parseFromImage = useParseRecipeFromImage();
 
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
+
   const handleClose = () => {
-    SheetManager.hide("smart-import-sheet");
+    sheetRef.current?.dismiss();
   };
 
   const handlePickImage = async () => {
@@ -226,212 +241,201 @@ export const SmartImportSheet = (props: SheetProps<"smart-import-sheet">) => {
   };
 
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled={!isLoading}
-      closable={!isLoading}
-      indicatorStyle={styles.indicator}
+    <TrueSheet
+      ref={sheetRef}
+      detents={["auto"]}
+      grabber={false}
+      dismissible={!isLoading}
+      backgroundColor={theme.colors.background}
     >
-      <View>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <Text type="headline">Smart Import</Text>
-          <TouchableOpacity
-            onPress={handleClose}
-            disabled={isLoading}
-            style={styles.closeButton}
-          >
-            <View style={styles.closeButtonCircle}>
-              <Ionicons name="close" size={16} style={styles.closeIcon} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          style={styles.scrollView}
-          keyboardShouldPersistTaps="handled"
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerSpacer} />
+        <Text type="headline">Smart Import</Text>
+        <TouchableOpacity
+          onPress={handleClose}
+          disabled={isLoading}
+          style={styles.closeButton}
         >
-          <View style={styles.content}>
-            {/* Mode Selector */}
-            <View style={styles.modeSelector}>
-              <ModeOption
-                icon="link-outline"
-                label="URL"
-                selected={mode === "url"}
-                onPress={() => setMode("url")}
+          <View style={styles.closeButtonCircle}>
+            <Ionicons name="close" size={16} style={styles.closeIcon} />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView keyboardShouldPersistTaps="handled">
+        <View style={styles.content}>
+          {/* Mode Selector */}
+          <View style={styles.modeSelector}>
+            <ModeOption
+              icon="link-outline"
+              label="URL"
+              selected={mode === "url"}
+              onPress={() => setMode("url")}
+            />
+            <ModeOption
+              icon="document-text-outline"
+              label="Text"
+              selected={mode === "text"}
+              onPress={() => setMode("text")}
+            />
+            <ModeOption
+              icon="image-outline"
+              label="Image"
+              selected={mode === "image"}
+              onPress={() => setMode("image")}
+            />
+          </View>
+
+          <VSpace size={24} />
+
+          {mode === "url" && (
+            <Animated.View entering={FadeIn.duration(200)}>
+              <Text type="subheadline" style={styles.label}>
+                Recipe URL
+              </Text>
+              <VSpace size={8} />
+              <Input
+                placeholder="https://example.com/recipe"
+                value={url}
+                onChangeText={setUrl}
+                keyboardType="url"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isLoading}
               />
-              <ModeOption
-                icon="document-text-outline"
-                label="Text"
-                selected={mode === "text"}
-                onPress={() => setMode("text")}
+              <VSpace size={8} />
+              <Text type="caption" style={styles.hint}>
+                Works with most recipe websites and social media links
+              </Text>
+            </Animated.View>
+          )}
+
+          {mode === "text" && (
+            <Animated.View entering={FadeIn.duration(200)}>
+              <Text type="subheadline" style={styles.label}>
+                Recipe Text
+              </Text>
+              <VSpace size={8} />
+              <TextInput
+                style={styles.textArea}
+                placeholder="Paste ingredients, instructions, or a full recipe..."
+                placeholderTextColor="rgba(0,0,0,0.35)"
+                value={text}
+                onChangeText={setText}
+                multiline
+                numberOfLines={10}
+                textAlignVertical="top"
+                editable={!isLoading}
               />
-              <ModeOption
-                icon="image-outline"
-                label="Image"
-                selected={mode === "image"}
-                onPress={() => setMode("image")}
-              />
-            </View>
+              <VSpace size={8} />
+              <Text type="caption" style={styles.hint}>
+                {text.length} characters (minimum 50)
+              </Text>
+            </Animated.View>
+          )}
 
-            <VSpace size={24} />
-
-            {mode === "url" && (
-              <Animated.View entering={FadeIn.duration(200)}>
-                <Text type="subheadline" style={styles.label}>
-                  Recipe URL
-                </Text>
-                <VSpace size={8} />
-                <Input
-                  placeholder="https://example.com/recipe"
-                  value={url}
-                  onChangeText={setUrl}
-                  keyboardType="url"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isLoading}
-                />
-                <VSpace size={8} />
-                <Text type="caption" style={styles.hint}>
-                  Works with most recipe websites and social media links
-                </Text>
-              </Animated.View>
-            )}
-
-            {mode === "text" && (
-              <Animated.View entering={FadeIn.duration(200)}>
-                <Text type="subheadline" style={styles.label}>
-                  Recipe Text
-                </Text>
-                <VSpace size={8} />
-                <TextInput
-                  style={styles.textArea}
-                  placeholder="Paste ingredients, instructions, or a full recipe..."
-                  placeholderTextColor="rgba(0,0,0,0.35)"
-                  value={text}
-                  onChangeText={setText}
-                  multiline
-                  numberOfLines={10}
-                  textAlignVertical="top"
-                  editable={!isLoading}
-                />
-                <VSpace size={8} />
-                <Text type="caption" style={styles.hint}>
-                  {text.length} characters (minimum 50)
-                </Text>
-              </Animated.View>
-            )}
-
-            {mode === "image" && (
-              <Animated.View entering={FadeIn.duration(200)}>
-                <Text type="subheadline" style={styles.label}>
-                  Recipe Image
-                </Text>
-                <VSpace size={8} />
-                {imageUri ? (
-                  <View style={styles.imagePreviewContainer}>
-                    <Image
-                      source={{ uri: imageUri }}
-                      style={styles.imagePreview}
-                    />
-                    <View style={styles.changeImageButtons}>
-                      <TouchableOpacity
-                        style={styles.changeImageButton}
-                        onPress={handleTakePhoto}
-                        disabled={isLoading}
-                      >
-                        <Ionicons name="camera" size={16} color="white" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.changeImageButton}
-                        onPress={handlePickImage}
-                        disabled={isLoading}
-                      >
-                        <Ionicons name="images" size={16} color="white" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.imagePickerOptions}>
+          {mode === "image" && (
+            <Animated.View entering={FadeIn.duration(200)}>
+              <Text type="subheadline" style={styles.label}>
+                Recipe Image
+              </Text>
+              <VSpace size={8} />
+              {imageUri ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.imagePreview}
+                  />
+                  <View style={styles.changeImageButtons}>
                     <TouchableOpacity
-                      style={styles.imagePickerOption}
+                      style={styles.changeImageButton}
                       onPress={handleTakePhoto}
                       disabled={isLoading}
                     >
-                      <Ionicons
-                        name="camera-outline"
-                        size={28}
-                        style={styles.imagePickerIcon}
-                      />
-                      <VSpace size={6} />
-                      <Text type="subheadline" style={styles.imagePickerText}>
-                        Take Photo
-                      </Text>
+                      <Ionicons name="camera" size={16} color="white" />
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.imagePickerOption}
+                      style={styles.changeImageButton}
                       onPress={handlePickImage}
                       disabled={isLoading}
                     >
-                      <Ionicons
-                        name="images-outline"
-                        size={28}
-                        style={styles.imagePickerIcon}
-                      />
-                      <VSpace size={6} />
-                      <Text type="subheadline" style={styles.imagePickerText}>
-                        Choose Photo
-                      </Text>
+                      <Ionicons name="images" size={16} color="white" />
                     </TouchableOpacity>
                   </View>
-                )}
-                <VSpace size={8} />
-                <Text type="caption" style={styles.hint}>
-                  Upload a photo of a recipe card, cookbook page, or screenshot
-                </Text>
-              </Animated.View>
-            )}
-
-            <Animated.View layout={LinearTransition.duration(200)}>
-              <VSpace size={24} />
-
-              <PrimaryButton onPress={handleImport} disabled={isLoading}>
-                {getButtonLabel()}
-              </PrimaryButton>
+                </View>
+              ) : (
+                <View style={styles.imagePickerOptions}>
+                  <TouchableOpacity
+                    style={styles.imagePickerOption}
+                    onPress={handleTakePhoto}
+                    disabled={isLoading}
+                  >
+                    <Ionicons
+                      name="camera-outline"
+                      size={28}
+                      style={styles.imagePickerIcon}
+                    />
+                    <VSpace size={6} />
+                    <Text type="subheadline" style={styles.imagePickerText}>
+                      Take Photo
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.imagePickerOption}
+                    onPress={handlePickImage}
+                    disabled={isLoading}
+                  >
+                    <Ionicons
+                      name="images-outline"
+                      size={28}
+                      style={styles.imagePickerIcon}
+                    />
+                    <VSpace size={6} />
+                    <Text type="subheadline" style={styles.imagePickerText}>
+                      Choose Photo
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              <VSpace size={8} />
+              <Text type="caption" style={styles.hint}>
+                Upload a photo of a recipe card, cookbook page, or screenshot
+              </Text>
             </Animated.View>
+          )}
 
-            {isLoading && (
-              <View style={styles.loadingContainer}>
-                <VSpace size={16} />
-                <ActivityIndicator size="small" />
-                <VSpace size={8} />
-                <Text type="caption" style={styles.loadingText}>
-                  Analyzing with AI...
-                </Text>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </View>
-    </ActionSheet>
+          <Animated.View layout={LinearTransition.duration(200)}>
+            <VSpace size={24} />
+
+            <PrimaryButton onPress={handleImport} disabled={isLoading}>
+              {getButtonLabel()}
+            </PrimaryButton>
+          </Animated.View>
+
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <VSpace size={16} />
+              <ActivityIndicator size="small" />
+              <VSpace size={8} />
+              <Text type="caption" style={styles.loadingText}>
+                Analyzing with AI...
+              </Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
-  indicator: {
-    backgroundColor: theme.colors.border,
-    width: 36,
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 16,
+    paddingVertical: 12,
   },
   headerSpacer: {
     width: 30,
@@ -449,9 +453,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   closeIcon: {
     color: theme.colors.textSecondary,
-  },
-  scrollView: {
-    maxHeight: 500,
   },
   content: {
     paddingHorizontal: 20,

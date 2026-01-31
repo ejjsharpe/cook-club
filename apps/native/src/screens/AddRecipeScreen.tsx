@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import {
   View,
   TouchableOpacity,
@@ -8,7 +8,6 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
-import { SheetManager } from "react-native-actions-sheet";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,6 +15,14 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
+import {
+  BasicImportSheet,
+  type BasicImportSheetRef,
+} from "@/components/BasicImportSheet";
+import {
+  SmartImportSheet,
+  type SmartImportSheetRef,
+} from "@/components/SmartImportSheet";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 
@@ -78,6 +85,10 @@ export const AddRecipeScreen = () => {
   const { navigate } = useNavigation();
   const insets = UnistylesRuntime.insets;
 
+  // Sheet refs
+  const smartImportSheetRef = useRef<SmartImportSheetRef>(null);
+  const basicImportSheetRef = useRef<BasicImportSheetRef>(null);
+
   // Scroll tracking for header fade
   const titleOpacity = useSharedValue(1);
 
@@ -106,9 +117,7 @@ export const AddRecipeScreen = () => {
   };
 
   const onPressSmartImport = () => {
-    SheetManager.show("smart-import-sheet", {
-      payload: { onRecipeParsed: handleRecipeParsed },
-    });
+    smartImportSheetRef.current?.present();
   };
 
   const onPressCreate = () => {
@@ -120,9 +129,7 @@ export const AddRecipeScreen = () => {
   };
 
   const onPressBasicImport = () => {
-    SheetManager.show("basic-import-sheet", {
-      payload: { onRecipeParsed: handleRecipeParsed },
-    });
+    basicImportSheetRef.current?.present();
   };
 
   const onPressFridgeSnap = () => {
@@ -202,6 +209,16 @@ export const AddRecipeScreen = () => {
           <Text type="screenTitle">Add recipe</Text>
         </Animated.View>
       </View>
+
+      {/* Sheets */}
+      <SmartImportSheet
+        ref={smartImportSheetRef}
+        onRecipeParsed={handleRecipeParsed}
+      />
+      <BasicImportSheet
+        ref={basicImportSheetRef}
+        onRecipeParsed={handleRecipeParsed}
+      />
     </View>
   );
 };

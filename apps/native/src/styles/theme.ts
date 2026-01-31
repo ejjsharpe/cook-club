@@ -26,7 +26,7 @@ export const darkTheme = {
     destructive: "#FF453A",
     text: colors.white,
     textSecondary: "rgba(255, 255, 255, 0.6)",
-    textTertiary: "rgba(255, 255, 255, 0.4)",
+    textTertiary: "rgba(255, 255, 255, 0.27)",
     buttonText: colors.white,
     border: `${colors.white}26`,
     inputBackground: "rgba(120, 120, 128, 0.24)",

@@ -5,7 +5,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { memo, useMemo, useCallback } from "react";
 import { View, TouchableOpacity, Alert } from "react-native";
-import { SheetManager } from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
@@ -20,6 +19,7 @@ interface Props {
   onLikePress?: () => void;
   onImportPress?: (sourceUrl: string) => void;
   onViewSourcePress?: () => void;
+  onCommentPress?: (activityEventId: number) => void;
 }
 
 const getInitials = (name: string): string => {
@@ -38,7 +38,14 @@ const getInitials = (name: string): string => {
 };
 
 export const ImportActivityCard = memo(
-  ({ activity, onPress, onUserPress, onLikePress, onImportPress }: Props) => {
+  ({
+    activity,
+    onPress,
+    onUserPress,
+    onLikePress,
+    onImportPress,
+    onCommentPress,
+  }: Props) => {
     const importMutation = useImportRecipe();
 
     const timeAgo = useMemo(
@@ -72,10 +79,8 @@ export const ImportActivityCard = memo(
     }, [activity.recipe, onImportPress, importMutation]);
 
     const handleComment = useCallback(() => {
-      SheetManager.show("comments-sheet", {
-        payload: { activityEventId: parseInt(activity.id, 10) },
-      });
-    }, [activity.id]);
+      onCommentPress?.(parseInt(activity.id, 10));
+    }, [activity.id, onCommentPress]);
 
     const getSourceDescription = () => {
       if (activity.recipe.sourceType === "url") {

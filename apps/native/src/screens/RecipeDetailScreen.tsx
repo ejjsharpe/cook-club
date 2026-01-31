@@ -24,7 +24,6 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
-import { SheetManager } from "react-native-actions-sheet";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -43,8 +42,20 @@ import {
   type ParsedRecipe,
 } from "@/api/recipe";
 import { useUser } from "@/api/user";
+import {
+  AdjustRecipeSheet,
+  type AdjustRecipeSheetRef,
+} from "@/components/AdjustRecipeSheet";
+import {
+  CollectionSelectorSheet,
+  type CollectionSelectorSheetRef,
+} from "@/components/CollectionSelectorSheet";
 import { PageIndicator } from "@/components/PageIndicator";
 import { SegmentedControl, TabOption } from "@/components/SegmentedControl";
+import {
+  ShoppingListSelectorSheet,
+  type ShoppingListSelectorSheetRef,
+} from "@/components/ShoppingListSelectorSheet";
 import { Skeleton } from "@/components/Skeleton";
 import { VSpace, HSpace } from "@/components/Space";
 import { SwipeableTabView } from "@/components/SwipeableTabView";
@@ -142,6 +153,18 @@ export const RecipeDetailScreen = () => {
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [servings, setServings] = useState(1);
   const hasInitializedServings = useRef(false);
+  const adjustRecipeSheetRef = useRef<AdjustRecipeSheetRef>(null);
+  const shoppingListSheetRef = useRef<ShoppingListSelectorSheetRef>(null);
+  const collectionSheetRef = useRef<CollectionSelectorSheetRef>(null);
+  const [shoppingListIngredients, setShoppingListIngredients] = useState<
+    {
+      id: number;
+      quantity: string | null;
+      unit: string | null;
+      name: string;
+      preparation?: string | null;
+    }[]
+  >([]);
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -206,18 +229,6 @@ export const RecipeDetailScreen = () => {
 
   // Configure native header items
   useLayoutEffect(() => {
-    const headerLeftItems: any[] = [
-      {
-        type: "button" as const,
-        label: "Back",
-        icon: {
-          type: "sfSymbol" as const,
-          name: "chevron.backward",
-        },
-        onPress: () => navigation.goBack(),
-      },
-    ];
-
     const headerRightItems: any[] = [];
 
     // Show menu only when viewing own recipe (not in preview mode)
@@ -254,9 +265,7 @@ export const RecipeDetailScreen = () => {
               },
               onPress: () => {
                 if (recipe) {
-                  SheetManager.show("collection-selector-sheet", {
-                    payload: { recipeId: recipe.id },
-                  });
+                  collectionSheetRef.current?.present();
                 }
               },
             },
@@ -301,7 +310,6 @@ export const RecipeDetailScreen = () => {
     }
 
     navigation.setOptions({
-      unstable_headerLeftItems: () => headerLeftItems,
       unstable_headerRightItems: () => headerRightItems,
     });
   }, [
@@ -317,12 +325,7 @@ export const RecipeDetailScreen = () => {
 
   // Handler for Adjust button - opens adjust sheet
   const handleOpenAdjustSheet = () => {
-    SheetManager.show("adjust-recipe-sheet", {
-      payload: {
-        servings,
-        onServingsChange: setServings,
-      },
-    });
+    adjustRecipeSheetRef.current?.present();
   };
 
   // Handler for Shop button - opens shopping list selector
@@ -342,14 +345,8 @@ export const RecipeDetailScreen = () => {
       })),
     );
 
-    SheetManager.show("shopping-list-selector-sheet", {
-      payload: {
-        recipeId: recipe.id,
-        recipeName: recipe.name,
-        ingredients: allIngredients,
-        servings,
-      },
-    });
+    setShoppingListIngredients(allIngredients);
+    shoppingListSheetRef.current?.present();
   };
 
   // Handler for Cook Mode button
@@ -861,6 +858,25 @@ export const RecipeDetailScreen = () => {
           ) : null}
         </View>
       </Animated.ScrollView>
+
+      {/* Adjust Recipe Sheet */}
+      <AdjustRecipeSheet
+        ref={adjustRecipeSheetRef}
+        servings={servings}
+        onServingsChange={setServings}
+      />
+
+      {/* Shopping List Selector Sheet */}
+      <ShoppingListSelectorSheet
+        ref={shoppingListSheetRef}
+        recipeId={recipe?.id}
+        recipeName={recipe?.name}
+        ingredients={shoppingListIngredients}
+        servings={servings}
+      />
+
+      {/* Collection Selector Sheet */}
+      <CollectionSelectorSheet ref={collectionSheetRef} recipeId={recipe?.id} />
 
       {/* Sticky Footer */}
       {isPreviewMode && recipe ? (

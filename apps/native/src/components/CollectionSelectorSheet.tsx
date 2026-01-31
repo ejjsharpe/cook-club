@@ -1,16 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import {
+  forwardRef,
+  useState,
+  useImperativeHandle,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-} from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
   ScrollView,
-} from "react-native-actions-sheet";
+} from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { VSpace } from "./Space";
@@ -21,16 +24,35 @@ import {
   useCreateCollection,
 } from "../api/collection";
 
-export const CollectionSelectorSheet = (
-  props: SheetProps<"collection-selector-sheet">,
-) => {
-  const { recipeId } = props.payload || {};
+export interface CollectionSelectorSheetProps {
+  recipeId?: number;
+}
+
+export interface CollectionSelectorSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const CollectionSelectorSheet = forwardRef<
+  CollectionSelectorSheetRef,
+  CollectionSelectorSheetProps
+>(({ recipeId }, ref) => {
+  const sheetRef = useRef<TrueSheet>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
 
   const { data: collections, isLoading } = useGetUserCollections({ recipeId });
   const toggleMutation = useToggleRecipeInCollection();
   const createCollectionMutation = useCreateCollection();
+
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
+
+  const handleDismiss = useCallback(() => {
+    sheetRef.current?.dismiss();
+  }, []);
 
   const handleToggleCollection = (collectionId: number) => {
     if (!recipeId) return;
@@ -62,21 +84,12 @@ export const CollectionSelectorSheet = (
   const hasCollections = collections && collections.length > 0;
 
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled
-      enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}
-    >
+    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
       <View>
         {/* Header */}
         <View style={styles.header}>
           <Text type="title2">Save to collection</Text>
-          <TouchableOpacity
-            onPress={() => SheetManager.hide("collection-selector-sheet")}
-          >
+          <TouchableOpacity onPress={handleDismiss}>
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -227,14 +240,11 @@ export const CollectionSelectorSheet = (
           </View>
         </ScrollView>
       </View>
-    </ActionSheet>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
-  indicator: {
-    backgroundColor: theme.colors.border,
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

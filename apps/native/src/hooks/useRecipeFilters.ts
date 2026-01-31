@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { SheetManager } from "react-native-actions-sheet";
 import {
   useSharedValue,
   useAnimatedStyle,
@@ -36,18 +35,6 @@ export const useRecipeFilters = () => {
     };
   });
 
-  const handleOpenFilters = useCallback(() => {
-    SheetManager.show("filter-sheet", {
-      payload: {
-        selectedTagIds,
-        onTagsChange: setSelectedTagIds,
-        maxTotalTime,
-        onTimeChange: setMaxTotalTime,
-        allTags: allTags ?? [],
-      },
-    });
-  }, [selectedTagIds, maxTotalTime, allTags]);
-
   const hasActiveFilters =
     selectedTagIds.length > 0 || maxTotalTime !== undefined;
 
@@ -62,11 +49,15 @@ export const useRecipeFilters = () => {
   return {
     // Filter state
     selectedTagIds,
+    setSelectedTagIds,
     maxTotalTime,
+    setMaxTotalTime,
     hasActiveFilters,
 
+    // Filter sheet props
+    allTags: allTags ?? [],
+
     // Actions
-    handleOpenFilters,
     setFilterButtonVisible,
 
     // Animation

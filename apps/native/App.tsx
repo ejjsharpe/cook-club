@@ -7,7 +7,6 @@ import * as Linking from "expo-linking";
 import { ShareIntentProvider } from "expo-share-intent";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState, StrictMode } from "react";
-import { SheetProvider } from "react-native-actions-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -28,7 +27,6 @@ import startImage9 from "@/assets/images/start-food-9.jpg";
 import { ShareIntentStorageHandler } from "@/components/ShareIntentStorageHandler";
 import { ReactQueryProvider } from "@/lib/reactQuery";
 import { SessionProvider } from "@/lib/sessionContext";
-import { Sheets } from "@/lib/sheets";
 import { SignedInProvider } from "@/lib/signedInContext";
 import { TRPCProvider } from "@/lib/trpc";
 import { Navigation } from "@/navigation/RootStack";
@@ -123,14 +121,11 @@ export default function App() {
                   <SignedInProvider>
                     <ShareIntentStorageHandler />
                     <GestureHandlerRootView style={styles.rootView}>
-                      <SheetProvider>
-                        <Sheets />
-                        <Navigation
-                          onReady={onNavigationReady}
-                          linking={linking}
-                          theme={navigationTheme}
-                        />
-                      </SheetProvider>
+                      <Navigation
+                        onReady={onNavigationReady}
+                        linking={linking}
+                        theme={navigationTheme}
+                      />
                     </GestureHandlerRootView>
                   </SignedInProvider>
                 </TRPCProvider>

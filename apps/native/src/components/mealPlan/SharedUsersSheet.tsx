@@ -1,11 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect } from "react";
-import { View, TouchableOpacity, Alert } from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
-  ScrollView,
-} from "react-native-actions-sheet";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useState,
+  useImperativeHandle,
+  useRef,
+} from "react";
+import { View, TouchableOpacity, Alert, ScrollView } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -88,10 +91,35 @@ const AnimatedAvatar = ({
   );
 };
 
-export const SharedUsersSheet = (props: SheetProps<"shared-users-sheet">) => {
-  const { mealPlanId, planName, sharedUsers, isOwner } = props.payload || {};
+export interface SharedUsersSheetProps {
+  mealPlanId?: number;
+  planName?: string;
+  sharedUsers?: ShareStatus[];
+  isOwner?: boolean;
+  onManageSharing?: () => void;
+}
+
+export interface SharedUsersSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const SharedUsersSheet = forwardRef<
+  SharedUsersSheetRef,
+  SharedUsersSheetProps
+>(({ mealPlanId, planName, sharedUsers, isOwner, onManageSharing }, ref) => {
+  const sheetRef = useRef<TrueSheet>(null);
 
   const unshareMutation = useUnshareMealPlan();
+
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
+
+  const handleClose = () => {
+    sheetRef.current?.dismiss();
+  };
 
   const handleRemoveUser = useCallback(
     async (userId: string) => {
@@ -105,30 +133,15 @@ export const SharedUsersSheet = (props: SheetProps<"shared-users-sheet">) => {
     [mealPlanId, unshareMutation],
   );
 
-  const handleManageSharing = useCallback(() => {
-    SheetManager.hide("shared-users-sheet");
-    // Small delay to allow sheet animation to complete
-    setTimeout(() => {
-      SheetManager.show("meal-plan-share-sheet", {
-        payload: {
-          mealPlanId: mealPlanId!,
-          planName: planName || "Meal Plan",
-        },
-      });
-    }, 300);
-  }, [mealPlanId, planName]);
+  const handleManageSharing = useCallback(async () => {
+    await sheetRef.current?.dismiss();
+    onManageSharing?.();
+  }, [onManageSharing]);
 
   const users = sharedUsers || [];
 
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled
-      enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}
-    >
+    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
       <View>
         {/* Header */}
         <View style={styles.header}>
@@ -140,9 +153,7 @@ export const SharedUsersSheet = (props: SheetProps<"shared-users-sheet">) => {
               </Text>
             )}
           </View>
-          <TouchableOpacity
-            onPress={() => SheetManager.hide("shared-users-sheet")}
-          >
+          <TouchableOpacity onPress={handleClose}>
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -215,9 +226,9 @@ export const SharedUsersSheet = (props: SheetProps<"shared-users-sheet">) => {
           )}
         </ScrollView>
       </View>
-    </ActionSheet>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {

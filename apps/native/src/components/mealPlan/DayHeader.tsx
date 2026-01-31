@@ -1,4 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { memo } from "react";
 import { View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -25,7 +26,7 @@ const MONTH_NAMES = [
   "Dec",
 ];
 
-export const DayHeader = ({ date, isToday = false }: DayHeaderProps) => {
+export const DayHeader = memo(({ date, isToday = false }: DayHeaderProps) => {
   const { theme } = useUnistyles();
   const dayName = DAY_NAMES[date.getDay()];
   const monthName = MONTH_NAMES[date.getMonth()];
@@ -55,7 +56,7 @@ export const DayHeader = ({ date, isToday = false }: DayHeaderProps) => {
       </View>
     </LinearGradient>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
   container: {

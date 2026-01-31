@@ -1,15 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useCallback } from "react";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import {
+  forwardRef,
+  useState,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+} from "react";
 import {
   View,
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
 } from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
-} from "react-native-actions-sheet";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useGetCollectionDetail } from "../../api/collection";
@@ -43,13 +46,32 @@ const RecipeSeparator = () => (
   </View>
 );
 
-export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
-  const { mealPlanId, date, mealType } = props.payload || {};
+export interface RecipePickerSheetProps {
+  mealPlanId?: number;
+  date?: string;
+  mealType?: "breakfast" | "lunch" | "dinner";
+}
+
+export interface RecipePickerSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const RecipePickerSheet = forwardRef<
+  RecipePickerSheetRef,
+  RecipePickerSheetProps
+>(({ mealPlanId, date, mealType }, ref) => {
+  const sheetRef = useRef<TrueSheet>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<
     number | null
   >(null);
 
   const addRecipeMutation = useAddRecipeToMealPlan();
+
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
 
   const { data: collectionDetail, isLoading: isLoadingCollection } =
     useGetCollectionDetail({
@@ -57,6 +79,10 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
     });
 
   const mealTypeLabel = mealType ? MEAL_TYPE_LABELS[mealType] : "";
+
+  const handleClose = () => {
+    sheetRef.current?.dismiss();
+  };
 
   const handleSelectRecipe = useCallback(
     async (recipeId: number) => {
@@ -69,12 +95,12 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
           date,
           mealType,
         });
-        SheetManager.hide("recipe-picker-sheet");
+        sheetRef.current?.dismiss();
       } catch {
         // Error handled by mutation
       }
     },
-    [mealPlanId, date, mealType, addRecipeMutation],
+    [mealPlanId, date, mealType, addRecipeMutation, sheetRef],
   );
 
   const handleRecipePress = useCallback(
@@ -109,15 +135,7 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
   );
 
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled
-      enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}
-      containerStyle={{ flex: 1 }}
-    >
+    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
       <View style={styles.container}>
         {selectedCollectionId !== null ? (
           // Collection drill-down view
@@ -140,9 +158,7 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
               >
                 {collectionDetail?.name ?? "Collection"}
               </Text>
-              <TouchableOpacity
-                onPress={() => SheetManager.hide("recipe-picker-sheet")}
-              >
+              <TouchableOpacity onPress={handleClose}>
                 <Ionicons name="close" size={28} style={styles.closeIcon} />
               </TouchableOpacity>
             </View>
@@ -177,9 +193,7 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
           <View style={styles.container}>
             <View style={styles.header}>
               <Text type="title2">Add to {mealTypeLabel}</Text>
-              <TouchableOpacity
-                onPress={() => SheetManager.hide("recipe-picker-sheet")}
-              >
+              <TouchableOpacity onPress={handleClose}>
                 <Ionicons name="close" size={28} style={styles.closeIcon} />
               </TouchableOpacity>
             </View>
@@ -192,9 +206,9 @@ export const RecipePickerSheet = (props: SheetProps<"recipe-picker-sheet">) => {
           </View>
         )}
       </View>
-    </ActionSheet>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {

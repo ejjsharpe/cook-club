@@ -1,7 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useState, useEffect } from "react";
+import {
+  forwardRef,
+  useState,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from "react";
 import {
   View,
   TouchableOpacity,
@@ -9,12 +16,8 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
-} from "react-native";
-import ActionSheet, {
-  SheetManager,
-  SheetProps,
   ScrollView,
-} from "react-native-actions-sheet";
+} from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { VSpace } from "./Space";
@@ -22,15 +25,36 @@ import { Text } from "./Text";
 
 const MAX_IMAGES = 5;
 
-export const CookingReviewSheet = (
-  props: SheetProps<"cooking-review-sheet">,
-) => {
-  const { recipeName = "", onSubmit } = props.payload || {};
+interface ReviewData {
+  rating: number;
+  reviewText?: string;
+  imageUrls?: string[];
+}
 
+export interface CookingReviewSheetProps {
+  recipeName?: string;
+  onSubmit?: (data: ReviewData) => Promise<void>;
+}
+
+export interface CookingReviewSheetRef {
+  present: () => void;
+  dismiss: () => void;
+}
+
+export const CookingReviewSheet = forwardRef<
+  CookingReviewSheetRef,
+  CookingReviewSheetProps
+>(({ recipeName = "", onSubmit }, ref) => {
+  const sheetRef = useRef<TrueSheet>(null);
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    present: () => sheetRef.current?.present(),
+    dismiss: () => sheetRef.current?.dismiss(),
+  }));
 
   // Reset form when sheet opens
   useEffect(() => {
@@ -39,6 +63,10 @@ export const CookingReviewSheet = (
     setImages([]);
     setIsSubmitting(false);
   }, [recipeName]);
+
+  const handleDismiss = () => {
+    sheetRef.current?.dismiss();
+  };
 
   const handlePickImages = async () => {
     if (images.length >= MAX_IMAGES) {
@@ -83,7 +111,7 @@ export const CookingReviewSheet = (
         reviewText: reviewText.trim() || undefined,
         imageUrls: images.length > 0 ? images : undefined,
       });
-      SheetManager.hide("cooking-review-sheet");
+      handleDismiss();
     } catch {
       Alert.alert("Error", "Failed to submit review. Please try again.");
     } finally {
@@ -94,14 +122,7 @@ export const CookingReviewSheet = (
   const canSubmit = rating > 0 && !isSubmitting;
 
   return (
-    <ActionSheet
-      id={props.sheetId}
-      snapPoints={[100]}
-      initialSnapIndex={0}
-      gestureEnabled
-      enableGesturesInScrollView={false}
-      indicatorStyle={styles.indicator}
-    >
+    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
       <View>
         {/* Header */}
         <View style={styles.header}>
@@ -111,9 +132,7 @@ export const CookingReviewSheet = (
               {recipeName}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={() => SheetManager.hide("cooking-review-sheet")}
-          >
+          <TouchableOpacity onPress={handleDismiss}>
             <Ionicons name="close" size={28} style={styles.closeIcon} />
           </TouchableOpacity>
         </View>
@@ -230,14 +249,11 @@ export const CookingReviewSheet = (
           </TouchableOpacity>
         </View>
       </View>
-    </ActionSheet>
+    </TrueSheet>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
-  indicator: {
-    backgroundColor: theme.colors.border,
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
