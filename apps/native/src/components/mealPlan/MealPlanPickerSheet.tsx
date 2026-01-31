@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
   useGetMealPlans,
@@ -55,11 +55,6 @@ const PlanItem = ({
             </View>
           )}
         </View>
-        {!plan.canEdit && (
-          <Text type="caption" style={styles.viewOnlyText}>
-            View only
-          </Text>
-        )}
       </View>
       <View style={styles.planActions}>
         {showDelete && !plan.isDefault && plan.isOwner && (
@@ -104,6 +99,7 @@ export const MealPlanPickerSheet = forwardRef<
   MealPlanPickerSheetRef,
   MealPlanPickerSheetProps
 >(({ activePlanId, onSelectPlan }, ref) => {
+  const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newPlanName, setNewPlanName] = useState("");
@@ -167,13 +163,21 @@ export const MealPlanPickerSheet = forwardRef<
   const sharedPlans = mealPlans?.filter((p) => !p.isOwner) ?? [];
 
   return (
-    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
+    <TrueSheet
+      ref={sheetRef}
+      detents={["auto"]}
+      grabber={false}
+      backgroundColor={theme.colors.background}
+    >
       <View>
         {/* Header */}
         <View style={styles.header}>
-          <Text type="title2">Select Meal Plan</Text>
-          <TouchableOpacity onPress={handleClose}>
-            <Ionicons name="close" size={28} style={styles.closeIcon} />
+          <View style={styles.headerSpacer} />
+          <Text type="headline">Select Meal Plan</Text>
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+            <View style={styles.closeButtonCircle}>
+              <Ionicons name="close" size={16} style={styles.closeIcon} />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -307,13 +311,24 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 12,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   closeIcon: {
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
   },
   scrollView: {
     maxHeight: 500,
@@ -376,10 +391,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   sharedBadgeText: {
     color: theme.colors.textSecondary,
-  },
-  viewOnlyText: {
-    color: theme.colors.textTertiary,
-    marginTop: 2,
   },
   planActions: {
     flexDirection: "row",

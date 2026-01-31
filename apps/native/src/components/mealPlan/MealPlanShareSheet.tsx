@@ -15,7 +15,7 @@ import {
   Alert,
   ScrollView,
 } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
   useGetShareableUsers,
@@ -31,7 +31,7 @@ import { Text } from "../Text";
 interface FriendItemProps {
   friend: ShareableUser;
   shareStatus: ShareStatus | undefined;
-  onToggleShare: (canEdit: boolean) => void;
+  onShare: () => void;
   onRemoveShare: () => void;
   isPending: boolean;
 }
@@ -39,7 +39,7 @@ interface FriendItemProps {
 const FriendItem = ({
   friend,
   shareStatus,
-  onToggleShare,
+  onShare,
   onRemoveShare,
   isPending,
 }: FriendItemProps) => {
@@ -48,14 +48,10 @@ const FriendItem = ({
   const handlePress = () => {
     if (isShared) {
       Alert.alert(
-        "Sharing Options",
-        `${friend.name} currently has ${shareStatus.canEdit ? "edit" : "view-only"} access.`,
+        "Remove Access",
+        `Remove ${friend.name}'s access to this meal plan?`,
         [
           { text: "Cancel", style: "cancel" },
-          {
-            text: shareStatus.canEdit ? "Change to View-Only" : "Allow Editing",
-            onPress: () => onToggleShare(!shareStatus.canEdit),
-          },
           {
             text: "Remove Access",
             style: "destructive",
@@ -64,17 +60,7 @@ const FriendItem = ({
         ],
       );
     } else {
-      Alert.alert("Share Meal Plan", `Share with ${friend.name}?`, [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "View Only",
-          onPress: () => onToggleShare(false),
-        },
-        {
-          text: "Can Edit",
-          onPress: () => onToggleShare(true),
-        },
-      ]);
+      onShare();
     }
   };
 
@@ -95,7 +81,7 @@ const FriendItem = ({
         <Text type="body">{friend.name}</Text>
         {isShared && (
           <Text type="caption" style={styles.accessText}>
-            {shareStatus.canEdit ? "Can edit" : "View only"}
+            Shared
           </Text>
         )}
       </View>
@@ -124,6 +110,7 @@ export const MealPlanShareSheet = forwardRef<
   MealPlanShareSheetRef,
   MealPlanShareSheetProps
 >(({ mealPlanId, planName }, ref) => {
+  const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
@@ -152,12 +139,12 @@ export const MealPlanShareSheet = forwardRef<
     shareStatusMap.set(status.userId, status);
   });
 
-  const handleToggleShare = useCallback(
-    async (userId: string, canEdit: boolean) => {
+  const handleShare = useCallback(
+    async (userId: string) => {
       if (!mealPlanId) return;
       setPendingUserId(userId);
       try {
-        await shareMutation.mutateAsync({ mealPlanId, userId, canEdit });
+        await shareMutation.mutateAsync({ mealPlanId, userId });
       } catch {
         // Error handled by mutation
       } finally {
@@ -187,20 +174,29 @@ export const MealPlanShareSheet = forwardRef<
   const sharedCount = shareStatus?.length ?? 0;
 
   return (
-    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
+    <TrueSheet
+      ref={sheetRef}
+      detents={[0.8]}
+      grabber={false}
+      backgroundColor={theme.colors.background}
+      scrollable
+    >
       <View>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text type="title2">Share Meal Plan</Text>
+          <View style={styles.headerSpacer} />
+          <View style={styles.headerCenter}>
+            <Text type="headline">Share Meal Plan</Text>
             {planName && (
               <Text type="caption" style={styles.planNameText}>
                 {planName}
               </Text>
             )}
           </View>
-          <TouchableOpacity onPress={handleClose}>
-            <Ionicons name="close" size={28} style={styles.closeIcon} />
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+            <View style={styles.closeButtonCircle}>
+              <Ionicons name="close" size={16} style={styles.closeIcon} />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -248,9 +244,7 @@ export const MealPlanShareSheet = forwardRef<
                     key={friend.id}
                     friend={friend}
                     shareStatus={shareStatusMap.get(friend.id)}
-                    onToggleShare={(canEdit) =>
-                      handleToggleShare(friend.id, canEdit)
-                    }
+                    onShare={() => handleShare(friend.id)}
                     onRemoveShare={() => handleRemoveShare(friend.id)}
                     isPending={pendingUserId === friend.id}
                   />
@@ -271,19 +265,33 @@ const styles = StyleSheet.create((theme) => ({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 12,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  headerCenter: {
+    alignItems: "center",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   planNameText: {
     color: theme.colors.textSecondary,
     marginTop: 2,
   },
   closeIcon: {
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
   },
   scrollView: {
     maxHeight: 500,

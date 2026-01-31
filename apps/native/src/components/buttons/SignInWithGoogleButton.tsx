@@ -25,7 +25,7 @@ export function SignInWithGoogleButton() {
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    backgroundColor: theme.colors.secondaryButtonBackground,
+    backgroundColor: theme.colors.inputBackground,
     width: "100%",
     height: 50,
     borderRadius: 25,

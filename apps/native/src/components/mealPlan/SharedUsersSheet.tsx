@@ -4,7 +4,6 @@ import {
   forwardRef,
   useCallback,
   useEffect,
-  useState,
   useImperativeHandle,
   useRef,
 } from "react";
@@ -16,7 +15,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { useUnshareMealPlan, type ShareStatus } from "../../api/mealPlan";
 import { Avatar } from "../Avatar";
@@ -81,11 +80,6 @@ const AnimatedAvatar = ({
         <Text type="caption" style={styles.userName} numberOfLines={1}>
           {user.userName.split(" ")[0]}
         </Text>
-        <View style={styles.badge}>
-          <Text type="caption" style={styles.badgeText}>
-            {user.canEdit ? "Can edit" : "View only"}
-          </Text>
-        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -108,6 +102,7 @@ export const SharedUsersSheet = forwardRef<
   SharedUsersSheetRef,
   SharedUsersSheetProps
 >(({ mealPlanId, planName, sharedUsers, isOwner, onManageSharing }, ref) => {
+  const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
 
   const unshareMutation = useUnshareMealPlan();
@@ -141,20 +136,28 @@ export const SharedUsersSheet = forwardRef<
   const users = sharedUsers || [];
 
   return (
-    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
+    <TrueSheet
+      ref={sheetRef}
+      detents={["auto"]}
+      grabber={false}
+      backgroundColor={theme.colors.background}
+    >
       <View>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text type="title2">Shared With</Text>
+          <View style={styles.headerSpacer} />
+          <View style={styles.headerCenter}>
+            <Text type="headline">Shared With</Text>
             {planName && (
               <Text type="caption" style={styles.planNameText}>
                 {planName}
               </Text>
             )}
           </View>
-          <TouchableOpacity onPress={handleClose}>
-            <Ionicons name="close" size={28} style={styles.closeIcon} />
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+            <View style={styles.closeButtonCircle}>
+              <Ionicons name="close" size={16} style={styles.closeIcon} />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -237,19 +240,33 @@ const styles = StyleSheet.create((theme) => ({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 12,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  headerCenter: {
+    alignItems: "center",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   planNameText: {
     color: theme.colors.textSecondary,
     marginTop: 2,
   },
   closeIcon: {
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
   },
   scrollView: {
     maxHeight: 400,
@@ -294,17 +311,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   userName: {
     textAlign: "center",
-  },
-  badge: {
-    marginTop: 4,
-    backgroundColor: theme.colors.inputBackground,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: theme.borderRadius.small,
-  },
-  badgeText: {
-    color: theme.colors.textSecondary,
-    fontSize: 10,
   },
   manageButton: {
     flexDirection: "row",

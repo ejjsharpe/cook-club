@@ -1,7 +1,7 @@
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { forwardRef, useState, useImperativeHandle, useRef } from "react";
 import { Platform, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { useSignUpWithEmail } from "@/api/auth";
 import { Input } from "@/components/Input";
@@ -23,6 +23,7 @@ export interface SignUpSheetRef {
 
 export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
   ({ onSwitchToSignIn }, ref) => {
+    const theme = UnistylesRuntime.getTheme();
     const sheetRef = useRef<TrueSheet>(null);
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
@@ -43,9 +44,14 @@ export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
     };
 
     return (
-      <TrueSheet ref={sheetRef} detents={["auto"]} grabber cornerRadius={24}>
+      <TrueSheet
+        ref={sheetRef}
+        detents={["auto"]}
+        grabber={false}
+        backgroundColor={theme.colors.background}
+      >
         <View style={styles.content}>
-          <VSpace size={8} />
+          <VSpace size={24} />
           <Text type="title1">Sign up</Text>
           <VSpace size={12} />
           <Text style={styles.textAlignCenter} type="bodyFaded">
@@ -93,7 +99,6 @@ export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
               Already have an account? <Text type="highlight">Sign in</Text>
             </Text>
           </BaseButton>
-          <VSpace size={24} />
         </View>
       </TrueSheet>
     );

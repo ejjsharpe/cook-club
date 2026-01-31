@@ -28,7 +28,7 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: 8,
     marginLeft: 16,
     fontSize: 15,
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
   },
   input: {
     width: "100%",

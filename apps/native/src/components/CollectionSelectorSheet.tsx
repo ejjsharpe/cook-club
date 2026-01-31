@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { VSpace } from "./Space";
 import { Text } from "./Text";
@@ -37,6 +37,7 @@ export const CollectionSelectorSheet = forwardRef<
   CollectionSelectorSheetRef,
   CollectionSelectorSheetProps
 >(({ recipeId }, ref) => {
+  const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
@@ -84,13 +85,21 @@ export const CollectionSelectorSheet = forwardRef<
   const hasCollections = collections && collections.length > 0;
 
   return (
-    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
+    <TrueSheet
+      ref={sheetRef}
+      detents={["auto"]}
+      grabber={false}
+      backgroundColor={theme.colors.background}
+    >
       <View>
         {/* Header */}
         <View style={styles.header}>
-          <Text type="title2">Save to collection</Text>
-          <TouchableOpacity onPress={handleDismiss}>
-            <Ionicons name="close" size={28} style={styles.closeIcon} />
+          <View style={styles.headerSpacer} />
+          <Text type="headline">Save to collection</Text>
+          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
+            <View style={styles.closeButtonCircle}>
+              <Ionicons name="close" size={16} style={styles.closeIcon} />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -250,13 +259,24 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 12,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   closeIcon: {
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
   },
   scrollView: {
     maxHeight: 500,

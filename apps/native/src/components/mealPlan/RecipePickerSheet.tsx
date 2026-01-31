@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   FlatList,
 } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { useGetCollectionDetail } from "../../api/collection";
 import { useAddRecipeToMealPlan } from "../../api/mealPlan";
@@ -61,6 +61,7 @@ export const RecipePickerSheet = forwardRef<
   RecipePickerSheetRef,
   RecipePickerSheetProps
 >(({ mealPlanId, date, mealType }, ref) => {
+  const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<
     number | null
@@ -136,7 +137,12 @@ export const RecipePickerSheet = forwardRef<
   );
 
   return (
-    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
+    <TrueSheet
+      ref={sheetRef}
+      detents={["auto"]}
+      grabber={false}
+      backgroundColor={theme.colors.background}
+    >
       <View style={styles.container}>
         {selectedCollectionId !== null ? (
           // Collection drill-down view
@@ -153,14 +159,16 @@ export const RecipePickerSheet = forwardRef<
                 />
               </TouchableOpacity>
               <Text
-                type="title2"
+                type="headline"
                 numberOfLines={1}
                 style={styles.collectionTitle}
               >
                 {collectionDetail?.name ?? "Collection"}
               </Text>
-              <TouchableOpacity onPress={handleClose}>
-                <Ionicons name="close" size={28} style={styles.closeIcon} />
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <View style={styles.closeButtonCircle}>
+                  <Ionicons name="close" size={16} style={styles.closeIcon} />
+                </View>
               </TouchableOpacity>
             </View>
             {isLoadingCollection ? (
@@ -193,9 +201,12 @@ export const RecipePickerSheet = forwardRef<
           // Recipe collection browser
           <View style={styles.container}>
             <View style={styles.header}>
-              <Text type="title2">Add to {mealTypeLabel}</Text>
-              <TouchableOpacity onPress={handleClose}>
-                <Ionicons name="close" size={28} style={styles.closeIcon} />
+              <View style={styles.headerSpacer} />
+              <Text type="headline">Add to {mealTypeLabel}</Text>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <View style={styles.closeButtonCircle}>
+                  <Ionicons name="close" size={16} style={styles.closeIcon} />
+                </View>
               </TouchableOpacity>
             </View>
             <RecipeCollectionBrowser
@@ -223,18 +234,30 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingVertical: 12,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   closeIcon: {
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
   },
   collectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingVertical: 12,
   },
   backButton: {
     marginRight: 8,

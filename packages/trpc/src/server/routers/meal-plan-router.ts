@@ -210,7 +210,6 @@ export const mealPlanRouter = router({
       type({
         mealPlanId: "number",
         userId: "string",
-        "canEdit?": "boolean",
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -219,7 +218,6 @@ export const mealPlanRouter = router({
           userId: ctx.user.id,
           mealPlanId: input.mealPlanId,
           sharedWithUserId: input.userId,
-          canEdit: input.canEdit ?? false,
         });
 
         // Create notification for the user receiving the share

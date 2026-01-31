@@ -86,8 +86,6 @@ export const mealPlanShares = pgTable(
     sharedWithUserId: text("shared_with_user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    // Whether shared user can add/remove entries
-    canEdit: boolean("can_edit").notNull().default(false),
     // Cached owner info for efficient "shared with me" queries
     ownerUserId: text("owner_user_id")
       .notNull()

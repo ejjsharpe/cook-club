@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { forwardRef, useState, useImperativeHandle, useRef } from "react";
 import { View, TouchableOpacity } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { MeasurementToggle } from "./MeasurementToggle";
 import { VSpace } from "./Space";
@@ -28,6 +28,7 @@ export const AdjustRecipeSheet = forwardRef<
   AdjustRecipeSheetRef,
   AdjustRecipeSheetProps
 >(({ servings, onServingsChange }, ref) => {
+  const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
   const [measurementSystem, setMeasurementSystemState] =
     useState<MeasurementSystem>(getMeasurementPreference());
@@ -59,13 +60,21 @@ export const AdjustRecipeSheet = forwardRef<
   };
 
   return (
-    <TrueSheet ref={sheetRef} detents={["auto"]} grabber cornerRadius={20}>
+    <TrueSheet
+      ref={sheetRef}
+      detents={["auto"]}
+      grabber={false}
+      backgroundColor={theme.colors.background}
+    >
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text type="title2">Adjust Recipe</Text>
-          <TouchableOpacity onPress={handleDismiss}>
-            <Ionicons name="close" size={28} style={styles.closeIcon} />
+          <View style={styles.headerSpacer} />
+          <Text type="headline">Adjust Recipe</Text>
+          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
+            <View style={styles.closeButtonCircle}>
+              <Ionicons name="close" size={16} style={styles.closeIcon} />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -132,13 +141,24 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 12,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   closeIcon: {
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
   },
   content: {
     paddingHorizontal: 20,

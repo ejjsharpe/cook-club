@@ -172,7 +172,7 @@ export const MealPlanScreen = () => {
     [entriesByDate, removeEntry],
   );
 
-  // Build list of users who can edit (current user + shared users with edit permission)
+  // Build list of users who can edit (current user + all shared users)
   const editableUsers = useMemo(() => {
     const users: { id: string; name: string; image?: string | null }[] = [];
 
@@ -185,15 +185,13 @@ export const MealPlanScreen = () => {
     }
 
     if (shareStatus) {
-      shareStatus
-        .filter((status) => status.canEdit)
-        .forEach((status) => {
-          users.push({
-            id: status.userId,
-            name: status.userName,
-            image: status.userImage,
-          });
+      shareStatus.forEach((status) => {
+        users.push({
+          id: status.userId,
+          name: status.userName,
+          image: status.userImage,
         });
+      });
     }
 
     return users;
@@ -236,7 +234,8 @@ export const MealPlanScreen = () => {
 
         case "content": {
           const dayEntries = entriesByDate.get(item.dateString);
-          const canEdit = activePlan?.canEdit ?? false;
+          // All users with access can edit (owners and shared users)
+          const canEdit = !!activePlan;
 
           return (
             <DayGroup

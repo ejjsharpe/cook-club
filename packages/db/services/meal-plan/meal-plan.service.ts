@@ -21,7 +21,6 @@ export interface MealPlanWithMeta {
   name: string;
   isDefault: boolean;
   isOwner: boolean;
-  canEdit: boolean;
   owner: {
     id: string;
     name: string;
@@ -111,7 +110,6 @@ export async function getMealPlans(
       ownerId: mealPlanShares.ownerUserId,
       ownerName: mealPlanShares.ownerName,
       ownerImage: mealPlanShares.ownerImage,
-      canEdit: mealPlanShares.canEdit,
     })
     .from(mealPlanShares)
     .innerJoin(mealPlans, eq(mealPlanShares.mealPlanId, mealPlans.id))
@@ -124,7 +122,6 @@ export async function getMealPlans(
       name: plan.name,
       isDefault: plan.isDefault,
       isOwner: true,
-      canEdit: true,
       owner: {
         id: plan.ownerId,
         name: plan.ownerName,
@@ -137,7 +134,6 @@ export async function getMealPlans(
       name: plan.name,
       isDefault: plan.isDefault,
       isOwner: false,
-      canEdit: plan.canEdit,
       owner: {
         id: plan.ownerId,
         name: plan.ownerName,
@@ -245,7 +241,8 @@ export async function canUserAccessMealPlan(
 }
 
 /**
- * Check if user can edit a meal plan (owner or shared with canEdit=true)
+ * Check if user can edit a meal plan (owner or shared with them)
+ * All shares now grant edit access.
  */
 export async function canUserEditMealPlan(
   db: DbClient,
@@ -261,9 +258,9 @@ export async function canUserEditMealPlan(
 
   if (ownPlan) return true;
 
-  // Check if shared with edit permission
+  // Check if shared - all shares grant edit access
   const shared = await db
-    .select({ canEdit: mealPlanShares.canEdit })
+    .select({ id: mealPlanShares.id })
     .from(mealPlanShares)
     .where(
       and(
@@ -273,7 +270,7 @@ export async function canUserEditMealPlan(
     )
     .then((rows) => rows[0]);
 
-  return shared?.canEdit ?? false;
+  return !!shared;
 }
 
 // ─── Entry Operations ─────────────────────────────────────────────────────
@@ -550,10 +547,9 @@ export async function shareMealPlan(
     userId: string;
     mealPlanId: number;
     sharedWithUserId: string;
-    canEdit: boolean;
   }
 ) {
-  const { userId, mealPlanId, sharedWithUserId, canEdit } = params;
+  const { userId, mealPlanId, sharedWithUserId } = params;
 
   // Verify ownership
   const plan = await db
@@ -623,14 +619,8 @@ export async function shareMealPlan(
     .then((rows) => rows[0]);
 
   if (existing) {
-    // Update existing share
-    const updated = await db
-      .update(mealPlanShares)
-      .set({ canEdit })
-      .where(eq(mealPlanShares.id, existing.id))
-      .returning()
-      .then((rows) => rows[0]);
-    return updated!;
+    // Share already exists, just return it
+    return existing;
   }
 
   // Create new share
@@ -639,7 +629,6 @@ export async function shareMealPlan(
     .values({
       mealPlanId,
       sharedWithUserId,
-      canEdit,
       ownerUserId: userId,
       ownerName: owner!.name,
       ownerImage: owner!.image,
@@ -718,7 +707,6 @@ export async function getShareStatus(
     .select({
       id: mealPlanShares.id,
       userId: mealPlanShares.sharedWithUserId,
-      canEdit: mealPlanShares.canEdit,
       userName: user.name,
       userImage: user.image,
       createdAt: mealPlanShares.createdAt,

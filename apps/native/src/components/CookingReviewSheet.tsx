@@ -18,7 +18,7 @@ import {
   Keyboard,
   ScrollView,
 } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { VSpace } from "./Space";
 import { Text } from "./Text";
@@ -45,6 +45,7 @@ export const CookingReviewSheet = forwardRef<
   CookingReviewSheetRef,
   CookingReviewSheetProps
 >(({ recipeName = "", onSubmit }, ref) => {
+  const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
@@ -122,18 +123,26 @@ export const CookingReviewSheet = forwardRef<
   const canSubmit = rating > 0 && !isSubmitting;
 
   return (
-    <TrueSheet ref={sheetRef} detents={[1]} grabber cornerRadius={20}>
+    <TrueSheet
+      ref={sheetRef}
+      detents={["auto"]}
+      grabber={false}
+      backgroundColor={theme.colors.background}
+    >
       <View>
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text type="title2">I made this!</Text>
-            <Text type="bodyFaded" style={styles.recipeName}>
+          <View style={styles.headerSpacer} />
+          <View style={styles.headerCenter}>
+            <Text type="headline">I made this!</Text>
+            <Text type="caption" style={styles.recipeName}>
               {recipeName}
             </Text>
           </View>
-          <TouchableOpacity onPress={handleDismiss}>
-            <Ionicons name="close" size={28} style={styles.closeIcon} />
+          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
+            <View style={styles.closeButtonCircle}>
+              <Ionicons name="close" size={16} style={styles.closeIcon} />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -257,19 +266,33 @@ const styles = StyleSheet.create((theme) => ({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 12,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  headerCenter: {
+    alignItems: "center",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   recipeName: {
-    fontSize: 14,
-    marginTop: 4,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   closeIcon: {
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
   },
   scrollView: {
     flex: 1,

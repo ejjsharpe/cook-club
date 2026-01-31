@@ -1,0 +1,1 @@
+ALTER TABLE "meal_plan_shares" DROP COLUMN "can_edit";

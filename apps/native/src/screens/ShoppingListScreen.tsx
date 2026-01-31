@@ -22,7 +22,6 @@ import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import {
   KeyboardStickyView,
   useReanimatedKeyboardAnimation,
-  useKeyboardHandler,
 } from "react-native-keyboard-controller";
 import Animated, {
   useAnimatedStyle,
@@ -243,7 +242,7 @@ const SwipeableItem = memo(
 
 SwipeableItem.displayName = "SwipeableItem";
 
-const TAB_BAR_HEIGHT = 80; // Approximate native tab bar height
+const TAB_BAR_HEIGHT = 76; // Approximate native tab bar height
 
 export const ShoppingListScreen = () => {
   const navigation = useNavigation();
@@ -252,48 +251,41 @@ export const ShoppingListScreen = () => {
   const { progress: keyboardswipeProgress } = useReanimatedKeyboardAnimation();
   const listRef = useRef<FlashListRef<ShoppingListFlashItem>>(null);
 
-  // Track keyboard height for empty state centering
-  const keyboardHeight = useSharedValue(0);
-
   // Scroll tracking for header fade
   const titleOpacity = useSharedValue(1);
   const clearButtonOpacity = useSharedValue(1);
 
-  useKeyboardHandler({
-    onMove: (e) => {
-      "worklet";
-      keyboardHeight.value = e.height;
-    },
-    onEnd: (e) => {
-      "worklet";
-      keyboardHeight.value = e.height;
-    },
-  });
-
   // Base padding for when keyboard is closed and tab bar is visible
-  const basePadding = TAB_BAR_HEIGHT + 4;
+  const basePadding = TAB_BAR_HEIGHT + 12;
 
   const inputTransformAnimatedStyle = useAnimatedStyle(() => {
+    // Animate padding from basePadding (keyboard closed) to 0 (keyboard open)
+    const padding = interpolate(
+      keyboardswipeProgress.value,
+      [0, 1],
+      [basePadding, 0],
+    );
     return {
-      paddingBottom: basePadding,
+      paddingBottom: padding,
     };
   });
 
-  // Animate empty state to stay centered between header and input section
-  const inputSectionOffset = INPUT_SECTION_HEIGHT + basePadding;
-  const emptyStateAnimatedStyle = useAnimatedStyle(() => {
-    // Smoothly interpolate between closed and open states
-    const closedOffset = inputSectionOffset / 2;
-    const openOffset = keyboardHeight.value / 2;
+  // Calculate top offset for fixed header
+  const headerOffset = insets.top + HEADER_HEIGHT;
 
-    const offset = interpolate(
-      keyboardswipeProgress.value,
-      [0, 1],
-      [closedOffset, openOffset],
-    );
+  // Animate empty state to stay centered between header and input section
+  const emptyStateAnimatedStyle = useAnimatedStyle(() => {
+    // Bottom offset: input section height + animated padding (which reduces when keyboard opens)
+    const bottomOffset =
+      INPUT_SECTION_HEIGHT +
+      interpolate(keyboardswipeProgress.value, [0, 1], [0, basePadding]);
+
+    // Calculate the vertical shift needed to center between header and input
+    // Positive = shift down, Negative = shift up
+    const verticalShift = headerOffset - bottomOffset;
 
     return {
-      transform: [{ translateY: -offset }],
+      transform: [{ translateY: verticalShift }],
     };
   });
 
@@ -598,12 +590,15 @@ export const ShoppingListScreen = () => {
           getItemType={getItemType}
           keyExtractor={keyExtractor}
           overrideItemLayout={overrideItemLayout}
-          ListHeaderComponent={listHeaderComponent}
+          ListHeaderComponent={
+            flattenedData.length > 0 ? listHeaderComponent : null
+          }
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             ...styles.listContent,
             paddingBottom: INPUT_SECTION_HEIGHT + insets.bottom,
+            ...(flattenedData.length === 0 && { flexGrow: 1 }),
           }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -632,13 +627,7 @@ export const ShoppingListScreen = () => {
         </View>
       </View>
       {/* Bottom Input - sticks to keyboard */}
-      <KeyboardStickyView
-        style={styles.inputWrapper}
-        offset={{
-          closed: 0,
-          opened: -12,
-        }}
-      >
+      <KeyboardStickyView style={styles.inputWrapper}>
         <Animated.View style={inputTransformAnimatedStyle}>
           <LinearGradient
             colors={[

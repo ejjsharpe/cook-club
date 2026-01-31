@@ -16,7 +16,6 @@ import {
   Keyboard,
   Alert,
 } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { CommentCard } from "./CommentCard";
@@ -52,10 +51,6 @@ export const CommentsSheet = forwardRef<CommentsSheetRef, CommentsSheetProps>(
     const { data: comments, isLoading } = useComments(activityEventId);
     const createCommentMutation = useCreateComment();
     const deleteCommentMutation = useDeleteComment(activityEventId);
-
-    const emptyStateAnimatedStyle = useAnimatedStyle(() => ({
-      flex: 1,
-    }));
 
     useImperativeHandle(ref, () => ({
       present: () => sheetRef.current?.present(),
@@ -148,16 +143,19 @@ export const CommentsSheet = forwardRef<CommentsSheetRef, CommentsSheetProps>(
       <TrueSheet
         ref={sheetRef}
         detents={[0.8]}
-        grabber
+        grabber={false}
         footer={FooterComponent}
         scrollable
         backgroundColor={theme.colors.background}
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text type="title2">Comments</Text>
-          <TouchableOpacity onPress={handleDismiss}>
-            <Ionicons name="close" size={28} style={styles.closeIcon} />
+          <View style={styles.headerSpacer} />
+          <Text type="headline">Comments</Text>
+          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
+            <View style={styles.closeButtonCircle}>
+              <Ionicons name="close" size={16} style={styles.closeIcon} />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -166,7 +164,7 @@ export const CommentsSheet = forwardRef<CommentsSheetRef, CommentsSheetProps>(
           <View style={styles.loadingContainer}>
             <ActivityIndicator />
           </View>
-        ) : comments && comments.length > 0 ? (
+        ) : (
           <FlatList
             data={comments}
             keyExtractor={(item) => item.id.toString()}
@@ -194,23 +192,22 @@ export const CommentsSheet = forwardRef<CommentsSheetRef, CommentsSheetProps>(
                 ))}
               </View>
             )}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name="chatbubble-outline"
+                  size={48}
+                  style={styles.emptyIcon}
+                />
+                <Text type="body" style={styles.emptyText}>
+                  No comments yet
+                </Text>
+                <Text type="footnote" style={styles.emptySubtext}>
+                  Be the first to comment!
+                </Text>
+              </View>
+            }
           />
-        ) : (
-          <Animated.View
-            style={[styles.emptyContainer, emptyStateAnimatedStyle]}
-          >
-            <Ionicons
-              name="chatbubble-outline"
-              size={48}
-              style={styles.emptyIcon}
-            />
-            <Text type="body" style={styles.emptyText}>
-              No comments yet
-            </Text>
-            <Text type="footnote" style={styles.emptySubtext}>
-              Be the first to comment!
-            </Text>
-          </Animated.View>
         )}
       </TrueSheet>
     );
@@ -223,13 +220,24 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 12,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  closeButtonCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
   },
   closeIcon: {
-    color: theme.colors.text,
+    color: theme.colors.textSecondary,
   },
   loadingContainer: {
     flex: 1,
@@ -238,15 +246,17 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 60,
   },
   listContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,
   },
   emptyContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
-    paddingVertical: 60,
+    paddingBottom: 80,
   },
   emptyIcon: {
     color: theme.colors.border,
@@ -292,12 +302,13 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.extraLarge,
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 15,
     fontSize: 16,
     color: theme.colors.text,
     fontFamily: theme.fonts.regular,
     maxHeight: 100,
-    minHeight: 44,
+    minHeight: 50,
+    justifyContent: "center",
   },
   sendButton: {
     width: 44,
