@@ -141,7 +141,7 @@ export const CollectionGrid = ({
 
 const styles = StyleSheet.create((_theme, rt) => ({
   gridContent: {
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
     paddingBottom: rt.insets.bottom + 48,
   },
   gridRow: {
