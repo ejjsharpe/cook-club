@@ -183,3 +183,27 @@ export const useDeleteRecipe = () => {
     },
   });
 };
+
+// Save a new recipe (used for smart/basic import and manual creation)
+export const useSaveRecipe = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    ...trpc.recipe.postRecipe.mutationOptions(),
+    onSuccess: () => {
+      // Invalidate user's recipe list to show the new recipe
+      queryClient.invalidateQueries(trpc.recipe.getUserRecipes.pathFilter());
+      // Invalidate recipe detail queries
+      queryClient.invalidateQueries(trpc.recipe.getRecipeDetail.pathFilter());
+      // Invalidate collection queries (recipe is auto-added to default collection)
+      queryClient.invalidateQueries(
+        trpc.collection.getUserCollections.pathFilter(),
+      );
+      // Invalidate collection detail queries (recipe counts change)
+      queryClient.invalidateQueries(
+        trpc.collection.getCollectionDetail.pathFilter(),
+      );
+    },
+  });
+};

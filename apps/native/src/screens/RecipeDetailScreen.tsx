@@ -1,7 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
-import { useTRPC } from "@repo/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -39,6 +37,7 @@ import {
   useRecipeDetail,
   useImportRecipe,
   useDeleteRecipe,
+  useSaveRecipe,
   type ParsedRecipe,
 } from "@/api/recipe";
 import { useUser } from "@/api/user";
@@ -133,21 +132,7 @@ export const RecipeDetailScreen = () => {
   const { data: userData } = useUser();
 
   // For preview mode: save recipe mutation
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const saveRecipeMutation = useMutation({
-    ...trpc.recipe.postRecipe.mutationOptions(),
-    onSuccess: ({ id }) => {
-      queryClient.invalidateQueries({
-        queryKey: trpc.recipe.getUserRecipes.queryKey(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: trpc.collection.getUserCollections.queryKey(),
-      });
-      // Navigate to the saved recipe (replace to prevent going back to preview)
-      navigation.replace("RecipeDetail", { recipeId: id });
-    },
-  });
+  const saveRecipeMutation = useSaveRecipe();
 
   const [activeTab, setActiveTab] = useState<TabType>("ingredients");
   const [activeTabIndex, setActiveTabIndex] = useState(0);
@@ -389,7 +374,9 @@ export const RecipeDetailScreen = () => {
 
     try {
       const recipeData = transformParsedRecipeForSave(parsedRecipe);
-      await saveRecipeMutation.mutateAsync(recipeData);
+      const { id } = await saveRecipeMutation.mutateAsync(recipeData);
+      // Navigate to the saved recipe (replace to prevent going back to preview)
+      navigation.replace("RecipeDetail", { recipeId: id });
     } catch (err: any) {
       Alert.alert(
         "Save Failed",

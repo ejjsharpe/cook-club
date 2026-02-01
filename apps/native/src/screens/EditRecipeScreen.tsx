@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+
+import { useSaveRecipe } from "@/api/recipe";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState, useCallback } from "react";
@@ -357,19 +359,7 @@ export default function EditRecipeScreen() {
     setImages((prev) => prev.filter((_, i) => i !== idx));
   }, []);
 
-  const saveRecipeMutation = useMutation({
-    ...trpc.recipe.postRecipe.mutationOptions(),
-    onSuccess: ({ id }) => {
-      // Invalidate user's recipes and collections so they appear in My Recipes immediately
-      queryClient.invalidateQueries({
-        queryKey: trpc.recipe.getUserRecipes.queryKey(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: trpc.collection.getUserCollections.queryKey(),
-      });
-      navigation.navigate("RecipeDetail", { recipeId: id });
-    },
-  });
+  const saveRecipeMutation = useSaveRecipe();
 
   const handlePreviewParsing = async () => {
     // Flatten all ingredients from all sections
@@ -509,7 +499,11 @@ export default function EditRecipeScreen() {
       author: author.trim() || undefined,
     };
 
-    saveRecipeMutation.mutate(recipeData);
+    saveRecipeMutation.mutate(recipeData, {
+      onSuccess: ({ id }) => {
+        navigation.navigate("RecipeDetail", { recipeId: id });
+      },
+    });
   };
 
   return (
