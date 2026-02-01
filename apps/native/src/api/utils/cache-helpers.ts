@@ -22,22 +22,3 @@ export function updateRecipeCollections(
     };
   });
 }
-
-/**
- * Optimistically toggles a recipe in a collection
- * Returns the new collectionIds array after the toggle
- */
-export function toggleCollectionInArray(
-  currentCollectionIds: number[],
-  collectionId: number,
-): number[] {
-  const isInCollection = currentCollectionIds.includes(collectionId);
-
-  if (isInCollection) {
-    // Remove from collection
-    return currentCollectionIds.filter((id) => id !== collectionId);
-  } else {
-    // Add to collection
-    return [...currentCollectionIds, collectionId];
-  }
-}

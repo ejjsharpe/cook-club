@@ -5,7 +5,7 @@ import {
   recipeImages,
   user,
 } from "../../schemas";
-import { eq, and, desc, ilike, sql, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, desc, ilike, sql, inArray, isNotNull, ne } from "drizzle-orm";
 
 import { ServiceError } from "../errors";
 import type { DbClient } from "../types";
@@ -90,121 +90,6 @@ export async function getOrCreateDefaultCollections(
   return {
     wantToCook: finalDefaults.find((c) => c.defaultType === "want_to_cook")!,
     cooked: finalDefaults.find((c) => c.defaultType === "cooked")!,
-  };
-}
-
-/**
- * Toggle a recipe in a collection
- */
-export async function toggleRecipeInCollection(
-  db: DbClient,
-  params: {
-    userId: string;
-    recipeId: number;
-    collectionId: number;
-  },
-) {
-  const { userId, recipeId, collectionId } = params;
-
-  // Verify recipe exists and belongs to user
-  const recipe = await db
-    .select({ id: recipes.id, ownerId: recipes.ownerId })
-    .from(recipes)
-    .where(eq(recipes.id, recipeId))
-    .then((rows) => rows[0]);
-
-  if (!recipe) {
-    throw new ServiceError("NOT_FOUND", "Recipe not found");
-  }
-
-  // Verify user owns the recipe - users can only add their own recipes to collections
-  if (recipe.ownerId !== userId) {
-    throw new ServiceError(
-      "FORBIDDEN",
-      "You can only add your own recipes to collections. Import this recipe first.",
-    );
-  }
-
-  // Verify collection exists and belongs to user
-  const collection = await db
-    .select({ id: collections.id, name: collections.name })
-    .from(collections)
-    .where(
-      and(eq(collections.id, collectionId), eq(collections.userId, userId)),
-    )
-    .then((rows) => rows[0]);
-
-  if (!collection) {
-    throw new ServiceError("NOT_FOUND", "Collection not found");
-  }
-
-  // Check if recipe is already in collection
-  const existing = await db
-    .select()
-    .from(recipeCollections)
-    .where(
-      and(
-        eq(recipeCollections.recipeId, recipeId),
-        eq(recipeCollections.collectionId, collectionId),
-      ),
-    )
-    .then((rows) => rows[0]);
-
-  if (existing) {
-    // Remove from collection
-    await db
-      .delete(recipeCollections)
-      .where(
-        and(
-          eq(recipeCollections.recipeId, recipeId),
-          eq(recipeCollections.collectionId, collectionId),
-        ),
-      );
-  } else {
-    // Add to collection
-    await db.insert(recipeCollections).values({
-      recipeId,
-      collectionId,
-      createdAt: new Date(),
-    });
-  }
-
-  // Get all collections this recipe is in
-  const allRecipeCollections = await db
-    .select({ collectionId: recipeCollections.collectionId })
-    .from(recipeCollections)
-    .where(eq(recipeCollections.recipeId, recipeId));
-
-  const collectionIds = allRecipeCollections.map((rc) => rc.collectionId);
-
-  // Get all user's collections with hasRecipe flag
-  const userCollections = await db
-    .select({
-      id: collections.id,
-      name: collections.name,
-      defaultType: collections.defaultType,
-    })
-    .from(collections)
-    .where(eq(collections.userId, userId))
-    .orderBy(
-      sql`CASE
-        WHEN ${collections.defaultType} = 'want_to_cook' THEN 0
-        WHEN ${collections.defaultType} = 'cooked' THEN 1
-        ELSE 2
-      END`,
-      collections.createdAt,
-    );
-
-  const collectionsWithStatus = userCollections.map((col) => ({
-    ...col,
-    hasRecipe: collectionIds.includes(col.id),
-  }));
-
-  return {
-    success: true,
-    inCollection: collectionIds.includes(collectionId),
-    collectionIds,
-    collections: collectionsWithStatus,
   };
 }
 
@@ -422,7 +307,8 @@ export async function getCollectionDetail(
 // ─── Delete Collection ────────────────────────────────────────────────────────
 
 /**
- * Delete a collection
+ * Delete a collection.
+ * Moves any orphan recipes (only in this collection) to "Want to cook" first.
  */
 export async function deleteCollection(
   db: DbClient,
@@ -454,8 +340,164 @@ export async function deleteCollection(
     throw new ServiceError("BAD_REQUEST", "Cannot delete default collections");
   }
 
+  // Find recipes that are in this collection and belong to the user
+  const recipesInCollection = await db
+    .select({ recipeId: recipeCollections.recipeId })
+    .from(recipeCollections)
+    .innerJoin(recipes, eq(recipeCollections.recipeId, recipes.id))
+    .where(
+      and(
+        eq(recipeCollections.collectionId, collectionId),
+        eq(recipes.ownerId, userId),
+      ),
+    );
+
+  const recipeIdsInCollection = recipesInCollection.map((r) => r.recipeId);
+
+  if (recipeIdsInCollection.length > 0) {
+    // Find which of these recipes are also in other collections
+    const recipesWithOtherCollections = await db
+      .select({ recipeId: recipeCollections.recipeId })
+      .from(recipeCollections)
+      .where(
+        and(
+          inArray(recipeCollections.recipeId, recipeIdsInCollection),
+          ne(recipeCollections.collectionId, collectionId),
+        ),
+      );
+
+    const recipesWithOtherCollectionsSet = new Set(
+      recipesWithOtherCollections.map((r) => r.recipeId),
+    );
+
+    // Orphan recipes are those only in this collection
+    const orphanRecipeIds = recipeIdsInCollection.filter(
+      (id) => !recipesWithOtherCollectionsSet.has(id),
+    );
+
+    // Move orphan recipes to "Want to cook" collection
+    if (orphanRecipeIds.length > 0) {
+      const defaultCollections = await getOrCreateDefaultCollections(db, userId);
+      await db
+        .insert(recipeCollections)
+        .values(
+          orphanRecipeIds.map((recipeId) => ({
+            recipeId,
+            collectionId: defaultCollections.wantToCook.id,
+            createdAt: new Date(),
+          })),
+        )
+        .onConflictDoNothing();
+    }
+  }
+
   // Delete collection (cascade will handle recipeCollections)
   await db.delete(collections).where(eq(collections.id, collectionId));
 
   return { success: true };
+}
+
+// ─── Update Recipe Collections (Batch) ─────────────────────────────────────────
+
+/**
+ * Replace all collection memberships for a recipe.
+ * If collectionIds is empty, the recipe will be removed from all collections.
+ */
+export async function updateRecipeCollections(
+  db: DbClient,
+  params: {
+    userId: string;
+    recipeId: number;
+    collectionIds: number[];
+  },
+): Promise<{ collectionIds: number[] }> {
+  const { userId, recipeId, collectionIds } = params;
+
+  // Verify recipe exists and belongs to user
+  const recipe = await db
+    .select({ id: recipes.id, ownerId: recipes.ownerId })
+    .from(recipes)
+    .where(eq(recipes.id, recipeId))
+    .then((rows) => rows[0]);
+
+  if (!recipe) {
+    throw new ServiceError("NOT_FOUND", "Recipe not found");
+  }
+
+  if (recipe.ownerId !== userId) {
+    throw new ServiceError(
+      "FORBIDDEN",
+      "You can only modify collections for your own recipes",
+    );
+  }
+
+  // If collectionIds provided, verify they all belong to user
+  if (collectionIds.length > 0) {
+    const userCollections = await db
+      .select({ id: collections.id })
+      .from(collections)
+      .where(
+        and(
+          eq(collections.userId, userId),
+          inArray(collections.id, collectionIds),
+        ),
+      );
+
+    const validIds = new Set(userCollections.map((c) => c.id));
+    const invalidIds = collectionIds.filter((id) => !validIds.has(id));
+
+    if (invalidIds.length > 0) {
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "One or more collections not found",
+      );
+    }
+  }
+
+  // Get current collection memberships for this recipe (only user's collections)
+  const currentMemberships = await db
+    .select({ collectionId: recipeCollections.collectionId })
+    .from(recipeCollections)
+    .innerJoin(collections, eq(recipeCollections.collectionId, collections.id))
+    .where(
+      and(
+        eq(recipeCollections.recipeId, recipeId),
+        eq(collections.userId, userId),
+      ),
+    );
+
+  const currentIds = new Set(currentMemberships.map((m) => m.collectionId));
+  const newIds = new Set(collectionIds);
+
+  // Calculate IDs to add and remove
+  const toAdd = collectionIds.filter((id) => !currentIds.has(id));
+  const toRemove = [...currentIds].filter((id) => !newIds.has(id));
+
+  // Remove memberships
+  if (toRemove.length > 0) {
+    await db
+      .delete(recipeCollections)
+      .where(
+        and(
+          eq(recipeCollections.recipeId, recipeId),
+          inArray(recipeCollections.collectionId, toRemove),
+        ),
+      );
+  }
+
+  // Add new memberships
+  if (toAdd.length > 0) {
+    await db
+      .insert(recipeCollections)
+      .values(
+        toAdd.map((collectionId) => ({
+          recipeId,
+          collectionId,
+          createdAt: new Date(),
+        })),
+      )
+      .onConflictDoNothing();
+  }
+
+  return { collectionIds };
 }

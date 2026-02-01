@@ -153,9 +153,13 @@ export const useImportRecipe = () => {
     ...trpc.recipe.importRecipe.mutationOptions(),
     onSuccess: () => {
       // Invalidate user's recipe list to show the imported recipe
-      queryClient.invalidateQueries({
-        queryKey: trpc.recipe.getUserRecipes.queryKey(),
-      });
+      queryClient.invalidateQueries(trpc.recipe.getUserRecipes.pathFilter());
+      // Invalidate recipe detail queries (user may view their new copy)
+      queryClient.invalidateQueries(trpc.recipe.getRecipeDetail.pathFilter());
+      // Invalidate collection queries (recipe is auto-added to "Want to cook")
+      queryClient.invalidateQueries(
+        trpc.collection.getUserCollections.pathFilter(),
+      );
     },
   });
 };
@@ -169,9 +173,13 @@ export const useDeleteRecipe = () => {
     ...trpc.recipe.deleteRecipe.mutationOptions(),
     onSuccess: () => {
       // Invalidate user's recipe list to remove the deleted recipe
-      queryClient.invalidateQueries({
-        queryKey: trpc.recipe.getUserRecipes.queryKey(),
-      });
+      queryClient.invalidateQueries(trpc.recipe.getUserRecipes.pathFilter());
+      // Invalidate recipe detail queries
+      queryClient.invalidateQueries(trpc.recipe.getRecipeDetail.pathFilter());
+      // Invalidate collection queries (recipe counts may have changed)
+      queryClient.invalidateQueries(
+        trpc.collection.getUserCollections.pathFilter(),
+      );
     },
   });
 };

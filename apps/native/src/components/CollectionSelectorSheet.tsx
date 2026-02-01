@@ -6,6 +6,8 @@ import {
   useImperativeHandle,
   useCallback,
   useRef,
+  useEffect,
+  useMemo,
 } from "react";
 import {
   View,
@@ -13,6 +15,7 @@ import {
   TextInput,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -20,9 +23,10 @@ import { VSpace } from "./Space";
 import { Text } from "./Text";
 import {
   useGetUserCollections,
-  useToggleRecipeInCollection,
   useCreateCollection,
+  useUpdateRecipeCollections,
 } from "../api/collection";
+import { useDeleteRecipe } from "../api/recipe";
 
 export interface CollectionSelectorSheetProps {
   recipeId?: number;
@@ -41,10 +45,41 @@ export const CollectionSelectorSheet = forwardRef<
   const sheetRef = useRef<TrueSheet>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: collections, isLoading } = useGetUserCollections({ recipeId });
-  const toggleMutation = useToggleRecipeInCollection();
+  const updateCollectionsMutation = useUpdateRecipeCollections();
+  const deleteRecipeMutation = useDeleteRecipe();
   const createCollectionMutation = useCreateCollection();
+
+  // Get the original collection IDs from server data
+  const originalIds = useMemo(() => {
+    if (!collections) return new Set<number>();
+    return new Set(
+      collections
+        .filter((c) => "hasRecipe" in c && c.hasRecipe)
+        .map((c) => c.id),
+    );
+  }, [collections]);
+
+  // Initialize selectedIds when collections load
+  useEffect(() => {
+    if (collections) {
+      setSelectedIds(new Set(originalIds));
+    }
+  }, [collections, originalIds]);
+
+  // Check if there are unsaved changes
+  const hasChanges = useMemo(() => {
+    if (selectedIds.size !== originalIds.size) return true;
+    for (const id of selectedIds) {
+      if (!originalIds.has(id)) return true;
+    }
+    return false;
+  }, [selectedIds, originalIds]);
+
+  const isSaving =
+    updateCollectionsMutation.isPending || deleteRecipeMutation.isPending;
 
   useImperativeHandle(ref, () => ({
     present: () => sheetRef.current?.present(),
@@ -56,8 +91,46 @@ export const CollectionSelectorSheet = forwardRef<
   }, []);
 
   const handleToggleCollection = (collectionId: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(collectionId)) {
+        next.delete(collectionId);
+      } else {
+        next.add(collectionId);
+      }
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
     if (!recipeId) return;
-    toggleMutation.mutate({ recipeId, collectionId });
+
+    if (selectedIds.size === 0) {
+      // Show warning dialog about deleting the recipe
+      Alert.alert(
+        "Delete Recipe?",
+        "Removing this recipe from all collections will delete it. This cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              await deleteRecipeMutation.mutateAsync({ recipeId });
+              sheetRef.current?.dismiss();
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    // Save collection changes
+    await updateCollectionsMutation.mutateAsync({
+      recipeId,
+      collectionIds: Array.from(selectedIds),
+    });
+    sheetRef.current?.dismiss();
   };
 
   const handleCreateCollection = async () => {
@@ -68,11 +141,9 @@ export const CollectionSelectorSheet = forwardRef<
         name: newCollectionName.trim(),
       });
 
-      if (newCollection && recipeId) {
-        await toggleMutation.mutateAsync({
-          recipeId,
-          collectionId: newCollection.id,
-        });
+      if (newCollection) {
+        // Add the new collection to selected IDs
+        setSelectedIds((prev) => new Set([...prev, newCollection.id]));
       }
 
       setNewCollectionName("");
@@ -119,16 +190,13 @@ export const CollectionSelectorSheet = forwardRef<
                     </Text>
                     <VSpace size={12} />
                     {collections.map((collection) => {
-                      const hasRecipe =
-                        "hasRecipe" in collection
-                          ? collection.hasRecipe
-                          : false;
+                      const isSelected = selectedIds.has(collection.id);
                       return (
                         <TouchableOpacity
                           key={collection.id}
                           style={styles.collectionRow}
                           onPress={() => handleToggleCollection(collection.id)}
-                          disabled={toggleMutation.isPending}
+                          disabled={isSaving}
                         >
                           <View style={styles.collectionInfo}>
                             {collection.defaultType && (
@@ -152,10 +220,10 @@ export const CollectionSelectorSheet = forwardRef<
                           <View
                             style={[
                               styles.checkbox,
-                              hasRecipe && styles.checkboxSelected,
+                              isSelected && styles.checkboxSelected,
                             ]}
                           >
-                            {hasRecipe && (
+                            {isSelected && (
                               <Ionicons
                                 name="checkmark"
                                 size={18}
@@ -166,7 +234,7 @@ export const CollectionSelectorSheet = forwardRef<
                         </TouchableOpacity>
                       );
                     })}
-                    <VSpace size={24} />
+                    <VSpace size={16} />
                   </>
                 ) : (
                   <>
@@ -208,7 +276,7 @@ export const CollectionSelectorSheet = forwardRef<
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[
-                          styles.saveButton,
+                          styles.createCollectionButton,
                           (!newCollectionName.trim() ||
                             createCollectionMutation.isPending) &&
                             styles.saveButtonDisabled,
@@ -223,7 +291,7 @@ export const CollectionSelectorSheet = forwardRef<
                           <ActivityIndicator size="small" color="#fff" />
                         ) : (
                           <Text type="highlight" style={styles.saveButtonText}>
-                            Create & Save
+                            Create
                           </Text>
                         )}
                       </TouchableOpacity>
@@ -244,6 +312,25 @@ export const CollectionSelectorSheet = forwardRef<
                     </Text>
                   </TouchableOpacity>
                 )}
+
+                {/* Save Button */}
+                <VSpace size={24} />
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    (!hasChanges || isSaving) && styles.saveButtonDisabled,
+                  ]}
+                  onPress={handleSave}
+                  disabled={!hasChanges || isSaving}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text type="highlight" style={styles.saveButtonText}>
+                      Save
+                    </Text>
+                  )}
+                </TouchableOpacity>
               </>
             )}
           </View>
@@ -370,6 +457,14 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.medium,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    alignItems: "center",
+  },
+  createCollectionButton: {
+    flex: 1,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: theme.borderRadius.medium,
     alignItems: "center",
   },
   saveButton: {

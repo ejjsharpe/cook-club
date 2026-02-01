@@ -1,9 +1,9 @@
 import { collections, recipeCollections } from "@repo/db/schemas";
 import {
-  toggleRecipeInCollection as toggleRecipeInCollectionService,
   getUserCollectionsWithMetadata as getUserCollectionsWithMetadataService,
   getCollectionDetail as getCollectionDetailService,
   deleteCollection as deleteCollectionService,
+  updateRecipeCollections as updateRecipeCollectionsService,
   getOrCreateDefaultCollections,
 } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
@@ -128,26 +128,6 @@ export const collectionRouter = router({
       }
     }),
 
-  toggleRecipeInCollection: authedProcedure
-    .input(
-      type({
-        recipeId: "number",
-        collectionId: "number",
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      try {
-        return await toggleRecipeInCollectionService(ctx.db, {
-          userId: ctx.user.id,
-          recipeId: input.recipeId,
-          collectionId: input.collectionId,
-        });
-      } catch (err) {
-        console.error("Error toggling recipe in collection:", err);
-        throw mapServiceError(err);
-      }
-    }),
-
   getCollectionDetail: authedProcedure
     .input(
       type({
@@ -202,6 +182,27 @@ export const collectionRouter = router({
         });
       } catch (err) {
         console.error("Error fetching user collections:", err);
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Batch update recipe collections (replace all memberships)
+  updateRecipeCollections: authedProcedure
+    .input(
+      type({
+        recipeId: "number",
+        collectionIds: "number[]",
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await updateRecipeCollectionsService(ctx.db, {
+          userId: ctx.user.id,
+          recipeId: input.recipeId,
+          collectionIds: input.collectionIds,
+        });
+      } catch (err) {
+        console.error("Error updating recipe collections:", err);
         throw mapServiceError(err);
       }
     }),

@@ -21,6 +21,7 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { parseIngredient } from "../../utils/ingredientParser";
 import { normalizeUnit } from "../../utils/unitNormalizer";
+import { getOrCreateDefaultCollections } from "../collection/collection.service";
 import { ServiceError } from "../errors";
 import type { DbClient } from "../types";
 
@@ -402,6 +403,14 @@ export async function createRecipe(
       .returning({
         url: recipeImages.url,
       });
+
+    // Auto-add to "Want to cook" collection
+    const defaultCollections = await getOrCreateDefaultCollections(tx, userId);
+    await tx.insert(recipeCollections).values({
+      recipeId: recipe.id,
+      collectionId: defaultCollections.wantToCook.id,
+      createdAt: new Date(),
+    });
 
     return {
       ...recipe,
@@ -855,6 +864,14 @@ export async function importRecipe(
         })),
       );
     }
+
+    // Auto-add imported recipe to "Want to cook" collection
+    const defaultCollections = await getOrCreateDefaultCollections(tx, userId);
+    await tx.insert(recipeCollections).values({
+      recipeId: newRecipe.id,
+      collectionId: defaultCollections.wantToCook.id,
+      createdAt: new Date(),
+    });
 
     return newRecipe;
   });
