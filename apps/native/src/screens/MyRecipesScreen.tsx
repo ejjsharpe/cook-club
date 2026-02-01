@@ -581,12 +581,19 @@ export const MyRecipesScreen = () => {
       setIsSearchActive(true);
     };
 
+    // Capture flags for worklet (refs are only attached when data exists)
+    const hasRecipes = recipeCount > 0;
+    const hasCollections = collectionCount > 0;
+
     // Measure elements on UI thread - keep worklet lightweight
     scheduleOnUI(() => {
       "worklet";
       const searchBarMeasurement = measure(searchBarRef);
-      const recipeMeasurement = measure(firstRecipeRef);
-      const browseCollectionMeasurement = measure(firstBrowseCollectionRef);
+      // Only measure refs that are actually attached to rendered components
+      const recipeMeasurement = hasRecipes ? measure(firstRecipeRef) : null;
+      const browseCollectionMeasurement = hasCollections
+        ? measure(firstBrowseCollectionRef)
+        : null;
       const scrollOffset = collectionScrollX.value;
 
       // Only measure search collection if entering on collections tab
@@ -715,11 +722,18 @@ export const MyRecipesScreen = () => {
       setSearchQuery("");
     };
 
+    // Capture flags for worklet (refs are only attached when data exists)
+    const hasRecipes = recipeCount > 0;
+    const hasCollections = collectionCount > 0;
+
     // Measure elements on UI thread - keep worklet lightweight
     scheduleOnUI(() => {
       "worklet";
-      const recipeMeasurement = measure(firstRecipeRef);
-      const browseCollectionMeasurement = measure(firstBrowseCollectionRef);
+      // Only measure refs that are actually attached to rendered components
+      const recipeMeasurement = hasRecipes ? measure(firstRecipeRef) : null;
+      const browseCollectionMeasurement = hasCollections
+        ? measure(firstBrowseCollectionRef)
+        : null;
       const scrollOffset = collectionScrollX.value;
 
       // Only measure search collection if on collections tab
