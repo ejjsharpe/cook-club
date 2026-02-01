@@ -50,6 +50,10 @@ import {
 import { ShoppingListSkeleton, SkeletonContainer } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import {
+  AddRecipeToShoppingListSheet,
+  type AddRecipeToShoppingListSheetRef,
+} from "@/components/shopping/AddRecipeToShoppingListSheet";
 import { ShoppingListSectionHeader } from "@/components/shopping/ShoppingListSectionHeader";
 import {
   useShoppingListData,
@@ -247,6 +251,7 @@ const TAB_BAR_HEIGHT = 76; // Approximate native tab bar height
 export const ShoppingListScreen = () => {
   const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
+  const addRecipeSheetRef = useRef<AddRecipeToShoppingListSheetRef>(null);
   const [manualItemText, setManualItemText] = useState("");
   const { progress: keyboardswipeProgress } = useReanimatedKeyboardAnimation();
   const listRef = useRef<FlashListRef<ShoppingListFlashItem>>(null);
@@ -413,7 +418,7 @@ export const ShoppingListScreen = () => {
   };
 
   const handleAddRecipePress = () => {
-    navigation.navigate("AddRecipeToShoppingList");
+    addRecipeSheetRef.current?.present();
   };
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => (
@@ -668,6 +673,9 @@ export const ShoppingListScreen = () => {
           </LinearGradient>
         </Animated.View>
       </KeyboardStickyView>
+
+      {/* Add Recipe Sheet */}
+      <AddRecipeToShoppingListSheet ref={addRecipeSheetRef} />
     </View>
   );
 };

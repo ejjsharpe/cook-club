@@ -1,50 +1,16 @@
-import { Ionicons } from "@expo/vector-icons";
-import { TrueSheet } from "@lodev09/react-native-true-sheet";
-import {
-  forwardRef,
-  useState,
-  useCallback,
-  useImperativeHandle,
-  useRef,
-} from "react";
-import {
-  View,
-  TouchableOpacity,
-  ActivityIndicator,
-  FlatList,
-} from "react-native";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
 
-import { useGetCollectionDetail } from "../../api/collection";
 import { useAddRecipeToMealPlan } from "../../api/mealPlan";
-import { RecipeCard } from "../RecipeCard";
-import { RecipeCollectionBrowser } from "../RecipeCollectionBrowser";
-import { Text } from "../Text";
-
-import type { Recipe } from "@/hooks/useRecipeCollectionBrowser";
+import {
+  RecipeBrowserSheet,
+  type RecipeBrowserSheetRef,
+} from "../RecipeBrowserSheet";
 
 const MEAL_TYPE_LABELS: Record<string, string> = {
   breakfast: "Breakfast",
   lunch: "Lunch",
   dinner: "Dinner",
 };
-
-// Recipe type from collection detail (dates are serialized to strings via tRPC)
-type CollectionRecipe = {
-  id: number;
-  name: string;
-  cookTime: number | null;
-  servings: number | null;
-  sourceUrl: string | null;
-  createdAt: string;
-  images: { id: number; url: string }[];
-};
-
-const RecipeSeparator = () => (
-  <View style={styles.separatorContainer}>
-    <View style={styles.separator} />
-  </View>
-);
 
 export interface RecipePickerSheetProps {
   mealPlanId?: number;
@@ -61,12 +27,7 @@ export const RecipePickerSheet = forwardRef<
   RecipePickerSheetRef,
   RecipePickerSheetProps
 >(({ mealPlanId, date, mealType }, ref) => {
-  const theme = UnistylesRuntime.getTheme();
-  const sheetRef = useRef<TrueSheet>(null);
-  const [selectedCollectionId, setSelectedCollectionId] = useState<
-    number | null
-  >(null);
-
+  const sheetRef = useRef<RecipeBrowserSheetRef>(null);
   const addRecipeMutation = useAddRecipeToMealPlan();
 
   useImperativeHandle(ref, () => ({
@@ -74,227 +35,27 @@ export const RecipePickerSheet = forwardRef<
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const { data: collectionDetail, isLoading: isLoadingCollection } =
-    useGetCollectionDetail({
-      collectionId: selectedCollectionId ?? 0,
-      enabled: selectedCollectionId !== null,
-    });
-
-  const mealTypeLabel = mealType ? MEAL_TYPE_LABELS[mealType] : "";
-
-  const handleClose = () => {
-    sheetRef.current?.dismiss();
-  };
-
   const handleSelectRecipe = useCallback(
     async (recipeId: number) => {
       if (!mealPlanId || !date || !mealType) return;
 
-      try {
-        await addRecipeMutation.mutateAsync({
-          mealPlanId,
-          recipeId,
-          date,
-          mealType,
-        });
-        sheetRef.current?.dismiss();
-      } catch {
-        // Error handled by mutation
-      }
+      await addRecipeMutation.mutateAsync({
+        mealPlanId,
+        recipeId,
+        date,
+        mealType,
+      });
     },
-    [mealPlanId, date, mealType, addRecipeMutation, sheetRef],
+    [mealPlanId, date, mealType, addRecipeMutation],
   );
 
-  const handleRecipePress = useCallback(
-    (recipe: Recipe) => {
-      handleSelectRecipe(recipe.id);
-    },
-    [handleSelectRecipe],
-  );
-
-  const handleCollectionPress = useCallback((collectionId: number) => {
-    setSelectedCollectionId(collectionId);
-  }, []);
-
-  const handleBackPress = useCallback(() => {
-    setSelectedCollectionId(null);
-  }, []);
-
-  const renderCollectionRecipe = useCallback(
-    ({ item }: { item: CollectionRecipe }) => (
-      <RecipeCard
-        recipe={{
-          id: item.id,
-          name: item.name,
-          cookTime: item.cookTime,
-          sourceUrl: item.sourceUrl,
-          coverImage: item.images[0]?.url,
-        }}
-        onPress={() => handleSelectRecipe(item.id)}
-      />
-    ),
-    [handleSelectRecipe],
-  );
+  const mealTypeLabel = mealType ? MEAL_TYPE_LABELS[mealType] : "";
 
   return (
-    <TrueSheet
+    <RecipeBrowserSheet
       ref={sheetRef}
-      detents={["auto"]}
-      grabber={false}
-      backgroundColor={theme.colors.background}
-    >
-      <View style={styles.container}>
-        {selectedCollectionId !== null ? (
-          // Collection drill-down view
-          <View style={styles.container}>
-            <View style={styles.collectionHeader}>
-              <TouchableOpacity
-                onPress={handleBackPress}
-                style={styles.backButton}
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={24}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
-              <Text
-                type="headline"
-                numberOfLines={1}
-                style={styles.collectionTitle}
-              >
-                {collectionDetail?.name ?? "Collection"}
-              </Text>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <View style={styles.closeButtonCircle}>
-                  <Ionicons name="close" size={16} style={styles.closeIcon} />
-                </View>
-              </TouchableOpacity>
-            </View>
-            {isLoadingCollection ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" />
-              </View>
-            ) : (
-              <FlatList
-                data={collectionDetail?.recipes ?? []}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderCollectionRecipe}
-                ItemSeparatorComponent={RecipeSeparator}
-                contentContainerStyle={styles.listContent}
-                ListEmptyComponent={
-                  <View style={styles.emptyContainer}>
-                    <Ionicons
-                      name="restaurant-outline"
-                      size={48}
-                      style={styles.emptyIcon}
-                    />
-                    <Text type="subheadline" style={styles.emptyText}>
-                      No recipes in this collection yet
-                    </Text>
-                  </View>
-                }
-              />
-            )}
-          </View>
-        ) : (
-          // Recipe collection browser
-          <View style={styles.container}>
-            <View style={styles.header}>
-              <View style={styles.headerSpacer} />
-              <Text type="headline">Add to {mealTypeLabel}</Text>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <View style={styles.closeButtonCircle}>
-                  <Ionicons name="close" size={16} style={styles.closeIcon} />
-                </View>
-              </TouchableOpacity>
-            </View>
-            <RecipeCollectionBrowser
-              onRecipePress={handleRecipePress}
-              onCollectionPress={handleCollectionPress}
-              showCreateCollectionCard={false}
-              recipesEmptyMessage="You don't have any recipes yet"
-            />
-          </View>
-        )}
-      </View>
-    </TrueSheet>
+      title={`Add to ${mealTypeLabel}`}
+      onSelectRecipe={handleSelectRecipe}
+    />
   );
 });
-
-const styles = StyleSheet.create((theme) => ({
-  indicator: {
-    backgroundColor: theme.colors.border,
-  },
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
-  collectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  backButton: {
-    marginRight: 8,
-  },
-  backIcon: {
-    color: theme.colors.text,
-  },
-  collectionTitle: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-  },
-  listContent: {
-    paddingBottom: 40,
-  },
-  separatorContainer: {
-    paddingHorizontal: 20,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: theme.colors.border,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    color: theme.colors.textTertiary,
-    marginBottom: 12,
-  },
-  emptyText: {
-    textAlign: "center",
-    color: theme.colors.textSecondary,
-    paddingHorizontal: 40,
-  },
-}));

@@ -162,7 +162,7 @@ const Header = memo(
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 20;
 const BACK_BUTTON_WIDTH = 44;
-const HEADER_GAP = 12;
+const HEADER_GAP = 6;
 const HEADER_HEIGHT = 52; // Height of the cook club title + avatar row
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -758,7 +758,7 @@ const styles = StyleSheet.create((theme, rt) => ({
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 6,
   },
   notificationButton: {
     width: 44,
@@ -788,15 +788,14 @@ const styles = StyleSheet.create((theme, rt) => ({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    gap: 12,
   },
   backButton: {
-    width: 50,
-    height: 50,
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: 25,
+    borderRadius: 22,
   },
   backIcon: {
     color: theme.colors.text,

@@ -222,16 +222,15 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-const TAB_HEIGHT = 42;
-const CONTAINER_PADDING = 4;
+const TAB_HEIGHT = 38;
+const CONTAINER_PADDING = 3;
 
 const styles = StyleSheet.create((theme) => ({
   container: {
     flexDirection: "row",
-    alignSelf: "flex-start",
     position: "relative",
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: (TAB_HEIGHT + CONTAINER_PADDING * 2) / 2,
+    borderRadius: theme.borderRadius.full,
     padding: CONTAINER_PADDING,
   },
   containerFullWidth: {

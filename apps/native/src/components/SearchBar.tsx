@@ -3,7 +3,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { View, TextInput, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-export const SEARCH_BAR_HEIGHT = 50;
+export const SEARCH_BAR_HEIGHT = 44;
 
 interface Props {
   value: string;

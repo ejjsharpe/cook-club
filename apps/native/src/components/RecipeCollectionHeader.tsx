@@ -18,9 +18,9 @@ import { VSpace } from "./Space";
 import type { TabType } from "@/hooks/useTabNavigation";
 
 // Header content heights
-// Full: search (50) + VSpace (8) + segmented (44) + VSpace (32) = 134
-export const HEADER_CONTENT_HEIGHT = 134;
-export const SEARCH_BAR_ROW_HEIGHT = 58; // search (50) + VSpace (8)
+// Full: search (44) + VSpace (6) + segmented (44) + VSpace (24) = 118
+export const HEADER_CONTENT_HEIGHT = 118;
+export const SEARCH_BAR_ROW_HEIGHT = 50; // search (44) + VSpace (6)
 
 const tabOptions: TabOption<TabType>[] = [
   { value: "recipes", label: "Recipes" },
@@ -126,7 +126,7 @@ export const RecipeCollectionHeader = ({
                 </TouchableOpacity>
               </Animated.View>
             </View>
-            <VSpace size={8} />
+            <VSpace size={6} />
           </>
         )}
         <Animated.View style={[styles.headerPadded, headerEntranceStyle]}>
@@ -138,7 +138,7 @@ export const RecipeCollectionHeader = ({
             fullWidth
           />
         </Animated.View>
-        <VSpace size={32} />
+        <VSpace size={24} />
       </View>
     </View>
   );
@@ -174,14 +174,14 @@ const styles = StyleSheet.create((theme, rt) => ({
   },
   filterButtonWrapper: {
     overflow: "hidden",
-    width: 50,
-    marginLeft: 12,
+    width: 44,
+    marginLeft: 6,
   },
   filterButton: {
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.full,
-    width: 50,
-    height: 50,
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
   },

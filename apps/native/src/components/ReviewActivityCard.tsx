@@ -249,7 +249,7 @@ export const ReviewActivityCard = memo(
           >
             <Ionicons
               name={activity.isLiked ? "heart" : "heart-outline"}
-              size={18}
+              size={16}
               style={[
                 styles.actionIcon,
                 activity.isLiked && styles.actionIconLiked,
@@ -266,7 +266,7 @@ export const ReviewActivityCard = memo(
           >
             <Ionicons
               name="chatbubble-outline"
-              size={16}
+              size={14}
               style={styles.actionIcon}
             />
             <Text type="subheadline" style={styles.actionText}>
@@ -278,7 +278,7 @@ export const ReviewActivityCard = memo(
             onPress={handleImport}
             activeOpacity={0.7}
           >
-            <Ionicons name="add" size={18} style={styles.actionIconPrimary} />
+            <Ionicons name="add" size={16} style={styles.actionIconPrimary} />
             <Text type="subheadline" style={styles.actionTextPrimary}>
               Import
             </Text>
@@ -403,9 +403,10 @@ const styles = StyleSheet.create((theme) => ({
   actionPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    height: 36,
-    paddingHorizontal: 14,
+    gap: 4,
+    minHeight: 32,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.full,
   },
@@ -421,9 +422,10 @@ const styles = StyleSheet.create((theme) => ({
   actionPillPrimary: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    height: 36,
-    paddingHorizontal: 14,
+    gap: 4,
+    minHeight: 32,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: theme.colors.primary,
     borderRadius: theme.borderRadius.full,
   },

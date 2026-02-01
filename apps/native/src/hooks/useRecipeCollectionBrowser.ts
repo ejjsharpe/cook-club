@@ -39,6 +39,7 @@ export const useRecipeCollectionBrowser = ({
     hasActiveFilters,
     filterButtonProgress,
     filterButtonStyle,
+    searchBarWrapperStyle,
     parsedTagIds,
     parsedMaxTotalTime,
     setFilterButtonVisible,
@@ -118,6 +119,7 @@ export const useRecipeCollectionBrowser = ({
     // Filter button animation
     filterButtonProgress,
     filterButtonStyle,
+    searchBarWrapperStyle,
 
     // Filter sheet props (for rendering FilterSheet)
     filterSheetProps: {

@@ -50,13 +50,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HORIZONTAL_PADDING = 20;
 const HEADER_HEIGHT = 52;
 const COLLECTION_CARD_WIDTH = 140;
-const BACK_BUTTON_WIDTH = 50;
-const BACK_BUTTON_GAP = 8;
-const FILTER_BUTTON_SIZE = 50;
-const FILTER_BUTTON_GAP = 8;
+const BACK_BUTTON_WIDTH = 44;
+const BACK_BUTTON_GAP = 6;
+const FILTER_BUTTON_SIZE = 44;
+const FILTER_BUTTON_GAP = 6;
 
 // Search mode layout constants (from RecipeCollectionBrowser)
-const SEARCH_HEADER_CONTENT_HEIGHT = 134; // search (50) + VSpace (8) + segmented (44) + VSpace (32)
+const SEARCH_HEADER_CONTENT_HEIGHT = 118; // search (44) + VSpace (6) + segmented (44) + VSpace (24)
 const RECIPE_CARD_HEIGHT = 100;
 const RECIPE_SEPARATOR_HEIGHT = 17; // 8px padding + 1px line + 8px padding
 
@@ -370,7 +370,7 @@ export const MyRecipesScreen = () => {
   const searchModeY = insets.top;
 
   // Calculate search mode target Y position for a recipe at given index
-  // ListHeaderSpacer always uses insets.top + HEADER_CONTENT_HEIGHT (134)
+  // ListHeaderSpacer always uses insets.top + HEADER_CONTENT_HEIGHT (118)
   const getSearchTargetY = useCallback(
     (index: number) => {
       const headerHeight = insets.top + SEARCH_HEADER_CONTENT_HEIGHT;
@@ -1003,29 +1003,29 @@ export const MyRecipesScreen = () => {
             </View>
           </AnimatedPressable>
 
-          <VSpace size={32} />
-
           {/* Collections Section */}
-          <Text type="title3" style={styles.sectionTitle}>
-            Collections
-          </Text>
-          {isLoadingCollections ? (
-            <HorizontalCollectionsSkeleton />
-          ) : (
-            <FadeIn>
-              <AnimatedFlatList
-                horizontal
-                data={collectionsWithCreate}
-                renderItem={renderCollectionItem}
-                keyExtractor={(item) => item.id.toString()}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalList}
-                ItemSeparatorComponent={CollectionSeparator}
-                onScroll={collectionsHorizontalScroll}
-                scrollEventThrottle={16}
-              />
-            </FadeIn>
-          )}
+          <View style={styles.section}>
+            <Text type="title3" style={styles.sectionTitle}>
+              Collections
+            </Text>
+            {isLoadingCollections ? (
+              <HorizontalCollectionsSkeleton />
+            ) : (
+              <FadeIn>
+                <AnimatedFlatList
+                  horizontal
+                  data={collectionsWithCreate}
+                  renderItem={renderCollectionItem}
+                  keyExtractor={(item) => item.id.toString()}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalList}
+                  ItemSeparatorComponent={CollectionSeparator}
+                  onScroll={collectionsHorizontalScroll}
+                  scrollEventThrottle={16}
+                />
+              </FadeIn>
+            )}
+          </View>
 
           {/* Recently Added Section */}
           {(isLoadingRecipes || recentRecipes.length > 0) && (
@@ -1269,7 +1269,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     opacity: 0,
   },
   section: {
-    marginTop: 32,
+    marginTop: 24,
   },
   sectionTitle: {
     paddingHorizontal: HORIZONTAL_PADDING,
@@ -1340,12 +1340,12 @@ const styles = StyleSheet.create((theme, rt) => ({
     color: theme.colors.textSecondary,
   },
   backButton: {
-    width: 50,
-    height: 50,
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: theme.colors.inputBackground,
-    borderRadius: 25,
+    borderRadius: 22,
   },
   backIcon: {
     color: theme.colors.text,
