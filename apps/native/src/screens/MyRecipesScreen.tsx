@@ -444,9 +444,9 @@ export const MyRecipesScreen = () => {
 
   // Recent recipes (first 5)
   const { data: recentRecipesData, isLoading: isLoadingRecipes } =
-    useGetUserRecipes({ limit: 5 });
+    useGetUserRecipes({}); // Use default params (same as search mode initial state)
   const recentRecipes = useMemo(() => {
-    return recentRecipesData?.pages[0]?.items ?? [];
+    return (recentRecipesData?.pages[0]?.items ?? []).slice(0, 5);
   }, [recentRecipesData]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
