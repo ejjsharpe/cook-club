@@ -1,10 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import {
-  FlashList,
-  type FlashListRef,
-  type ListRenderItemInfo,
-} from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMemo, useCallback, useState, memo, useRef } from "react";
@@ -14,9 +9,10 @@ import {
   ScrollView,
   TextInput,
   Alert,
-  LayoutAnimation,
+  FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ListRenderItemInfo,
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import {
@@ -31,6 +27,7 @@ import Animated, {
   interpolate,
   interpolateColor,
   Extrapolation,
+  LinearTransition,
   type SharedValue,
 } from "react-native-reanimated";
 import {
@@ -59,8 +56,6 @@ import {
   useShoppingListData,
   type ShoppingListFlashItem,
   type ShoppingListItem,
-  SECTION_HEADER_HEIGHT,
-  ITEM_HEIGHT,
 } from "@/hooks/useShoppingListData";
 
 interface Recipe {
@@ -254,7 +249,7 @@ export const ShoppingListScreen = () => {
   const addRecipeSheetRef = useRef<AddRecipeToShoppingListSheetRef>(null);
   const [manualItemText, setManualItemText] = useState("");
   const { progress: keyboardswipeProgress } = useReanimatedKeyboardAnimation();
-  const listRef = useRef<FlashListRef<ShoppingListFlashItem>>(null);
+  const listRef = useRef<FlatList<ShoppingListFlashItem>>(null);
 
   // Scroll tracking for header fade
   const titleOpacity = useSharedValue(1);
@@ -348,9 +343,6 @@ export const ShoppingListScreen = () => {
 
   const handleRemoveItem = useCallback(
     (itemId: number) => {
-      // Prepare FlashList for layout animation before removing
-      listRef.current?.prepareForLayoutAnimationRender();
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       removeMutation.mutate({ itemId });
     },
     [removeMutation],
@@ -368,10 +360,6 @@ export const ShoppingListScreen = () => {
           text: "Clear",
           style: "destructive",
           onPress: () => {
-            listRef.current?.prepareForLayoutAnimationRender();
-            LayoutAnimation.configureNext(
-              LayoutAnimation.Presets.easeInEaseOut,
-            );
             clearMutation.mutate();
           },
         },
@@ -389,10 +377,6 @@ export const ShoppingListScreen = () => {
           text: "Remove",
           style: "destructive",
           onPress: () => {
-            listRef.current?.prepareForLayoutAnimationRender();
-            LayoutAnimation.configureNext(
-              LayoutAnimation.Presets.easeInEaseOut,
-            );
             removeRecipeMutation.mutate({ recipeId });
           },
         },
@@ -477,54 +461,37 @@ export const ShoppingListScreen = () => {
     </TouchableOpacity>
   );
 
-  // FlashList render item - switch on type
+  // FlatList render item - switch on type
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<ShoppingListFlashItem>) => {
       switch (item.type) {
         case "section-header":
           return (
-            <ShoppingListSectionHeader
-              title={item.title}
-              isComplete={item.isComplete}
-            />
+            <Animated.View layout={LinearTransition}>
+              <ShoppingListSectionHeader
+                title={item.title}
+                isComplete={item.isComplete}
+              />
+            </Animated.View>
           );
         case "item":
           return (
-            <SwipeableItem
-              item={item}
-              onToggle={handleToggleCheck}
-              onRemove={handleRemoveItem}
-            />
+            <Animated.View layout={LinearTransition}>
+              <SwipeableItem
+                item={item}
+                onToggle={handleToggleCheck}
+                onRemove={handleRemoveItem}
+              />
+            </Animated.View>
           );
       }
     },
     [handleToggleCheck, handleRemoveItem],
   );
 
-  // Item type for FlashList recycling optimization
-  const getItemType = useCallback(
-    (item: ShoppingListFlashItem) => item.type,
-    [],
-  );
-
   // Key extractor
   const keyExtractor = useCallback(
     (item: ShoppingListFlashItem) => item.id,
-    [],
-  );
-
-  // Override item layout for proper sizing
-  const overrideItemLayout = useCallback(
-    (layout: { size?: number; span?: number }, item: ShoppingListFlashItem) => {
-      switch (item.type) {
-        case "section-header":
-          layout.size = SECTION_HEADER_HEIGHT;
-          break;
-        case "item":
-          layout.size = ITEM_HEIGHT;
-          break;
-      }
-    },
     [],
   );
 
@@ -578,7 +545,7 @@ export const ShoppingListScreen = () => {
       <SkeletonContainer
         isLoading={isLoading}
         skeleton={
-          <FlashList
+          <FlatList
             data={[]}
             renderItem={() => null}
             ListHeaderComponent={listHeaderComponent}
@@ -588,13 +555,11 @@ export const ShoppingListScreen = () => {
           />
         }
       >
-        <FlashList
+        <FlatList
           ref={listRef}
           data={flattenedData}
           renderItem={renderItem}
-          getItemType={getItemType}
           keyExtractor={keyExtractor}
-          overrideItemLayout={overrideItemLayout}
           ListHeaderComponent={listHeaderComponent}
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
@@ -605,6 +570,7 @@ export const ShoppingListScreen = () => {
           }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          windowSize={5}
         />
       </SkeletonContainer>
 
