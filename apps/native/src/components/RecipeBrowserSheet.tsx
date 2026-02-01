@@ -17,7 +17,6 @@ import {
 import Animated from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { useGetCollectionDetail } from "../api/collection";
 import { CollectionGridCard, GRID_GAP } from "./CollectionGridCard";
 import { FilterSheet, type FilterSheetRef } from "./FilterBottomSheet";
 import { RecipeCard } from "./RecipeCard";
@@ -26,6 +25,7 @@ import { SegmentedControl, type TabOption } from "./SegmentedControl";
 import { MyRecipesListSkeleton, CollectionsListSkeleton } from "./Skeleton";
 import { SwipeableTabView } from "./SwipeableTabView";
 import { Text } from "./Text";
+import { useGetCollectionDetail } from "../api/collection";
 
 import {
   useRecipeCollectionBrowser,
@@ -502,7 +502,7 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    marginBottom: 6,
+    marginBottom: 12,
   },
   searchBarWrapper: {
     flex: 1,
@@ -534,7 +534,7 @@ const styles = StyleSheet.create((theme) => ({
   // Tab container
   tabContainer: {
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 24,
   },
 
   // Content area

@@ -56,7 +56,7 @@ const FILTER_BUTTON_SIZE = 44;
 const FILTER_BUTTON_GAP = 6;
 
 // Search mode layout constants (from RecipeCollectionBrowser)
-const SEARCH_HEADER_CONTENT_HEIGHT = 118; // search (44) + VSpace (6) + segmented (44) + VSpace (24)
+const SEARCH_HEADER_CONTENT_HEIGHT = 124; // search (44) + VSpace (12) + segmented (44) + VSpace (24)
 const RECIPE_CARD_HEIGHT = 100;
 const RECIPE_SEPARATOR_HEIGHT = 17; // 8px padding + 1px line + 8px padding
 
@@ -68,9 +68,6 @@ const COLLECTION_SEPARATOR_WIDTH = 12; // From CollectionSeparator
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
-const AnimatedFlatList = Animated.createAnimatedComponent(
-  FlatList<CollectionWithMetadata | { id: "create"; type: "create" }>,
-);
 
 // Static separator component - defined outside to avoid recreation
 const CollectionSeparator = () => <View style={styles.collectionSeparator} />;
@@ -1012,7 +1009,7 @@ export const MyRecipesScreen = () => {
               <HorizontalCollectionsSkeleton />
             ) : (
               <FadeIn>
-                <AnimatedFlatList
+                <Animated.FlatList
                   horizontal
                   data={collectionsWithCreate}
                   renderItem={renderCollectionItem}

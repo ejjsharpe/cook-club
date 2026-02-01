@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    height: 44,
+    minHeight: 44,
     paddingHorizontal: 16,
     borderRadius: 22,
     backgroundColor: theme.colors.primary,
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   actionButton: {
     flex: 1,
-    height: 50,
+    minHeight: 44,
     borderRadius: 25,
     backgroundColor: theme.colors.inputBackground,
     flexDirection: "row",

@@ -25,6 +25,7 @@ import startImage6 from "@/assets/images/start-food-6.jpg";
 import startImage7 from "@/assets/images/start-food-7.jpg";
 import startImage8 from "@/assets/images/start-food-8.jpg";
 import startImage9 from "@/assets/images/start-food-9.jpg";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ShareIntentStorageHandler } from "@/components/ShareIntentStorageHandler";
 import { ReactQueryProvider } from "@/lib/reactQuery";
 import { SessionProvider } from "@/lib/sessionContext";
@@ -123,6 +124,7 @@ export default function App() {
                   <SignedInProvider>
                     <ShareIntentStorageHandler />
                     <GestureHandlerRootView style={styles.rootView}>
+                      <OfflineIndicator />
                       <Navigation
                         onReady={onNavigationReady}
                         linking={linking}

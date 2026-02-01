@@ -18,9 +18,9 @@ import { VSpace } from "./Space";
 import type { TabType } from "@/hooks/useTabNavigation";
 
 // Header content heights
-// Full: search (44) + VSpace (6) + segmented (44) + VSpace (24) = 118
-export const HEADER_CONTENT_HEIGHT = 118;
-export const SEARCH_BAR_ROW_HEIGHT = 50; // search (44) + VSpace (6)
+// Full: search (44) + VSpace (12) + segmented (44) + VSpace (24) = 118
+export const HEADER_CONTENT_HEIGHT = 124;
+export const SEARCH_BAR_ROW_HEIGHT = 56; // search (44) + VSpace (12)
 
 const tabOptions: TabOption<TabType>[] = [
   { value: "recipes", label: "Recipes" },
@@ -126,7 +126,7 @@ export const RecipeCollectionHeader = ({
                 </TouchableOpacity>
               </Animated.View>
             </View>
-            <VSpace size={6} />
+            <VSpace size={12} />
           </>
         )}
         <Animated.View style={[styles.headerPadded, headerEntranceStyle]}>

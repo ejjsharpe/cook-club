@@ -1,6 +1,11 @@
 import { useNavigation } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo } from "react";
-import { View, FlatList, ActivityIndicator, RefreshControl } from "react-native";
+import {
+  View,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
@@ -69,7 +74,7 @@ export const NotificationsScreen = () => {
           break;
       }
     },
-    [navigation]
+    [navigation],
   );
 
   const renderNotification = useCallback(
@@ -79,12 +84,12 @@ export const NotificationsScreen = () => {
         onPress={() => handleNotificationPress(item)}
       />
     ),
-    [handleNotificationPress]
+    [handleNotificationPress],
   );
 
   const keyExtractor = useCallback(
     (item: NotificationItem) => item.id.toString(),
-    []
+    [],
   );
 
   const renderEmpty = useCallback(() => {

@@ -21,6 +21,7 @@ export const useCreateShoppingList = () => {
   const queryClient = useQueryClient();
 
   const mutationOptions = trpc.shopping.createShoppingList.mutationOptions({
+    networkMode: "offlineFirst",
     onSuccess: () => {
       const shoppingListsFilter =
         trpc.shopping.getUserShoppingLists.pathFilter();
@@ -41,6 +42,7 @@ export const useAddRecipeToSpecificList = () => {
 
   const mutationOptions = trpc.shopping.addRecipeToSpecificList.mutationOptions(
     {
+      networkMode: "offlineFirst",
       onSuccess: () => {
         // Invalidate both the specific lists and the main shopping list
         const shoppingListsFilter =
@@ -69,6 +71,7 @@ export const useAddRecipeToShoppingList = () => {
 
   const mutationOptions = trpc.shopping.addRecipeToShoppingList.mutationOptions(
     {
+      networkMode: "offlineFirst",
       onMutate: async (variables) => {
         const { recipeId } = variables;
 
@@ -132,6 +135,7 @@ export const useToggleItemChecked = () => {
   const queryClient = useQueryClient();
 
   const mutationOptions = trpc.shopping.toggleItemChecked.mutationOptions({
+    networkMode: "offlineFirst",
     onMutate: async (variables) => {
       const { itemId } = variables;
 
@@ -181,6 +185,7 @@ export const useRemoveItem = () => {
   const queryClient = useQueryClient();
 
   const mutationOptions = trpc.shopping.removeItem.mutationOptions({
+    networkMode: "offlineFirst",
     onMutate: async (variables) => {
       const { itemId } = variables;
 
@@ -229,6 +234,7 @@ export const useClearCheckedItems = () => {
   const queryClient = useQueryClient();
 
   const mutationOptions = trpc.shopping.clearCheckedItems.mutationOptions({
+    networkMode: "offlineFirst",
     onMutate: async () => {
       // Cancel outgoing refetches
       const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
@@ -277,6 +283,7 @@ export const useRemoveRecipeFromList = () => {
   type RecipeDetailOutput = any; // Type will be inferred from tRPC
 
   const mutationOptions = trpc.shopping.removeRecipeFromList.mutationOptions({
+    networkMode: "offlineFirst",
     onMutate: async (variables) => {
       const { recipeId } = variables;
 
@@ -368,6 +375,7 @@ export const useAddManualItem = () => {
   const queryClient = useQueryClient();
 
   const mutationOptions = trpc.shopping.addManualItem.mutationOptions({
+    networkMode: "offlineFirst",
     onMutate: async (variables) => {
       const { ingredientText } = variables;
 

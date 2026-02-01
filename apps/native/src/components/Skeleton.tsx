@@ -359,7 +359,11 @@ const DayGroupSkeleton = () => (
   </View>
 );
 
-const DayHeaderSkeleton = ({ showTodayBadge = false }: { showTodayBadge?: boolean }) => (
+const DayHeaderSkeleton = ({
+  showTodayBadge = false,
+}: {
+  showTodayBadge?: boolean;
+}) => (
   <View style={styles.dayHeaderContainer}>
     <View style={styles.dayHeaderContent}>
       <Skeleton width={50} height={20} borderRadius={4} />

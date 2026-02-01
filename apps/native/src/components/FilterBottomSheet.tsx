@@ -111,7 +111,10 @@ export const FilterSheet = forwardRef<FilterSheetRef, FilterSheetProps>(
           <View style={styles.header}>
             <View style={styles.headerSpacer} />
             <Text type="headline">Filters</Text>
-            <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
+            <TouchableOpacity
+              onPress={handleDismiss}
+              style={styles.closeButton}
+            >
               <View style={styles.closeButtonCircle}>
                 <Ionicons name="close" size={16} style={styles.closeIcon} />
               </View>
