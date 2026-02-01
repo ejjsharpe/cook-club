@@ -2,7 +2,7 @@ import {
   AnimatedFlashList,
   type ListRenderItemInfo,
 } from "@shopify/flash-list";
-import { useMemo } from "react";
+import { useMemo, useRef, useImperativeHandle, forwardRef } from "react";
 import { View, ActivityIndicator, RefreshControl } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -16,6 +16,10 @@ const RecipeSeparator = () => (
   </View>
 );
 
+export interface RecipeListRef {
+  scrollToTop: () => void;
+}
+
 interface RecipeListProps {
   recipes: Recipe[];
   renderItem: (info: ListRenderItemInfo<Recipe>) => React.ReactElement;
@@ -26,58 +30,74 @@ interface RecipeListProps {
   headerHeight?: number;
 }
 
-export const RecipeList = ({
-  recipes,
-  renderItem,
-  onLoadMore,
-  isFetchingMore = false,
-  isRefreshing = false,
-  onRefresh,
-  headerHeight = 0,
-}: RecipeListProps) => {
-  const theme = UnistylesRuntime.getTheme();
-  const insets = UnistylesRuntime.insets;
+export const RecipeList = forwardRef<RecipeListRef, RecipeListProps>(
+  (
+    {
+      recipes,
+      renderItem,
+      onLoadMore,
+      isFetchingMore = false,
+      isRefreshing = false,
+      onRefresh,
+      headerHeight = 0,
+    },
+    ref,
+  ) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const listRef = useRef<any>(null);
 
-  // Use useMemo to create a stable element instead of a component function
-  const ListHeader = useMemo(
-    () => <VSpace size={insets.top + headerHeight} />,
-    [insets.top, headerHeight],
-  );
+    useImperativeHandle(ref, () => ({
+      scrollToTop: () => {
+        listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+      },
+    }));
 
-  const ListFooter = useMemo(() => {
-    if (!isFetchingMore) return null;
-    return (
-      <View style={styles.footer}>
-        <ActivityIndicator />
-      </View>
+    const theme = UnistylesRuntime.getTheme();
+    const insets = UnistylesRuntime.insets;
+
+    // Use useMemo to create a stable element instead of a component function
+    const ListHeader = useMemo(
+      () => <VSpace size={insets.top + headerHeight} />,
+      [insets.top, headerHeight],
     );
-  }, [isFetchingMore]);
 
-  return (
-    <AnimatedFlashList
-      data={recipes}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.id.toString()}
-      onEndReached={onLoadMore}
-      onEndReachedThreshold={0.5}
-      ListHeaderComponent={ListHeader}
-      ListFooterComponent={ListFooter}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.listContent}
-      ItemSeparatorComponent={RecipeSeparator}
-      scrollEventThrottle={32}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.colors.primary}
-          />
-        ) : undefined
-      }
-    />
-  );
-};
+    const ListFooter = useMemo(() => {
+      if (!isFetchingMore) return null;
+      return (
+        <View style={styles.footer}>
+          <ActivityIndicator />
+        </View>
+      );
+    }, [isFetchingMore]);
+
+    return (
+      <AnimatedFlashList
+        ref={listRef}
+        maintainVisibleContentPosition={{ disabled: true }}
+        data={recipes}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id.toString()}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.5}
+        ListHeaderComponent={ListHeader}
+        ListFooterComponent={ListFooter}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={RecipeSeparator}
+        scrollEventThrottle={32}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.colors.primary}
+            />
+          ) : undefined
+        }
+      />
+    );
+  },
+);
 
 const styles = StyleSheet.create((theme, rt) => ({
   listContent: {

@@ -7,7 +7,6 @@ import {
   Pressable,
   TouchableOpacity,
   ScrollView,
-  FlatList,
   Dimensions,
   type TextInput,
 } from "react-native";
@@ -1107,6 +1106,7 @@ export const MyRecipesScreen = () => {
             headerAnimationProgress={searchProgress}
             initialTab={filterState?.activeTab ?? "recipes"}
             firstCollectionRef={firstSearchCollectionRef}
+            isActive={isSearchActive}
           />
         </View>
       </Animated.View>

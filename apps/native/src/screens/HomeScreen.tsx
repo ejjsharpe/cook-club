@@ -609,6 +609,7 @@ export const HomeScreen = () => {
             }
           >
             <FlashList
+              maintainVisibleContentPosition={{ disabled: true }}
               ref={browseScrollRef}
               data={activityFeedItems}
               renderItem={renderActivityItem}

@@ -127,10 +127,7 @@ export const useUpdateRecipeCollections = () => {
         queryClient.invalidateQueries(userRecipesFilter);
       },
       onError: () => {
-        Alert.alert(
-          "Error",
-          "Failed to update collections. Please try again.",
-        );
+        Alert.alert("Error", "Failed to update collections. Please try again.");
       },
     });
 

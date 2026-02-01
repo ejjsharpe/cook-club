@@ -7,7 +7,11 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { CollectionGrid, type CollectionListItem } from "./CollectionGrid";
+import {
+  CollectionGrid,
+  type CollectionGridRef,
+  type CollectionListItem,
+} from "./CollectionGrid";
 import { CollectionGridCard } from "./CollectionGridCard";
 import { FilterSheet, type FilterSheetRef } from "./FilterBottomSheet";
 import { RecipeCard } from "./RecipeCard";
@@ -15,7 +19,7 @@ import {
   RecipeCollectionHeader,
   HEADER_CONTENT_HEIGHT,
 } from "./RecipeCollectionHeader";
-import { RecipeList } from "./RecipeList";
+import { RecipeList, type RecipeListRef } from "./RecipeList";
 import { MyRecipesListSkeleton, CollectionsListSkeleton } from "./Skeleton";
 import { SwipeableTabView } from "./SwipeableTabView";
 import { Text } from "./Text";
@@ -57,6 +61,8 @@ interface RecipeCollectionBrowserProps {
   initialTab?: TabType;
   /** Ref attached to the first collection item for position measurement */
   firstCollectionRef?: AnimatedRef<Animated.View>;
+  /** Whether the browser is currently active/visible - used to reset scroll on exit */
+  isActive?: boolean;
 }
 
 export const RecipeCollectionBrowser = ({
@@ -73,8 +79,21 @@ export const RecipeCollectionBrowser = ({
   headerAnimationProgress,
   initialTab,
   firstCollectionRef,
+  isActive,
 }: RecipeCollectionBrowserProps) => {
   const filterSheetRef = useRef<FilterSheetRef>(null);
+  const recipeListRef = useRef<RecipeListRef>(null);
+  const collectionGridRef = useRef<CollectionGridRef>(null);
+  const wasActive = useRef(isActive);
+
+  // Reset scroll when exiting active state (so lists are at top when re-entering)
+  useEffect(() => {
+    if (!isActive && wasActive.current) {
+      recipeListRef.current?.scrollToTop();
+      collectionGridRef.current?.scrollToTop();
+    }
+    wasActive.current = isActive;
+  }, [isActive]);
 
   const {
     activeTab,
@@ -196,6 +215,7 @@ export const RecipeCollectionBrowser = ({
 
     return (
       <RecipeList
+        ref={recipeListRef}
         recipes={recipes}
         renderItem={renderRecipe}
         onLoadMore={handleLoadMoreRecipes}
@@ -253,6 +273,7 @@ export const RecipeCollectionBrowser = ({
 
     return (
       <CollectionGrid
+        ref={collectionGridRef}
         collections={collections}
         renderItem={renderCollection}
         showCreateCard={showCreateCollectionCard}
