@@ -13,6 +13,18 @@ import {
   formatQuantity,
   parseIngredient,
   normalizeIngredientName,
+  canUserAccessShoppingList,
+  getShoppingLists as getShoppingListsService,
+  getShoppingListShareableUsers as getShoppingListShareableUsersService,
+  inviteToShoppingList as inviteToShoppingListService,
+  cancelShoppingListInvitation as cancelShoppingListInvitationService,
+  acceptShoppingListInvitation as acceptShoppingListInvitationService,
+  declineShoppingListInvitation as declineShoppingListInvitationService,
+  removeShoppingListMember as removeShoppingListMemberService,
+  getPendingShoppingListInvitations as getPendingShoppingListInvitationsService,
+  getShoppingListInvitationStatus as getShoppingListInvitationStatusService,
+  getShoppingListShareStatus as getShoppingListShareStatusService,
+  createNotification,
 } from "@repo/db/services";
 import { classifyIngredientAisle } from "@repo/shared";
 import { TRPCError } from "@trpc/server";
@@ -20,6 +32,7 @@ import { type } from "arktype";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 import { router, authedProcedure } from "../trpc";
+import { mapServiceError } from "../utils";
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
@@ -27,9 +40,44 @@ export const shoppingRouter = router({
   /**
    * Get user's shopping list with all items and recipes
    */
-  getShoppingList: authedProcedure.query(async ({ ctx }) => {
+  getShoppingList: authedProcedure
+    .input(
+      type({
+        "shoppingListId?": "number",
+      }),
+    )
+    .query(async ({ ctx, input }) => {
     try {
-      const shoppingList = await getOrCreateShoppingList(ctx.db, ctx.user.id);
+      let shoppingList: typeof shoppingLists.$inferSelect;
+
+      if (input.shoppingListId) {
+        // Fetch specific list with access check
+        const hasAccess = await canUserAccessShoppingList(
+          ctx.db,
+          ctx.user.id,
+          input.shoppingListId,
+        );
+        if (!hasAccess) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You do not have access to this shopping list",
+          });
+        }
+        const list = await ctx.db
+          .select()
+          .from(shoppingLists)
+          .where(eq(shoppingLists.id, input.shoppingListId))
+          .then((rows) => rows[0]);
+        if (!list) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Shopping list not found",
+          });
+        }
+        shoppingList = list;
+      } else {
+        shoppingList = await getOrCreateShoppingList(ctx.db, ctx.user.id);
+      }
 
       // Get all individual items (one row per recipe-ingredient)
       const rawItems = await ctx.db
@@ -280,7 +328,7 @@ export const shoppingRouter = router({
       const { itemId } = input;
 
       try {
-        // Verify item belongs to user's shopping list
+        // Get item and its shopping list
         const item = await ctx.db
           .select({
             item: shoppingListItems,
@@ -291,18 +339,26 @@ export const shoppingRouter = router({
             shoppingLists,
             eq(shoppingListItems.shoppingListId, shoppingLists.id),
           )
-          .where(
-            and(
-              eq(shoppingListItems.id, itemId),
-              eq(shoppingLists.userId, ctx.user.id),
-            ),
-          )
+          .where(eq(shoppingListItems.id, itemId))
           .then((rows) => rows[0]);
 
         if (!item) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Item not found",
+          });
+        }
+
+        // Verify access (owner or accepted member)
+        const hasAccess = await canUserAccessShoppingList(
+          ctx.db,
+          ctx.user.id,
+          item.list.id,
+        );
+        if (!hasAccess) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You do not have access to this shopping list",
           });
         }
 
@@ -341,29 +397,33 @@ export const shoppingRouter = router({
       const { itemId } = input;
 
       try {
-        // Verify ownership and get item details
+        // Get item details
         const item = await ctx.db
           .select({
             listId: shoppingListItems.shoppingListId,
             sourceRecipeId: shoppingListItems.sourceRecipeId,
           })
           .from(shoppingListItems)
-          .innerJoin(
-            shoppingLists,
-            eq(shoppingListItems.shoppingListId, shoppingLists.id),
-          )
-          .where(
-            and(
-              eq(shoppingListItems.id, itemId),
-              eq(shoppingLists.userId, ctx.user.id),
-            ),
-          )
+          .where(eq(shoppingListItems.id, itemId))
           .then((rows) => rows[0]);
 
         if (!item) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Item not found",
+          });
+        }
+
+        // Verify access
+        const hasAccess = await canUserAccessShoppingList(
+          ctx.db,
+          ctx.user.id,
+          item.listId,
+        );
+        if (!hasAccess) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You do not have access to this shopping list",
           });
         }
 
@@ -610,27 +670,15 @@ export const shoppingRouter = router({
     }),
 
   /**
-   * Get all user's shopping lists
+   * Get all shopping lists the user has access to (owned + shared)
    */
   getUserShoppingLists: authedProcedure.query(async ({ ctx }) => {
     try {
-      const lists = await ctx.db
-        .select({
-          id: shoppingLists.id,
-          name: shoppingLists.name,
-          createdAt: shoppingLists.createdAt,
-        })
-        .from(shoppingLists)
-        .where(eq(shoppingLists.userId, ctx.user.id))
-        .orderBy(desc(shoppingLists.createdAt));
-
-      return lists;
+      // Ensure user has at least a default shopping list
+      await getOrCreateShoppingList(ctx.db, ctx.user.id);
+      return await getShoppingListsService(ctx.db, ctx.user.id);
     } catch (err) {
-      console.error("Error fetching shopping lists:", err);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to fetch shopping lists",
-      });
+      throw mapServiceError(err);
     }
   }),
 
@@ -670,6 +718,59 @@ export const shoppingRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create shopping list",
+        });
+      }
+    }),
+
+  /**
+   * Delete a shopping list (owner only, not default)
+   */
+  deleteShoppingList: authedProcedure
+    .input(
+      type({
+        shoppingListId: "number",
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { shoppingListId } = input;
+
+      try {
+        const list = await ctx.db
+          .select()
+          .from(shoppingLists)
+          .where(
+            and(
+              eq(shoppingLists.id, shoppingListId),
+              eq(shoppingLists.userId, ctx.user.id),
+            ),
+          )
+          .then((rows) => rows[0]);
+
+        if (!list) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Shopping list not found",
+          });
+        }
+
+        if (list.isDefault) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Cannot delete your default shopping list",
+          });
+        }
+
+        await ctx.db
+          .delete(shoppingLists)
+          .where(eq(shoppingLists.id, shoppingListId));
+
+        return { success: true };
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error deleting shopping list:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete shopping list",
         });
       }
     }),
@@ -873,6 +974,139 @@ export const shoppingRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to edit ingredient quantity",
         });
+      }
+    }),
+
+  // ─── Invitation & Sharing Endpoints ─────────────────────────────────────────
+
+  // Get shareable users (friends)
+  getShoppingListShareableUsers: authedProcedure.query(async ({ ctx }) => {
+    try {
+      return await getShoppingListShareableUsersService(ctx.db, ctx.user.id);
+    } catch (err) {
+      throw mapServiceError(err);
+    }
+  }),
+
+  // Invite a friend to a shopping list
+  inviteToShoppingList: authedProcedure
+    .input(type({ shoppingListId: "number", userId: "string" }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const result = await inviteToShoppingListService(ctx.db, {
+          userId: ctx.user.id,
+          shoppingListId: input.shoppingListId,
+          invitedUserId: input.userId,
+        });
+
+        // Fire-and-forget notification
+        createNotification(ctx.db, {
+          recipientId: input.userId,
+          actorId: ctx.user.id,
+          type: "shopping_list_invite",
+          shoppingListId: input.shoppingListId,
+        }).catch((err) => {
+          console.error("Error creating shopping list invite notification:", err);
+        });
+
+        return result;
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Cancel a pending invitation (owner only)
+  cancelShoppingListInvitation: authedProcedure
+    .input(type({ shoppingListId: "number", userId: "string" }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await cancelShoppingListInvitationService(ctx.db, {
+          userId: ctx.user.id,
+          shoppingListId: input.shoppingListId,
+          invitedUserId: input.userId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Accept a shopping list invitation
+  acceptShoppingListInvitation: authedProcedure
+    .input(type({ invitationId: "number" }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await acceptShoppingListInvitationService(ctx.db, {
+          userId: ctx.user.id,
+          invitationId: input.invitationId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Decline a shopping list invitation
+  declineShoppingListInvitation: authedProcedure
+    .input(type({ invitationId: "number" }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await declineShoppingListInvitationService(ctx.db, {
+          userId: ctx.user.id,
+          invitationId: input.invitationId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Remove a member from a shopping list (owner only)
+  removeShoppingListMember: authedProcedure
+    .input(type({ shoppingListId: "number", userId: "string" }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await removeShoppingListMemberService(ctx.db, {
+          userId: ctx.user.id,
+          shoppingListId: input.shoppingListId,
+          memberId: input.userId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Get pending invitations for current user
+  getPendingShoppingListInvitations: authedProcedure.query(async ({ ctx }) => {
+    try {
+      return await getPendingShoppingListInvitationsService(ctx.db, ctx.user.id);
+    } catch (err) {
+      throw mapServiceError(err);
+    }
+  }),
+
+  // Get invitation status for a shopping list (for share sheet)
+  getShoppingListInvitationStatus: authedProcedure
+    .input(type({ shoppingListId: "number" }))
+    .query(async ({ ctx, input }) => {
+      try {
+        return await getShoppingListInvitationStatusService(ctx.db, {
+          userId: ctx.user.id,
+          shoppingListId: input.shoppingListId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Get share status for a shopping list (accepted members)
+  getShoppingListShareStatus: authedProcedure
+    .input(type({ shoppingListId: "number" }))
+    .query(async ({ ctx, input }) => {
+      try {
+        return await getShoppingListShareStatusService(ctx.db, {
+          userId: ctx.user.id,
+          shoppingListId: input.shoppingListId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
       }
     }),
 });

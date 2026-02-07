@@ -6,6 +6,7 @@ import {
   timestamp,
   boolean,
   index,
+  uniqueIndex,
   numeric,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth-schema";
@@ -20,6 +21,7 @@ export const shoppingLists = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull().default("Shopping List"),
+    isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
@@ -95,6 +97,50 @@ export const shoppingListRecipes = pgTable(
     index("shopping_list_recipes_shopping_list_recipe_idx").on(
       table.shoppingListId,
       table.recipeId
+    ),
+  ]
+);
+
+// ─── Shopping List Invitations: invitation-based sharing with friends ─────────
+// Pending invitations expire after 7 days. Accepted invitations represent active access.
+export const shoppingListInvitations = pgTable(
+  "shopping_list_invitations",
+  {
+    id: serial("id").primaryKey(),
+    shoppingListId: integer("shopping_list_id")
+      .notNull()
+      .references(() => shoppingLists.id, { onDelete: "cascade" }),
+    // User who is being invited
+    invitedUserId: text("invited_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // User who sent the invitation (owner)
+    invitedByUserId: text("invited_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    // "pending" = awaiting response, "accepted" = user has access
+    status: text("status").notNull().default("pending"),
+    // Denormalized inviter info for efficient queries
+    inviterName: text("inviter_name").notNull(),
+    inviterImage: text("inviter_image"),
+    // Denormalized shopping list name for display in banners/notifications
+    shoppingListName: text("shopping_list_name").notNull(),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [
+    // Index for finding all invitations for a user
+    index("shopping_list_invitations_invited_user_idx").on(table.invitedUserId),
+    // Index for finding all invitations for a shopping list
+    index("shopping_list_invitations_list_id_idx").on(table.shoppingListId),
+    // Composite index for access control checks
+    index("shopping_list_invitations_user_status_idx").on(
+      table.invitedUserId,
+      table.status
+    ),
+    // Unique: prevent duplicate invitations
+    uniqueIndex("shopping_list_invitations_unique_idx").on(
+      table.shoppingListId,
+      table.invitedUserId
     ),
   ]
 );

@@ -144,9 +144,16 @@ export const ReviewActivityCard = memo(
           </View>
           <View style={styles.userInfo}>
             <View style={styles.userNameRow}>
-              <Text type="headline" style={styles.userName}>
-                {activity.actor.name}
-              </Text>
+              <View style={styles.nameGroup}>
+                <Text type="headline" style={styles.userName}>
+                  {activity.actor.name}
+                </Text>
+                {activity.actor.username && (
+                  <Text type="footnote" style={styles.username}>
+                    @{activity.actor.username}
+                  </Text>
+                )}
+              </View>
               <Text type="footnote" style={styles.timeAgo}>
                 {timeAgo}
               </Text>
@@ -332,7 +339,16 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  nameGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+  },
   userName: {},
+  username: {
+    color: theme.colors.textSecondary,
+  },
   timeAgo: {
     color: theme.colors.textSecondary,
   },

@@ -17,7 +17,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { useUnshareMealPlan, type ShareStatus } from "../../api/mealPlan";
+import { useRemoveMealPlanMember, type ShareStatus } from "../../api/mealPlan";
 import { Avatar } from "../Avatar";
 import { VSpace } from "../Space";
 import { Text } from "../Text";
@@ -105,7 +105,7 @@ export const SharedUsersSheet = forwardRef<
   const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
 
-  const unshareMutation = useUnshareMealPlan();
+  const unshareMutation = useRemoveMealPlanMember();
 
   useImperativeHandle(ref, () => ({
     present: () => sheetRef.current?.present(),

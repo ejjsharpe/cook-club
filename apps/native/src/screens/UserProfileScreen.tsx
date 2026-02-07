@@ -110,10 +110,6 @@ export const UserProfileScreen = () => {
     }
   };
 
-  const handleEditProfile = () => {
-    navigation.navigate("EditProfile");
-  };
-
   const handleLoadMoreActivities = useCallback(() => {
     if (hasMoreActivities && !isFetchingNextActivities) {
       fetchNextActivities();
@@ -279,9 +275,11 @@ export const UserProfileScreen = () => {
             {profile.user.name}
           </Text>
 
-          <Text type="bodyFaded" style={styles.email}>
-            {profile.user.email}
-          </Text>
+          {profile.user.username && (
+            <Text type="bodyFaded" style={styles.username}>
+              @{profile.user.username}
+            </Text>
+          )}
 
           <VSpace size={8} />
 
@@ -343,76 +341,46 @@ export const UserProfileScreen = () => {
         <VSpace size={24} />
 
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          {isOwnProfile ? (
-            <>
+        {!isOwnProfile && (
+          <View style={styles.actionButtons}>
+            {profile.isFollowing ? (
               <TouchableOpacity
-                style={styles.pillButton}
-                onPress={handleEditProfile}
+                style={[styles.pillButton, styles.followingButton]}
+                onPress={handleUnfollow}
+                disabled={isMutationLoading}
                 activeOpacity={0.7}
               >
                 <Ionicons
-                  name="pencil-outline"
+                  name="checkmark"
                   size={18}
-                  style={styles.pillButtonIcon}
+                  style={styles.followingIcon}
                 />
-                <Text style={styles.pillButtonText}>Edit Profile</Text>
+                <Text style={styles.followingButtonText}>Following</Text>
               </TouchableOpacity>
-              <View style={styles.buttonSpacer} />
-              <TouchableOpacity
-                style={styles.pillButton}
-                onPress={handleShareProfile}
-                activeOpacity={0.7}
+            ) : (
+              <PrimaryButton
+                onPress={handleFollow}
+                disabled={isMutationLoading}
+                style={styles.followButton}
               >
-                <Ionicons
-                  name="share-outline"
-                  size={18}
-                  style={styles.pillButtonIcon}
-                />
-                <Text style={styles.pillButtonText}>Share</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              {profile.isFollowing ? (
-                <TouchableOpacity
-                  style={[styles.pillButton, styles.followingButton]}
-                  onPress={handleUnfollow}
-                  disabled={isMutationLoading}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name="checkmark"
-                    size={18}
-                    style={styles.followingIcon}
-                  />
-                  <Text style={styles.followingButtonText}>Following</Text>
-                </TouchableOpacity>
-              ) : (
-                <PrimaryButton
-                  onPress={handleFollow}
-                  disabled={isMutationLoading}
-                  style={styles.followButton}
-                >
-                  Follow
-                </PrimaryButton>
-              )}
-              <View style={styles.buttonSpacer} />
-              <TouchableOpacity
-                style={styles.pillButton}
-                onPress={handleShareProfile}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="share-outline"
-                  size={18}
-                  style={styles.pillButtonIcon}
-                />
-                <Text style={styles.pillButtonText}>Share</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+                Follow
+              </PrimaryButton>
+            )}
+            <View style={styles.buttonSpacer} />
+            <TouchableOpacity
+              style={styles.pillButton}
+              onPress={handleShareProfile}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="share-outline"
+                size={18}
+                style={styles.pillButtonIcon}
+              />
+              <Text style={styles.pillButtonText}>Share</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {profile.followsMe && !isOwnProfile && (
           <>
@@ -564,7 +532,7 @@ const styles = StyleSheet.create((theme) => ({
   name: {
     textAlign: "center",
   },
-  email: {
+  username: {
     textAlign: "center",
     marginTop: 4,
   },

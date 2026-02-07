@@ -6,7 +6,7 @@ import {
   Easing,
 } from "react-native-reanimated";
 
-import { useAllTags } from "@/api/recipe";
+import { useUserRecipeTags } from "@/api/recipe";
 
 const animationConfig = {
   duration: 250,
@@ -16,7 +16,7 @@ const animationConfig = {
 export const useRecipeFilters = () => {
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [maxTotalTime, setMaxTotalTime] = useState<string | undefined>();
-  const { data: allTags } = useAllTags();
+  const { data: allTags } = useUserRecipeTags();
 
   // Filter button visibility animation (1 = visible, 0 = hidden)
   const filterButtonProgress = useSharedValue(1);

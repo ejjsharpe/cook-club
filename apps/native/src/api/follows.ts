@@ -40,6 +40,11 @@ export const useUserProfile = ({ userId }: UseUserProfileParams) => {
   return useQuery(trpc.follows.getUserProfile.queryOptions({ userId }));
 };
 
+export const useSuggestedUsers = (limit = 10) => {
+  const trpc = useTRPC();
+  return useQuery(trpc.follows.getSuggestedUsers.queryOptions({ limit }));
+};
+
 // Mutations
 export const useFollowUser = () => {
   const trpc = useTRPC();

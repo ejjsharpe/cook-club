@@ -8,11 +8,8 @@ import { MeasurementToggle } from "./MeasurementToggle";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
 
-import {
-  getMeasurementPreference,
-  setMeasurementPreference,
-  MeasurementSystem,
-} from "@/lib/measurementPreferences";
+import { useUpdateProfile, useUser } from "@/api/user";
+import type { MeasurementSystem } from "@/lib/measurementPreferences";
 
 export interface AdjustRecipeSheetProps {
   servings: number;
@@ -30,8 +27,12 @@ export const AdjustRecipeSheet = forwardRef<
 >(({ servings, onServingsChange }, ref) => {
   const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
+  const { data: userData } = useUser();
+  const updateProfileMutation = useUpdateProfile();
   const [measurementSystem, setMeasurementSystemState] =
-    useState<MeasurementSystem>(getMeasurementPreference());
+    useState<MeasurementSystem>(
+      (userData?.user?.measurementPreference as MeasurementSystem) ?? "auto",
+    );
 
   useImperativeHandle(ref, () => ({
     present: () => sheetRef.current?.present(),
@@ -39,8 +40,8 @@ export const AdjustRecipeSheet = forwardRef<
   }));
 
   const handleMeasurementChange = (system: MeasurementSystem) => {
-    setMeasurementPreference(system);
     setMeasurementSystemState(system);
+    updateProfileMutation.mutate({ measurementPreference: system });
   };
 
   const handleDecrement = () => {

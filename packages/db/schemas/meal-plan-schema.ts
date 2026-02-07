@@ -74,35 +74,46 @@ export const mealPlanEntries = pgTable(
   ]
 );
 
-// ─── Shared Meal Plans: sharing calendars with friends ─────────────────────────
-export const mealPlanShares = pgTable(
-  "meal_plan_shares",
+// ─── Meal Plan Invitations: invitation-based sharing with friends ─────────────
+// Pending invitations expire after 7 days. Accepted invitations represent active access.
+export const mealPlanInvitations = pgTable(
+  "meal_plan_invitations",
   {
     id: serial("id").primaryKey(),
     mealPlanId: integer("meal_plan_id")
       .notNull()
       .references(() => mealPlans.id, { onDelete: "cascade" }),
-    // User who is granted access to the meal plan
-    sharedWithUserId: text("shared_with_user_id")
+    // User who is being invited
+    invitedUserId: text("invited_user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    // Cached owner info for efficient "shared with me" queries
-    ownerUserId: text("owner_user_id")
+    // User who sent the invitation (owner)
+    invitedByUserId: text("invited_by_user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    ownerName: text("owner_name").notNull(),
-    ownerImage: text("owner_image"),
+    // "pending" = awaiting response, "accepted" = user has access
+    status: text("status").notNull().default("pending"),
+    // Denormalized inviter info for efficient "shared with me" queries
+    inviterName: text("inviter_name").notNull(),
+    inviterImage: text("inviter_image"),
+    // Denormalized meal plan name for display in banners/notifications
+    mealPlanName: text("meal_plan_name").notNull(),
     createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
-    // Index for finding all plans shared with a user
-    index("meal_plan_shares_shared_with_idx").on(table.sharedWithUserId),
-    // Index for finding all shares of a meal plan
-    index("meal_plan_shares_meal_plan_id_idx").on(table.mealPlanId),
-    // Unique: prevent duplicate shares
-    uniqueIndex("meal_plan_shares_unique_idx").on(
+    // Index for finding all invitations for a user
+    index("meal_plan_invitations_invited_user_idx").on(table.invitedUserId),
+    // Index for finding all invitations for a meal plan
+    index("meal_plan_invitations_meal_plan_id_idx").on(table.mealPlanId),
+    // Composite index for access control checks
+    index("meal_plan_invitations_user_status_idx").on(
+      table.invitedUserId,
+      table.status
+    ),
+    // Unique: prevent duplicate invitations
+    uniqueIndex("meal_plan_invitations_unique_idx").on(
       table.mealPlanId,
-      table.sharedWithUserId
+      table.invitedUserId
     ),
   ]
 );

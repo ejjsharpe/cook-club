@@ -1,9 +1,10 @@
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import { useNavigation } from "@react-navigation/native";
 import { forwardRef, useState, useImperativeHandle, useRef } from "react";
-import { Platform, View } from "react-native";
+import { Platform, View, Alert } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { useSignUpWithEmail } from "@/api/auth";
+import { useSignUpWithEmail, AuthError } from "@/api/auth";
 import { Input } from "@/components/Input";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -24,9 +25,9 @@ export interface SignUpSheetRef {
 export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
   ({ onSwitchToSignIn }, ref) => {
     const theme = UnistylesRuntime.getTheme();
+    const navigation = useNavigation();
     const sheetRef = useRef<TrueSheet>(null);
     const [email, setEmail] = useState("");
-    const [name, setName] = useState("");
     const [password, setPassword] = useState("");
     const { mutate: signUpWithEmail } = useSignUpWithEmail();
 
@@ -36,7 +37,29 @@ export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
     }));
 
     const onPressSignUpWithEmail = () =>
-      signUpWithEmail({ email, password, name });
+      signUpWithEmail(
+        { email, password },
+        {
+          onSuccess: async () => {
+            await sheetRef.current?.dismiss();
+            navigation.navigate("EmailVerification", { email });
+          },
+          onError: async (error) => {
+            if (error instanceof AuthError && error.status === 403) {
+              // Email not verified — send them to verification
+              await sheetRef.current?.dismiss();
+              navigation.navigate("EmailVerification", { email });
+            } else if (error instanceof AuthError && error.status === 422) {
+              Alert.alert(
+                "Account Exists",
+                "An account with this email already exists. Please sign in instead.",
+              );
+            } else {
+              Alert.alert("Sign Up Failed", error.message || "Please try again.");
+            }
+          },
+        },
+      );
 
     const onPressSignIn = async () => {
       await sheetRef.current?.dismiss();
@@ -58,13 +81,6 @@ export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
             Sign up now to find your next favourite meal.
           </Text>
           <VSpace size={32} />
-          <Input
-            label="Name"
-            autoComplete="name"
-            onChangeText={setName}
-            placeholder="Gordon Ramsey"
-          />
-          <VSpace size={12} />
           <Input
             label="Email"
             autoComplete="email"

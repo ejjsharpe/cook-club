@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useMemo, useCallback, useState, memo, useRef } from "react";
+import { useMemo, useCallback, useState, useEffect, memo, useRef } from "react";
 import {
   View,
   TouchableOpacity,
@@ -38,11 +38,15 @@ import {
 
 import {
   useGetShoppingList,
+  useGetUserShoppingLists,
   useToggleItemChecked,
   useRemoveItem,
   useClearCheckedItems,
   useRemoveRecipeFromList,
   useAddManualItem,
+  useGetPendingShoppingListInvitations,
+  useAcceptShoppingListInvitation,
+  useDeclineShoppingListInvitation,
 } from "@/api/shopping";
 import { ShoppingListSkeleton, SkeletonContainer } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
@@ -51,12 +55,22 @@ import {
   AddRecipeToShoppingListSheet,
   type AddRecipeToShoppingListSheetRef,
 } from "@/components/shopping/AddRecipeToShoppingListSheet";
+import { ShoppingListInvitationBanner } from "@/components/shopping/ShoppingListInvitationBanner";
+import {
+  ShoppingListPickerSheet,
+  type ShoppingListPickerSheetRef,
+} from "@/components/shopping/ShoppingListPickerSheet";
+import {
+  ShoppingListShareSheet,
+  type ShoppingListShareSheetRef,
+} from "@/components/shopping/ShoppingListShareSheet";
 import { ShoppingListSectionHeader } from "@/components/shopping/ShoppingListSectionHeader";
 import {
   useShoppingListData,
   type ShoppingListFlashItem,
   type ShoppingListItem,
 } from "@/hooks/useShoppingListData";
+import { useSelectedShoppingList } from "@/lib/shoppingListPreferences";
 
 interface Recipe {
   id: number;
@@ -247,7 +261,17 @@ export const ShoppingListScreen = () => {
   const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
   const addRecipeSheetRef = useRef<AddRecipeToShoppingListSheetRef>(null);
+  const shareSheetRef = useRef<ShoppingListShareSheetRef>(null);
+  const listPickerSheetRef = useRef<ShoppingListPickerSheetRef>(null);
   const [manualItemText, setManualItemText] = useState("");
+
+  // Multi-list selection
+  const {
+    selectedList: storedList,
+    setSelectedList,
+    clearSelectedList,
+  } = useSelectedShoppingList();
+  const { data: allLists } = useGetUserShoppingLists();
   const { progress: keyboardswipeProgress } = useReanimatedKeyboardAnimation();
   const listRef = useRef<FlatList<ShoppingListFlashItem>>(null);
 
@@ -317,12 +341,31 @@ export const ShoppingListScreen = () => {
     [titleOpacity, clearButtonOpacity],
   );
 
-  const { data, isLoading, error } = useGetShoppingList();
+  // Compute active list from stored selection or fall back to default
+  const activeList = useMemo(() => {
+    if (!allLists || allLists.length === 0) return null;
+
+    if (storedList !== null) {
+      const foundList = allLists.find((l) => l.id === storedList.id);
+      if (foundList) return foundList;
+      clearSelectedList();
+    }
+
+    const defaultList = allLists.find((l) => l.isDefault);
+    return defaultList ?? allLists[0];
+  }, [allLists, storedList, clearSelectedList]);
+
+  const { data, isLoading, error } = useGetShoppingList(
+    activeList ? { shoppingListId: activeList.id } : undefined,
+  );
   const toggleMutation = useToggleItemChecked();
   const removeMutation = useRemoveItem();
   const clearMutation = useClearCheckedItems();
   const removeRecipeMutation = useRemoveRecipeFromList();
   const addManualMutation = useAddManualItem();
+  const { data: pendingInvitations } = useGetPendingShoppingListInvitations();
+  const acceptInvitation = useAcceptShoppingListInvitation();
+  const declineInvitation = useDeclineShoppingListInvitation();
   const { theme } = useUnistyles();
 
   const items = (data?.items || []) as ShoppingListItem[];
@@ -404,6 +447,54 @@ export const ShoppingListScreen = () => {
   const handleAddRecipePress = () => {
     addRecipeSheetRef.current?.present();
   };
+
+  // Pending list ID for newly created lists that aren't in the query cache yet
+  const [pendingListId, setPendingListId] = useState<number | null>(null);
+
+  // Once the query refetches and the pending list appears, select it
+  useEffect(() => {
+    if (pendingListId === null || !allLists) return;
+    const list = allLists.find((l) => l.id === pendingListId);
+    if (list) {
+      setSelectedList(list.id, list.name);
+      setPendingListId(null);
+    }
+  }, [pendingListId, allLists, setSelectedList]);
+
+  const handleSelectShoppingList = useCallback(
+    (listId: number) => {
+      const list = allLists?.find((l) => l.id === listId);
+      if (list) {
+        setSelectedList(listId, list.name);
+      } else {
+        // New list not in cache yet — wait for query to refetch
+        setPendingListId(listId);
+      }
+    },
+    [allLists, setSelectedList],
+  );
+
+  const handleOpenListPicker = useCallback(() => {
+    listPickerSheetRef.current?.present();
+  }, []);
+
+  const handleSharePress = useCallback(() => {
+    if (activeList?.isDefault && activeList?.isOwner) {
+      Alert.alert(
+        "Can't Share Default List",
+        "Your default shopping list is personal and can't be shared. Create a new list to share with friends.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Create New List",
+            onPress: () => listPickerSheetRef.current?.present(),
+          },
+        ],
+      );
+      return;
+    }
+    shareSheetRef.current?.present();
+  }, [activeList]);
 
   const renderRecipeCard = ({ item }: { item: Recipe }) => (
     <TouchableOpacity
@@ -522,6 +613,21 @@ export const ShoppingListScreen = () => {
       <View>
         {/* Space for fixed header */}
         <VSpace size={insets.top + HEADER_HEIGHT + 8} />
+        {/* Invitation Banners */}
+        {pendingInvitations?.map((invitation) => (
+          <ShoppingListInvitationBanner
+            key={invitation.id}
+            invitation={invitation}
+            onAccept={() =>
+              acceptInvitation.mutate({ invitationId: invitation.id })
+            }
+            onDecline={() =>
+              declineInvitation.mutate({ invitationId: invitation.id })
+            }
+            isAccepting={acceptInvitation.isPending}
+            isDeclining={declineInvitation.isPending}
+          />
+        ))}
         {/* Recipe Cards Carousel */}
         <ScrollView
           horizontal
@@ -536,7 +642,7 @@ export const ShoppingListScreen = () => {
         <VSpace size={8} />
       </View>
     ),
-    [insets.top, recipes],
+    [insets.top, recipes, pendingInvitations, acceptInvitation, declineInvitation],
   );
 
   return (
@@ -578,21 +684,42 @@ export const ShoppingListScreen = () => {
       <View style={styles.fixedHeader}>
         <View style={styles.largeTitleContainer}>
           <Animated.View style={titleAnimatedStyle}>
-            <Text type="screenTitle">Shopping List</Text>
+            <TouchableOpacity
+              style={styles.titleButton}
+              onPress={handleOpenListPicker}
+              activeOpacity={0.7}
+            >
+              <Text type="screenTitle">
+                {activeList?.name ?? "Shopping List"}
+              </Text>
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                style={styles.titleChevron}
+              />
+            </TouchableOpacity>
           </Animated.View>
-          {checkedCount > 0 && (
-            <Animated.View style={clearButtonAnimatedStyle}>
-              <TouchableOpacity
-                onPress={handleClearChecked}
-                style={styles.clearButton}
-                disabled={clearMutation.isPending}
-              >
-                <Text style={styles.clearButtonText}>
-                  Clear ({checkedCount})
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
+          <View style={styles.headerButtons}>
+            {checkedCount > 0 && (
+              <Animated.View style={clearButtonAnimatedStyle}>
+                <TouchableOpacity
+                  onPress={handleClearChecked}
+                  style={styles.clearButton}
+                  disabled={clearMutation.isPending}
+                >
+                  <Text style={styles.clearButtonText}>
+                    Clear ({checkedCount})
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+            <TouchableOpacity
+              onPress={handleSharePress}
+              style={styles.shareButton}
+            >
+              <Ionicons name="people" size={20} style={styles.shareIcon} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
       {/* Bottom Input - sticks to keyboard */}
@@ -640,8 +767,18 @@ export const ShoppingListScreen = () => {
         </Animated.View>
       </KeyboardStickyView>
 
-      {/* Add Recipe Sheet */}
+      {/* Sheets */}
       <AddRecipeToShoppingListSheet ref={addRecipeSheetRef} />
+      <ShoppingListShareSheet
+        ref={shareSheetRef}
+        shoppingListId={activeList?.id}
+        listName={activeList?.name}
+      />
+      <ShoppingListPickerSheet
+        ref={listPickerSheetRef}
+        activeListId={activeList?.id}
+        onSelectList={handleSelectShoppingList}
+      />
     </View>
   );
 };
@@ -663,6 +800,20 @@ const styles = StyleSheet.create((theme, rt) => ({
     justifyContent: "space-between",
     paddingHorizontal: 20,
   },
+  titleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  titleChevron: {
+    marginLeft: 4,
+    marginTop: 2,
+    color: theme.colors.text,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   clearButton: {
     height: 36,
     paddingHorizontal: 14,
@@ -675,6 +826,17 @@ const styles = StyleSheet.create((theme, rt) => ({
     color: theme.colors.primary,
     fontSize: 15,
     fontFamily: theme.fonts.semiBold,
+  },
+  shareButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  shareIcon: {
+    color: theme.colors.primary,
   },
 
   // Recipe Cards Carousel

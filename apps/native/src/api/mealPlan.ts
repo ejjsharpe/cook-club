@@ -8,6 +8,10 @@ export type MealPlan = Outputs["mealPlan"]["getMealPlans"][number];
 export type MealPlanEntry = Outputs["mealPlan"]["getEntries"][number];
 export type ShareableUser = Outputs["mealPlan"]["getShareableUsers"][number];
 export type ShareStatus = Outputs["mealPlan"]["getShareStatus"][number];
+export type MealPlanInvitationStatus =
+  Outputs["mealPlan"]["getMealPlanInvitationStatus"][number];
+export type PendingMealPlanInvitation =
+  Outputs["mealPlan"]["getPendingMealPlanInvitations"][number];
 
 // Get all meal plans (owned + shared with user)
 export const useGetMealPlans = () => {
@@ -168,54 +172,146 @@ export const useGetShareableUsers = () => {
   return useQuery(trpc.mealPlan.getShareableUsers.queryOptions());
 };
 
-// Share meal plan with a friend
-export const useShareMealPlan = () => {
+// Invite a friend to a meal plan
+export const useInviteToMealPlan = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  const mutationOptions = trpc.mealPlan.shareMealPlan.mutationOptions({
+  const mutationOptions = trpc.mealPlan.inviteToMealPlan.mutationOptions({
     onSuccess: () => {
-      const shareStatusFilter = trpc.mealPlan.getShareStatus.pathFilter();
-      queryClient.invalidateQueries(shareStatusFilter);
+      const invitationFilter =
+        trpc.mealPlan.getMealPlanInvitationStatus.pathFilter();
+      queryClient.invalidateQueries(invitationFilter);
     },
     onError: () => {
-      Alert.alert("Error", "Failed to share meal plan. Please try again.");
+      Alert.alert("Error", "Failed to send invitation. Please try again.");
     },
   });
 
   return useMutation(mutationOptions);
 };
 
-// Unshare meal plan
-export const useUnshareMealPlan = () => {
+// Cancel a pending invitation
+export const useCancelMealPlanInvitation = () => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  const mutationOptions = trpc.mealPlan.unshareMealPlan.mutationOptions({
+  const mutationOptions =
+    trpc.mealPlan.cancelMealPlanInvitation.mutationOptions({
+      onSuccess: () => {
+        const invitationFilter =
+          trpc.mealPlan.getMealPlanInvitationStatus.pathFilter();
+        queryClient.invalidateQueries(invitationFilter);
+      },
+      onError: () => {
+        Alert.alert(
+          "Error",
+          "Failed to cancel invitation. Please try again.",
+        );
+      },
+    });
+
+  return useMutation(mutationOptions);
+};
+
+// Accept a meal plan invitation
+export const useAcceptMealPlanInvitation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions =
+    trpc.mealPlan.acceptMealPlanInvitation.mutationOptions({
+      onSuccess: () => {
+        const plansFilter = trpc.mealPlan.getMealPlans.pathFilter();
+        const pendingFilter =
+          trpc.mealPlan.getPendingMealPlanInvitations.pathFilter();
+        queryClient.invalidateQueries(plansFilter);
+        queryClient.invalidateQueries(pendingFilter);
+      },
+      onError: () => {
+        Alert.alert(
+          "Error",
+          "Failed to accept invitation. Please try again.",
+        );
+      },
+    });
+
+  return useMutation(mutationOptions);
+};
+
+// Decline a meal plan invitation
+export const useDeclineMealPlanInvitation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions =
+    trpc.mealPlan.declineMealPlanInvitation.mutationOptions({
+      onSuccess: () => {
+        const pendingFilter =
+          trpc.mealPlan.getPendingMealPlanInvitations.pathFilter();
+        queryClient.invalidateQueries(pendingFilter);
+      },
+      onError: () => {
+        Alert.alert(
+          "Error",
+          "Failed to decline invitation. Please try again.",
+        );
+      },
+    });
+
+  return useMutation(mutationOptions);
+};
+
+// Remove a member from a meal plan
+export const useRemoveMealPlanMember = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions = trpc.mealPlan.removeMealPlanMember.mutationOptions({
     onSuccess: () => {
       const shareStatusFilter = trpc.mealPlan.getShareStatus.pathFilter();
       queryClient.invalidateQueries(shareStatusFilter);
     },
     onError: () => {
-      Alert.alert("Error", "Failed to unshare meal plan. Please try again.");
+      Alert.alert("Error", "Failed to remove member. Please try again.");
     },
   });
 
   return useMutation(mutationOptions);
 };
 
-// Get share status for a meal plan
-interface UseGetShareStatusParams {
+// Get pending meal plan invitations for the current user
+export const useGetPendingMealPlanInvitations = () => {
+  const trpc = useTRPC();
+  return useQuery(trpc.mealPlan.getPendingMealPlanInvitations.queryOptions());
+};
+
+// Get invitation status for a meal plan (for share sheet)
+export const useGetMealPlanInvitationStatus = ({
+  mealPlanId,
+  enabled = true,
+}: {
   mealPlanId: number;
   enabled?: boolean;
-}
+}) => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.mealPlan.getMealPlanInvitationStatus.queryOptions(
+      { mealPlanId },
+      { enabled },
+    ),
+  );
+};
 
+// Get share status for a meal plan (accepted members)
 export const useGetShareStatus = ({
   mealPlanId,
   enabled = true,
-}: UseGetShareStatusParams) => {
+}: {
+  mealPlanId: number;
+  enabled?: boolean;
+}) => {
   const trpc = useTRPC();
-
   return useQuery(
     trpc.mealPlan.getShareStatus.queryOptions({ mealPlanId }, { enabled }),
   );

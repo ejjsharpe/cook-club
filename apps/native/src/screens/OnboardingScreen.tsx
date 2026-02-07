@@ -6,84 +6,121 @@ import {
   Platform,
   TouchableOpacity,
   Alert,
+  Dimensions,
 } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { OnboardingStepCuisines } from "./onboarding-steps/OnboardingStepCuisines";
-import { OnboardingStepDietary } from "./onboarding-steps/OnboardingStepDietary";
-import { OnboardingStepIngredients } from "./onboarding-steps/OnboardingStepIngredients";
+import { OnboardingStepFollowCooks } from "./onboarding-steps/OnboardingStepFollowCooks";
+import { OnboardingStepMeasurements } from "./onboarding-steps/OnboardingStepMeasurements";
 import { OnboardingStepProfile } from "./onboarding-steps/OnboardingStepProfile";
 
-import { useCompleteOnboarding, useUser } from "@/api/user";
+import { useCheckUsername, useUser } from "@/api/user";
 import { OnboardingProgress } from "@/components/OnboardingProgress";
 import { SafeAreaView } from "@/components/SafeAreaView";
+import { useWelcomeOverlay } from "@/components/WelcomeOverlay";
+
+import { useTRPC } from "@repo/trpc/client";
+import { useMutation } from "@tanstack/react-query";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { useDebounce } from "@/hooks/useDebounce";
+import type { MeasurementSystem } from "@/lib/measurementPreferences";
 
-const TOTAL_STEPS = 4;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const TOTAL_STEPS = 3;
+const SPRING_CONFIG = { damping: 20, stiffness: 170, mass: 0.8 };
+const TIMING_CONFIG = { duration: 250, easing: Easing.out(Easing.cubic) };
+const BACK_BUTTON_WIDTH = 88;
 
 export default function OnboardingScreen() {
+  const insets = useSafeAreaInsets();
   const { data: userData } = useUser();
   const user = userData?.user;
-  const completeOnboarding = useCompleteOnboarding();
+  const trpc = useTRPC();
+  const { triggerWelcome } = useWelcomeOverlay();
+  const completeOnboarding = useMutation({
+    ...trpc.user.completeOnboarding.mutationOptions(),
+  });
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   // Step 1: Profile data
   const [name, setName] = useState(user?.name || "");
   const [bio, setBio] = useState("");
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [username, setUsername] = useState("");
 
-  // Step 2: Cuisines
-  const [cuisineLikes, setCuisineLikes] = useState<number[]>([]);
-  const [cuisineDislikes, setCuisineDislikes] = useState<number[]>([]);
+  // Step 2: Measurements
+  const [measurementSystem, setMeasurementSystem] =
+    useState<MeasurementSystem>("auto");
 
-  // Step 3: Ingredients
-  const [ingredientLikes, setIngredientLikes] = useState<number[]>([]);
-  const [ingredientDislikes, setIngredientDislikes] = useState<number[]>([]);
+  // Username validation
+  const debouncedUsername = useDebounce(username, 300);
+  const { data: usernameCheck, isFetching: isCheckingUsername } =
+    useCheckUsername(debouncedUsername);
 
-  // Step 4: Dietary
-  const [dietaryRequirements, setDietaryRequirements] = useState<number[]>([]);
+  const isUsernameAvailable = usernameCheck?.available;
+  const usernameError = usernameCheck?.reason ?? null;
 
-  const toggleInArray = useCallback(
-    (arr: number[], id: number, setArr: (arr: number[]) => void) => {
-      if (arr.includes(id)) {
-        setArr(arr.filter((item) => item !== id));
-      } else {
-        setArr([...arr, id]);
-      }
+  // Spring pager animation
+  const translateX = useSharedValue(0);
+
+  const animatedPagerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  // Back button animation
+  const backButtonProgress = useSharedValue(0);
+
+  const animatedBackButtonStyle = useAnimatedStyle(() => ({
+    width: backButtonProgress.value * BACK_BUTTON_WIDTH,
+    marginRight: backButtonProgress.value * 12,
+    opacity: backButtonProgress.value,
+    overflow: "hidden" as const,
+  }));
+
+  const navigateToStep = useCallback(
+    (step: number) => {
+      setCurrentStep(step);
+      translateX.value = withSpring(-(step - 1) * SCREEN_WIDTH, SPRING_CONFIG);
+      backButtonProgress.value = withTiming(step > 1 ? 1 : 0, TIMING_CONFIG);
     },
-    [],
+    [translateX, backButtonProgress],
   );
 
   const handleNext = async () => {
+    if (currentStep === 1 && !canProceed()) {
+      setHasAttemptedSubmit(true);
+      return;
+    }
+
     if (currentStep < TOTAL_STEPS) {
-      setCurrentStep((prev) => prev + 1);
+      navigateToStep(currentStep + 1);
     } else {
-      // Final step - save everything
       setIsSubmitting(true);
       try {
         await completeOnboarding.mutateAsync({
+          username,
           name: name || undefined,
           bio: bio || null,
           image: profileImage,
-          cuisineLikes,
-          cuisineDislikes,
-          ingredientLikes,
-          ingredientDislikes,
-          dietaryRequirements,
+          measurementPreference: measurementSystem,
         });
-        // Navigation will automatically switch due to onboardingCompleted flag
+        triggerWelcome();
       } catch (error) {
         console.error("Onboarding save error:", error);
-        Alert.alert(
-          "Error",
-          "Failed to save your preferences. Please try again.",
-        );
-      } finally {
+        Alert.alert("Error", "Failed to save your profile. Please try again.");
         setIsSubmitting(false);
       }
     }
@@ -91,91 +128,23 @@ export default function OnboardingScreen() {
 
   const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep((prev) => prev - 1);
-    }
-  };
-
-  const handleSkip = async () => {
-    setIsSubmitting(true);
-    try {
-      await completeOnboarding.mutateAsync({
-        cuisineLikes: [],
-        cuisineDislikes: [],
-        ingredientLikes: [],
-        ingredientDislikes: [],
-        dietaryRequirements: [],
-      });
-      // Navigation will automatically switch
-    } catch (error) {
-      console.error("Onboarding skip error:", error);
-      Alert.alert("Error", "Something went wrong. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+      navigateToStep(currentStep - 1);
     }
   };
 
   const canProceed = () => {
-    if (currentStep === 1) return name.trim().length > 0;
-    return true; // Other steps are optional
-  };
-
-  const renderStep = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <OnboardingStepProfile
-            name={name}
-            setName={setName}
-            bio={bio}
-            setBio={setBio}
-            profileImage={profileImage}
-            setProfileImage={setProfileImage}
-            existingName={user?.name}
-            existingImage={user?.image}
-          />
-        );
-      case 2:
-        return (
-          <OnboardingStepCuisines
-            likes={cuisineLikes}
-            dislikes={cuisineDislikes}
-            onToggleLike={(id) =>
-              toggleInArray(cuisineLikes, id, setCuisineLikes)
-            }
-            onToggleDislike={(id) =>
-              toggleInArray(cuisineDislikes, id, setCuisineDislikes)
-            }
-          />
-        );
-      case 3:
-        return (
-          <OnboardingStepIngredients
-            likes={ingredientLikes}
-            dislikes={ingredientDislikes}
-            onToggleLike={(id) =>
-              toggleInArray(ingredientLikes, id, setIngredientLikes)
-            }
-            onToggleDislike={(id) =>
-              toggleInArray(ingredientDislikes, id, setIngredientDislikes)
-            }
-          />
-        );
-      case 4:
-        return (
-          <OnboardingStepDietary
-            selected={dietaryRequirements}
-            onToggle={(id) =>
-              toggleInArray(dietaryRequirements, id, setDietaryRequirements)
-            }
-          />
-        );
-      default:
-        return null;
+    if (currentStep === 1) {
+      return (
+        username.length >= 3 &&
+        isUsernameAvailable === true &&
+        name.trim().length > 0
+      );
     }
+    return true;
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
@@ -187,23 +156,53 @@ export default function OnboardingScreen() {
         />
         <VSpace size={24} />
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Animated.View
-            key={currentStep}
-            entering={FadeIn.duration(300)}
-            exiting={FadeOut.duration(200)}
-          >
-            {renderStep()}
-          </Animated.View>
-        </ScrollView>
+        <View style={styles.pagerContainer}>
+          <Animated.View style={[styles.pagerRow, animatedPagerStyle]}>
+            <ScrollView
+              style={styles.stepContainer}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <OnboardingStepProfile
+                name={name}
+                setName={setName}
+                bio={bio}
+                setBio={setBio}
+                profileImage={profileImage}
+                setProfileImage={setProfileImage}
+                existingName={user?.name}
+                existingImage={user?.image}
+                username={username}
+                setUsername={setUsername}
+                isUsernameAvailable={isUsernameAvailable}
+                isCheckingUsername={isCheckingUsername}
+                usernameError={usernameError}
+                hasAttemptedSubmit={hasAttemptedSubmit}
+              />
+            </ScrollView>
 
-        <View style={styles.footer}>
+            <View style={[styles.stepContainer, styles.stepContent]}>
+              <OnboardingStepMeasurements
+                selected={measurementSystem}
+                onSelect={setMeasurementSystem}
+              />
+            </View>
+
+            <ScrollView
+              style={styles.stepContainer}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <OnboardingStepFollowCooks />
+            </ScrollView>
+          </Animated.View>
+        </View>
+
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.buttonRow}>
-            {currentStep > 1 && (
+            <Animated.View style={animatedBackButtonStyle}>
               <TouchableOpacity
                 style={styles.backButton}
                 onPress={handleBack}
@@ -211,33 +210,20 @@ export default function OnboardingScreen() {
               >
                 <Text style={styles.backButtonText}>Back</Text>
               </TouchableOpacity>
-            )}
-            <PrimaryButton
-              onPress={handleNext}
-              disabled={!canProceed() || isSubmitting}
-              style={currentStep > 1 ? styles.nextButtonFlex : undefined}
-            >
-              {isSubmitting
-                ? "Saving..."
-                : currentStep === TOTAL_STEPS
-                  ? "Get Started"
-                  : "Continue"}
-            </PrimaryButton>
-          </View>
-          {currentStep > 1 && (
-            <>
-              <VSpace size={12} />
-              <TouchableOpacity
-                onPress={handleSkip}
-                disabled={isSubmitting}
-                activeOpacity={0.7}
+            </Animated.View>
+            <View style={styles.nextButtonFlex}>
+              <PrimaryButton
+                onPress={handleNext}
+                disabled={(currentStep !== 1 && !canProceed()) || isSubmitting}
               >
-                <Text type="bodyFaded" style={styles.skipText}>
-                  Skip for now
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
+                {isSubmitting
+                  ? "Saving..."
+                  : currentStep === TOTAL_STEPS
+                    ? "Get Started"
+                    : "Continue"}
+              </PrimaryButton>
+            </View>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -252,6 +238,21 @@ const styles = StyleSheet.create((theme) => ({
   keyboardView: {
     flex: 1,
   },
+  pagerContainer: {
+    flex: 1,
+    overflow: "hidden",
+  },
+  pagerRow: {
+    flexDirection: "row",
+    width: SCREEN_WIDTH * TOTAL_STEPS,
+    flex: 1,
+  },
+  stepContainer: {
+    width: SCREEN_WIDTH,
+  },
+  stepContent: {
+    paddingHorizontal: 20,
+  },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -259,20 +260,15 @@ const styles = StyleSheet.create((theme) => ({
   },
   footer: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
     paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
   },
   buttonRow: {
     flexDirection: "row",
-    gap: 12,
     width: "100%",
   },
   backButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    width: BACK_BUTTON_WIDTH,
+    height: 50,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -287,8 +283,5 @@ const styles = StyleSheet.create((theme) => ({
   nextButtonFlex: {
     flex: 1,
     width: undefined,
-  },
-  skipText: {
-    textAlign: "center",
   },
 }));

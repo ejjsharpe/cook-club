@@ -1,66 +1,69 @@
-import type { DbType } from "@repo/db";
-import { user, userTagPreferences } from "@repo/db/schemas";
+import { user } from "@repo/db/schemas";
 import { type } from "arktype";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 
 import { router, authedProcedure } from "../trpc";
 
+const RESERVED_USERNAMES = [
+  "admin",
+  "support",
+  "help",
+  "cookclub",
+  "cook_club",
+  "system",
+  "mod",
+  "moderator",
+  "official",
+  "null",
+  "undefined",
+  "settings",
+  "profile",
+  "api",
+];
+
+const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
+
 const UpdateProfileValidator = type({
   "name?": "string",
+  "username?": "string",
   "bio?": "string | null",
   "image?": "string | null",
+  "measurementPreference?": "string",
 });
 
 const UploadAvatarValidator = type({
   imageKey: "string",
 });
 
+const CheckUsernameValidator = type({
+  username: "string",
+});
+
 const CompleteOnboardingValidator = type({
+  username: "string",
   "name?": "string",
   "bio?": "string | null",
   "image?": "string | null",
-  cuisineLikes: "number[]",
-  cuisineDislikes: "number[]",
-  ingredientLikes: "number[]",
-  ingredientDislikes: "number[]",
-  dietaryRequirements: "number[]",
+  "measurementPreference?": "string",
 });
 
-const UpdatePreferencesValidator = type({
-  "cuisineLikes?": "number[]",
-  "cuisineDislikes?": "number[]",
-  "ingredientLikes?": "number[]",
-  "ingredientDislikes?": "number[]",
-  "dietaryRequirements?": "number[]",
-});
-
-// Helper to sync preferences for a given type (works with db or transaction)
-async function syncPreferences(
-  tx: DbType,
-  userId: string,
-  tagIds: number[],
-  preferenceType: string
-) {
-  // Delete existing preferences of this type
-  await tx
-    .delete(userTagPreferences)
-    .where(
-      and(
-        eq(userTagPreferences.userId, userId),
-        eq(userTagPreferences.preferenceType, preferenceType)
-      )
-    );
-
-  // Insert new preferences
-  if (tagIds.length > 0) {
-    await tx.insert(userTagPreferences).values(
-      tagIds.map((tagId) => ({
-        userId,
-        tagId,
-        preferenceType,
-      }))
-    );
+function validateUsername(username: string): { valid: boolean; reason: string | null } {
+  if (!USERNAME_REGEX.test(username)) {
+    if (username.length < 3) {
+      return { valid: false, reason: "Username must be at least 3 characters" };
+    }
+    if (username.length > 20) {
+      return { valid: false, reason: "Username must be 20 characters or less" };
+    }
+    return { valid: false, reason: "Only lowercase letters, numbers, and underscores" };
   }
+
+  if (RESERVED_USERNAMES.includes(username)) {
+    return { valid: false, reason: "This username is reserved" };
+  }
+
+  return { valid: true, reason: null };
 }
 
 export const userRouter = router({
@@ -77,15 +80,67 @@ export const userRouter = router({
     };
   }),
 
+  checkUsername: authedProcedure
+    .input(CheckUsernameValidator)
+    .query(async ({ ctx, input }) => {
+      const { username } = input;
+
+      const validation = validateUsername(username);
+      if (!validation.valid) {
+        return { available: false, reason: validation.reason };
+      }
+
+      // Check DB uniqueness (exclude current user in case they already own it)
+      const [existing] = await ctx.db
+        .select({ id: user.id })
+        .from(user)
+        .where(and(eq(user.username, username), ne(user.id, ctx.user.id)))
+        .limit(1);
+
+      if (existing) {
+        return { available: false, reason: "Username is already taken" };
+      }
+
+      return { available: true, reason: null };
+    }),
+
   updateProfile: authedProcedure
     .input(UpdateProfileValidator)
     .mutation(async ({ ctx, input }) => {
+      // Validate username if provided
+      if (input.username !== undefined) {
+        const validation = validateUsername(input.username);
+        if (!validation.valid) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: validation.reason ?? "Invalid username",
+          });
+        }
+
+        const [existing] = await ctx.db
+          .select({ id: user.id })
+          .from(user)
+          .where(and(eq(user.username, input.username), ne(user.id, ctx.user.id)))
+          .limit(1);
+
+        if (existing) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Username is already taken",
+          });
+        }
+      }
+
       const [updatedUser] = await ctx.db
         .update(user)
         .set({
           ...(input.name !== undefined && { name: input.name }),
+          ...(input.username !== undefined && { username: input.username }),
           ...(input.bio !== undefined && { bio: input.bio }),
           ...(input.image !== undefined && { image: input.image }),
+          ...(input.measurementPreference !== undefined && {
+            measurementPreference: input.measurementPreference,
+          }),
           updatedAt: new Date(),
         })
         .where(eq(user.id, ctx.user.id))
@@ -97,77 +152,46 @@ export const userRouter = router({
   completeOnboarding: authedProcedure
     .input(CompleteOnboardingValidator)
     .mutation(async ({ ctx, input }) => {
-      return await ctx.db.transaction(async (tx) => {
-        // Update user profile
-        const [updatedUser] = await tx
-          .update(user)
-          .set({
-            ...(input.name !== undefined && { name: input.name }),
-            ...(input.bio !== undefined && { bio: input.bio }),
-            ...(input.image !== undefined && { image: input.image }),
-            onboardingCompleted: true,
-            updatedAt: new Date(),
-          })
-          .where(eq(user.id, ctx.user.id))
-          .returning();
+      // Validate username
+      const validation = validateUsername(input.username);
+      if (!validation.valid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: validation.reason ?? "Invalid username",
+        });
+      }
 
-        // Sync all preferences to the junction table
-        await Promise.all([
-          syncPreferences(tx, ctx.user.id, input.cuisineLikes, "cuisine_like"),
-          syncPreferences(tx, ctx.user.id, input.cuisineDislikes, "cuisine_dislike"),
-          syncPreferences(tx, ctx.user.id, input.ingredientLikes, "ingredient_like"),
-          syncPreferences(tx, ctx.user.id, input.ingredientDislikes, "ingredient_dislike"),
-          syncPreferences(tx, ctx.user.id, input.dietaryRequirements, "dietary"),
-        ]);
+      // Check uniqueness
+      const [existing] = await ctx.db
+        .select({ id: user.id })
+        .from(user)
+        .where(and(eq(user.username, input.username), ne(user.id, ctx.user.id)))
+        .limit(1);
 
-        return { user: updatedUser };
-      });
-    }),
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Username is already taken",
+        });
+      }
 
-  updatePreferences: authedProcedure
-    .input(UpdatePreferencesValidator)
-    .mutation(async ({ ctx, input }) => {
-      return await ctx.db.transaction(async (tx) => {
-        // Update user's updatedAt timestamp
-        const [updatedUser] = await tx
-          .update(user)
-          .set({ updatedAt: new Date() })
-          .where(eq(user.id, ctx.user.id))
-          .returning();
+      const [updatedUser] = await ctx.db
+        .update(user)
+        .set({
+          username: input.username,
+          ...(input.name !== undefined && { name: input.name }),
+          ...(input.bio !== undefined && { bio: input.bio }),
+          ...(input.image !== undefined && { image: input.image }),
+          ...(input.measurementPreference !== undefined && {
+            measurementPreference: input.measurementPreference,
+          }),
+          onboardingCompleted: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, ctx.user.id))
+        .returning();
 
-        // Sync only the preferences that were provided
-        const syncPromises: Promise<void>[] = [];
-
-        if (input.cuisineLikes !== undefined) {
-          syncPromises.push(
-            syncPreferences(tx, ctx.user.id, input.cuisineLikes, "cuisine_like")
-          );
-        }
-        if (input.cuisineDislikes !== undefined) {
-          syncPromises.push(
-            syncPreferences(tx, ctx.user.id, input.cuisineDislikes, "cuisine_dislike")
-          );
-        }
-        if (input.ingredientLikes !== undefined) {
-          syncPromises.push(
-            syncPreferences(tx, ctx.user.id, input.ingredientLikes, "ingredient_like")
-          );
-        }
-        if (input.ingredientDislikes !== undefined) {
-          syncPromises.push(
-            syncPreferences(tx, ctx.user.id, input.ingredientDislikes, "ingredient_dislike")
-          );
-        }
-        if (input.dietaryRequirements !== undefined) {
-          syncPromises.push(
-            syncPreferences(tx, ctx.user.id, input.dietaryRequirements, "dietary")
-          );
-        }
-
-        await Promise.all(syncPromises);
-
-        return { user: updatedUser };
-      });
+      return { user: updatedUser };
     }),
 
   /**

@@ -18,21 +18,21 @@ import {
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
-  useGetShareableUsers,
-  useGetShareStatus,
-  useGetMealPlanInvitationStatus,
-  useInviteToMealPlan,
-  useCancelMealPlanInvitation,
-  useRemoveMealPlanMember,
-  type ShareableUser,
-} from "../../api/mealPlan";
+  useGetShoppingListShareableUsers,
+  useGetShoppingListShareStatus,
+  useGetShoppingListInvitationStatus,
+  useInviteToShoppingList,
+  useCancelShoppingListInvitation,
+  useRemoveShoppingListMember,
+  type ShoppingListShareableUser,
+} from "../../api/shopping";
 import { VSpace } from "../Space";
 import { Text } from "../Text";
 
 type FriendState = "none" | "invited" | "shared";
 
 interface FriendItemProps {
-  friend: ShareableUser;
+  friend: ShoppingListShareableUser;
   state: FriendState;
   onInvite: () => void;
   onCancelInvitation: () => void;
@@ -52,7 +52,7 @@ const FriendItem = ({
     if (state === "shared") {
       Alert.alert(
         "Remove Access",
-        `Remove ${friend.name}'s access to this meal plan?`,
+        `Remove ${friend.name}'s access to this shopping list?`,
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -119,39 +119,40 @@ const FriendItem = ({
   );
 };
 
-export interface MealPlanShareSheetProps {
-  mealPlanId?: number;
-  planName?: string;
+export interface ShoppingListShareSheetProps {
+  shoppingListId?: number;
+  listName?: string;
 }
 
-export interface MealPlanShareSheetRef {
+export interface ShoppingListShareSheetRef {
   present: () => void;
   dismiss: () => void;
 }
 
-export const MealPlanShareSheet = forwardRef<
-  MealPlanShareSheetRef,
-  MealPlanShareSheetProps
->(({ mealPlanId, planName }, ref) => {
+export const ShoppingListShareSheet = forwardRef<
+  ShoppingListShareSheetRef,
+  ShoppingListShareSheetProps
+>(({ shoppingListId, listName }, ref) => {
   const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
   const { data: shareableUsers, isLoading: isLoadingUsers } =
-    useGetShareableUsers();
-  const { data: shareStatus, isLoading: isLoadingStatus } = useGetShareStatus({
-    mealPlanId: mealPlanId ?? 0,
-    enabled: !!mealPlanId,
-  });
+    useGetShoppingListShareableUsers();
+  const { data: shareStatus, isLoading: isLoadingStatus } =
+    useGetShoppingListShareStatus({
+      shoppingListId: shoppingListId ?? 0,
+      enabled: !!shoppingListId,
+    });
   const { data: invitationStatus, isLoading: isLoadingInvitations } =
-    useGetMealPlanInvitationStatus({
-      mealPlanId: mealPlanId ?? 0,
-      enabled: !!mealPlanId,
+    useGetShoppingListInvitationStatus({
+      shoppingListId: shoppingListId ?? 0,
+      enabled: !!shoppingListId,
     });
 
-  const inviteMutation = useInviteToMealPlan();
-  const cancelInvitationMutation = useCancelMealPlanInvitation();
-  const removeMemberMutation = useRemoveMealPlanMember();
+  const inviteMutation = useInviteToShoppingList();
+  const cancelInvitationMutation = useCancelShoppingListInvitation();
+  const removeMemberMutation = useRemoveShoppingListMember();
 
   useImperativeHandle(ref, () => ({
     present: () => sheetRef.current?.present(),
@@ -162,7 +163,6 @@ export const MealPlanShareSheet = forwardRef<
     sheetRef.current?.dismiss();
   };
 
-  // Build lookup maps
   const sharedUserIds = new Set(shareStatus?.map((s) => s.userId) ?? []);
   const invitedUserIds = new Set(
     invitationStatus?.map((i) => i.userId) ?? [],
@@ -176,47 +176,50 @@ export const MealPlanShareSheet = forwardRef<
 
   const handleInvite = useCallback(
     async (userId: string) => {
-      if (!mealPlanId) return;
+      if (!shoppingListId) return;
       setPendingUserId(userId);
       try {
-        await inviteMutation.mutateAsync({ mealPlanId, userId });
+        await inviteMutation.mutateAsync({ shoppingListId, userId });
       } catch {
         // Error handled by mutation
       } finally {
         setPendingUserId(null);
       }
     },
-    [mealPlanId, inviteMutation],
+    [shoppingListId, inviteMutation],
   );
 
   const handleCancelInvitation = useCallback(
     async (userId: string) => {
-      if (!mealPlanId) return;
+      if (!shoppingListId) return;
       setPendingUserId(userId);
       try {
-        await cancelInvitationMutation.mutateAsync({ mealPlanId, userId });
+        await cancelInvitationMutation.mutateAsync({
+          shoppingListId,
+          userId,
+        });
       } catch {
         // Error handled by mutation
       } finally {
         setPendingUserId(null);
       }
     },
-    [mealPlanId, cancelInvitationMutation],
+    [shoppingListId, cancelInvitationMutation],
   );
 
   const handleRemoveMember = useCallback(
     async (userId: string) => {
-      if (!mealPlanId) return;
+      if (!shoppingListId) return;
       setPendingUserId(userId);
       try {
-        await removeMemberMutation.mutateAsync({ mealPlanId, userId });
+        await removeMemberMutation.mutateAsync({ shoppingListId, userId });
       } catch {
         // Error handled by mutation
       } finally {
         setPendingUserId(null);
       }
     },
-    [mealPlanId, removeMemberMutation],
+    [shoppingListId, removeMemberMutation],
   );
 
   const isLoading = isLoadingUsers || isLoadingStatus || isLoadingInvitations;
@@ -233,14 +236,13 @@ export const MealPlanShareSheet = forwardRef<
       scrollable
     >
       <View>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerSpacer} />
           <View style={styles.headerCenter}>
-            <Text type="headline">Share Meal Plan</Text>
-            {planName && (
-              <Text type="caption" style={styles.planNameText}>
-                {planName}
+            <Text type="headline">Share Shopping List</Text>
+            {listName && (
+              <Text type="caption" style={styles.listNameText}>
+                {listName}
               </Text>
             )}
           </View>
@@ -266,7 +268,7 @@ export const MealPlanShareSheet = forwardRef<
                 />
                 <Text type="bodyFaded" style={styles.emptyText}>
                   You don't have any friends to share with yet. Follow other
-                  users and have them follow you back to share meal plans!
+                  users and have them follow you back to share shopping lists!
                 </Text>
               </View>
             ) : (
@@ -282,8 +284,7 @@ export const MealPlanShareSheet = forwardRef<
                       {sharedCount > 0 &&
                         `Shared with ${sharedCount} ${sharedCount === 1 ? "person" : "people"}`}
                       {sharedCount > 0 && invitedCount > 0 && " · "}
-                      {invitedCount > 0 &&
-                        `${invitedCount} pending`}
+                      {invitedCount > 0 && `${invitedCount} pending`}
                     </Text>
                   </View>
                 )}
@@ -316,9 +317,6 @@ export const MealPlanShareSheet = forwardRef<
 });
 
 const styles = StyleSheet.create((theme) => ({
-  indicator: {
-    backgroundColor: theme.colors.border,
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -343,7 +341,7 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     alignItems: "center",
   },
-  planNameText: {
+  listNameText: {
     color: theme.colors.textSecondary,
     marginTop: 2,
   },

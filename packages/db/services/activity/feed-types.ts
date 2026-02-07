@@ -36,6 +36,7 @@ export type RecipeMetadata = UrlSourcedRecipe | AppSourcedRecipe;
 interface Actor {
   id: string;
   name: string;
+  username: string | null;
   image: string | null;
 }
 

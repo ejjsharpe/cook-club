@@ -116,6 +116,7 @@ export type RecipeWithDetails = Omit<typeof recipes.$inferSelect, "ownerId"> & {
   originalOwner: Pick<typeof user.$inferSelect, "id" | "name" | "image"> | null;
   // User's review rating (1-5) if they've reviewed this recipe, null otherwise
   userReviewRating: number | null;
+  tags: { id: number; name: string; type: string }[];
 };
 
 // ─── Tag Validation ────────────────────────────────────────────────────────
@@ -517,6 +518,7 @@ export async function getRecipeDetail(
     ingredientsData,
     instructionSectionsData,
     instructionsData,
+    tagsData,
   ] = await Promise.all([
     db
       .select({ id: recipeImages.id, url: recipeImages.url })
@@ -576,6 +578,12 @@ export async function getRecipeDetail(
       )
       .where(eq(instructionSections.recipeId, recipeId))
       .orderBy(recipeInstructions.index),
+
+    db
+      .select({ id: tags.id, name: tags.name, type: tags.type })
+      .from(recipeTags)
+      .innerJoin(tags, eq(recipeTags.tagId, tags.id))
+      .where(eq(recipeTags.recipeId, recipeId)),
   ]);
 
   // Group ingredients by section
@@ -642,6 +650,7 @@ export async function getRecipeDetail(
     isInShoppingList: recipeData.isInShoppingList,
     originalOwner,
     userReviewRating: recipeData.userReviewRating,
+    tags: tagsData,
   };
 }
 

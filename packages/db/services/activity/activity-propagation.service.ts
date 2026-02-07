@@ -60,6 +60,7 @@ export async function hydrateActivityIds(
     .select({
       id: user.id,
       name: user.name,
+      username: user.username,
       image: user.image,
     })
     .from(user)
@@ -207,6 +208,7 @@ export async function hydrateActivityIds(
       actor: {
         id: actor.id,
         name: actor.name,
+        username: actor.username ?? null,
         image: actor.image ?? null,
       },
       createdAt: activity.createdAt.getTime(),

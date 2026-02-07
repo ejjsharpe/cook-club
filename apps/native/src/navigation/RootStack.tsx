@@ -13,10 +13,12 @@ import {
   useIsSignedOut,
   useNeedsOnboarding,
 } from "@/lib/signedInContext";
+import { AccountScreen } from "@/screens/AccountScreen";
 import { CollectionDetailScreen } from "@/screens/CollectionDetailScreen";
 import { CookModeScreen } from "@/screens/CookModeScreen";
 import { EditProfileScreen } from "@/screens/EditProfileScreen";
 import EditRecipeScreen from "@/screens/EditRecipeScreen";
+import { EmailVerificationScreen } from "@/screens/EmailVerificationScreen";
 import { FollowsScreen } from "@/screens/FollowsScreen";
 import FridgeSnapScreen from "@/screens/FridgeSnapScreen";
 import GenerateRecipeScreen from "@/screens/GenerateRecipeScreen";
@@ -24,9 +26,6 @@ import { NotificationsScreen } from "@/screens/NotificationsScreen";
 import { RecipeDetailScreen } from "@/screens/RecipeDetailScreen";
 import { SettingsScreen } from "@/screens/SettingsScreen";
 import { UserProfileScreen } from "@/screens/UserProfileScreen";
-import { CuisinePreferencesScreen } from "@/screens/settings/CuisinePreferencesScreen";
-import { DietaryPreferencesScreen } from "@/screens/settings/DietaryPreferencesScreen";
-import { IngredientPreferencesScreen } from "@/screens/settings/IngredientPreferencesScreen";
 
 const StartScreen = lazy(() => import("@/screens/StartScreen"));
 const OnboardingScreen = lazy(() => import("@/screens/OnboardingScreen"));
@@ -47,6 +46,8 @@ declare global {
       };
       RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
       CollectionDetail: { collectionId: number };
+      Account: Record<string, never>;
+      EmailVerification: { email: string };
       CookMode: {
         recipeName: string;
         instructionSections: {
@@ -92,9 +93,6 @@ const RootStack = createNativeStackNavigator({
         EditProfile: { screen: EditProfileScreen },
         Settings: { screen: SettingsScreen },
         Notifications: { screen: NotificationsScreen },
-        CuisinePreferences: { screen: CuisinePreferencesScreen },
-        IngredientPreferences: { screen: IngredientPreferencesScreen },
-        DietaryPreferences: { screen: DietaryPreferencesScreen },
         UserProfile: { screen: UserProfileScreen },
         FollowsList: { screen: FollowsScreen },
         RecipeDetail: {
@@ -107,6 +105,7 @@ const RootStack = createNativeStackNavigator({
           },
         },
         CollectionDetail: { screen: CollectionDetailScreen },
+        Account: { screen: AccountScreen },
         CookMode: {
           screen: CookModeScreen,
           options: {
@@ -124,6 +123,7 @@ const RootStack = createNativeStackNavigator({
       },
       screens: {
         Start: { screen: StartScreen },
+        EmailVerification: { screen: EmailVerificationScreen },
       },
     },
   },

@@ -128,7 +128,6 @@ async function clearDatabase(db: DbClient) {
   await db.delete(schema.ingredientSections);
   await db.delete(schema.recipeImages);
   await db.delete(schema.recipes);
-  await db.delete(schema.userTagPreferences);
   await db.delete(schema.tags);
   await db.delete(schema.verification);
   await db.delete(schema.session);
@@ -193,6 +192,7 @@ async function seedUsers(db: DbClient) {
       .values({
         id: u.id,
         name: u.name,
+        username: u.username,
         email: u.email,
         emailVerified: true,
         image: u.image,
@@ -219,63 +219,6 @@ async function seedUsers(db: DbClient) {
 
   console.log(`✅ Seeded ${users.length} users`);
   return users;
-}
-
-async function seedUserPreferences(
-  db: DbClient,
-  users: (typeof schema.user.$inferSelect)[],
-  allTags: (typeof schema.tags.$inferSelect)[]
-) {
-  console.log("🎯 Seeding user preferences...");
-
-  const cuisineTags = allTags.filter((t) => t.type === "cuisine");
-  const dietaryTags = allTags.filter((t) => t.type === "dietary");
-
-  let preferencesCount = 0;
-
-  for (const user of users) {
-    // Give each user 2-4 cuisine likes
-    const cuisineLikes = shuffle(cuisineTags).slice(0, randomInt(2, 4));
-    for (const tag of cuisineLikes) {
-      await db.insert(schema.userTagPreferences).values({
-        userId: user.id,
-        tagId: tag.id,
-        preferenceType: "cuisine_like",
-      });
-      preferencesCount++;
-    }
-
-    // Give some users 1-2 cuisine dislikes
-    if (Math.random() < 0.3) {
-      const availableCuisines = cuisineTags.filter(
-        (t) => !cuisineLikes.some((cl) => cl.id === t.id)
-      );
-      const cuisineDislikes = shuffle(availableCuisines).slice(0, randomInt(1, 2));
-      for (const tag of cuisineDislikes) {
-        await db.insert(schema.userTagPreferences).values({
-          userId: user.id,
-          tagId: tag.id,
-          preferenceType: "cuisine_dislike",
-        });
-        preferencesCount++;
-      }
-    }
-
-    // Give some users dietary requirements (0-2)
-    if (Math.random() < 0.4) {
-      const dietaryPrefs = shuffle(dietaryTags).slice(0, randomInt(1, 2));
-      for (const tag of dietaryPrefs) {
-        await db.insert(schema.userTagPreferences).values({
-          userId: user.id,
-          tagId: tag.id,
-          preferenceType: "dietary",
-        });
-        preferencesCount++;
-      }
-    }
-  }
-
-  console.log(`✅ Seeded ${preferencesCount} user preferences`);
 }
 
 async function seedRecipes(
@@ -1100,9 +1043,6 @@ async function main() {
     console.log("");
 
     const users = await seedUsers(db);
-    console.log("");
-
-    await seedUserPreferences(db, users, allTags);
     console.log("");
 
     const originalRecipes = await seedRecipes(db, users, allTags);

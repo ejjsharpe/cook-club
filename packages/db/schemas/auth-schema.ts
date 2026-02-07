@@ -16,11 +16,14 @@ export const user = pgTable("user", {
   updatedAt: timestamp("updated_at").notNull(),
 
   // Profile fields
+  username: text("username").unique(),
   bio: text("bio"),
 
   // Onboarding tracking
-  // Note: User preferences (cuisines, ingredients, dietary) are now in userTagPreferences table
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
+
+  // Preferences
+  measurementPreference: text("measurement_preference"),
 });
 
 export const session = pgTable(

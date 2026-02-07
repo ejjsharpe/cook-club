@@ -37,14 +37,11 @@ export const useCompleteOnboarding = () => {
   });
 };
 
-export const useUpdatePreferences = () => {
+export const useCheckUsername = (username: string) => {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
 
-  return useMutation({
-    ...trpc.user.updatePreferences.mutationOptions(),
-    onSuccess: () => {
-      queryClient.invalidateQueries(trpc.user.getUser.queryFilter());
-    },
+  return useQuery({
+    ...trpc.user.checkUsername.queryOptions({ username }),
+    enabled: username.length >= 3,
   });
 };

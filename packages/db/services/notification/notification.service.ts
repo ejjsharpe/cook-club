@@ -17,6 +17,7 @@ export type NotificationItem = {
   actorImage: string | null;
   activityEventId: number | null;
   mealPlanId: number | null;
+  shoppingListId: number | null;
   commentId: number | null;
   isRead: boolean;
   createdAt: Date;
@@ -28,6 +29,7 @@ export type CreateNotificationParams = {
   type: NotificationType;
   activityEventId?: number;
   mealPlanId?: number;
+  shoppingListId?: number;
   commentId?: number;
 };
 
@@ -42,8 +44,15 @@ export async function createNotification(
   db: DbClient,
   params: CreateNotificationParams
 ): Promise<NotificationItem | null> {
-  const { recipientId, actorId, type, activityEventId, mealPlanId, commentId } =
-    params;
+  const {
+    recipientId,
+    actorId,
+    type,
+    activityEventId,
+    mealPlanId,
+    shoppingListId,
+    commentId,
+  } = params;
 
   // Skip self-notifications
   if (recipientId === actorId) {
@@ -71,6 +80,7 @@ export async function createNotification(
       type,
       activityEventId: activityEventId ?? null,
       mealPlanId: mealPlanId ?? null,
+      shoppingListId: shoppingListId ?? null,
       commentId: commentId ?? null,
       actorName: actor.name,
       actorImage: actor.image,
@@ -91,6 +101,7 @@ export async function createNotification(
     actorImage: notification.actorImage,
     activityEventId: notification.activityEventId,
     mealPlanId: notification.mealPlanId,
+    shoppingListId: notification.shoppingListId,
     commentId: notification.commentId,
     isRead: notification.isRead,
     createdAt: notification.createdAt,
@@ -139,6 +150,7 @@ export async function getNotifications(
       actorImage: n.actorImage,
       activityEventId: n.activityEventId,
       mealPlanId: n.mealPlanId,
+      shoppingListId: n.shoppingListId,
       commentId: n.commentId,
       isRead: n.isRead,
       createdAt: n.createdAt,

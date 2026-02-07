@@ -1,9 +1,10 @@
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
+import { useNavigation } from "@react-navigation/native";
 import { forwardRef, useState, useImperativeHandle, useRef } from "react";
-import { Platform, View } from "react-native";
+import { Platform, View, Alert } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { useSignInWithEmail } from "@/api/auth";
+import { useSignInWithEmail, AuthError } from "@/api/auth";
 import { Input } from "@/components/Input";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -24,6 +25,7 @@ export interface SignInSheetRef {
 export const SignInSheet = forwardRef<SignInSheetRef, SignInSheetProps>(
   ({ onSwitchToSignUp }, ref) => {
     const theme = UnistylesRuntime.getTheme();
+    const navigation = useNavigation();
     const sheetRef = useRef<TrueSheet>(null);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -34,7 +36,20 @@ export const SignInSheet = forwardRef<SignInSheetRef, SignInSheetProps>(
       dismiss: () => sheetRef.current?.dismiss() ?? Promise.resolve(),
     }));
 
-    const onPressSignInWithEmail = () => signInWithEmail({ email, password });
+    const onPressSignInWithEmail = () =>
+      signInWithEmail(
+        { email, password },
+        {
+          onError: async (error) => {
+            if (error instanceof AuthError && error.status === 403) {
+              await sheetRef.current?.dismiss();
+              navigation.navigate("EmailVerification", { email });
+            } else {
+              Alert.alert("Sign In Failed", error.message || "Please try again.");
+            }
+          },
+        },
+      );
 
     const onPressSignUp = async () => {
       await sheetRef.current?.dismiss();

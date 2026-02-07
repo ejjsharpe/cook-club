@@ -752,6 +752,22 @@ export const recipeRouter = router({
       }
     }),
 
+  getUserRecipeTags: authedProcedure.query(async ({ ctx }) => {
+    const userTags = await ctx.db
+      .selectDistinct({
+        id: tags.id,
+        name: tags.name,
+        type: tags.type,
+      })
+      .from(tags)
+      .innerJoin(recipeTags, eq(tags.id, recipeTags.tagId))
+      .innerJoin(recipes, eq(recipeTags.recipeId, recipes.id))
+      .where(eq(recipes.ownerId, ctx.user.id))
+      .orderBy(tags.name);
+
+    return userTags;
+  }),
+
   /**
    * Parse ingredient text into structured format for preview
    * Used by the UI to show users how their ingredients will be parsed before saving

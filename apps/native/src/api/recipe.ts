@@ -121,6 +121,16 @@ export const useAllTags = ({ type }: UseAllTagsParams = {}) => {
   });
 };
 
+// Get distinct tags that exist on the current user's recipes
+export const useUserRecipeTags = () => {
+  const trpc = useTRPC();
+
+  return useQuery({
+    ...trpc.recipe.getUserRecipeTags.queryOptions(),
+    staleTime: 1000 * 60 * 5, // 5 minutes - changes when recipes are added/removed
+  });
+};
+
 // Get recipes uploaded by a specific user
 interface UseGetUserRecipesByIdParams {
   userId: string;

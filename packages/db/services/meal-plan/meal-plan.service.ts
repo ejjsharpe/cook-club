@@ -1,13 +1,13 @@
 import {
   mealPlans,
   mealPlanEntries,
-  mealPlanShares,
+  mealPlanInvitations,
   recipes,
   recipeImages,
   follows,
   user,
 } from "../../schemas";
-import { eq, and, or, between, inArray } from "drizzle-orm";
+import { eq, and, or, between, inArray, gt } from "drizzle-orm";
 
 import { ServiceError } from "../errors";
 import type { DbClient } from "../types";
@@ -100,20 +100,25 @@ export async function getMealPlans(
     .innerJoin(user, eq(mealPlans.userId, user.id))
     .where(eq(mealPlans.userId, userId));
 
-  // Get plans shared with the user
+  // Get plans shared with the user (accepted invitations only)
   const sharedPlans = await db
     .select({
       id: mealPlans.id,
       name: mealPlans.name,
       isDefault: mealPlans.isDefault,
       createdAt: mealPlans.createdAt,
-      ownerId: mealPlanShares.ownerUserId,
-      ownerName: mealPlanShares.ownerName,
-      ownerImage: mealPlanShares.ownerImage,
+      ownerId: mealPlanInvitations.invitedByUserId,
+      ownerName: mealPlanInvitations.inviterName,
+      ownerImage: mealPlanInvitations.inviterImage,
     })
-    .from(mealPlanShares)
-    .innerJoin(mealPlans, eq(mealPlanShares.mealPlanId, mealPlans.id))
-    .where(eq(mealPlanShares.sharedWithUserId, userId));
+    .from(mealPlanInvitations)
+    .innerJoin(mealPlans, eq(mealPlanInvitations.mealPlanId, mealPlans.id))
+    .where(
+      and(
+        eq(mealPlanInvitations.invitedUserId, userId),
+        eq(mealPlanInvitations.status, "accepted")
+      )
+    );
 
   // Combine and format
   const result: MealPlanWithMeta[] = [
@@ -225,52 +230,31 @@ export async function canUserAccessMealPlan(
 
   if (ownPlan) return true;
 
-  // Check if shared
-  const shared = await db
-    .select({ id: mealPlanShares.id })
-    .from(mealPlanShares)
+  // Check if member (accepted invitation)
+  const member = await db
+    .select({ id: mealPlanInvitations.id })
+    .from(mealPlanInvitations)
     .where(
       and(
-        eq(mealPlanShares.mealPlanId, mealPlanId),
-        eq(mealPlanShares.sharedWithUserId, userId)
+        eq(mealPlanInvitations.mealPlanId, mealPlanId),
+        eq(mealPlanInvitations.invitedUserId, userId),
+        eq(mealPlanInvitations.status, "accepted")
       )
     )
     .then((rows) => rows[0]);
 
-  return !!shared;
+  return !!member;
 }
 
 /**
- * Check if user can edit a meal plan (owner or shared with them)
- * All shares now grant edit access.
+ * Check if user can edit a meal plan (owner or accepted member)
  */
 export async function canUserEditMealPlan(
   db: DbClient,
   userId: string,
   mealPlanId: number
 ): Promise<boolean> {
-  // Check if owner
-  const ownPlan = await db
-    .select({ id: mealPlans.id })
-    .from(mealPlans)
-    .where(and(eq(mealPlans.id, mealPlanId), eq(mealPlans.userId, userId)))
-    .then((rows) => rows[0]);
-
-  if (ownPlan) return true;
-
-  // Check if shared - all shares grant edit access
-  const shared = await db
-    .select({ id: mealPlanShares.id })
-    .from(mealPlanShares)
-    .where(
-      and(
-        eq(mealPlanShares.mealPlanId, mealPlanId),
-        eq(mealPlanShares.sharedWithUserId, userId)
-      )
-    )
-    .then((rows) => rows[0]);
-
-  return !!shared;
+  return canUserAccessMealPlan(db, userId, mealPlanId);
 }
 
 // ─── Entry Operations ─────────────────────────────────────────────────────
@@ -497,7 +481,9 @@ export async function moveEntry(
   return updated!;
 }
 
-// ─── Sharing Operations ─────────────────────────────────────────────────────
+// ─── Sharing & Invitation Operations ─────────────────────────────────────────
+
+const INVITATION_EXPIRY_DAYS = 7;
 
 /**
  * Get users the current user can share with (friends only)
@@ -539,38 +525,35 @@ export async function getShareableUsers(db: DbClient, userId: string) {
 }
 
 /**
- * Share a meal plan with a friend
+ * Invite a friend to a meal plan
  */
-export async function shareMealPlan(
+export async function inviteToMealPlan(
   db: DbClient,
   params: {
     userId: string;
     mealPlanId: number;
-    sharedWithUserId: string;
+    invitedUserId: string;
   }
 ) {
-  const { userId, mealPlanId, sharedWithUserId } = params;
+  const { userId, mealPlanId, invitedUserId } = params;
 
   // Verify ownership
   const plan = await db
-    .select({
-      id: mealPlans.id,
-      name: mealPlans.name,
-    })
+    .select({ id: mealPlans.id, name: mealPlans.name, isDefault: mealPlans.isDefault })
     .from(mealPlans)
     .where(and(eq(mealPlans.id, mealPlanId), eq(mealPlans.userId, userId)))
     .then((rows) => rows[0]);
 
   if (!plan) {
-    throw new ServiceError(
-      "NOT_FOUND",
-      "Meal plan not found or you are not the owner"
-    );
+    throw new ServiceError("NOT_FOUND", "Meal plan not found or you are not the owner");
   }
 
-  // Can't share with yourself
-  if (sharedWithUserId === userId) {
-    throw new ServiceError("BAD_REQUEST", "Cannot share with yourself");
+  if (plan.isDefault) {
+    throw new ServiceError("BAD_REQUEST", "Cannot share your default meal plan");
+  }
+
+  if (invitedUserId === userId) {
+    throw new ServiceError("BAD_REQUEST", "Cannot invite yourself");
   }
 
   // Verify target user is a friend
@@ -579,79 +562,79 @@ export async function shareMealPlan(
     .from(follows)
     .where(
       or(
-        and(
-          eq(follows.followerId, userId),
-          eq(follows.followingId, sharedWithUserId)
-        ),
-        and(
-          eq(follows.followerId, sharedWithUserId),
-          eq(follows.followingId, userId)
-        )
+        and(eq(follows.followerId, userId), eq(follows.followingId, invitedUserId)),
+        and(eq(follows.followerId, invitedUserId), eq(follows.followingId, userId))
       )
     )
     .then((rows) => rows[0]);
 
   if (!isFriend) {
-    throw new ServiceError("BAD_REQUEST", "You can only share with friends");
+    throw new ServiceError("BAD_REQUEST", "You can only invite friends");
   }
 
-  // Get owner info for caching
-  const owner = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      image: user.image,
-    })
-    .from(user)
-    .where(eq(user.id, userId))
-    .then((rows) => rows[0]);
-
-  // Check for existing share
+  // Check for existing invitation
   const existing = await db
     .select()
-    .from(mealPlanShares)
+    .from(mealPlanInvitations)
     .where(
       and(
-        eq(mealPlanShares.mealPlanId, mealPlanId),
-        eq(mealPlanShares.sharedWithUserId, sharedWithUserId)
+        eq(mealPlanInvitations.mealPlanId, mealPlanId),
+        eq(mealPlanInvitations.invitedUserId, invitedUserId)
       )
     )
     .then((rows) => rows[0]);
 
   if (existing) {
-    // Share already exists, just return it
-    return existing;
+    if (existing.status === "accepted") {
+      throw new ServiceError("CONFLICT", "User already has access to this meal plan");
+    }
+    // Existing pending — check if expired
+    const expiresAt = new Date(existing.createdAt);
+    expiresAt.setDate(expiresAt.getDate() + INVITATION_EXPIRY_DAYS);
+    if (expiresAt > new Date()) {
+      throw new ServiceError("CONFLICT", "An invitation is already pending");
+    }
+    // Expired — delete to allow re-invite
+    await db.delete(mealPlanInvitations).where(eq(mealPlanInvitations.id, existing.id));
   }
 
-  // Create new share
-  const share = await db
-    .insert(mealPlanShares)
+  // Get inviter info for denormalization
+  const inviter = await db
+    .select({ name: user.name, image: user.image })
+    .from(user)
+    .where(eq(user.id, userId))
+    .then((rows) => rows[0]);
+
+  const invitation = await db
+    .insert(mealPlanInvitations)
     .values({
       mealPlanId,
-      sharedWithUserId,
-      ownerUserId: userId,
-      ownerName: owner!.name,
-      ownerImage: owner!.image,
+      invitedUserId,
+      invitedByUserId: userId,
+      status: "pending",
+      inviterName: inviter!.name,
+      inviterImage: inviter!.image,
+      mealPlanName: plan.name,
       createdAt: new Date(),
     })
     .returning()
     .then((rows) => rows[0]);
 
-  return share!;
+  return invitation!;
 }
 
 /**
- * Remove sharing with a user
+ * Cancel a pending invitation (owner only)
  */
-export async function unshareMealPlan(
+export async function cancelMealPlanInvitation(
   db: DbClient,
   params: {
     userId: string;
     mealPlanId: number;
-    sharedWithUserId: string;
+    invitedUserId: string;
   }
 ): Promise<{ success: boolean }> {
-  const { userId, mealPlanId, sharedWithUserId } = params;
+  const { userId, mealPlanId, invitedUserId } = params;
 
   // Verify ownership
   const plan = await db
@@ -661,18 +644,16 @@ export async function unshareMealPlan(
     .then((rows) => rows[0]);
 
   if (!plan) {
-    throw new ServiceError(
-      "NOT_FOUND",
-      "Meal plan not found or you are not the owner"
-    );
+    throw new ServiceError("NOT_FOUND", "Meal plan not found or you are not the owner");
   }
 
   await db
-    .delete(mealPlanShares)
+    .delete(mealPlanInvitations)
     .where(
       and(
-        eq(mealPlanShares.mealPlanId, mealPlanId),
-        eq(mealPlanShares.sharedWithUserId, sharedWithUserId)
+        eq(mealPlanInvitations.mealPlanId, mealPlanId),
+        eq(mealPlanInvitations.invitedUserId, invitedUserId),
+        eq(mealPlanInvitations.status, "pending")
       )
     );
 
@@ -680,7 +661,182 @@ export async function unshareMealPlan(
 }
 
 /**
- * Get share status for a meal plan
+ * Accept a meal plan invitation
+ */
+export async function acceptMealPlanInvitation(
+  db: DbClient,
+  params: { userId: string; invitationId: number }
+): Promise<{ success: boolean }> {
+  const { userId, invitationId } = params;
+
+  const invitation = await db
+    .select()
+    .from(mealPlanInvitations)
+    .where(
+      and(
+        eq(mealPlanInvitations.id, invitationId),
+        eq(mealPlanInvitations.invitedUserId, userId),
+        eq(mealPlanInvitations.status, "pending")
+      )
+    )
+    .then((rows) => rows[0]);
+
+  if (!invitation) {
+    throw new ServiceError("NOT_FOUND", "Invitation not found");
+  }
+
+  // Check expiration
+  const expiresAt = new Date(invitation.createdAt);
+  expiresAt.setDate(expiresAt.getDate() + INVITATION_EXPIRY_DAYS);
+  if (expiresAt <= new Date()) {
+    await db.delete(mealPlanInvitations).where(eq(mealPlanInvitations.id, invitationId));
+    throw new ServiceError("BAD_REQUEST", "This invitation has expired");
+  }
+
+  await db
+    .update(mealPlanInvitations)
+    .set({ status: "accepted" })
+    .where(eq(mealPlanInvitations.id, invitationId));
+
+  return { success: true };
+}
+
+/**
+ * Decline a meal plan invitation
+ */
+export async function declineMealPlanInvitation(
+  db: DbClient,
+  params: { userId: string; invitationId: number }
+): Promise<{ success: boolean }> {
+  const { userId, invitationId } = params;
+
+  await db
+    .delete(mealPlanInvitations)
+    .where(
+      and(
+        eq(mealPlanInvitations.id, invitationId),
+        eq(mealPlanInvitations.invitedUserId, userId),
+        eq(mealPlanInvitations.status, "pending")
+      )
+    );
+
+  return { success: true };
+}
+
+/**
+ * Remove an accepted member from a meal plan (owner only)
+ */
+export async function removeMealPlanMember(
+  db: DbClient,
+  params: {
+    userId: string;
+    mealPlanId: number;
+    memberId: string;
+  }
+): Promise<{ success: boolean }> {
+  const { userId, mealPlanId, memberId } = params;
+
+  // Verify ownership
+  const plan = await db
+    .select({ id: mealPlans.id })
+    .from(mealPlans)
+    .where(and(eq(mealPlans.id, mealPlanId), eq(mealPlans.userId, userId)))
+    .then((rows) => rows[0]);
+
+  if (!plan) {
+    throw new ServiceError("NOT_FOUND", "Meal plan not found or you are not the owner");
+  }
+
+  await db
+    .delete(mealPlanInvitations)
+    .where(
+      and(
+        eq(mealPlanInvitations.mealPlanId, mealPlanId),
+        eq(mealPlanInvitations.invitedUserId, memberId)
+      )
+    );
+
+  return { success: true };
+}
+
+/**
+ * Get pending invitations for a user (non-expired only)
+ */
+export async function getPendingMealPlanInvitations(
+  db: DbClient,
+  userId: string
+) {
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() - INVITATION_EXPIRY_DAYS);
+
+  const invitations = await db
+    .select({
+      id: mealPlanInvitations.id,
+      mealPlanId: mealPlanInvitations.mealPlanId,
+      mealPlanName: mealPlanInvitations.mealPlanName,
+      inviterName: mealPlanInvitations.inviterName,
+      inviterImage: mealPlanInvitations.inviterImage,
+      createdAt: mealPlanInvitations.createdAt,
+    })
+    .from(mealPlanInvitations)
+    .where(
+      and(
+        eq(mealPlanInvitations.invitedUserId, userId),
+        eq(mealPlanInvitations.status, "pending"),
+        gt(mealPlanInvitations.createdAt, expiryDate)
+      )
+    );
+
+  return invitations;
+}
+
+/**
+ * Get invitation status for a specific meal plan (for share sheet)
+ */
+export async function getMealPlanInvitationStatus(
+  db: DbClient,
+  params: { userId: string; mealPlanId: number }
+) {
+  const { userId, mealPlanId } = params;
+
+  // Verify ownership
+  const plan = await db
+    .select({ id: mealPlans.id })
+    .from(mealPlans)
+    .where(and(eq(mealPlans.id, mealPlanId), eq(mealPlans.userId, userId)))
+    .then((rows) => rows[0]);
+
+  if (!plan) {
+    throw new ServiceError("NOT_FOUND", "Meal plan not found or you are not the owner");
+  }
+
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() - INVITATION_EXPIRY_DAYS);
+
+  // Get all non-expired pending invitations for this plan
+  const pendingInvitations = await db
+    .select({
+      id: mealPlanInvitations.id,
+      userId: mealPlanInvitations.invitedUserId,
+      userName: user.name,
+      userImage: user.image,
+      createdAt: mealPlanInvitations.createdAt,
+    })
+    .from(mealPlanInvitations)
+    .innerJoin(user, eq(mealPlanInvitations.invitedUserId, user.id))
+    .where(
+      and(
+        eq(mealPlanInvitations.mealPlanId, mealPlanId),
+        eq(mealPlanInvitations.status, "pending"),
+        gt(mealPlanInvitations.createdAt, expiryDate)
+      )
+    );
+
+  return pendingInvitations;
+}
+
+/**
+ * Get share status for a meal plan (accepted members)
  */
 export async function getShareStatus(
   db: DbClient,
@@ -696,24 +852,26 @@ export async function getShareStatus(
     .then((rows) => rows[0]);
 
   if (!plan) {
-    throw new ServiceError(
-      "NOT_FOUND",
-      "Meal plan not found or you are not the owner"
-    );
+    throw new ServiceError("NOT_FOUND", "Meal plan not found or you are not the owner");
   }
 
-  // Get all shares
-  const shares = await db
+  // Get accepted members
+  const members = await db
     .select({
-      id: mealPlanShares.id,
-      userId: mealPlanShares.sharedWithUserId,
+      id: mealPlanInvitations.id,
+      userId: mealPlanInvitations.invitedUserId,
       userName: user.name,
       userImage: user.image,
-      createdAt: mealPlanShares.createdAt,
+      createdAt: mealPlanInvitations.createdAt,
     })
-    .from(mealPlanShares)
-    .innerJoin(user, eq(mealPlanShares.sharedWithUserId, user.id))
-    .where(eq(mealPlanShares.mealPlanId, mealPlanId));
+    .from(mealPlanInvitations)
+    .innerJoin(user, eq(mealPlanInvitations.invitedUserId, user.id))
+    .where(
+      and(
+        eq(mealPlanInvitations.mealPlanId, mealPlanId),
+        eq(mealPlanInvitations.status, "accepted")
+      )
+    );
 
-  return shares;
+  return members;
 }

@@ -35,4 +35,6 @@ export interface TRPCEnv {
   USER_FEED: DurableObjectNamespace;
   IMAGE_WORKER: ImageWorkerService;
   IMAGE_PUBLIC_URL: string;
+  // Email
+  RESEND_API_KEY: string;
 }

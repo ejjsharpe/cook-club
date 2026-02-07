@@ -31,7 +31,7 @@ import Animated, {
   useAnimatedScrollHandler,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
   useRecipeDetail,
@@ -58,6 +58,7 @@ import {
 import { Skeleton } from "@/components/Skeleton";
 import { VSpace, HSpace } from "@/components/Space";
 import { SwipeableTabView } from "@/components/SwipeableTabView";
+import { TagChip } from "@/components/TagChip";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { getImageUrl } from "@/utils/imageUrl";
@@ -69,8 +70,10 @@ import {
 } from "@/utils/recipeTransform";
 import { formatMinutesShort } from "@/utils/timeUtils";
 
+const insets = UnistylesRuntime.insets;
+
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const IMAGE_HEIGHT = SCREEN_WIDTH;
+const IMAGE_HEIGHT = SCREEN_WIDTH + insets.top;
 
 type RecipeDetailScreenParams = {
   RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
@@ -731,6 +734,18 @@ export const RecipeDetailScreen = () => {
                 )}
               </View>
 
+              {/* Tags */}
+              {recipe.tags && recipe.tags.length > 0 && (
+                <>
+                  <VSpace size={12} />
+                  <View style={styles.tagsRow}>
+                    {recipe.tags.map((tag) => (
+                      <TagChip key={tag.id} label={tag.name} size="small" />
+                    ))}
+                  </View>
+                </>
+              )}
+
               {/* Attribution for imported recipes */}
               {isOwnRecipe &&
                 recipe.sourceType === "user" &&
@@ -1038,6 +1053,11 @@ const styles = StyleSheet.create((theme) => ({
   },
   timeIcon: {
     color: theme.colors.textSecondary,
+  },
+  tagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   recipeDescription: {
     color: theme.colors.textSecondary,

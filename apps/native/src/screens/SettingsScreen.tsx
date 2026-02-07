@@ -5,10 +5,12 @@ import { View, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { useSignOut } from "@/api/auth";
+import { useUpdateProfile, useUser } from "@/api/user";
 import { NavigationHeader } from "@/components/NavigationHeader";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import type { MeasurementSystem } from "@/lib/measurementPreferences";
 import {
   applyThemePreference,
   getThemePreference,
@@ -66,14 +68,12 @@ const SettingsRow = ({
   );
 };
 
-const ThemeOption = ({
+const ToggleOption = ({
   label,
-  value,
   selected,
   onPress,
 }: {
   label: string;
-  value: ThemePreference;
   selected: boolean;
   onPress: () => void;
 }) => {
@@ -99,14 +99,25 @@ const ThemeOption = ({
 export const SettingsScreen = () => {
   const navigation = useNavigation();
   const signOutMutation = useSignOut();
+  const updateProfileMutation = useUpdateProfile();
   const insets = UnistylesRuntime.insets;
   const [currentTheme, setCurrentTheme] =
     useState<ThemePreference>(getThemePreference);
+  const { data: userData } = useUser();
+  const [currentMeasurement, setCurrentMeasurement] =
+    useState<MeasurementSystem>(
+      (userData?.user?.measurementPreference as MeasurementSystem) ?? "auto",
+    );
 
   const handleThemeChange = (theme: ThemePreference) => {
     setCurrentTheme(theme);
     setThemePreference(theme);
     applyThemePreference(theme);
+  };
+
+  const handleMeasurementChange = (system: MeasurementSystem) => {
+    setCurrentMeasurement(system);
+    updateProfileMutation.mutate({ measurementPreference: system });
   };
 
   const handleSignOut = () => {
@@ -136,49 +147,44 @@ export const SettingsScreen = () => {
         </Text>
         <VSpace size={12} />
         <View style={styles.themeSelector}>
-          <ThemeOption
+          <ToggleOption
             label="Light"
-            value="light"
             selected={currentTheme === "light"}
             onPress={() => handleThemeChange("light")}
           />
-          <ThemeOption
+          <ToggleOption
             label="Dark"
-            value="dark"
             selected={currentTheme === "dark"}
             onPress={() => handleThemeChange("dark")}
           />
-          <ThemeOption
+          <ToggleOption
             label="System"
-            value="system"
             selected={currentTheme === "system"}
             onPress={() => handleThemeChange("system")}
           />
         </View>
 
-        {/* Preferences Section */}
+        {/* Measurements Section */}
         <VSpace size={32} />
         <Text type="heading" style={styles.sectionTitle}>
-          Preferences
+          Measurements
         </Text>
         <VSpace size={12} />
-        <View style={styles.section}>
-          <SettingsRow
-            icon="restaurant-outline"
-            label="Cuisine Preferences"
-            onPress={() => navigation.navigate("CuisinePreferences")}
+        <View style={styles.themeSelector}>
+          <ToggleOption
+            label="Metric"
+            selected={currentMeasurement === "metric"}
+            onPress={() => handleMeasurementChange("metric")}
           />
-          <View style={styles.separator} />
-          <SettingsRow
-            icon="leaf-outline"
-            label="Ingredient Preferences"
-            onPress={() => navigation.navigate("IngredientPreferences")}
+          <ToggleOption
+            label="Imperial"
+            selected={currentMeasurement === "imperial"}
+            onPress={() => handleMeasurementChange("imperial")}
           />
-          <View style={styles.separator} />
-          <SettingsRow
-            icon="nutrition-outline"
-            label="Dietary Requirements"
-            onPress={() => navigation.navigate("DietaryPreferences")}
+          <ToggleOption
+            label="Original"
+            selected={currentMeasurement === "auto"}
+            onPress={() => handleMeasurementChange("auto")}
           />
         </View>
 
@@ -189,6 +195,12 @@ export const SettingsScreen = () => {
         </Text>
         <VSpace size={12} />
         <View style={styles.section}>
+          <SettingsRow
+            icon="person-outline"
+            label="Account"
+            onPress={() => navigation.navigate("Account")}
+          />
+          <View style={styles.separator} />
           <SettingsRow
             icon="log-out-outline"
             label="Sign Out"

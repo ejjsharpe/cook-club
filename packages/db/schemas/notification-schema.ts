@@ -10,6 +10,7 @@ import {
 import { user } from "./auth-schema";
 import { activityEvents } from "./activity-schema";
 import { mealPlans } from "./meal-plan-schema";
+import { shoppingLists } from "./shopping-schema";
 import { comments } from "./comments-schema";
 
 // ─── Notifications - user notifications for social events ─────────────────────
@@ -34,6 +35,10 @@ export const notifications = pgTable(
     mealPlanId: integer("meal_plan_id").references(() => mealPlans.id, {
       onDelete: "cascade",
     }),
+    shoppingListId: integer("shopping_list_id").references(
+      () => shoppingLists.id,
+      { onDelete: "cascade" }
+    ),
     commentId: integer("comment_id").references(() => comments.id, {
       onDelete: "cascade",
     }),
@@ -61,6 +66,8 @@ export const notifications = pgTable(
 export type NotificationType =
   | "follow"
   | "meal_plan_share"
+  | "meal_plan_invite"
+  | "shopping_list_invite"
   | "activity_like"
   | "activity_comment"
   | "comment_reply";

@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   FlatList,
@@ -9,19 +9,35 @@ import {
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
+  useGetPendingMealPlanInvitations,
+  useAcceptMealPlanInvitation,
+  useDeclineMealPlanInvitation,
+} from "@/api/mealPlan";
+import {
   useNotifications,
   useMarkNotificationsAsRead,
   type NotificationItem,
+  type NotificationsResponse,
 } from "@/api/notification";
+import {
+  useGetPendingShoppingListInvitations,
+  useAcceptShoppingListInvitation,
+  useDeclineShoppingListInvitation,
+} from "@/api/shopping";
 import { NavigationHeader } from "@/components/NavigationHeader";
 import { NotificationCard } from "@/components/NotificationCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import { setSelectedMealPlan } from "@/lib/mealPlanPreferences";
+import { useTRPC } from "@repo/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const NotificationsScreen = () => {
   const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
   const {
     data,
@@ -34,6 +50,49 @@ export const NotificationsScreen = () => {
   } = useNotifications();
 
   const markAsRead = useMarkNotificationsAsRead();
+
+  // Pending invitations for lookup
+  const { data: pendingMealPlanInvitations } =
+    useGetPendingMealPlanInvitations();
+  const { data: pendingShoppingListInvitations } =
+    useGetPendingShoppingListInvitations();
+
+  // Mutation hooks
+  const acceptMealPlan = useAcceptMealPlanInvitation();
+  const declineMealPlan = useDeclineMealPlanInvitation();
+  const acceptShoppingList = useAcceptShoppingListInvitation();
+  const declineShoppingList = useDeclineShoppingListInvitation();
+
+  // Track which notification is being acted on
+  const [activeNotificationId, setActiveNotificationId] = useState<
+    number | null
+  >(null);
+  const [activeAction, setActiveAction] = useState<
+    "accept" | "decline" | null
+  >(null);
+
+  // Build lookup maps: entityId → invitation
+  const mealPlanInvitationMap = useMemo(() => {
+    const map = new Map<number, { id: number; mealPlanName: string }>();
+    pendingMealPlanInvitations?.forEach((inv) => {
+      map.set(inv.mealPlanId, { id: inv.id, mealPlanName: inv.mealPlanName });
+    });
+    return map;
+  }, [pendingMealPlanInvitations]);
+
+  const shoppingListInvitationMap = useMemo(() => {
+    const map = new Map<
+      number,
+      { id: number; shoppingListName: string }
+    >();
+    pendingShoppingListInvitations?.forEach((inv) => {
+      map.set(inv.shoppingListId, {
+        id: inv.id,
+        shoppingListName: inv.shoppingListName,
+      });
+    });
+    return map;
+  }, [pendingShoppingListInvitations]);
 
   // Flatten pages into single array
   const notifications = useMemo(() => {
@@ -54,6 +113,124 @@ export const NotificationsScreen = () => {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  // Remove a notification from the infinite query cache
+  const removeNotificationFromCache = useCallback(
+    (notificationId: number) => {
+      const filter = trpc.notification.getNotifications.pathFilter();
+      queryClient.setQueriesData<{ pages: NotificationsResponse[]; pageParams: unknown[] }>(
+        filter,
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.filter((item) => item.id !== notificationId),
+            })),
+          };
+        },
+      );
+    },
+    [queryClient, trpc],
+  );
+
+  // Handle accept for meal plan invitations
+  const handleAcceptMealPlan = useCallback(
+    async (notification: NotificationItem) => {
+      if (!notification.mealPlanId) return;
+      const invitation = mealPlanInvitationMap.get(notification.mealPlanId);
+      if (!invitation) return;
+
+      setActiveNotificationId(notification.id);
+      setActiveAction("accept");
+      try {
+        await acceptMealPlan.mutateAsync({ invitationId: invitation.id });
+        setSelectedMealPlan(notification.mealPlanId, invitation.mealPlanName);
+        navigation.navigate("Tabs", { screen: "Meal Plan" } as never);
+      } catch {
+        // Error handled by mutation
+      } finally {
+        setActiveNotificationId(null);
+        setActiveAction(null);
+      }
+    },
+    [mealPlanInvitationMap, acceptMealPlan, navigation],
+  );
+
+  // Handle decline for meal plan invitations
+  const handleDeclineMealPlan = useCallback(
+    async (notification: NotificationItem) => {
+      if (!notification.mealPlanId) return;
+      const invitation = mealPlanInvitationMap.get(notification.mealPlanId);
+      if (!invitation) return;
+
+      setActiveNotificationId(notification.id);
+      setActiveAction("decline");
+      try {
+        await declineMealPlan.mutateAsync({ invitationId: invitation.id });
+        removeNotificationFromCache(notification.id);
+      } catch {
+        // Error handled by mutation
+      } finally {
+        setActiveNotificationId(null);
+        setActiveAction(null);
+      }
+    },
+    [mealPlanInvitationMap, declineMealPlan, removeNotificationFromCache],
+  );
+
+  // Handle accept for shopping list invitations
+  const handleAcceptShoppingList = useCallback(
+    async (notification: NotificationItem) => {
+      if (!notification.shoppingListId) return;
+      const invitation = shoppingListInvitationMap.get(
+        notification.shoppingListId,
+      );
+      if (!invitation) return;
+
+      setActiveNotificationId(notification.id);
+      setActiveAction("accept");
+      try {
+        await acceptShoppingList.mutateAsync({ invitationId: invitation.id });
+        navigation.navigate("Tabs", { screen: "Shopping List" } as never);
+      } catch {
+        // Error handled by mutation
+      } finally {
+        setActiveNotificationId(null);
+        setActiveAction(null);
+      }
+    },
+    [shoppingListInvitationMap, acceptShoppingList, navigation],
+  );
+
+  // Handle decline for shopping list invitations
+  const handleDeclineShoppingList = useCallback(
+    async (notification: NotificationItem) => {
+      if (!notification.shoppingListId) return;
+      const invitation = shoppingListInvitationMap.get(
+        notification.shoppingListId,
+      );
+      if (!invitation) return;
+
+      setActiveNotificationId(notification.id);
+      setActiveAction("decline");
+      try {
+        await declineShoppingList.mutateAsync({ invitationId: invitation.id });
+        removeNotificationFromCache(notification.id);
+      } catch {
+        // Error handled by mutation
+      } finally {
+        setActiveNotificationId(null);
+        setActiveAction(null);
+      }
+    },
+    [
+      shoppingListInvitationMap,
+      declineShoppingList,
+      removeNotificationFromCache,
+    ],
+  );
+
   const handleNotificationPress = useCallback(
     (notification: NotificationItem) => {
       switch (notification.type) {
@@ -61,13 +238,11 @@ export const NotificationsScreen = () => {
           navigation.navigate("UserProfile", { userId: notification.actorId });
           break;
         case "meal_plan_share":
-          // Navigate to meal plan tab
           navigation.navigate("Tabs", { screen: "Meal Plan" } as never);
           break;
         case "activity_like":
         case "activity_comment":
         case "comment_reply":
-          // Navigate to the user's profile to see their activity
           navigation.navigate("UserProfile", { userId: notification.actorId });
           break;
         default:
@@ -78,13 +253,58 @@ export const NotificationsScreen = () => {
   );
 
   const renderNotification = useCallback(
-    ({ item }: { item: NotificationItem }) => (
-      <NotificationCard
-        notification={item}
-        onPress={() => handleNotificationPress(item)}
-      />
-    ),
-    [handleNotificationPress],
+    ({ item }: { item: NotificationItem }) => {
+      const isActive = activeNotificationId === item.id;
+
+      // Check if this invitation has a matching pending invitation
+      if (item.type === "meal_plan_invite" && item.mealPlanId) {
+        const invitation = mealPlanInvitationMap.get(item.mealPlanId);
+        if (invitation) {
+          return (
+            <NotificationCard
+              notification={item}
+              onAccept={() => handleAcceptMealPlan(item)}
+              onDecline={() => handleDeclineMealPlan(item)}
+              isAccepting={isActive && activeAction === "accept"}
+              isDeclining={isActive && activeAction === "decline"}
+            />
+          );
+        }
+      }
+
+      if (item.type === "shopping_list_invite" && item.shoppingListId) {
+        const invitation = shoppingListInvitationMap.get(item.shoppingListId);
+        if (invitation) {
+          return (
+            <NotificationCard
+              notification={item}
+              onAccept={() => handleAcceptShoppingList(item)}
+              onDecline={() => handleDeclineShoppingList(item)}
+              isAccepting={isActive && activeAction === "accept"}
+              isDeclining={isActive && activeAction === "decline"}
+            />
+          );
+        }
+      }
+
+      return (
+        <NotificationCard
+          notification={item}
+          onPress={() => handleNotificationPress(item)}
+        />
+      );
+    },
+    [
+      handleNotificationPress,
+      handleAcceptMealPlan,
+      handleDeclineMealPlan,
+      handleAcceptShoppingList,
+      handleDeclineShoppingList,
+      mealPlanInvitationMap,
+      shoppingListInvitationMap,
+      activeNotificationId,
+      activeAction,
+    ],
   );
 
   const keyExtractor = useCallback(

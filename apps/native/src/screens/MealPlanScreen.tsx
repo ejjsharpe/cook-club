@@ -8,7 +8,7 @@ import {
 } from "@shopify/flash-list";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, TouchableOpacity } from "react-native";
+import { View, TouchableOpacity, Alert } from "react-native";
 import {
   StyleSheet,
   useUnistyles,
@@ -20,6 +20,9 @@ import {
   useGetMealPlanEntries,
   useRemoveFromMealPlan,
   useGetShareStatus,
+  useGetPendingMealPlanInvitations,
+  useAcceptMealPlanInvitation,
+  useDeclineMealPlanInvitation,
   type MealPlanEntry,
 } from "@/api/mealPlan";
 import { useUser } from "@/api/user";
@@ -27,6 +30,7 @@ import { MealPlanSkeleton } from "@/components/Skeleton";
 import { StackedAvatars } from "@/components/StackedAvatars";
 import { Text } from "@/components/Text";
 import { DayGroup, DayHeader } from "@/components/mealPlan";
+import { InvitationBanner } from "@/components/mealPlan/InvitationBanner";
 import {
   MealPlanPickerSheet,
   type MealPlanPickerSheetRef,
@@ -129,6 +133,11 @@ export const MealPlanScreen = () => {
   const { data: userData } = useUser();
   const currentUser = userData?.user;
 
+  // Invitation queries
+  const { data: pendingInvitations } = useGetPendingMealPlanInvitations();
+  const acceptInvitation = useAcceptMealPlanInvitation();
+  const declineInvitation = useDeclineMealPlanInvitation();
+
   // Mutations
   const removeEntry = useRemoveFromMealPlan();
 
@@ -200,6 +209,21 @@ export const MealPlanScreen = () => {
   const handleOpenSharedUsers = useCallback(() => {
     if (!activePlan) return;
 
+    if (activePlan.isDefault && activePlan.isOwner) {
+      Alert.alert(
+        "Can't Share Default Plan",
+        "Your default meal plan is personal and can't be shared. Create a new plan to share with friends.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Create New Plan",
+            onPress: () => mealPlanPickerSheetRef.current?.present(),
+          },
+        ],
+      );
+      return;
+    }
+
     if (!shareStatus || shareStatus.length === 0) {
       shareSheetRef.current?.present();
     } else {
@@ -211,11 +235,27 @@ export const MealPlanScreen = () => {
     shareSheetRef.current?.present();
   }, []);
 
+  // Pending plan ID for newly created plans that aren't in the query cache yet
+  const [pendingPlanId, setPendingPlanId] = useState<number | null>(null);
+
+  // Once the query refetches and the pending plan appears, select it
+  useEffect(() => {
+    if (pendingPlanId === null || !mealPlans) return;
+    const plan = mealPlans.find((p) => p.id === pendingPlanId);
+    if (plan) {
+      setSelectedPlan(plan.id, plan.name);
+      setPendingPlanId(null);
+    }
+  }, [pendingPlanId, mealPlans, setSelectedPlan]);
+
   const handleSelectMealPlan = useCallback(
     (planId: number) => {
       const plan = mealPlans?.find((p) => p.id === planId);
       if (plan) {
         setSelectedPlan(planId, plan.name);
+      } else {
+        // New plan not in cache yet — wait for query to refetch
+        setPendingPlanId(planId);
       }
     },
     [mealPlans, setSelectedPlan],
@@ -314,10 +354,28 @@ export const MealPlanScreen = () => {
     return unsubscribe;
   }, [navigation, scrollToToday, isFocused]);
 
-  // List header component - includes safe area top + header height
+  // List header component - includes safe area top + header height + invitation banners
   const ListHeaderComponent = useMemo(
-    () => <View style={{ height: insets.top + HEADER_HEIGHT }} />,
-    [insets.top],
+    () => (
+      <View>
+        <View style={{ height: insets.top + HEADER_HEIGHT }} />
+        {pendingInvitations?.map((invitation) => (
+          <InvitationBanner
+            key={invitation.id}
+            invitation={invitation}
+            onAccept={() =>
+              acceptInvitation.mutate({ invitationId: invitation.id })
+            }
+            onDecline={() =>
+              declineInvitation.mutate({ invitationId: invitation.id })
+            }
+            isAccepting={acceptInvitation.isPending}
+            isDeclining={declineInvitation.isPending}
+          />
+        ))}
+      </View>
+    ),
+    [insets.top, pendingInvitations, acceptInvitation, declineInvitation],
   );
 
   if (isLoadingPlans) {

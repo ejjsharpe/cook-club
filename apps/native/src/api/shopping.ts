@@ -1,12 +1,29 @@
+import type { Outputs } from "@repo/trpc/client";
 import { classifyIngredientAisle } from "@repo/shared";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert } from "react-native";
 
-// Get user's shopping list
-export const useGetShoppingList = () => {
+// API Response Types
+export type ShoppingListWithMeta =
+  Outputs["shopping"]["getUserShoppingLists"][number];
+export type ShoppingListShareableUser =
+  Outputs["shopping"]["getShoppingListShareableUsers"][number];
+export type ShoppingListShareStatus =
+  Outputs["shopping"]["getShoppingListShareStatus"][number];
+export type ShoppingListInvitationStatus =
+  Outputs["shopping"]["getShoppingListInvitationStatus"][number];
+export type PendingShoppingListInvitation =
+  Outputs["shopping"]["getPendingShoppingListInvitations"][number];
+
+// Get user's shopping list (optionally by ID)
+export const useGetShoppingList = (params?: { shoppingListId?: number }) => {
   const trpc = useTRPC();
-  return useQuery(trpc.shopping.getShoppingList.queryOptions());
+  return useQuery(
+    trpc.shopping.getShoppingList.queryOptions(
+      params?.shoppingListId ? { shoppingListId: params.shoppingListId } : {},
+    ),
+  );
 };
 
 // Get all user's shopping lists
@@ -29,6 +46,26 @@ export const useCreateShoppingList = () => {
     },
     onError: () => {
       Alert.alert("Error", "Failed to create shopping list");
+    },
+  });
+
+  return useMutation(mutationOptions);
+};
+
+// Delete a shopping list
+export const useDeleteShoppingList = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions = trpc.shopping.deleteShoppingList.mutationOptions({
+    networkMode: "offlineFirst",
+    onSuccess: () => {
+      const shoppingListsFilter =
+        trpc.shopping.getUserShoppingLists.pathFilter();
+      queryClient.invalidateQueries(shoppingListsFilter);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to delete shopping list");
     },
   });
 
@@ -433,4 +470,164 @@ export const useAddManualItem = () => {
   });
 
   return useMutation(mutationOptions);
+};
+
+// ─── Invitation & Sharing Hooks ─────────────────────────────────────────────
+
+// Get shareable users for a shopping list (friends)
+export const useGetShoppingListShareableUsers = () => {
+  const trpc = useTRPC();
+  return useQuery(trpc.shopping.getShoppingListShareableUsers.queryOptions());
+};
+
+// Invite a friend to a shopping list
+export const useInviteToShoppingList = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions = trpc.shopping.inviteToShoppingList.mutationOptions({
+    onSuccess: () => {
+      const invitationFilter =
+        trpc.shopping.getShoppingListInvitationStatus.pathFilter();
+      queryClient.invalidateQueries(invitationFilter);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to send invitation. Please try again.");
+    },
+  });
+
+  return useMutation(mutationOptions);
+};
+
+// Cancel a pending invitation
+export const useCancelShoppingListInvitation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions =
+    trpc.shopping.cancelShoppingListInvitation.mutationOptions({
+      onSuccess: () => {
+        const invitationFilter =
+          trpc.shopping.getShoppingListInvitationStatus.pathFilter();
+        queryClient.invalidateQueries(invitationFilter);
+      },
+      onError: () => {
+        Alert.alert(
+          "Error",
+          "Failed to cancel invitation. Please try again.",
+        );
+      },
+    });
+
+  return useMutation(mutationOptions);
+};
+
+// Accept a shopping list invitation
+export const useAcceptShoppingListInvitation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions =
+    trpc.shopping.acceptShoppingListInvitation.mutationOptions({
+      onSuccess: () => {
+        const listsFilter = trpc.shopping.getUserShoppingLists.pathFilter();
+        const pendingFilter =
+          trpc.shopping.getPendingShoppingListInvitations.pathFilter();
+        queryClient.invalidateQueries(listsFilter);
+        queryClient.invalidateQueries(pendingFilter);
+      },
+      onError: () => {
+        Alert.alert(
+          "Error",
+          "Failed to accept invitation. Please try again.",
+        );
+      },
+    });
+
+  return useMutation(mutationOptions);
+};
+
+// Decline a shopping list invitation
+export const useDeclineShoppingListInvitation = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions =
+    trpc.shopping.declineShoppingListInvitation.mutationOptions({
+      onSuccess: () => {
+        const pendingFilter =
+          trpc.shopping.getPendingShoppingListInvitations.pathFilter();
+        queryClient.invalidateQueries(pendingFilter);
+      },
+      onError: () => {
+        Alert.alert(
+          "Error",
+          "Failed to decline invitation. Please try again.",
+        );
+      },
+    });
+
+  return useMutation(mutationOptions);
+};
+
+// Remove a member from a shopping list
+export const useRemoveShoppingListMember = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const mutationOptions =
+    trpc.shopping.removeShoppingListMember.mutationOptions({
+      onSuccess: () => {
+        const shareStatusFilter =
+          trpc.shopping.getShoppingListShareStatus.pathFilter();
+        queryClient.invalidateQueries(shareStatusFilter);
+      },
+      onError: () => {
+        Alert.alert("Error", "Failed to remove member. Please try again.");
+      },
+    });
+
+  return useMutation(mutationOptions);
+};
+
+// Get pending shopping list invitations
+export const useGetPendingShoppingListInvitations = () => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.shopping.getPendingShoppingListInvitations.queryOptions(),
+  );
+};
+
+// Get invitation status for a shopping list (for share sheet)
+export const useGetShoppingListInvitationStatus = ({
+  shoppingListId,
+  enabled = true,
+}: {
+  shoppingListId: number;
+  enabled?: boolean;
+}) => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.shopping.getShoppingListInvitationStatus.queryOptions(
+      { shoppingListId },
+      { enabled },
+    ),
+  );
+};
+
+// Get share status for a shopping list (accepted members)
+export const useGetShoppingListShareStatus = ({
+  shoppingListId,
+  enabled = true,
+}: {
+  shoppingListId: number;
+  enabled?: boolean;
+}) => {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.shopping.getShoppingListShareStatus.queryOptions(
+      { shoppingListId },
+      { enabled },
+    ),
+  );
 };

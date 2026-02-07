@@ -1,5 +1,12 @@
 import * as ImagePicker from "expo-image-picker";
-import { View, TouchableOpacity, Image, Alert } from "react-native";
+import {
+  View,
+  TouchableOpacity,
+  Image,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Input } from "@/components/Input";
@@ -15,6 +22,12 @@ interface Props {
   setProfileImage: (image: string | null) => void;
   existingName?: string;
   existingImage?: string | null;
+  username: string;
+  setUsername: (username: string) => void;
+  isUsernameAvailable: boolean | undefined;
+  isCheckingUsername: boolean;
+  usernameError: string | null;
+  hasAttemptedSubmit: boolean;
 }
 
 export const OnboardingStepProfile = ({
@@ -26,6 +39,12 @@ export const OnboardingStepProfile = ({
   setProfileImage,
   existingName = "",
   existingImage = null,
+  username,
+  setUsername,
+  isUsernameAvailable,
+  isCheckingUsername,
+  usernameError,
+  hasAttemptedSubmit,
 }: Props) => {
   const handlePickImage = async () => {
     const permissionResult =
@@ -51,8 +70,16 @@ export const OnboardingStepProfile = ({
     }
   };
 
+  const handleUsernameChange = (text: string) => {
+    // Auto-lowercase and strip invalid chars
+    const cleaned = text.toLowerCase().replace(/[^a-z0-9_]/g, "");
+    setUsername(cleaned);
+  };
+
   const displayImage = profileImage || existingImage;
   const displayInitial = (name || existingName || "?").charAt(0).toUpperCase();
+
+  const showUsernameStatus = username.length >= 3;
 
   return (
     <View style={styles.container}>
@@ -91,13 +118,62 @@ export const OnboardingStepProfile = ({
 
       <VSpace size={32} />
 
-      <Input
-        label="Name"
-        value={name}
-        onChangeText={setName}
-        placeholder="Enter your name"
-        autoCapitalize="words"
-      />
+      {/* Username */}
+      <View>
+        <Input
+          label="Username"
+          value={username}
+          onChangeText={handleUsernameChange}
+          placeholder="your_username"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {hasAttemptedSubmit && username.length < 3 && (
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(150)}
+            style={styles.fieldHint}
+          >
+            <Text style={styles.usernameUnavailable}>
+              Must be at least 3 characters
+            </Text>
+          </Animated.View>
+        )}
+        {showUsernameStatus && (
+          <View style={styles.usernameStatus}>
+            {isCheckingUsername ? (
+              <ActivityIndicator size="small" />
+            ) : isUsernameAvailable ? (
+              <Text style={styles.usernameAvailable}>Available</Text>
+            ) : (
+              <Text style={styles.usernameUnavailable}>
+                {usernameError ?? "Unavailable"}
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+
+      <VSpace size={16} />
+
+      <View>
+        <Input
+          label="Display name"
+          value={name}
+          onChangeText={setName}
+          placeholder="Enter your name"
+          autoCapitalize="words"
+        />
+        {hasAttemptedSubmit && name.trim().length === 0 && (
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(150)}
+            style={styles.fieldHint}
+          >
+            <Text style={styles.usernameUnavailable}>Required</Text>
+          </Animated.View>
+        )}
+      </View>
 
       <VSpace size={16} />
 
@@ -163,6 +239,26 @@ const styles = StyleSheet.create((theme) => ({
   },
   photoHint: {
     textAlign: "center",
+  },
+  usernameStatus: {
+    marginTop: 6,
+    marginLeft: 16,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  usernameAvailable: {
+    color: "#34C759",
+    fontSize: 13,
+    fontFamily: theme.fonts.medium,
+  },
+  usernameUnavailable: {
+    color: theme.colors.destructive,
+    fontSize: 13,
+    fontFamily: theme.fonts.medium,
+  },
+  fieldHint: {
+    marginTop: 6,
+    marginLeft: 16,
   },
   bioInput: {
     height: 80,

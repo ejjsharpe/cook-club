@@ -8,8 +8,13 @@ import {
   removeFromMealPlan as removeFromMealPlanService,
   moveEntry as moveEntryService,
   getShareableUsers as getShareableUsersService,
-  shareMealPlan as shareMealPlanService,
-  unshareMealPlan as unshareMealPlanService,
+  inviteToMealPlan as inviteToMealPlanService,
+  cancelMealPlanInvitation as cancelMealPlanInvitationService,
+  acceptMealPlanInvitation as acceptMealPlanInvitationService,
+  declineMealPlanInvitation as declineMealPlanInvitationService,
+  removeMealPlanMember as removeMealPlanMemberService,
+  getPendingMealPlanInvitations as getPendingMealPlanInvitationsService,
+  getMealPlanInvitationStatus as getMealPlanInvitationStatusService,
   getShareStatus as getShareStatusService,
   createNotification,
 } from "@repo/db/services";
@@ -204,8 +209,8 @@ export const mealPlanRouter = router({
     }
   }),
 
-  // Share a meal plan with a friend
-  shareMealPlan: authedProcedure
+  // Invite a friend to a meal plan
+  inviteToMealPlan: authedProcedure
     .input(
       type({
         mealPlanId: "number",
@@ -214,35 +219,30 @@ export const mealPlanRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const result = await shareMealPlanService(ctx.db, {
+        const result = await inviteToMealPlanService(ctx.db, {
           userId: ctx.user.id,
           mealPlanId: input.mealPlanId,
-          sharedWithUserId: input.userId,
+          invitedUserId: input.userId,
         });
 
-        // Create notification for the user receiving the share
+        // Create notification for the invited user
         createNotification(ctx.db, {
           recipientId: input.userId,
           actorId: ctx.user.id,
-          type: "meal_plan_share",
+          type: "meal_plan_invite",
           mealPlanId: input.mealPlanId,
         }).catch((err) => {
-          console.error("Error creating meal plan share notification:", err);
+          console.error("Error creating meal plan invite notification:", err);
         });
 
         return result;
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
-        console.error("Error sharing meal plan:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to share meal plan",
-        });
+        throw mapServiceError(err);
       }
     }),
 
-  // Remove sharing with a user
-  unshareMealPlan: authedProcedure
+  // Cancel a pending invitation (owner only)
+  cancelMealPlanInvitation: authedProcedure
     .input(
       type({
         mealPlanId: "number",
@@ -251,22 +251,100 @@ export const mealPlanRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        return await unshareMealPlanService(ctx.db, {
+        return await cancelMealPlanInvitationService(ctx.db, {
           userId: ctx.user.id,
           mealPlanId: input.mealPlanId,
-          sharedWithUserId: input.userId,
+          invitedUserId: input.userId,
         });
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
-        console.error("Error unsharing meal plan:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to unshare meal plan",
-        });
+        throw mapServiceError(err);
       }
     }),
 
-  // Get share status for a meal plan
+  // Accept a meal plan invitation
+  acceptMealPlanInvitation: authedProcedure
+    .input(
+      type({
+        invitationId: "number",
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await acceptMealPlanInvitationService(ctx.db, {
+          userId: ctx.user.id,
+          invitationId: input.invitationId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Decline a meal plan invitation
+  declineMealPlanInvitation: authedProcedure
+    .input(
+      type({
+        invitationId: "number",
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await declineMealPlanInvitationService(ctx.db, {
+          userId: ctx.user.id,
+          invitationId: input.invitationId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Remove an accepted member from a meal plan (owner only)
+  removeMealPlanMember: authedProcedure
+    .input(
+      type({
+        mealPlanId: "number",
+        userId: "string",
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await removeMealPlanMemberService(ctx.db, {
+          userId: ctx.user.id,
+          mealPlanId: input.mealPlanId,
+          memberId: input.userId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Get pending invitations for the current user
+  getPendingMealPlanInvitations: authedProcedure.query(async ({ ctx }) => {
+    try {
+      return await getPendingMealPlanInvitationsService(ctx.db, ctx.user.id);
+    } catch (err) {
+      throw mapServiceError(err);
+    }
+  }),
+
+  // Get invitation status for a meal plan (for share sheet)
+  getMealPlanInvitationStatus: authedProcedure
+    .input(
+      type({
+        mealPlanId: "number",
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        return await getMealPlanInvitationStatusService(ctx.db, {
+          userId: ctx.user.id,
+          mealPlanId: input.mealPlanId,
+        });
+      } catch (err) {
+        throw mapServiceError(err);
+      }
+    }),
+
+  // Get share status for a meal plan (accepted members)
   getShareStatus: authedProcedure
     .input(
       type({
@@ -280,12 +358,7 @@ export const mealPlanRouter = router({
           mealPlanId: input.mealPlanId,
         });
       } catch (err) {
-        if (err instanceof TRPCError) throw err;
-        console.error("Error fetching share status:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to fetch share status",
-        });
+        throw mapServiceError(err);
       }
     }),
 });

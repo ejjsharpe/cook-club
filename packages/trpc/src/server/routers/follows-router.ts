@@ -7,7 +7,7 @@ import {
 } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
-import { eq, and, or, ne, like, sql } from "drizzle-orm";
+import { eq, and, or, ne, like, sql, notInArray, desc } from "drizzle-orm";
 
 import { router, authedProcedure } from "../trpc";
 import { mapServiceError } from "../utils";
@@ -139,14 +139,19 @@ export const followsRouter = router({
           .select({
             id: user.id,
             name: user.name,
+            username: user.username,
             email: user.email,
             image: user.image,
           })
           .from(user)
           .where(
             and(
-              ne(user.id, ctx.user.id), // Exclude current user
-              or(like(user.name, `%${query}%`), like(user.email, `%${query}%`)),
+              ne(user.id, ctx.user.id),
+              or(
+                like(user.name, `%${query}%`),
+                like(user.email, `%${query}%`),
+                like(user.username, `%${query}%`),
+              ),
             ),
           )
           .limit(limit);
@@ -156,6 +161,55 @@ export const followsRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to search users",
+        });
+      }
+    }),
+
+  // Get suggested users to follow (ordered by follower count)
+  getSuggestedUsers: authedProcedure
+    .input(
+      type({
+        limit: "number = 10",
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const { limit } = input;
+
+      try {
+        // Get IDs of users the current user already follows
+        const followedIds = ctx.db
+          .select({ id: follows.followingId })
+          .from(follows)
+          .where(eq(follows.followerId, ctx.user.id));
+
+        const suggestedUsers = await ctx.db
+          .select({
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            image: user.image,
+            recipeCount: sql<number>`(
+              SELECT COUNT(*)::int FROM recipes WHERE owner_id = "user"."id"
+            )`,
+            followerCount: sql<number>`(
+              SELECT COUNT(*)::int FROM follows WHERE following_id = "user"."id"
+            )`,
+          })
+          .from(user)
+          .where(
+            and(
+              ne(user.id, ctx.user.id),
+              notInArray(user.id, followedIds),
+            ),
+          )
+          .orderBy(desc(sql`(SELECT COUNT(*) FROM follows WHERE following_id = "user"."id")`))
+          .limit(limit);
+
+        return suggestedUsers;
+      } catch (err) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch suggested users",
         });
       }
     }),
@@ -179,6 +233,7 @@ export const followsRouter = router({
           .select({
             id: user.id,
             name: user.name,
+            username: user.username,
             email: user.email,
             image: user.image,
             createdAt: user.createdAt,
@@ -215,6 +270,7 @@ export const followsRouter = router({
           user: {
             id: profileData.id,
             name: profileData.name,
+            username: profileData.username,
             email: profileData.email,
             image: profileData.image,
             createdAt: profileData.createdAt,
