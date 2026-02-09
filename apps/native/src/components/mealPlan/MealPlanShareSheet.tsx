@@ -164,9 +164,7 @@ export const MealPlanShareSheet = forwardRef<
 
   // Build lookup maps
   const sharedUserIds = new Set(shareStatus?.map((s) => s.userId) ?? []);
-  const invitedUserIds = new Set(
-    invitationStatus?.map((i) => i.userId) ?? [],
-  );
+  const invitedUserIds = new Set(invitationStatus?.map((i) => i.userId) ?? []);
 
   const getFriendState = (userId: string): FriendState => {
     if (sharedUserIds.has(userId)) return "shared";
@@ -282,8 +280,7 @@ export const MealPlanShareSheet = forwardRef<
                       {sharedCount > 0 &&
                         `Shared with ${sharedCount} ${sharedCount === 1 ? "person" : "people"}`}
                       {sharedCount > 0 && invitedCount > 0 && " · "}
-                      {invitedCount > 0 &&
-                        `${invitedCount} pending`}
+                      {invitedCount > 0 && `${invitedCount} pending`}
                     </Text>
                   </View>
                 )}
@@ -299,9 +296,7 @@ export const MealPlanShareSheet = forwardRef<
                     friend={friend}
                     state={getFriendState(friend.id)}
                     onInvite={() => handleInvite(friend.id)}
-                    onCancelInvitation={() =>
-                      handleCancelInvitation(friend.id)
-                    }
+                    onCancelInvitation={() => handleCancelInvitation(friend.id)}
                     onRemoveMember={() => handleRemoveMember(friend.id)}
                     isPending={pendingUserId === friend.id}
                   />

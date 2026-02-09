@@ -53,7 +53,7 @@ export const shoppingListItems = pgTable(
     sourceRecipeId: integer("source_recipe_id"),
     // Source recipe name for display (null for manual items)
     sourceRecipeName: text("source_recipe_name"),
-    // Supermarket aisle for grouping (e.g., "Fresh Produce", "Dairy & Eggs")
+    // Supermarket aisle for grouping (e.g., "Fresh Produce", "Dairy")
     aisle: text("aisle").notNull().default("Other"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),

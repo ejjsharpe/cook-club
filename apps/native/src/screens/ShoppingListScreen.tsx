@@ -60,11 +60,11 @@ import {
   ShoppingListPickerSheet,
   type ShoppingListPickerSheetRef,
 } from "@/components/shopping/ShoppingListPickerSheet";
+import { ShoppingListSectionHeader } from "@/components/shopping/ShoppingListSectionHeader";
 import {
   ShoppingListShareSheet,
   type ShoppingListShareSheetRef,
 } from "@/components/shopping/ShoppingListShareSheet";
-import { ShoppingListSectionHeader } from "@/components/shopping/ShoppingListSectionHeader";
 import {
   useShoppingListData,
   type ShoppingListFlashItem,
@@ -642,7 +642,13 @@ export const ShoppingListScreen = () => {
         <VSpace size={8} />
       </View>
     ),
-    [insets.top, recipes, pendingInvitations, acceptInvitation, declineInvitation],
+    [
+      insets.top,
+      recipes,
+      pendingInvitations,
+      acceptInvitation,
+      declineInvitation,
+    ],
   );
 
   return (

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
-import { forwardRef, useState, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useRef } from "react";
 import { View, TouchableOpacity } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
@@ -8,12 +8,14 @@ import { MeasurementToggle } from "./MeasurementToggle";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
 
-import { useUpdateProfile, useUser } from "@/api/user";
+import { useUpdateProfile } from "@/api/user";
 import type { MeasurementSystem } from "@/lib/measurementPreferences";
 
 export interface AdjustRecipeSheetProps {
   servings: number;
   onServingsChange: (servings: number) => void;
+  measurementSystem: MeasurementSystem;
+  onMeasurementSystemChange: (system: MeasurementSystem) => void;
 }
 
 export interface AdjustRecipeSheetRef {
@@ -24,114 +26,123 @@ export interface AdjustRecipeSheetRef {
 export const AdjustRecipeSheet = forwardRef<
   AdjustRecipeSheetRef,
   AdjustRecipeSheetProps
->(({ servings, onServingsChange }, ref) => {
-  const theme = UnistylesRuntime.getTheme();
-  const sheetRef = useRef<TrueSheet>(null);
-  const { data: userData } = useUser();
-  const updateProfileMutation = useUpdateProfile();
-  const [measurementSystem, setMeasurementSystemState] =
-    useState<MeasurementSystem>(
-      (userData?.user?.measurementPreference as MeasurementSystem) ?? "auto",
-    );
+>(
+  (
+    {
+      servings,
+      onServingsChange,
+      measurementSystem,
+      onMeasurementSystemChange,
+    },
+    ref,
+  ) => {
+    const theme = UnistylesRuntime.getTheme();
+    const sheetRef = useRef<TrueSheet>(null);
+    const updateProfileMutation = useUpdateProfile();
 
-  useImperativeHandle(ref, () => ({
-    present: () => sheetRef.current?.present(),
-    dismiss: () => sheetRef.current?.dismiss(),
-  }));
+    useImperativeHandle(ref, () => ({
+      present: () => sheetRef.current?.present(),
+      dismiss: () => sheetRef.current?.dismiss(),
+    }));
 
-  const handleMeasurementChange = (system: MeasurementSystem) => {
-    setMeasurementSystemState(system);
-    updateProfileMutation.mutate({ measurementPreference: system });
-  };
+    const handleMeasurementChange = (system: MeasurementSystem) => {
+      onMeasurementSystemChange(system);
+      updateProfileMutation.mutate({ measurementPreference: system });
+    };
 
-  const handleDecrement = () => {
-    if (servings && servings > 1) {
-      onServingsChange?.(servings - 1);
-    }
-  };
+    const handleDecrement = () => {
+      if (servings && servings > 1) {
+        onServingsChange?.(servings - 1);
+      }
+    };
 
-  const handleIncrement = () => {
-    if (servings) {
-      onServingsChange?.(servings + 1);
-    }
-  };
+    const handleIncrement = () => {
+      if (servings) {
+        onServingsChange?.(servings + 1);
+      }
+    };
 
-  const handleDismiss = () => {
-    sheetRef.current?.dismiss();
-  };
+    const handleDismiss = () => {
+      sheetRef.current?.dismiss();
+    };
 
-  return (
-    <TrueSheet
-      ref={sheetRef}
-      detents={["auto"]}
-      grabber={false}
-      backgroundColor={theme.colors.background}
-    >
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <Text type="headline">Adjust Recipe</Text>
-          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
-            <View style={styles.closeButtonCircle}>
-              <Ionicons name="close" size={16} style={styles.closeIcon} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.content}>
-          {/* Servings Stepper */}
-          <View style={styles.servingsSection}>
-            <Text type="heading" style={styles.sectionLabel}>
-              Servings
-            </Text>
-            <VSpace size={12} />
-            <View style={styles.servingsStepper}>
-              <TouchableOpacity
-                style={styles.stepperButton}
-                onPress={handleDecrement}
-                disabled={!servings || servings <= 1}
-              >
-                <Ionicons
-                  name="remove"
-                  size={24}
-                  style={[
-                    styles.stepperIcon,
-                    (!servings || servings <= 1) && styles.stepperIconDisabled,
-                  ]}
-                />
-              </TouchableOpacity>
-              <View style={styles.servingsDisplay}>
-                <Text style={styles.servingsNumber}>{servings || 1}</Text>
+    return (
+      <TrueSheet
+        ref={sheetRef}
+        detents={["auto"]}
+        grabber={false}
+        backgroundColor={theme.colors.background}
+      >
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerSpacer} />
+            <Text type="headline">Adjust Recipe</Text>
+            <TouchableOpacity
+              onPress={handleDismiss}
+              style={styles.closeButton}
+            >
+              <View style={styles.closeButtonCircle}>
+                <Ionicons name="close" size={16} style={styles.closeIcon} />
               </View>
-              <TouchableOpacity
-                style={styles.stepperButton}
-                onPress={handleIncrement}
-              >
-                <Ionicons name="add" size={24} style={styles.stepperIcon} />
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           </View>
 
-          <VSpace size={24} />
+          <View style={styles.content}>
+            {/* Servings Stepper */}
+            <View style={styles.servingsSection}>
+              <Text type="heading" style={styles.sectionLabel}>
+                Servings
+              </Text>
+              <VSpace size={12} />
+              <View style={styles.servingsStepper}>
+                <TouchableOpacity
+                  style={styles.stepperButton}
+                  onPress={handleDecrement}
+                  disabled={!servings || servings <= 1}
+                >
+                  <Ionicons
+                    name="remove"
+                    size={24}
+                    style={[
+                      styles.stepperIcon,
+                      (!servings || servings <= 1) &&
+                        styles.stepperIconDisabled,
+                    ]}
+                  />
+                </TouchableOpacity>
+                <View style={styles.servingsDisplay}>
+                  <Text style={styles.servingsNumber}>{servings || 1}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.stepperButton}
+                  onPress={handleIncrement}
+                >
+                  <Ionicons name="add" size={24} style={styles.stepperIcon} />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-          {/* Measurement Toggle */}
-          <MeasurementToggle
-            value={measurementSystem}
-            onValueChange={handleMeasurementChange}
-          />
+            <VSpace size={24} />
 
-          <VSpace size={24} />
+            {/* Measurement Toggle */}
+            <MeasurementToggle
+              value={measurementSystem}
+              onValueChange={handleMeasurementChange}
+            />
 
-          {/* Done Button */}
-          <TouchableOpacity style={styles.doneButton} onPress={handleDismiss}>
-            <Text style={styles.doneButtonText}>Done</Text>
-          </TouchableOpacity>
+            <VSpace size={24} />
+
+            {/* Done Button */}
+            <TouchableOpacity style={styles.doneButton} onPress={handleDismiss}>
+              <Text style={styles.doneButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </TrueSheet>
-  );
-});
+      </TrueSheet>
+    );
+  },
+);
 
 const styles = StyleSheet.create((theme) => ({
   container: {

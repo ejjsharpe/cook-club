@@ -42,7 +42,10 @@ interface CollectionGridProps {
   firstItemRef?: AnimatedRef<Animated.View>;
 }
 
-export const CollectionGrid = forwardRef<CollectionGridRef, CollectionGridProps>(
+export const CollectionGrid = forwardRef<
+  CollectionGridRef,
+  CollectionGridProps
+>(
   (
     {
       collections,

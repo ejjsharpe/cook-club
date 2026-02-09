@@ -13,7 +13,10 @@ export function getSelectedShoppingList(): { id: number; name: string } | null {
   return { id, name };
 }
 
-export function setSelectedShoppingList(listId: number, listName: string): void {
+export function setSelectedShoppingList(
+  listId: number,
+  listName: string,
+): void {
   storage.set(SELECTED_SHOPPING_LIST_ID_KEY, listId);
   storage.set(SELECTED_SHOPPING_LIST_NAME_KEY, listName);
 }
@@ -26,7 +29,10 @@ export function clearSelectedShoppingList(): void {
 /** Reactive hook for selected shopping list - auto-updates when MMKV changes */
 export function useSelectedShoppingList() {
   const [id, setId] = useMMKVNumber(SELECTED_SHOPPING_LIST_ID_KEY, storage);
-  const [name, setName] = useMMKVString(SELECTED_SHOPPING_LIST_NAME_KEY, storage);
+  const [name, setName] = useMMKVString(
+    SELECTED_SHOPPING_LIST_NAME_KEY,
+    storage,
+  );
 
   const selectedList = useMemo(() => {
     if (id === undefined || name === undefined) return null;

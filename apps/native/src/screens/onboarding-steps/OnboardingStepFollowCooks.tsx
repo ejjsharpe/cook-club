@@ -35,7 +35,10 @@ function UserRow({ user, isFollowing: isFollowingServer }: UserRowProps) {
   const isFollowing = optimisticFollowing ?? isFollowingServer;
 
   // Sync optimistic state back to server state once it catches up
-  if (optimisticFollowing !== null && optimisticFollowing === isFollowingServer) {
+  if (
+    optimisticFollowing !== null &&
+    optimisticFollowing === isFollowingServer
+  ) {
     setOptimisticFollowing(null);
   }
 

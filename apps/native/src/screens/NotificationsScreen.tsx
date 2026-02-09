@@ -1,4 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
+import { useTRPC } from "@repo/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
@@ -30,8 +32,6 @@ import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { setSelectedMealPlan } from "@/lib/mealPlanPreferences";
-import { useTRPC } from "@repo/trpc/client";
-import { useQueryClient } from "@tanstack/react-query";
 
 export const NotificationsScreen = () => {
   const navigation = useNavigation();
@@ -67,9 +67,9 @@ export const NotificationsScreen = () => {
   const [activeNotificationId, setActiveNotificationId] = useState<
     number | null
   >(null);
-  const [activeAction, setActiveAction] = useState<
-    "accept" | "decline" | null
-  >(null);
+  const [activeAction, setActiveAction] = useState<"accept" | "decline" | null>(
+    null,
+  );
 
   // Build lookup maps: entityId → invitation
   const mealPlanInvitationMap = useMemo(() => {
@@ -81,10 +81,7 @@ export const NotificationsScreen = () => {
   }, [pendingMealPlanInvitations]);
 
   const shoppingListInvitationMap = useMemo(() => {
-    const map = new Map<
-      number,
-      { id: number; shoppingListName: string }
-    >();
+    const map = new Map<number, { id: number; shoppingListName: string }>();
     pendingShoppingListInvitations?.forEach((inv) => {
       map.set(inv.shoppingListId, {
         id: inv.id,
@@ -117,19 +114,19 @@ export const NotificationsScreen = () => {
   const removeNotificationFromCache = useCallback(
     (notificationId: number) => {
       const filter = trpc.notification.getNotifications.pathFilter();
-      queryClient.setQueriesData<{ pages: NotificationsResponse[]; pageParams: unknown[] }>(
-        filter,
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page) => ({
-              ...page,
-              items: page.items.filter((item) => item.id !== notificationId),
-            })),
-          };
-        },
-      );
+      queryClient.setQueriesData<{
+        pages: NotificationsResponse[];
+        pageParams: unknown[];
+      }>(filter, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            items: page.items.filter((item) => item.id !== notificationId),
+          })),
+        };
+      });
     },
     [queryClient, trpc],
   );

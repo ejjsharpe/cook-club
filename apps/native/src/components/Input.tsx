@@ -14,7 +14,11 @@ export const Input = ({ label, style, rightElement, ...props }: Props) => {
       {!!label && <Text style={styles.label}>{label}</Text>}
       <View style={styles.inputRow}>
         <TextInput
-          style={[styles.input, rightElement ? styles.inputWithRight : undefined, style]}
+          style={[
+            styles.input,
+            rightElement ? styles.inputWithRight : undefined,
+            style,
+          ]}
           placeholderTextColor={styles.placeholder.color}
           {...props}
         />

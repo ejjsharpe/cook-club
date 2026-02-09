@@ -25,10 +25,8 @@ export const AccountScreen = () => {
   const [email, setEmail] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const {
-    data: usernameCheck,
-    isFetching: isCheckingUsername,
-  } = useCheckUsername(username);
+  const { data: usernameCheck, isFetching: isCheckingUsername } =
+    useCheckUsername(username);
 
   useEffect(() => {
     if (currentUser?.user) {
@@ -62,7 +60,10 @@ export const AccountScreen = () => {
     if (!hasChanges) return;
 
     if (usernameChanged && !isUsernameValid) {
-      Alert.alert("Invalid Username", usernameCheck?.reason ?? "Please choose a valid username.");
+      Alert.alert(
+        "Invalid Username",
+        usernameCheck?.reason ?? "Please choose a valid username.",
+      );
       return;
     }
 
@@ -186,7 +187,12 @@ export const AccountScreen = () => {
 
           <PrimaryButton
             onPress={handleSave}
-            disabled={!hasChanges || isSaving || isUpdating || (usernameChanged && !isUsernameValid)}
+            disabled={
+              !hasChanges ||
+              isSaving ||
+              isUpdating ||
+              (usernameChanged && !isUsernameValid)
+            }
           >
             {isSaving || isUpdating ? "Saving..." : "Save Changes"}
           </PrimaryButton>

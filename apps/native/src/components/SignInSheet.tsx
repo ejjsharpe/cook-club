@@ -45,7 +45,10 @@ export const SignInSheet = forwardRef<SignInSheetRef, SignInSheetProps>(
               await sheetRef.current?.dismiss();
               navigation.navigate("EmailVerification", { email });
             } else {
-              Alert.alert("Sign In Failed", error.message || "Please try again.");
+              Alert.alert(
+                "Sign In Failed",
+                error.message || "Please try again.",
+              );
             }
           },
         },

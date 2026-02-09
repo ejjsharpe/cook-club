@@ -55,7 +55,10 @@ export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
                 "An account with this email already exists. Please sign in instead.",
               );
             } else {
-              Alert.alert("Sign Up Failed", error.message || "Please try again.");
+              Alert.alert(
+                "Sign Up Failed",
+                error.message || "Please try again.",
+              );
             }
           },
         },

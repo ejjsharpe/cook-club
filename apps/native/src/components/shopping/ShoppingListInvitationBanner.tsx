@@ -38,8 +38,7 @@ export const ShoppingListInvitationBanner = ({
         <View style={styles.textContainer}>
           <Text type="body" style={styles.message}>
             <Text type="highlight">{invitation.inviterName}</Text> invited you
-            to{" "}
-            <Text type="highlight">{invitation.shoppingListName}</Text>
+            to <Text type="highlight">{invitation.shoppingListName}</Text>
           </Text>
         </View>
       </View>

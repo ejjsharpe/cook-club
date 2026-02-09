@@ -42,6 +42,10 @@ import {
 } from "@/api/recipe";
 import { useUser } from "@/api/user";
 import {
+  AddToMealPlanSheet,
+  type AddToMealPlanSheetRef,
+} from "@/components/mealPlan/AddToMealPlanSheet";
+import {
   AdjustRecipeSheet,
   type AdjustRecipeSheetRef,
 } from "@/components/AdjustRecipeSheet";
@@ -61,8 +65,13 @@ import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { TagChip } from "@/components/TagChip";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import type { MeasurementSystem } from "@/lib/measurementPreferences";
 import { getImageUrl } from "@/utils/imageUrl";
-import { isCompactUnit, formatUnit } from "@/utils/measurementUtils";
+import {
+  isCompactUnit,
+  formatUnit,
+  convertParsedIngredient,
+} from "@/utils/measurementUtils";
 import {
   transformParsedRecipeForPreview,
   transformParsedRecipeForSave,
@@ -140,8 +149,12 @@ export const RecipeDetailScreen = () => {
   const [activeTab, setActiveTab] = useState<TabType>("ingredients");
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [servings, setServings] = useState(1);
+  const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>(
+    (userData?.user?.measurementPreference as MeasurementSystem) ?? "auto",
+  );
   const hasInitializedServings = useRef(false);
   const adjustRecipeSheetRef = useRef<AdjustRecipeSheetRef>(null);
+  const addToMealPlanSheetRef = useRef<AddToMealPlanSheetRef>(null);
   const shoppingListSheetRef = useRef<ShoppingListSelectorSheetRef>(null);
   const collectionSheetRef = useRef<CollectionSelectorSheetRef>(null);
   const [shoppingListIngredients, setShoppingListIngredients] = useState<
@@ -316,6 +329,11 @@ export const RecipeDetailScreen = () => {
     adjustRecipeSheetRef.current?.present();
   };
 
+  // Handler for Plan button - opens meal plan sheet
+  const handleOpenMealPlanSheet = () => {
+    addToMealPlanSheetRef.current?.present();
+  };
+
   // Handler for Shop button - opens shopping list selector
   const handleOpenShoppingListSheet = () => {
     if (!recipe) return;
@@ -473,16 +491,35 @@ export const RecipeDetailScreen = () => {
             )}
 
             {section.ingredients.map((item) => {
-              const adjustedQuantity = item.quantity
+              let adjustedQuantity = item.quantity
                 ? parseFloat(item.quantity) * servingMultiplier
                 : null;
+              let displayUnit = formatUnit(item.unit, adjustedQuantity);
+
+              // Apply measurement system conversion
+              if (
+                measurementSystem !== "auto" &&
+                adjustedQuantity &&
+                item.unit
+              ) {
+                const converted = convertParsedIngredient(
+                  adjustedQuantity,
+                  item.unit,
+                  measurementSystem,
+                  item.name,
+                );
+                if (converted) {
+                  adjustedQuantity = converted.quantity;
+                  displayUnit = formatUnit(converted.unit, converted.quantity);
+                }
+              }
+
               const formattedQuantity = adjustedQuantity
                 ? adjustedQuantity % 1 === 0
                   ? adjustedQuantity.toString()
                   : adjustedQuantity.toFixed(2).replace(/\.?0+$/, "")
                 : null;
 
-              const displayUnit = formatUnit(item.unit, adjustedQuantity);
               const needsSpace = displayUnit && !isCompactUnit(displayUnit);
 
               return (
@@ -668,8 +705,9 @@ export const RecipeDetailScreen = () => {
 
               {/* Action buttons skeleton */}
               <View style={styles.actionButtonsRow}>
-                <Skeleton width="48%" height={50} borderRadius={25} />
-                <Skeleton width="48%" height={50} borderRadius={25} />
+                <Skeleton width="31%" height={50} borderRadius={25} />
+                <Skeleton width="31%" height={50} borderRadius={25} />
+                <Skeleton width="31%" height={50} borderRadius={25} />
               </View>
 
               <VSpace size={16} />
@@ -778,6 +816,18 @@ export const RecipeDetailScreen = () => {
 
                     <TouchableOpacity
                       style={styles.actionButton}
+                      onPress={handleOpenMealPlanSheet}
+                    >
+                      <Ionicons
+                        name="calendar-outline"
+                        size={22}
+                        style={styles.actionButtonIcon}
+                      />
+                      <Text style={styles.actionButtonText}>Plan</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.actionButton}
                       onPress={handleOpenShoppingListSheet}
                     >
                       <Ionicons
@@ -866,6 +916,15 @@ export const RecipeDetailScreen = () => {
         ref={adjustRecipeSheetRef}
         servings={servings}
         onServingsChange={setServings}
+        measurementSystem={measurementSystem}
+        onMeasurementSystemChange={setMeasurementSystem}
+      />
+
+      {/* Add to Meal Plan Sheet */}
+      <AddToMealPlanSheet
+        ref={addToMealPlanSheetRef}
+        recipeId={recipe?.id}
+        recipeName={recipe?.name}
       />
 
       {/* Shopping List Selector Sheet */}

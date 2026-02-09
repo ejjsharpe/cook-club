@@ -32,7 +32,6 @@
     "@tanstack/react-query": "^5.83.0",
     "@tanstack/react-query-persist-client": "^5.90.22",
     "better-auth": "^1.4.1",
-    "convert-units": "^2.3.4",
     "date-fns": "^4.1.0",
     "expo": "^54.0.0",
     "expo-blur": "^15.0.8",
@@ -70,7 +69,6 @@
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
-    "@types/convert-units": "^2.3.12",
     "@types/react": "~19.1.10",
     "@typescript-eslint/eslint-plugin": "^8.37.0",
     "@typescript-eslint/parser": "^8.37.0",

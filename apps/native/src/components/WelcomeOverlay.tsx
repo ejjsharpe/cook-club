@@ -1,3 +1,5 @@
+import { useTRPC } from "@repo/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useState } from "react";
 import Animated, {
   useAnimatedStyle,
@@ -10,9 +12,6 @@ import Animated, {
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "@/components/Text";
-
-import { useTRPC } from "@repo/trpc/client";
-import { useQueryClient } from "@tanstack/react-query";
 
 const SPRING = { damping: 20, stiffness: 170, mass: 0.8 };
 const FADE_OUT_DURATION = 500;
@@ -44,13 +43,16 @@ export function WelcomeOverlayProvider({
   const cookingTranslateY = useSharedValue(60);
 
   const updateQueryCache = useCallback(() => {
-    queryClient.setQueryData(trpc.user.getUser.queryFilter().queryKey, (old: any) => {
-      if (!old) return old;
-      return {
-        ...old,
-        user: { ...old.user, onboardingCompleted: true },
-      };
-    });
+    queryClient.setQueryData(
+      trpc.user.getUser.queryFilter().queryKey,
+      (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          user: { ...old.user, onboardingCompleted: true },
+        };
+      },
+    );
   }, [queryClient, trpc]);
 
   const unmountOverlay = useCallback(() => {
@@ -93,9 +95,12 @@ export function WelcomeOverlayProvider({
     }, 2600);
 
     // Phase 4: Unmount after fade completes
-    setTimeout(() => {
-      unmountOverlay();
-    }, 3200 + FADE_OUT_DURATION + 100);
+    setTimeout(
+      () => {
+        unmountOverlay();
+      },
+      3200 + FADE_OUT_DURATION + 100,
+    );
   }, [
     overlayOpacity,
     welcomeOpacity,

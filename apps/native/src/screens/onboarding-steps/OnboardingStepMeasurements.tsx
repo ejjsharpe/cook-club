@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { View, Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -5,7 +6,6 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
-import { useEffect } from "react";
 
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -18,7 +18,11 @@ interface Props {
 
 const SPRING_CONFIG = { damping: 15, stiffness: 150, mass: 0.8 };
 
-const options: { value: MeasurementSystem; label: string; description: string }[] = [
+const options: {
+  value: MeasurementSystem;
+  label: string;
+  description: string;
+}[] = [
   {
     value: "metric",
     label: "Metric",
@@ -71,14 +75,13 @@ function MeasurementCard({
       onPressOut={handlePressOut}
     >
       <Animated.View
-        style={[
-          styles.card,
-          isSelected && styles.cardSelected,
-          animatedStyle,
-        ]}
+        style={[styles.card, isSelected && styles.cardSelected, animatedStyle]}
       >
         <View style={styles.cardContent}>
-          <Text type="heading" style={isSelected ? styles.cardLabelSelected : undefined}>
+          <Text
+            type="heading"
+            style={isSelected ? styles.cardLabelSelected : undefined}
+          >
             {option.label}
           </Text>
           <VSpace size={4} />

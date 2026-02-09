@@ -1,11 +1,34 @@
-import convert from "convert-units";
+import { findIngredientDensity } from "./ingredientDensities";
+
+// Milliliters per unit (volume)
+const ML_PER_UNIT: Record<string, number> = {
+  tsp: 4.929,
+  Tbs: 14.787,
+  "fl-oz": 29.574,
+  cup: 236.588,
+  pnt: 473.176,
+  qt: 946.353,
+  gal: 3785.41,
+  ml: 1,
+  l: 1000,
+};
+
+// Grams per unit (weight)
+const G_PER_UNIT: Record<string, number> = {
+  oz: 28.3495,
+  lb: 453.592,
+  g: 1,
+  kg: 1000,
+};
+
+const ML_PER_CUP = 236.588;
 
 export interface MeasurementUnit {
   name: string;
   abbreviations: string[];
   type: "volume" | "weight" | "count";
   system: "metric" | "imperial" | "universal";
-  convertUnit?: string; // The unit key used by convert-units
+  convertUnit?: string;
 }
 
 // Simplified unit definitions - convert-units handles the conversion factors
@@ -227,19 +250,16 @@ export function convertMeasurement(
     return amount;
   }
 
-  // Use convert-units for conversion
   if (!fromUnit.convertUnit || !toUnit.convertUnit) {
     return null;
   }
 
-  try {
-    return convert(amount)
-      .from(fromUnit.convertUnit as any)
-      .to(toUnit.convertUnit as any);
-  } catch (error) {
-    console.warn("Conversion error:", error);
-    return null;
-  }
+  const table = fromUnit.type === "volume" ? ML_PER_UNIT : G_PER_UNIT;
+  const fromFactor = table[fromUnit.convertUnit];
+  const toFactor = table[toUnit.convertUnit];
+  if (!fromFactor || !toFactor) return null;
+
+  return (amount * fromFactor) / toFactor;
 }
 
 export function formatMeasurement(
@@ -537,6 +557,165 @@ export function detectSystemFromIngredients(
   if (metricCount > imperialCount * 2) return "metric";
   if (imperialCount > metricCount * 2) return "imperial";
   return "mixed";
+}
+
+/**
+ * Choose the best imperial volume unit for a given number of cups.
+ */
+function pickImperialVolumeUnit(cups: number): {
+  unit: string;
+  quantity: number;
+} {
+  if (cups < 0.0625) {
+    // Less than 1 tbsp worth of cups → tsp
+    const tsp = cups * (ML_PER_CUP / ML_PER_UNIT.tsp!);
+    return { unit: "tsp", quantity: Math.round(tsp * 100) / 100 };
+  }
+  if (cups < 0.25) {
+    // Less than 1/4 cup → tbsp
+    const tbsp = cups * (ML_PER_CUP / ML_PER_UNIT.Tbs!);
+    return { unit: "tbsp", quantity: Math.round(tbsp * 100) / 100 };
+  }
+  return { unit: "cup", quantity: Math.round(cups * 100) / 100 };
+}
+
+/**
+ * Round grams: whole numbers for ≥ 5g, 2 decimal places below 5g.
+ */
+function roundGrams(g: number): number {
+  if (g >= 5) return Math.round(g);
+  return Math.round(g * 100) / 100;
+}
+
+/**
+ * Convert a parsed ingredient's quantity and unit to a target measurement system.
+ * When ingredientName is provided, uses density-based conversion for volume ↔ weight.
+ * Returns null if no conversion is needed (same system, universal, or unknown unit).
+ */
+export function convertParsedIngredient(
+  quantity: number,
+  unitStr: string,
+  targetSystem: "metric" | "imperial",
+  ingredientName?: string,
+): { quantity: number; unit: string } | null {
+  const normalizedUnit = unitStr.toLowerCase().trim();
+  const fromUnit = MEASUREMENT_UNITS.find(
+    (u) =>
+      u.name === normalizedUnit ||
+      u.abbreviations.some((a) => a.toLowerCase() === normalizedUnit),
+  );
+
+  if (
+    !fromUnit ||
+    fromUnit.system === targetSystem ||
+    fromUnit.system === "universal" ||
+    fromUnit.type === "count"
+  ) {
+    return null;
+  }
+
+  // --- Density-based cross-type conversions ---
+  const gramsPerCup = ingredientName
+    ? findIngredientDensity(ingredientName)
+    : null;
+
+  if (gramsPerCup !== null) {
+    // Volume → Metric: convert to grams using density
+    if (fromUnit.type === "volume" && targetSystem === "metric") {
+      const mlFactor = ML_PER_UNIT[fromUnit.convertUnit!];
+      if (mlFactor) {
+        const cups = (quantity * mlFactor) / ML_PER_CUP;
+        const grams = cups * gramsPerCup;
+        const rounded = roundGrams(grams);
+        if (rounded >= 1000) {
+          return {
+            quantity: Math.round((rounded / 1000) * 100) / 100,
+            unit: "kg",
+          };
+        }
+        return { quantity: rounded, unit: "g" };
+      }
+    }
+
+    // Volume → Imperial: convert metric volume to cups using density
+    if (fromUnit.type === "volume" && targetSystem === "imperial") {
+      const mlFactor = ML_PER_UNIT[fromUnit.convertUnit!];
+      if (mlFactor) {
+        const cups = (quantity * mlFactor) / ML_PER_CUP;
+        return pickImperialVolumeUnit(cups);
+      }
+    }
+
+    // Metric weight → Imperial: convert to cups using density
+    if (fromUnit.type === "weight" && targetSystem === "imperial") {
+      const gFactor = G_PER_UNIT[fromUnit.convertUnit!];
+      if (gFactor) {
+        const grams = quantity * gFactor;
+        const cups = grams / gramsPerCup;
+        return pickImperialVolumeUnit(cups);
+      }
+    }
+  }
+
+  // --- Standard same-type conversions (fallback) ---
+  const targetUnits = MEASUREMENT_UNITS.filter(
+    (u) => u.system === targetSystem && u.type === fromUnit.type,
+  );
+  if (targetUnits.length === 0) return null;
+
+  let targetUnit = targetUnits[0]!;
+
+  if (fromUnit.type === "volume") {
+    if (targetSystem === "metric") {
+      const mlUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === "ml");
+      if (!mlUnit) return null;
+      const mlAmount = convertMeasurement(quantity, fromUnit, mlUnit);
+      if (mlAmount && mlAmount >= 1000) {
+        targetUnit =
+          MEASUREMENT_UNITS.find((u) => u.convertUnit === "l") || targetUnit;
+      } else {
+        targetUnit =
+          MEASUREMENT_UNITS.find((u) => u.convertUnit === "ml") || targetUnit;
+      }
+    } else {
+      if (quantity >= 0.25) {
+        targetUnit =
+          MEASUREMENT_UNITS.find((u) => u.convertUnit === "cup") || targetUnit;
+      } else {
+        targetUnit =
+          MEASUREMENT_UNITS.find((u) => u.convertUnit === "Tbs") || targetUnit;
+      }
+    }
+  } else if (fromUnit.type === "weight") {
+    if (targetSystem === "metric") {
+      const gUnit = MEASUREMENT_UNITS.find((u) => u.convertUnit === "g");
+      if (!gUnit) return null;
+      const gAmount = convertMeasurement(quantity, fromUnit, gUnit);
+      if (gAmount && gAmount >= 1000) {
+        targetUnit =
+          MEASUREMENT_UNITS.find((u) => u.convertUnit === "kg") || targetUnit;
+      } else {
+        targetUnit =
+          MEASUREMENT_UNITS.find((u) => u.convertUnit === "g") || targetUnit;
+      }
+    } else {
+      if (quantity >= 1) {
+        targetUnit =
+          MEASUREMENT_UNITS.find((u) => u.convertUnit === "lb") || targetUnit;
+      } else {
+        targetUnit =
+          MEASUREMENT_UNITS.find((u) => u.convertUnit === "oz") || targetUnit;
+      }
+    }
+  }
+
+  const convertedAmount = convertMeasurement(quantity, fromUnit, targetUnit);
+  if (convertedAmount === null) return null;
+
+  return {
+    quantity: Math.round(convertedAmount * 100) / 100,
+    unit: targetUnit.abbreviations[0] || targetUnit.name,
+  };
 }
 
 // Compact units that don't need a space between quantity and unit

@@ -16,9 +16,7 @@ const LINE_HEIGHT = 3;
 
 function Dot({ active }: { active: boolean }) {
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: withSpring(active ? 1.2 : 1, SPRING_CONFIG) },
-    ],
+    transform: [{ scale: withSpring(active ? 1.2 : 1, SPRING_CONFIG) }],
     opacity: withSpring(active ? 1 : 0.3, SPRING_CONFIG),
   }));
 

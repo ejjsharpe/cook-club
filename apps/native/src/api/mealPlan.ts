@@ -204,10 +204,7 @@ export const useCancelMealPlanInvitation = () => {
         queryClient.invalidateQueries(invitationFilter);
       },
       onError: () => {
-        Alert.alert(
-          "Error",
-          "Failed to cancel invitation. Please try again.",
-        );
+        Alert.alert("Error", "Failed to cancel invitation. Please try again.");
       },
     });
 
@@ -229,10 +226,7 @@ export const useAcceptMealPlanInvitation = () => {
         queryClient.invalidateQueries(pendingFilter);
       },
       onError: () => {
-        Alert.alert(
-          "Error",
-          "Failed to accept invitation. Please try again.",
-        );
+        Alert.alert("Error", "Failed to accept invitation. Please try again.");
       },
     });
 
@@ -252,10 +246,7 @@ export const useDeclineMealPlanInvitation = () => {
         queryClient.invalidateQueries(pendingFilter);
       },
       onError: () => {
-        Alert.alert(
-          "Error",
-          "Failed to decline invitation. Please try again.",
-        );
+        Alert.alert("Error", "Failed to decline invitation. Please try again.");
       },
     });
 

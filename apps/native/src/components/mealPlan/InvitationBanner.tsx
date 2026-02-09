@@ -37,8 +37,8 @@ export const InvitationBanner = ({
         )}
         <View style={styles.textContainer}>
           <Text type="body" style={styles.message}>
-            <Text type="highlight">{invitation.inviterName}</Text> invited you to{" "}
-            <Text type="highlight">{invitation.mealPlanName}</Text>
+            <Text type="highlight">{invitation.inviterName}</Text> invited you
+            to <Text type="highlight">{invitation.mealPlanName}</Text>
           </Text>
         </View>
       </View>

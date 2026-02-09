@@ -4,12 +4,12 @@ import { useState } from "react";
 import { View, Alert } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { authClient } from "@/lib/authClient";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
-import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { BaseButton } from "@/components/buttons/BaseButton";
+import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { authClient } from "@/lib/authClient";
 
 type EmailVerificationParams = {
   EmailVerification: {
@@ -19,7 +19,8 @@ type EmailVerificationParams = {
 
 export const EmailVerificationScreen = () => {
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<EmailVerificationParams, "EmailVerification">>();
+  const route =
+    useRoute<RouteProp<EmailVerificationParams, "EmailVerification">>();
   const { email } = route.params;
   const [isResending, setIsResending] = useState(false);
 
@@ -31,12 +32,18 @@ export const EmailVerificationScreen = () => {
         callbackURL: "cookclub://",
       });
       if (result.error) {
-        Alert.alert("Error", result.error.message ?? "Failed to resend verification email.");
+        Alert.alert(
+          "Error",
+          result.error.message ?? "Failed to resend verification email.",
+        );
       } else {
         Alert.alert("Sent", "A new verification email has been sent.");
       }
     } catch {
-      Alert.alert("Error", "Failed to resend verification email. Please try again.");
+      Alert.alert(
+        "Error",
+        "Failed to resend verification email. Please try again.",
+      );
     } finally {
       setIsResending(false);
     }
@@ -76,10 +83,7 @@ export const EmailVerificationScreen = () => {
 
         <VSpace size={32} />
 
-        <PrimaryButton
-          onPress={handleResend}
-          disabled={isResending}
-        >
+        <PrimaryButton onPress={handleResend} disabled={isResending}>
           {isResending ? "Sending..." : "Resend verification email"}
         </PrimaryButton>
 

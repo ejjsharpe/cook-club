@@ -1,5 +1,5 @@
-import type { Outputs } from "@repo/trpc/client";
 import { classifyIngredientAisle } from "@repo/shared";
+import type { Outputs } from "@repo/trpc/client";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert } from "react-native";
@@ -512,10 +512,7 @@ export const useCancelShoppingListInvitation = () => {
         queryClient.invalidateQueries(invitationFilter);
       },
       onError: () => {
-        Alert.alert(
-          "Error",
-          "Failed to cancel invitation. Please try again.",
-        );
+        Alert.alert("Error", "Failed to cancel invitation. Please try again.");
       },
     });
 
@@ -537,10 +534,7 @@ export const useAcceptShoppingListInvitation = () => {
         queryClient.invalidateQueries(pendingFilter);
       },
       onError: () => {
-        Alert.alert(
-          "Error",
-          "Failed to accept invitation. Please try again.",
-        );
+        Alert.alert("Error", "Failed to accept invitation. Please try again.");
       },
     });
 
@@ -560,10 +554,7 @@ export const useDeclineShoppingListInvitation = () => {
         queryClient.invalidateQueries(pendingFilter);
       },
       onError: () => {
-        Alert.alert(
-          "Error",
-          "Failed to decline invitation. Please try again.",
-        );
+        Alert.alert("Error", "Failed to decline invitation. Please try again.");
       },
     });
 

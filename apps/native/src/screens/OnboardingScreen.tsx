@@ -1,3 +1,5 @@
+import { useTRPC } from "@repo/trpc/client";
+import { useMutation } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
 import {
   View,
@@ -25,12 +27,9 @@ import { OnboardingStepProfile } from "./onboarding-steps/OnboardingStepProfile"
 import { useCheckUsername, useUser } from "@/api/user";
 import { OnboardingProgress } from "@/components/OnboardingProgress";
 import { SafeAreaView } from "@/components/SafeAreaView";
-import { useWelcomeOverlay } from "@/components/WelcomeOverlay";
-
-import { useTRPC } from "@repo/trpc/client";
-import { useMutation } from "@tanstack/react-query";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import { useWelcomeOverlay } from "@/components/WelcomeOverlay";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { MeasurementSystem } from "@/lib/measurementPreferences";
