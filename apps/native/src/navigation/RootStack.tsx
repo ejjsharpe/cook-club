@@ -1,6 +1,6 @@
 import {
   createStaticNavigation,
-  StaticParamList,
+  type ParamListBase,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { lazy } from "react";
@@ -30,39 +30,56 @@ import { UserProfileScreen } from "@/screens/UserProfileScreen";
 const StartScreen = lazy(() => import("@/screens/StartScreen"));
 const OnboardingScreen = lazy(() => import("@/screens/OnboardingScreen"));
 
-type RootStackParamList = StaticParamList<typeof RootStack>;
+export interface AppParamList extends ParamListBase {
+  Tabs: undefined;
+  Home: undefined;
+  Recipes: undefined;
+  "Add recipe": undefined;
+  "Meal Plan": undefined;
+  "Shopping List": undefined;
+  Start: undefined;
+  Onboarding: undefined;
+  EditProfile: undefined;
+  Settings: undefined;
+  Notifications: undefined;
+  EditRecipe: { parsedRecipe?: ParsedRecipe };
+  GenerateRecipe: undefined;
+  FridgeSnap: undefined;
+  UserProfile: { userId: string };
+  FollowsList: {
+    userId: string;
+    activeTab: "following" | "followers";
+    userName: string;
+  };
+  RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
+  CollectionDetail: { collectionId: number };
+  Account: undefined;
+  EmailVerification: { email: string };
+  CookMode: {
+    recipeName: string;
+    instructionSections: {
+      id: number;
+      name: string | null;
+      instructions: {
+        id: number;
+        instruction: string;
+        imageUrl?: string | null;
+      }[];
+    }[];
+  };
+}
 
 declare global {
   namespace ReactNavigation {
-    interface RootParamList extends RootStackParamList {
-      EditRecipe: { parsedRecipe?: ParsedRecipe };
-      GenerateRecipe: Record<string, never>;
-      FridgeSnap: Record<string, never>;
-      UserProfile: { userId: string };
-      FollowsList: {
-        userId: string;
-        activeTab: "following" | "followers";
-        userName: string;
-      };
-      RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
-      CollectionDetail: { collectionId: number };
-      Account: Record<string, never>;
-      EmailVerification: { email: string };
-      CookMode: {
-        recipeName: string;
-        instructionSections: {
-          id: number;
-          name: string | null;
-          instructions: {
-            id: number;
-            instruction: string;
-            imageUrl?: string | null;
-          }[];
-        }[];
-      };
-      [key: string]: undefined;
-    }
+    interface RootParamList extends AppParamList {}
   }
+}
+
+const RootNavigator = createNativeStackNavigator<AppParamList>();
+type RootNavigatorType = typeof RootNavigator;
+
+declare module "@react-navigation/core" {
+  interface RootNavigator extends RootNavigatorType {}
 }
 
 const RootStack = createNativeStackNavigator({

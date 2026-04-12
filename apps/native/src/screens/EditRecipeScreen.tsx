@@ -27,6 +27,12 @@ import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { useImageUpload } from "@/hooks/useImageUpload";
 
+type EditRecipeScreenParams = {
+  EditRecipe: {
+    parsedRecipe?: ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"];
+  };
+};
+
 interface ParsedIngredient {
   quantity: number | null;
   unit: string | null;
@@ -48,8 +54,7 @@ interface MethodSection {
 }
 
 export default function EditRecipeScreen() {
-  const route =
-    useRoute<RouteProp<ReactNavigation.RootParamList, "EditRecipe">>();
+  const route = useRoute<EditRecipeScreenParams>("EditRecipe");
   const insets = useSafeAreaInsets();
   const parsedRecipe = route.params?.parsedRecipe;
   // Extract the recipe data if parsing was successful

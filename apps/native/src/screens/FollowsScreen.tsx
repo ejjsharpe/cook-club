@@ -47,7 +47,7 @@ type FollowsScreenParams = {
 type FollowsScreenRouteProp = RouteProp<FollowsScreenParams, "FollowsList">;
 
 export const FollowsScreen = () => {
-  const route = useRoute<FollowsScreenRouteProp>();
+  const route = useRoute<FollowsScreenParams>("FollowsList");
   const navigation = useNavigation();
   const { userId, activeTab: initialTab, userName } = route.params;
 

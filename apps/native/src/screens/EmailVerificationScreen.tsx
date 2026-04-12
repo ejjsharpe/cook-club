@@ -19,8 +19,7 @@ type EmailVerificationParams = {
 
 export const EmailVerificationScreen = () => {
   const navigation = useNavigation();
-  const route =
-    useRoute<RouteProp<EmailVerificationParams, "EmailVerification">>();
+  const route = useRoute<EmailVerificationParams>("EmailVerification");
   const { email } = route.params;
   const [isResending, setIsResending] = useState(false);
 

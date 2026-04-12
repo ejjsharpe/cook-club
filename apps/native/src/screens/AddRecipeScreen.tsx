@@ -125,7 +125,7 @@ export const AddRecipeScreen = () => {
   };
 
   const onPressAIChef = () => {
-    navigate("GenerateRecipe", {});
+    navigate("GenerateRecipe");
   };
 
   const onPressBasicImport = () => {
@@ -133,7 +133,7 @@ export const AddRecipeScreen = () => {
   };
 
   const onPressFridgeSnap = () => {
-    navigate("FridgeSnap", {});
+    navigate("FridgeSnap");
   };
 
   return (

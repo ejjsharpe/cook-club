@@ -1,4 +1,4 @@
-import { createNativeBottomTabNavigator } from "@react-navigation/bottom-tabs/unstable";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { UnistylesRuntime } from "react-native-unistyles";
 
 import { ShareIntentHandler } from "@/components/ShareIntentHandler";
@@ -8,7 +8,7 @@ import { MealPlanScreen } from "@/screens/MealPlanScreen";
 import { MyRecipesScreen } from "@/screens/MyRecipesScreen";
 import { ShoppingListScreen } from "@/screens/ShoppingListScreen";
 
-const Tab = createNativeBottomTabNavigator();
+const Tab = createBottomTabNavigator();
 
 export const TabNavigator = () => {
   const theme = UnistylesRuntime.getTheme();

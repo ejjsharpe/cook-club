@@ -58,8 +58,7 @@ const HEADER_HEIGHT = 52; // Height of the title row
 
 export const MealPlanScreen = () => {
   const { theme } = useUnistyles();
-  const navigation =
-    useNavigation<NativeStackNavigationProp<ReactNavigation.RootParamList>>();
+  const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
 
   // Refs

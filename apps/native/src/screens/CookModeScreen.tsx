@@ -54,7 +54,7 @@ export const CookModeScreen = () => {
   // Keep screen awake during cooking
   useKeepAwake();
 
-  const route = useRoute<CookModeScreenRouteProp>();
+  const route = useRoute<CookModeScreenParams>("CookMode");
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);

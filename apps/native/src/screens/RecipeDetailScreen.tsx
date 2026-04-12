@@ -31,7 +31,7 @@ import Animated, {
   useAnimatedScrollHandler,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
 
 import {
   useRecipeDetail,
@@ -50,15 +50,12 @@ import {
   type CollectionSelectorSheetRef,
 } from "@/components/CollectionSelectorSheet";
 import { PageIndicator } from "@/components/PageIndicator";
-import { SegmentedControl, TabOption } from "@/components/SegmentedControl";
 import {
   ShoppingListSelectorSheet,
   type ShoppingListSelectorSheetRef,
 } from "@/components/ShoppingListSelectorSheet";
 import { Skeleton } from "@/components/Skeleton";
 import { VSpace, HSpace } from "@/components/Space";
-import { SwipeableTabView } from "@/components/SwipeableTabView";
-import { TagChip } from "@/components/TagChip";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import {
@@ -103,16 +100,9 @@ interface RecipeImage {
   url: string;
 }
 
-type TabType = "ingredients" | "method";
-
-const TAB_OPTIONS: TabOption<TabType>[] = [
-  { value: "ingredients", label: "Ingredients" },
-  { value: "method", label: "Method" },
-];
-
 export const RecipeDetailScreen = () => {
-  const route = useRoute<RecipeDetailScreenRouteProp>();
-  const navigation = useNavigation<any>();
+  const route = useRoute<RecipeDetailScreenParams>("RecipeDetail");
+  const navigation = useNavigation("RecipeDetail");
   const insets = useSafeAreaInsets();
   const params = route.params;
 
@@ -144,8 +134,6 @@ export const RecipeDetailScreen = () => {
   // For preview mode: save recipe mutation
   const saveRecipeMutation = useSaveRecipe();
 
-  const [activeTab, setActiveTab] = useState<TabType>("ingredients");
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [servings, setServings] = useState(1);
   const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>(
     (userData?.user?.measurementPreference as MeasurementSystem) ?? "auto",
@@ -178,9 +166,6 @@ export const RecipeDetailScreen = () => {
     },
     [currentImageIndex],
   );
-
-  // Shared value for syncing tab swipe with underline
-  const scrollProgress = useSharedValue(0);
 
   // Ref and scroll offset for parallax effects
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -407,16 +392,6 @@ export const RecipeDetailScreen = () => {
   const handleEditPreviewRecipe = () => {
     if (!parsedRecipe) return;
     navigation.navigate("EditRecipe", { parsedRecipe });
-  };
-
-  const handleTabChange = (tab: TabType, _direction: number) => {
-    setActiveTab(tab);
-    setActiveTabIndex(tab === "ingredients" ? 0 : 1);
-  };
-
-  const handleSwipeTabChange = (index: number) => {
-    setActiveTabIndex(index);
-    setActiveTab(index === 0 ? "ingredients" : "method");
   };
 
   // Show error state only when not loading, not in preview mode, and there's an error or no recipe
@@ -694,7 +669,7 @@ export const RecipeDetailScreen = () => {
             // Loading skeleton content
             <>
               {/* Times Row skeleton */}
-              <View style={styles.timesRow}>
+              <View style={styles.statsRow}>
                 <Skeleton width={100} height={18} borderRadius={4} />
                 <Skeleton width={100} height={18} borderRadius={4} />
               </View>
@@ -703,18 +678,14 @@ export const RecipeDetailScreen = () => {
 
               {/* Action buttons skeleton */}
               <View style={styles.actionButtonsRow}>
-                <Skeleton width="31%" height={50} borderRadius={25} />
-                <Skeleton width="31%" height={50} borderRadius={25} />
-                <Skeleton width="31%" height={50} borderRadius={25} />
+                <Skeleton width="48%" height={50} borderRadius={25} />
+                <Skeleton width="48%" height={50} borderRadius={25} />
               </View>
 
               <VSpace size={16} />
 
-              {/* Tab bar skeleton */}
-              <View style={styles.tabBarSkeleton}>
-                <Skeleton width="45%" height={20} borderRadius={4} />
-                <Skeleton width="45%" height={20} borderRadius={4} />
-              </View>
+              {/* Section heading skeleton */}
+              <Skeleton width={120} height={24} borderRadius={4} />
 
               <VSpace size={24} />
 
@@ -732,22 +703,104 @@ export const RecipeDetailScreen = () => {
           ) : recipe ? (
             // Loaded recipe content
             <>
+              {/* Description (if exists) */}
+              {recipe.description && (
+                <>
+                  <Text type="body" style={styles.recipeDescription}>
+                    {recipe.description}
+                  </Text>
+                  <VSpace size={8} />
+                </>
+              )}
+
+              {/* Tags */}
+              {recipe.tags && recipe.tags.length > 0 && (
+                <>
+                  <View style={styles.tagsRow}>
+                    <Ionicons
+                      name="pricetag-outline"
+                      size={14}
+                      style={styles.tagsIcon}
+                    />
+                    <Text style={styles.tagsText}>
+                      {recipe.tags.map((tag) => tag.name).join(", ")}
+                    </Text>
+                  </View>
+                  <VSpace size={24} />
+                </>
+              )}
+
+              {/* Stats Row */}
+              <View style={styles.statsRow}>
+                {(() => {
+                  const items: React.ReactNode[] = [];
+                  if (recipe.prepTime) {
+                    items.push(
+                      <View key="prep" style={styles.timeItem}>
+                        <Text style={styles.timeLabel}>Prep</Text>
+                        <Text style={styles.timeValue}>
+                          {formatMinutesShort(recipe.prepTime)}
+                        </Text>
+                      </View>,
+                    );
+                  }
+                  if (recipe.cookTime) {
+                    items.push(
+                      <View key="cook" style={styles.timeItem}>
+                        <Text style={styles.timeLabel}>Cook</Text>
+                        <Text style={styles.timeValue}>
+                          {formatMinutesShort(recipe.cookTime)}
+                        </Text>
+                      </View>,
+                    );
+                  }
+                  if (isOwnRecipe && !isPreviewMode) {
+                    items.push(
+                      <View key="rating" style={styles.timeItem}>
+                        <Text style={styles.timeLabel}>Rating</Text>
+                        <View style={styles.starsContainer}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Ionicons
+                              key={star}
+                              name={
+                                recipe.userReviewRating &&
+                                star <= recipe.userReviewRating
+                                  ? "star"
+                                  : "star-outline"
+                              }
+                              size={14}
+                              style={
+                                recipe.userReviewRating &&
+                                star <= recipe.userReviewRating
+                                  ? styles.starFilled
+                                  : styles.starEmpty
+                              }
+                            />
+                          ))}
+                        </View>
+                      </View>,
+                    );
+                  }
+
+                  return items.flatMap((item, i) =>
+                    i === 0
+                      ? [item]
+                      : [
+                          <View
+                            key={`sep-${i}`}
+                            style={styles.statsSeparator}
+                          />,
+                          item,
+                        ],
+                  );
+                })()}
+              </View>
+              <VSpace size={24} />
+
               {/* Action Buttons Row - Own recipes only */}
               {isOwnRecipe && !isPreviewMode && (
                 <>
                   <View style={styles.actionButtonsRow}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={handleOpenAdjustSheet}
-                    >
-                      <Ionicons
-                        name="options-outline"
-                        size={22}
-                        style={styles.actionButtonIcon}
-                      />
-                      <Text style={styles.actionButtonText}>Adjust</Text>
-                    </TouchableOpacity>
-
                     <TouchableOpacity
                       style={styles.actionButton}
                       onPress={handleOpenMealPlanSheet}
@@ -773,48 +826,6 @@ export const RecipeDetailScreen = () => {
                     </TouchableOpacity>
                   </View>
                   <VSpace size={16} />
-                </>
-              )}
-              {/* Cook Times */}
-              <View style={styles.timesRow}>
-                {recipe.prepTime && (
-                  <View style={styles.timeItem}>
-                    <Text style={styles.timeLabel}>Prep</Text>
-                    <Text style={styles.timeValue}>
-                      {formatMinutesShort(recipe.prepTime)}
-                    </Text>
-                  </View>
-                )}
-                {recipe.cookTime && (
-                  <View style={styles.timeItem}>
-                    <Text style={styles.timeLabel}>Cook</Text>
-                    <Text style={styles.timeValue}>
-                      {formatMinutesShort(recipe.cookTime)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <VSpace size={16} />
-
-              {/* Description (if exists) */}
-              {recipe.description && (
-                <>
-                  <Text type="body" style={styles.recipeDescription}>
-                    {recipe.description}
-                  </Text>
-                  <VSpace size={16} />
-                </>
-              )}
-
-              {/* Tags */}
-              {recipe.tags && recipe.tags.length > 0 && (
-                <>
-                  <VSpace size={12} />
-                  <View style={styles.tagsRow}>
-                    {recipe.tags.map((tag) => (
-                      <TagChip key={tag.id} label={tag.name} size="small" />
-                    ))}
-                  </View>
                 </>
               )}
 
@@ -857,29 +868,30 @@ export const RecipeDetailScreen = () => {
                 </>
               )}
 
-              {/* Full Width Tabs */}
-              <SegmentedControl
-                options={TAB_OPTIONS}
-                value={activeTab}
-                onValueChange={handleTabChange}
-                scrollProgress={scrollProgress}
-                fullWidth
-              />
-
-              <VSpace size={24} />
-
-              {/* Swipeable Tab Content - breaks out of card padding for edge-to-edge swipe */}
-              <View style={styles.tabViewWrapper}>
-                <SwipeableTabView
-                  activeIndex={activeTabIndex}
-                  onIndexChange={handleSwipeTabChange}
-                  containerWidth={SCREEN_WIDTH}
-                  scrollProgress={scrollProgress}
-                >
-                  {renderIngredients()}
-                  {renderMethod()}
-                </SwipeableTabView>
+              {/* Ingredients Section */}
+              <View style={styles.sectionHeadingRow}>
+                <Text style={styles.sectionHeading}>Ingredients</Text>
+                {isOwnRecipe && !isPreviewMode && (
+                  <TouchableOpacity
+                    style={styles.adjustInlineButton}
+                    onPress={handleOpenAdjustSheet}
+                  >
+                    <Ionicons
+                      name="options-outline"
+                      size={18}
+                      style={styles.adjustInlineIcon}
+                    />
+                    <Text style={styles.adjustInlineText}>Adjust</Text>
+                  </TouchableOpacity>
+                )}
               </View>
+              {renderIngredients()}
+
+              <VSpace size={32} />
+
+              {/* Method Section */}
+              <Text style={styles.sectionHeading}>Method</Text>
+              {renderMethod()}
 
               <VSpace size={isPreviewMode || !isOwnRecipe ? 100 : 40} />
             </>
@@ -1077,12 +1089,20 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 400,
   },
   recipeTitle: {},
-  timesRow: {
+  statsRow: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 16,
   },
+  statsSeparator: {
+    width: 1,
+    height: 20,
+    backgroundColor: theme.colors.border,
+  },
   timeItem: {
-    alignItems: "flex-start",
+    flex: 1,
+    alignItems: "center",
   },
   timeLabel: {
     fontSize: 13,
@@ -1097,21 +1117,37 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.text,
     marginTop: 2,
   },
+  starsContainer: {
+    flexDirection: "row",
+    gap: 2,
+    marginTop: 2,
+  },
+  starFilled: {
+    color: theme.colors.primary,
+  },
+  starEmpty: {
+    color: theme.colors.border,
+  },
   tagsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    alignItems: "center",
+    gap: 6,
+  },
+  tagsIcon: {
+    color: theme.colors.textSecondary,
+  },
+  tagsText: {
+    flex: 1,
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.semiBold,
   },
   recipeDescription: {
-    color: theme.colors.textSecondary,
     lineHeight: 22,
+    fontFamily: theme.fonts.regular,
   },
 
   // Loading skeleton styles
-  tabBarSkeleton: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
   ingredientItemSkeleton: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -1249,12 +1285,8 @@ const styles = StyleSheet.create((theme) => ({
   },
 
   // Tab Content
-  tabViewWrapper: {
-    marginHorizontal: -20,
-  },
   tabContent: {
     minHeight: 200,
-    paddingHorizontal: 20,
   },
   sectionHeader: {
     paddingTop: 8,
@@ -1266,6 +1298,35 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.textSecondary,
     letterSpacing: 0.5,
     fontFamily: theme.fonts.semiBold,
+  },
+
+  // Section Headings
+  sectionHeadingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sectionHeading: {
+    fontSize: 22,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.text,
+  },
+  adjustInlineButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: theme.colors.inputBackground,
+  },
+  adjustInlineIcon: {
+    color: theme.colors.textSecondary,
+  },
+  adjustInlineText: {
+    fontSize: 14,
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.textSecondary,
   },
 
   // Ingredients

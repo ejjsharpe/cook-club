@@ -46,7 +46,7 @@ type UserProfileScreenRouteProp = RouteProp<
 >;
 
 export const UserProfileScreen = () => {
-  const route = useRoute<UserProfileScreenRouteProp>();
+  const route = useRoute<UserProfileScreenParams>("UserProfile");
   const navigation = useNavigation();
   const { userId } = route.params;
   const trpc = useTRPC();

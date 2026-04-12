@@ -30,7 +30,7 @@ type CollectionDetailScreenRouteProp = RouteProp<
 >;
 
 export const CollectionDetailScreen = () => {
-  const route = useRoute<CollectionDetailScreenRouteProp>();
+  const route = useRoute<CollectionDetailScreenParams>("CollectionDetail");
   const navigation = useNavigation();
   const { collectionId } = route.params;
 
