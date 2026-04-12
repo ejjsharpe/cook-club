@@ -42,10 +42,6 @@ import {
 } from "@/api/recipe";
 import { useUser } from "@/api/user";
 import {
-  AddToMealPlanSheet,
-  type AddToMealPlanSheetRef,
-} from "@/components/mealPlan/AddToMealPlanSheet";
-import {
   AdjustRecipeSheet,
   type AdjustRecipeSheetRef,
 } from "@/components/AdjustRecipeSheet";
@@ -65,6 +61,10 @@ import { SwipeableTabView } from "@/components/SwipeableTabView";
 import { TagChip } from "@/components/TagChip";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import {
+  AddToMealPlanSheet,
+  type AddToMealPlanSheetRef,
+} from "@/components/mealPlan/AddToMealPlanSheet";
 import type { MeasurementSystem } from "@/lib/measurementPreferences";
 import { getImageUrl } from "@/utils/imageUrl";
 import {
@@ -79,10 +79,8 @@ import {
 } from "@/utils/recipeTransform";
 import { formatMinutesShort } from "@/utils/timeUtils";
 
-const insets = UnistylesRuntime.insets;
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const IMAGE_HEIGHT = SCREEN_WIDTH + insets.top;
+const IMAGE_HEIGHT = SCREEN_WIDTH;
 
 type RecipeDetailScreenParams = {
   RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
@@ -734,70 +732,6 @@ export const RecipeDetailScreen = () => {
           ) : recipe ? (
             // Loaded recipe content
             <>
-              {/* Description (if exists) */}
-              {recipe.description && (
-                <>
-                  <Text type="body" style={styles.recipeDescription}>
-                    {recipe.description}
-                  </Text>
-                  <VSpace size={16} />
-                </>
-              )}
-
-              {/* Cook Times */}
-              <View style={styles.timesRow}>
-                {recipe.prepTime && (
-                  <View style={styles.timeItem}>
-                    <Ionicons
-                      name="timer-outline"
-                      size={18}
-                      style={styles.timeIcon}
-                    />
-                    <Text type="subheadline" style={styles.timeIcon}>
-                      Prep: {formatMinutesShort(recipe.prepTime)}
-                    </Text>
-                  </View>
-                )}
-                {recipe.cookTime && (
-                  <View style={styles.timeItem}>
-                    <Ionicons
-                      name="flame-outline"
-                      size={18}
-                      style={styles.timeIcon}
-                    />
-                    <Text type="subheadline" style={styles.timeIcon}>
-                      Cook: {formatMinutesShort(recipe.cookTime)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Tags */}
-              {recipe.tags && recipe.tags.length > 0 && (
-                <>
-                  <VSpace size={12} />
-                  <View style={styles.tagsRow}>
-                    {recipe.tags.map((tag) => (
-                      <TagChip key={tag.id} label={tag.name} size="small" />
-                    ))}
-                  </View>
-                </>
-              )}
-
-              {/* Attribution for imported recipes */}
-              {isOwnRecipe &&
-                recipe.sourceType === "user" &&
-                recipe.originalOwner && (
-                  <>
-                    <VSpace size={8} />
-                    <Text type="footnote" style={styles.attributionText}>
-                      Originally from @{recipe.originalOwner.name}
-                    </Text>
-                  </>
-                )}
-
-              <VSpace size={16} />
-
               {/* Action Buttons Row - Own recipes only */}
               {isOwnRecipe && !isPreviewMode && (
                 <>
@@ -839,6 +773,48 @@ export const RecipeDetailScreen = () => {
                     </TouchableOpacity>
                   </View>
                   <VSpace size={16} />
+                </>
+              )}
+              {/* Cook Times */}
+              <View style={styles.timesRow}>
+                {recipe.prepTime && (
+                  <View style={styles.timeItem}>
+                    <Text style={styles.timeLabel}>Prep</Text>
+                    <Text style={styles.timeValue}>
+                      {formatMinutesShort(recipe.prepTime)}
+                    </Text>
+                  </View>
+                )}
+                {recipe.cookTime && (
+                  <View style={styles.timeItem}>
+                    <Text style={styles.timeLabel}>Cook</Text>
+                    <Text style={styles.timeValue}>
+                      {formatMinutesShort(recipe.cookTime)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <VSpace size={16} />
+
+              {/* Description (if exists) */}
+              {recipe.description && (
+                <>
+                  <Text type="body" style={styles.recipeDescription}>
+                    {recipe.description}
+                  </Text>
+                  <VSpace size={16} />
+                </>
+              )}
+
+              {/* Tags */}
+              {recipe.tags && recipe.tags.length > 0 && (
+                <>
+                  <VSpace size={12} />
+                  <View style={styles.tagsRow}>
+                    {recipe.tags.map((tag) => (
+                      <TagChip key={tag.id} label={tag.name} size="small" />
+                    ))}
+                  </View>
                 </>
               )}
 
@@ -1106,12 +1082,20 @@ const styles = StyleSheet.create((theme) => ({
     gap: 16,
   },
   timeItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+    alignItems: "flex-start",
   },
-  timeIcon: {
+  timeLabel: {
+    fontSize: 13,
+    fontFamily: theme.fonts.semiBold,
     color: theme.colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  timeValue: {
+    fontSize: 17,
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
+    marginTop: 2,
   },
   tagsRow: {
     flexDirection: "row",
