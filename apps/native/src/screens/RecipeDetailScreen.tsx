@@ -344,6 +344,7 @@ export const RecipeDetailScreen = () => {
 
     navigation.navigate("CookMode", {
       recipeName: recipe.name,
+      ingredientSections: recipe.ingredientSections,
       instructionSections: recipe.instructionSections,
     });
   };

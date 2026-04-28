@@ -1,28 +1,47 @@
 import { Ionicons } from "@expo/vector-icons";
-import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { useKeepAwake } from "expo-keep-awake";
-import { useRef, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import {
-  View,
+  Modal,
+  ScrollView,
   TouchableOpacity,
-  Dimensions,
-  FlatList,
-  ViewToken,
+  useWindowDimensions,
+  View,
 } from "react-native";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  type SharedValue,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { getImageUrl } from "@/utils/imageUrl";
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface Instruction {
   id: number;
   instruction: string;
   imageUrl?: string | null;
+}
+
+interface Ingredient {
+  id: number;
+  quantity: string | null;
+  unit: string | null;
+  name: string;
+  preparation: string | null;
+}
+
+interface IngredientSection {
+  id: number;
+  name: string | null;
+  ingredients: Ingredient[];
 }
 
 interface InstructionSection {
@@ -34,13 +53,13 @@ interface InstructionSection {
 type CookModeScreenParams = {
   CookMode: {
     recipeName: string;
+    ingredientSections: IngredientSection[];
     instructionSections: InstructionSection[];
   };
 };
 
 type CookModeScreenRouteProp = RouteProp<CookModeScreenParams, "CookMode">;
 
-// Flatten instructions with section context
 interface FlattenedInstruction {
   id: number;
   stepNumber: number;
@@ -50,150 +69,115 @@ interface FlattenedInstruction {
   isFirstInSection: boolean;
 }
 
-export const CookModeScreen = () => {
-  // Keep screen awake during cooking
-  useKeepAwake();
+interface InstructionListItemProps {
+  item: FlattenedInstruction;
+  index: number;
+  itemHeight: number;
+  scrollY: SharedValue<number>;
+}
 
-  const route = useRoute<CookModeScreenParams>("CookMode");
-  const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
-  const flatListRef = useRef<FlatList>(null);
+const InstructionListItem = ({
+  item,
+  index,
+  itemHeight,
+  scrollY,
+}: InstructionListItemProps) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    const center = index * itemHeight;
+    const opacity = interpolate(
+      scrollY.value,
+      [center - itemHeight, center, center + itemHeight],
+      [0.18, 1, 0.18],
+      Extrapolation.CLAMP,
+    );
 
-  const { recipeName, instructionSections } = route.params;
-
-  // Flatten instructions from all sections
-  const flattenedInstructions: FlattenedInstruction[] = [];
-  let globalStepNumber = 0;
-
-  instructionSections.forEach((section) => {
-    section.instructions.forEach((instruction, idx) => {
-      globalStepNumber++;
-      flattenedInstructions.push({
-        id: instruction.id,
-        stepNumber: globalStepNumber,
-        instruction: instruction.instruction,
-        imageUrl: instruction.imageUrl,
-        sectionName: section.name,
-        isFirstInSection: idx === 0,
-      });
-    });
+    return { opacity };
   });
 
-  const totalSteps = flattenedInstructions.length;
-  const [currentStep, setCurrentStep] = useState(0);
+  return (
+    <Animated.View
+      style={[styles.instructionItem, { height: itemHeight }, animatedStyle]}
+    >
+      {item.sectionName && item.isFirstInSection && (
+        <Text style={styles.sectionName}>{item.sectionName}</Text>
+      )}
 
-  const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const firstItem = viewableItems[0];
-      if (viewableItems.length > 0 && firstItem?.index != null) {
-        setCurrentStep(firstItem.index);
-      }
-    },
-    [],
-  );
-
-  const viewabilityConfig = {
-    viewAreaCoveragePercentThreshold: 50,
-  };
-
-  const goToStep = (stepIndex: number) => {
-    if (stepIndex >= 0 && stepIndex < totalSteps) {
-      flatListRef.current?.scrollToIndex({ index: stepIndex, animated: true });
-    }
-  };
-
-  const renderInstruction = ({
-    item,
-    index,
-  }: {
-    item: FlattenedInstruction;
-    index: number;
-  }) => {
-    const isFirstStep = index === 0;
-    const isLastStep = index === totalSteps - 1;
-
-    return (
-      <View style={styles.instructionPage}>
-        {/* Instruction Image */}
-        {item.imageUrl && (
-          <View style={styles.imageContainer}>
-            <Image
-              source={{ uri: getImageUrl(item.imageUrl, "step-full") }}
-              style={styles.instructionImage}
-              contentFit="cover"
-            />
-          </View>
-        )}
-
-        <View
-          style={[
-            styles.instructionContent,
-            !item.imageUrl && styles.instructionContentNoImage,
-          ]}
-        >
-          {/* Section Name */}
-          {item.sectionName && item.isFirstInSection && (
-            <>
-              <Text style={styles.sectionName}>{item.sectionName}</Text>
-              <VSpace size={8} />
-            </>
-          )}
-
-          {/* Step Number */}
-          <Text style={styles.stepNumber}>Step {item.stepNumber}</Text>
-          <VSpace size={16} />
-
-          {/* Instruction Text */}
-          <Text style={styles.instructionText}>{item.instruction}</Text>
-
-          <VSpace size={32} />
-
-          {/* Navigation Arrows */}
-          <View style={styles.navArrows}>
-            <TouchableOpacity
-              style={[
-                styles.navArrowButton,
-                isFirstStep && styles.navArrowButtonDisabled,
-              ]}
-              onPress={() => goToStep(index - 1)}
-              disabled={isFirstStep}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={28}
-                style={[
-                  styles.navArrowIcon,
-                  isFirstStep && styles.navArrowIconDisabled,
-                ]}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.navArrowButton,
-                isLastStep && styles.navArrowButtonDisabled,
-              ]}
-              onPress={() => goToStep(index + 1)}
-              disabled={isLastStep}
-            >
-              <Ionicons
-                name="chevron-forward"
-                size={28}
-                style={[
-                  styles.navArrowIcon,
-                  isLastStep && styles.navArrowIconDisabled,
-                ]}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
+      <View style={styles.stepHeader}>
+        <Text style={styles.stepNumber}>{item.stepNumber}</Text>
       </View>
-    );
-  };
+
+      <Text style={styles.instructionText}>{item.instruction}</Text>
+
+      {item.imageUrl && (
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: getImageUrl(item.imageUrl, "step-full") }}
+            style={styles.instructionImage}
+            contentFit="cover"
+          />
+        </View>
+      )}
+    </Animated.View>
+  );
+};
+
+const formatIngredient = (ingredient: Ingredient) => {
+  const parts = [
+    ingredient.quantity,
+    ingredient.unit,
+    ingredient.name,
+    ingredient.preparation,
+  ].filter(Boolean);
+
+  return parts.join(" ");
+};
+
+export const CookModeScreen = () => {
+  useKeepAwake();
+
+  const route = useRoute() as CookModeScreenRouteProp;
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const scrollY = useSharedValue(0);
+
+  const { recipeName, ingredientSections, instructionSections } = route.params;
+
+  const flattenedInstructions = useMemo(() => {
+    const instructions: FlattenedInstruction[] = [];
+    let globalStepNumber = 0;
+
+    instructionSections.forEach((section) => {
+      section.instructions.forEach((instruction, idx) => {
+        globalStepNumber++;
+        instructions.push({
+          id: instruction.id,
+          stepNumber: globalStepNumber,
+          instruction: instruction.instruction,
+          imageUrl: instruction.imageUrl,
+          sectionName: section.name,
+          isFirstInSection: idx === 0,
+        });
+      });
+    });
+
+    return instructions;
+  }, [instructionSections]);
+
+  const totalSteps = flattenedInstructions.length;
+  const [ingredientsVisible, setIngredientsVisible] = useState(false);
+
+  const itemHeight = Math.max(Math.min(windowHeight * 0.36, 350), 240);
+  const centeredItemInset = Math.max((windowHeight - itemHeight) / 2, 0);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.closeButton}
@@ -206,50 +190,102 @@ export const CookModeScreen = () => {
             {recipeName}
           </Text>
         </View>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity
+          style={styles.ingredientsButton}
+          onPress={() => setIngredientsVisible(true)}
+        >
+          <Ionicons
+            name="list"
+            size={18}
+            style={styles.ingredientsButtonIcon}
+          />
+          <Text style={styles.ingredientsButtonText}>Ingredients</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Instructions Carousel */}
-      <FlatList
-        ref={flatListRef}
-        data={flattenedInstructions}
-        renderItem={renderInstruction}
-        keyExtractor={(item) => item.id.toString()}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={handleViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        getItemLayout={(_, index) => ({
-          length: SCREEN_WIDTH,
-          offset: SCREEN_WIDTH * index,
-          index,
-        })}
-      />
-
-      {/* Progress Indicator */}
-      <View
-        style={[
-          styles.progressContainer,
-          { paddingBottom: insets.bottom + 16 },
-        ]}
-      >
-        <View style={styles.progressDots}>
-          {flattenedInstructions.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.progressDot,
-                index === currentStep && styles.progressDotActive,
-                index < currentStep && styles.progressDotCompleted,
-              ]}
+      {totalSteps > 0 ? (
+        <Animated.FlatList
+          data={flattenedInstructions}
+          renderItem={({ item, index }) => (
+            <InstructionListItem
+              item={item}
+              index={index}
+              itemHeight={itemHeight}
+              scrollY={scrollY}
             />
-          ))}
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={{
+            paddingTop: centeredItemInset,
+            paddingBottom: centeredItemInset,
+          }}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={itemHeight}
+          decelerationRate="fast"
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          getItemLayout={(_, index) => ({
+            length: itemHeight,
+            offset: itemHeight * index,
+            index,
+          })}
+        />
+      ) : (
+        <View style={styles.emptyState}>
+          <Text style={styles.instructionText}>No instructions available.</Text>
         </View>
-        <Text style={styles.progressText}>
-          {currentStep + 1} of {totalSteps}
-        </Text>
-      </View>
+      )}
+
+      <Modal
+        visible={ingredientsVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIngredientsVisible(false)}
+      >
+        <View style={styles.ingredientsSheet}>
+          <View
+            style={[
+              styles.ingredientsSheetHeader,
+              { paddingTop: insets.top + 8 },
+            ]}
+          >
+            <Text type="headline" style={styles.ingredientsSheetTitle}>
+              Ingredients
+            </Text>
+            <TouchableOpacity
+              style={styles.sheetCloseButton}
+              onPress={() => setIngredientsVisible(false)}
+            >
+              <Ionicons name="close" size={24} style={styles.closeIcon} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            contentContainerStyle={[
+              styles.ingredientsList,
+              { paddingBottom: insets.bottom + 24 },
+            ]}
+          >
+            {ingredientSections.map((section) => (
+              <View key={section.id} style={styles.ingredientsSection}>
+                {section.name && (
+                  <Text style={styles.ingredientsSectionTitle}>
+                    {section.name}
+                  </Text>
+                )}
+                {section.ingredients.map((ingredient) => (
+                  <View key={ingredient.id} style={styles.ingredientRow}>
+                    <View style={styles.ingredientBullet} />
+                    <Text style={styles.ingredientText}>
+                      {formatIngredient(ingredient)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -260,12 +296,16 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
   },
   header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    backgroundColor: "transparent",
   },
   closeButton: {
     width: 44,
@@ -278,105 +318,128 @@ const styles = StyleSheet.create((theme) => ({
   },
   headerTitleContainer: {
     flex: 1,
-    alignItems: "center",
     paddingHorizontal: 8,
   },
   headerTitle: {
-    textAlign: "center",
+    textAlign: "left",
   },
-  headerSpacer: {
-    width: 44,
+  ingredientsButton: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: theme.colors.inputBackground,
   },
-
-  // Instruction Page
-  instructionPage: {
-    width: SCREEN_WIDTH,
-    flex: 1,
+  ingredientsButtonIcon: {
+    color: theme.colors.text,
   },
-  imageContainer: {
-    height: SCREEN_HEIGHT * 0.35,
+  ingredientsButtonText: {
+    fontSize: 13,
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.text,
   },
-  instructionImage: {
-    width: "100%",
-    height: "100%",
-  },
-  instructionContent: {
-    flex: 1,
+  instructionItem: {
+    justifyContent: "center",
     paddingHorizontal: 24,
-    paddingTop: 24,
+    gap: 18,
   },
-  instructionContentNoImage: {
-    paddingTop: 48,
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
   },
   sectionName: {
     fontSize: 14,
     textTransform: "uppercase",
     color: theme.colors.textSecondary,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     fontFamily: theme.fonts.semiBold,
   },
+  stepHeader: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 10,
+  },
   stepNumber: {
-    fontSize: 48,
+    fontSize: 42,
+    lineHeight: 46,
     fontFamily: theme.fonts.bold,
     color: theme.colors.primary,
   },
   instructionText: {
-    fontSize: 20,
-    lineHeight: 30,
+    fontSize: 24,
+    lineHeight: 34,
     color: theme.colors.text,
+    fontFamily: theme.fonts.medium,
   },
-  navArrows: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 24,
-  },
-  navArrowButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  imageContainer: {
+    width: "100%",
+    aspectRatio: 1.55,
+    overflow: "hidden",
+    borderRadius: 8,
+    borderCurve: "continuous",
     backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
   },
-  navArrowButtonDisabled: {
-    opacity: 0.3,
+  instructionImage: {
+    width: "100%",
+    height: "100%",
   },
-  navArrowIcon: {
-    color: theme.colors.text,
+  ingredientsSheet: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
   },
-  navArrowIconDisabled: {
-    color: theme.colors.textSecondary,
-  },
-
-  // Progress Indicator
-  progressContainer: {
-    alignItems: "center",
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  progressDots: {
+  ingredientsSheetHeader: {
+    minHeight: 72,
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  ingredientsSheetTitle: {
+    flex: 1,
+  },
+  sheetCloseButton: {
+    width: 44,
+    height: 44,
     justifyContent: "center",
-    gap: 8,
-    marginBottom: 8,
+    alignItems: "center",
   },
-  progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.border,
+  ingredientsList: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    gap: 28,
   },
-  progressDotActive: {
-    backgroundColor: theme.colors.primary,
-    width: 24,
+  ingredientsSection: {
+    gap: 14,
   },
-  progressDotCompleted: {
-    backgroundColor: theme.colors.primary,
-    opacity: 0.5,
-  },
-  progressText: {
+  ingredientsSectionTitle: {
     fontSize: 14,
+    textTransform: "uppercase",
     color: theme.colors.textSecondary,
+    letterSpacing: 0,
+    fontFamily: theme.fonts.semiBold,
+  },
+  ingredientRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  ingredientBullet: {
+    width: 7,
+    height: 7,
+    marginTop: 9,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primary,
+  },
+  ingredientText: {
+    flex: 1,
+    fontSize: 18,
+    lineHeight: 26,
+    color: theme.colors.text,
   },
 }));

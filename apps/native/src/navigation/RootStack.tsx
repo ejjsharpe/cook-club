@@ -57,6 +57,17 @@ export interface AppParamList extends ParamListBase {
   EmailVerification: { email: string };
   CookMode: {
     recipeName: string;
+    ingredientSections: {
+      id: number;
+      name: string | null;
+      ingredients: {
+        id: number;
+        quantity: string | null;
+        unit: string | null;
+        name: string;
+        preparation: string | null;
+      }[];
+    }[];
     instructionSections: {
       id: number;
       name: string | null;
