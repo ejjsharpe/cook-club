@@ -480,10 +480,16 @@ const IMAGE_HEIGHT = 400;
 
 const IngredientItemSkeleton = () => (
   <View style={styles.ingredientItem}>
-    <Skeleton width={8} height={8} borderRadius={4} />
-    <View style={styles.ingredientContent}>
-      <Skeleton width={60} height={15} borderRadius={4} />
-      <Skeleton width="70%" height={17} borderRadius={4} />
+    <Skeleton width="86%" height={18} borderRadius={4} />
+  </View>
+);
+
+const MethodItemSkeleton = ({ short = false }: { short?: boolean }) => (
+  <View style={styles.methodItem}>
+    <Skeleton width={28} height={28} borderRadius={14} />
+    <View style={styles.methodContent}>
+      <Skeleton width="94%" height={18} borderRadius={4} />
+      <Skeleton width={short ? "64%" : "82%"} height={18} borderRadius={4} />
     </View>
   </View>
 );
@@ -498,41 +504,57 @@ export const RecipeDetailSkeleton = () => {
 
       {/* White Card */}
       <View style={styles.whiteCard}>
-        {/* Title */}
-        <Skeleton width="85%" height={28} borderRadius={6} />
+        {/* Summary */}
+        <View style={styles.summarySkeleton}>
+          <Skeleton width="88%" height={20} borderRadius={5} />
+          <Skeleton width="62%" height={20} borderRadius={5} />
 
-        <View style={styles.spacer16} />
+          <View style={styles.tagSkeletonRow}>
+            <Skeleton width={82} height={16} borderRadius={4} />
+            <Skeleton width={64} height={16} borderRadius={4} />
+          </View>
 
-        {/* Times Row */}
-        <View style={styles.timesRow}>
-          <Skeleton width={100} height={18} borderRadius={4} />
-          <Skeleton width={100} height={18} borderRadius={4} />
+          <View style={styles.metaSkeletonRow}>
+            <Skeleton width={92} height={34} borderRadius={17} />
+            <Skeleton width={92} height={34} borderRadius={17} />
+            <Skeleton width={100} height={34} borderRadius={17} />
+          </View>
+
+          <Skeleton width={124} height={24} borderRadius={5} />
         </View>
 
-        <View style={styles.spacer24} />
-
-        {/* Servings Row */}
-        <View style={styles.servingsRow}>
-          <Skeleton width="48%" height={56} borderRadius={28} />
-          <Skeleton width="48%" height={56} borderRadius={28} />
+        <View style={styles.actionSkeletonRow}>
+          <Skeleton width="60%" height={50} borderRadius={25} />
+          <Skeleton width={50} height={50} borderRadius={25} />
+          <Skeleton width={50} height={50} borderRadius={25} />
         </View>
 
-        <View style={styles.spacer24} />
+        <View style={styles.pageDivider} />
 
-        {/* Tab Bar */}
-        <View style={styles.tabBar}>
-          <Skeleton width="45%" height={20} borderRadius={4} />
-          <Skeleton width="45%" height={20} borderRadius={4} />
+        {/* Ingredients */}
+        <View style={styles.recipeSectionSkeleton}>
+          <Skeleton width={128} height={24} borderRadius={5} />
+          <Skeleton width={48} height={13} borderRadius={4} />
+          <View style={styles.listSkeleton}>
+            <IngredientItemSkeleton />
+            <IngredientItemSkeleton />
+            <IngredientItemSkeleton />
+            <IngredientItemSkeleton />
+          </View>
         </View>
 
-        <View style={styles.spacer24} />
+        <View style={styles.pageDivider} />
 
-        {/* Ingredients List */}
-        <IngredientItemSkeleton />
-        <IngredientItemSkeleton />
-        <IngredientItemSkeleton />
-        <IngredientItemSkeleton />
-        <IngredientItemSkeleton />
+        {/* Method */}
+        <View style={styles.recipeSectionSkeleton}>
+          <Skeleton width={92} height={24} borderRadius={5} />
+          <Skeleton width={46} height={13} borderRadius={4} />
+          <View style={styles.listSkeleton}>
+            <MethodItemSkeleton />
+            <MethodItemSkeleton short />
+            <MethodItemSkeleton />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -754,17 +776,54 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     justifyContent: "space-around",
   },
-  ingredientItem: {
+  summarySkeleton: {
+    gap: 14,
+  },
+  tagSkeletonRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    gap: 12,
+    alignItems: "center",
+    gap: 8,
+  },
+  metaSkeletonRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  actionSkeletonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 14,
+  },
+  pageDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginTop: 30,
+    marginBottom: 24,
+    opacity: 0.4,
+  },
+  recipeSectionSkeleton: {
+    gap: 8,
+  },
+  listSkeleton: {
+    paddingTop: 16,
+  },
+  ingredientItem: {
+    paddingVertical: 10,
   },
   ingredientContent: {
     flex: 1,
     gap: 6,
+  },
+  methodItem: {
+    flexDirection: "row",
+    gap: 12,
+    paddingVertical: 16,
+  },
+  methodContent: {
+    flex: 1,
+    gap: 8,
+    paddingTop: 4,
   },
 
   // User Profile styles

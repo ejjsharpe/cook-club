@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
-import { BlurView } from "expo-blur";
+import { useRoute, useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -33,6 +32,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
+import { useCreateCookingReview } from "@/api/activity";
 import {
   useRecipeDetail,
   useImportRecipe,
@@ -49,13 +49,17 @@ import {
   CollectionSelectorSheet,
   type CollectionSelectorSheetRef,
 } from "@/components/CollectionSelectorSheet";
+import {
+  CookingReviewSheet,
+  type CookingReviewSheetRef,
+} from "@/components/CookingReviewSheet";
 import { PageIndicator } from "@/components/PageIndicator";
 import {
   ShoppingListSelectorSheet,
   type ShoppingListSelectorSheetRef,
 } from "@/components/ShoppingListSelectorSheet";
 import { Skeleton } from "@/components/Skeleton";
-import { VSpace, HSpace } from "@/components/Space";
+import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import {
@@ -82,11 +86,6 @@ const IMAGE_HEIGHT = SCREEN_WIDTH;
 type RecipeDetailScreenParams = {
   RecipeDetail: { recipeId: number } | { parsedRecipe: ParsedRecipe };
 };
-
-type RecipeDetailScreenRouteProp = RouteProp<
-  RecipeDetailScreenParams,
-  "RecipeDetail"
->;
 
 // Type guard for preview mode
 function isPreviewParams(
@@ -143,6 +142,7 @@ export const RecipeDetailScreen = () => {
   const addToMealPlanSheetRef = useRef<AddToMealPlanSheetRef>(null);
   const shoppingListSheetRef = useRef<ShoppingListSelectorSheetRef>(null);
   const collectionSheetRef = useRef<CollectionSelectorSheetRef>(null);
+  const cookingReviewSheetRef = useRef<CookingReviewSheetRef>(null);
   const [shoppingListIngredients, setShoppingListIngredients] = useState<
     {
       id: number;
@@ -154,6 +154,7 @@ export const RecipeDetailScreen = () => {
   >([]);
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [ratingOverride, setRatingOverride] = useState<number | null>(null);
 
   // Handler for image carousel page changes
   const handleImageScroll = useCallback(
@@ -200,9 +201,11 @@ export const RecipeDetailScreen = () => {
   // Mutations
   const importMutation = useImportRecipe();
   const deleteMutation = useDeleteRecipe();
+  const createCookingReviewMutation = useCreateCookingReview();
 
   // Check if the current user owns this recipe
   const isOwnRecipe = recipe?.owner.id === userData?.user?.id;
+  const displayedRating = ratingOverride ?? recipe?.userReviewRating ?? null;
 
   useEffect(() => {
     if (recipe?.servings && !hasInitializedServings.current) {
@@ -210,6 +213,10 @@ export const RecipeDetailScreen = () => {
       hasInitializedServings.current = true;
     }
   }, [recipe?.servings]);
+
+  useEffect(() => {
+    setRatingOverride(null);
+  }, [recipeId]);
 
   // Configure native header items
   useLayoutEffect(() => {
@@ -338,6 +345,11 @@ export const RecipeDetailScreen = () => {
     shoppingListSheetRef.current?.present();
   };
 
+  const handleOpenReviewSheet = () => {
+    if (!recipe || !isOwnRecipe || isPreviewMode) return;
+    cookingReviewSheetRef.current?.present();
+  };
+
   // Handler for Cook Mode button
   const handleStartCookMode = () => {
     if (!recipe) return;
@@ -347,6 +359,22 @@ export const RecipeDetailScreen = () => {
       ingredientSections: recipe.ingredientSections,
       instructionSections: recipe.instructionSections,
     });
+  };
+
+  const handleSubmitReview = async (data: {
+    rating: number;
+    reviewText?: string;
+    imageUrls?: string[];
+  }) => {
+    if (!recipe) return;
+
+    await createCookingReviewMutation.mutateAsync({
+      recipeId: recipe.id,
+      rating: data.rating,
+      reviewText: data.reviewText,
+      imageUrls: data.imageUrls,
+    });
+    setRatingOverride(data.rating);
   };
 
   const handleImportRecipe = async () => {
@@ -456,8 +484,11 @@ export const RecipeDetailScreen = () => {
     if (!recipe) return null;
     return (
       <View style={styles.tabContent}>
-        {recipe.ingredientSections.map((section) => (
-          <View key={section.id}>
+        {recipe.ingredientSections.map((section, sectionIndex) => (
+          <View
+            key={section.id}
+            style={sectionIndex > 0 ? styles.contentSectionGroup : null}
+          >
             {section.name && (
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{section.name}</Text>
@@ -470,7 +501,6 @@ export const RecipeDetailScreen = () => {
                 : null;
               let displayUnit = formatUnit(item.unit, adjustedQuantity);
 
-              // Apply measurement system conversion
               if (
                 measurementSystem !== "auto" &&
                 adjustedQuantity &&
@@ -498,8 +528,6 @@ export const RecipeDetailScreen = () => {
 
               return (
                 <View key={item.id} style={styles.ingredientItem}>
-                  <View style={styles.ingredientBullet} />
-                  <HSpace size={12} />
                   <View style={styles.ingredientContent}>
                     <Text style={styles.ingredientName}>
                       {(formattedQuantity || displayUnit) && (
@@ -534,8 +562,11 @@ export const RecipeDetailScreen = () => {
 
     return (
       <View style={styles.tabContent}>
-        {recipe.instructionSections.map((section) => (
-          <View key={section.id}>
+        {recipe.instructionSections.map((section, sectionIndex) => (
+          <View
+            key={section.id}
+            style={sectionIndex > 0 ? styles.contentSectionGroup : null}
+          >
             {section.name && (
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{section.name}</Text>
@@ -546,26 +577,33 @@ export const RecipeDetailScreen = () => {
               globalStepIndex++;
               return (
                 <View key={item.id} style={styles.instructionItem}>
-                  <Text style={styles.stepNumber}>{globalStepIndex}</Text>
-                  <VSpace size={8} />
-                  <Text style={styles.instructionText}>{item.instruction}</Text>
-                  {item.imageUrl && (
-                    <>
-                      <VSpace size={16} />
-                      <TouchableOpacity
-                        onPress={() => setExpandedImageUrl(item.imageUrl!)}
-                        style={styles.stepImageThumbnail}
-                      >
-                        <Image
-                          source={{
-                            uri: getImageUrl(item.imageUrl, "step-thumb"),
-                          }}
-                          style={styles.stepImage}
-                          contentFit="cover"
-                        />
-                      </TouchableOpacity>
-                    </>
-                  )}
+                  <View style={styles.stepMarkerColumn}>
+                    <View style={styles.stepNumberBadge}>
+                      <Text style={styles.stepNumber}>{globalStepIndex}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.instructionContent}>
+                    <Text style={styles.instructionText}>
+                      {item.instruction}
+                    </Text>
+                    {item.imageUrl && (
+                      <>
+                        <VSpace size={14} />
+                        <TouchableOpacity
+                          onPress={() => setExpandedImageUrl(item.imageUrl!)}
+                          style={styles.stepImageThumbnail}
+                        >
+                          <Image
+                            source={{
+                              uri: getImageUrl(item.imageUrl, "step-thumb"),
+                            }}
+                            style={styles.stepImage}
+                            contentFit="cover"
+                          />
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
                 </View>
               );
             })}
@@ -604,12 +642,11 @@ export const RecipeDetailScreen = () => {
                 currentPage={currentImageIndex + 1}
                 totalPages={recipe.images.length}
               />
-              {/* Image Overlay - Title and Action Button */}
+              {/* Image Overlay */}
               <LinearGradient
                 colors={["transparent", "rgba(0,0,0,0.6)"]}
                 style={styles.imageOverlay}
               >
-                {/* Title - bottom left */}
                 <Text
                   type="title1"
                   style={styles.overlayTitle}
@@ -617,42 +654,6 @@ export const RecipeDetailScreen = () => {
                 >
                   {recipe.name}
                 </Text>
-
-                {/* Action Button - bottom right */}
-                {!isPreviewMode &&
-                  (isOwnRecipe ? (
-                    // Cook Button for owned recipes
-                    <TouchableOpacity
-                      style={styles.cookButton}
-                      onPress={handleStartCookMode}
-                    >
-                      <Ionicons name="play" size={20} color="white" />
-                      <Text style={styles.cookButtonText}>Cook</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    // Import Button for non-owned recipes
-                    <TouchableOpacity
-                      style={styles.importOverlayButton}
-                      onPress={handleImportRecipe}
-                      disabled={importMutation.isPending}
-                    >
-                      <BlurView
-                        intensity={80}
-                        tint="dark"
-                        style={styles.importOverlayButtonBlur}
-                      >
-                        {importMutation.isPending ? (
-                          <ActivityIndicator size="small" color="white" />
-                        ) : (
-                          <Ionicons
-                            name="download-outline"
-                            size={24}
-                            color="white"
-                          />
-                        )}
-                      </BlurView>
-                    </TouchableOpacity>
-                  ))}
               </LinearGradient>
             </>
           ) : (
@@ -669,172 +670,238 @@ export const RecipeDetailScreen = () => {
           {isLoading ? (
             // Loading skeleton content
             <>
-              {/* Times Row skeleton */}
-              <View style={styles.statsRow}>
-                <Skeleton width={100} height={18} borderRadius={4} />
-                <Skeleton width={100} height={18} borderRadius={4} />
-              </View>
+              <View style={styles.summaryPanel}>
+                <Skeleton width="88%" height={20} borderRadius={5} />
+                <Skeleton width="62%" height={20} borderRadius={5} />
 
-              <VSpace size={16} />
-
-              {/* Action buttons skeleton */}
-              <View style={styles.actionButtonsRow}>
-                <Skeleton width="48%" height={50} borderRadius={25} />
-                <Skeleton width="48%" height={50} borderRadius={25} />
-              </View>
-
-              <VSpace size={16} />
-
-              {/* Section heading skeleton */}
-              <Skeleton width={120} height={24} borderRadius={4} />
-
-              <VSpace size={24} />
-
-              {/* Ingredients skeleton */}
-              {[1, 2, 3, 4, 5].map((i) => (
-                <View key={i} style={styles.ingredientItemSkeleton}>
-                  <Skeleton width={8} height={8} borderRadius={4} />
-                  <View style={styles.ingredientContentSkeleton}>
-                    <Skeleton width={60} height={15} borderRadius={4} />
-                    <Skeleton width="70%" height={17} borderRadius={4} />
-                  </View>
+                <View style={styles.skeletonTagRow}>
+                  <Skeleton width={82} height={16} borderRadius={4} />
+                  <Skeleton width={64} height={16} borderRadius={4} />
                 </View>
-              ))}
+
+                <View style={styles.recipeMetaGroup}>
+                  <Skeleton width={92} height={34} borderRadius={17} />
+                  <Skeleton width={92} height={34} borderRadius={17} />
+                  <Skeleton width={100} height={34} borderRadius={17} />
+                </View>
+
+                <Skeleton width={124} height={24} borderRadius={5} />
+              </View>
+
+              <View style={styles.recipeActionGroup}>
+                <Skeleton width="60%" height={50} borderRadius={25} />
+                <Skeleton width={50} height={50} borderRadius={25} />
+                <Skeleton width={50} height={50} borderRadius={25} />
+              </View>
+
+              <View style={styles.pageDivider} />
+
+              <View style={styles.recipeSection}>
+                <View>
+                  <Skeleton width={128} height={24} borderRadius={5} />
+                  <VSpace size={4} />
+                  <Skeleton width={48} height={13} borderRadius={4} />
+                </View>
+                <View style={styles.tabContent}>
+                  {[1, 2, 3, 4].map((i) => (
+                    <View key={i} style={styles.ingredientItemSkeleton}>
+                      <Skeleton
+                        width={i % 2 === 0 ? "72%" : "88%"}
+                        height={18}
+                        borderRadius={4}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.pageDivider} />
+
+              <View style={styles.recipeSection}>
+                <View>
+                  <Skeleton width={92} height={24} borderRadius={5} />
+                  <VSpace size={4} />
+                  <Skeleton width={46} height={13} borderRadius={4} />
+                </View>
+                <View style={styles.tabContent}>
+                  {[1, 2, 3].map((i) => (
+                    <View key={i} style={styles.instructionItemSkeleton}>
+                      <Skeleton width={28} height={28} borderRadius={14} />
+                      <View style={styles.instructionSkeletonContent}>
+                        <Skeleton width="94%" height={18} borderRadius={4} />
+                        <Skeleton
+                          width={i === 2 ? "68%" : "82%"}
+                          height={18}
+                          borderRadius={4}
+                        />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
             </>
           ) : recipe ? (
             // Loaded recipe content
             <>
-              {/* Description (if exists) */}
-              {recipe.description && (
-                <>
+              <View style={styles.summaryPanel}>
+                {recipe.description && (
                   <Text type="body" style={styles.recipeDescription}>
                     {recipe.description}
                   </Text>
-                  <VSpace size={8} />
-                </>
-              )}
+                )}
 
-              {/* Tags */}
-              {recipe.tags && recipe.tags.length > 0 && (
-                <>
+                {recipe.tags && recipe.tags.length > 0 && (
                   <View style={styles.tagsRow}>
                     <Ionicons
                       name="pricetag-outline"
                       size={14}
                       style={styles.tagsIcon}
                     />
-                    <Text style={styles.tagsText}>
-                      {recipe.tags.map((tag) => tag.name).join(", ")}
-                    </Text>
+                    {recipe.tags.slice(0, 4).map((tag) => (
+                      <Text key={tag.name} style={styles.tagText}>
+                        {tag.name}
+                      </Text>
+                    ))}
                   </View>
-                  <VSpace size={24} />
-                </>
-              )}
+                )}
 
-              {/* Stats Row */}
-              <View style={styles.statsRow}>
-                {(() => {
-                  const items: React.ReactNode[] = [];
-                  if (recipe.prepTime) {
-                    items.push(
-                      <View key="prep" style={styles.timeItem}>
-                        <Text style={styles.timeLabel}>Prep</Text>
-                        <Text style={styles.timeValue}>
-                          {formatMinutesShort(recipe.prepTime)}
-                        </Text>
-                      </View>,
-                    );
-                  }
-                  if (recipe.cookTime) {
-                    items.push(
-                      <View key="cook" style={styles.timeItem}>
-                        <Text style={styles.timeLabel}>Cook</Text>
-                        <Text style={styles.timeValue}>
-                          {formatMinutesShort(recipe.cookTime)}
-                        </Text>
-                      </View>,
-                    );
-                  }
-                  if (isOwnRecipe && !isPreviewMode) {
-                    items.push(
-                      <View key="rating" style={styles.timeItem}>
-                        <Text style={styles.timeLabel}>Rating</Text>
-                        <View style={styles.starsContainer}>
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Ionicons
-                              key={star}
-                              name={
-                                recipe.userReviewRating &&
-                                star <= recipe.userReviewRating
-                                  ? "star"
-                                  : "star-outline"
-                              }
-                              size={14}
-                              style={
-                                recipe.userReviewRating &&
-                                star <= recipe.userReviewRating
-                                  ? styles.starFilled
-                                  : styles.starEmpty
-                              }
-                            />
-                          ))}
-                        </View>
-                      </View>,
-                    );
-                  }
-
-                  return items.flatMap((item, i) =>
-                    i === 0
-                      ? [item]
-                      : [
-                          <View
-                            key={`sep-${i}`}
-                            style={styles.statsSeparator}
-                          />,
-                          item,
-                        ],
-                  );
-                })()}
-              </View>
-              <VSpace size={24} />
-
-              {/* Action Buttons Row - Own recipes only */}
-              {isOwnRecipe && !isPreviewMode && (
-                <>
-                  <View style={styles.actionButtonsRow}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={handleOpenMealPlanSheet}
-                    >
+                <View style={styles.recipeMetaGroup}>
+                  {recipe.prepTime ? (
+                    <View style={styles.recipeMetaItem}>
                       <Ionicons
-                        name="calendar-outline"
-                        size={22}
-                        style={styles.actionButtonIcon}
+                        name="leaf-outline"
+                        size={16}
+                        style={styles.metaIcon}
                       />
-                      <Text style={styles.actionButtonText}>Plan</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={handleOpenShoppingListSheet}
-                    >
+                      <Text style={styles.recipeMetaLabel}>Prep</Text>
+                      <Text style={styles.recipeMetaValue}>
+                        {formatMinutesShort(recipe.prepTime)}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {recipe.cookTime ? (
+                    <View style={styles.recipeMetaItem}>
                       <Ionicons
-                        name="cart-outline"
-                        size={22}
-                        style={styles.actionButtonIcon}
+                        name="flame-outline"
+                        size={16}
+                        style={styles.metaIcon}
                       />
-                      <Text style={styles.actionButtonText}>Shop</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <VSpace size={16} />
-                </>
-              )}
-
-              {/* Author card for non-owned recipes */}
-              {!isOwnRecipe && !isPreviewMode && (
-                <>
+                      <Text style={styles.recipeMetaLabel}>Cook</Text>
+                      <Text style={styles.recipeMetaValue}>
+                        {formatMinutesShort(recipe.cookTime)}
+                      </Text>
+                    </View>
+                  ) : null}
                   <TouchableOpacity
-                    style={styles.authorCard}
+                    style={styles.recipeMetaItem}
+                    onPress={handleOpenAdjustSheet}
+                    activeOpacity={0.76}
+                    accessibilityLabel={`Adjust servings, currently ${servings}`}
+                  >
+                    <Ionicons
+                      name="people-outline"
+                      size={16}
+                      style={styles.metaIcon}
+                    />
+                    <Text style={styles.recipeMetaLabel}>Serves</Text>
+                    <Text style={styles.recipeMetaValue}>{servings}</Text>
+                  </TouchableOpacity>
+                </View>
+                {isOwnRecipe && !isPreviewMode ? (
+                  <TouchableOpacity
+                    style={styles.ratingInlineButton}
+                    onPress={handleOpenReviewSheet}
+                    activeOpacity={0.72}
+                    accessibilityLabel={
+                      displayedRating
+                        ? `Rate recipe, current rating ${displayedRating} out of 5`
+                        : "Rate recipe"
+                    }
+                  >
+                    <Ionicons
+                      name={displayedRating ? "star" : "star-outline"}
+                      size={15}
+                      style={
+                        displayedRating ? styles.starFilled : styles.ratingIcon
+                      }
+                    />
+                    <Text style={styles.ratingInlineText}>
+                      {displayedRating
+                        ? `Your rating ${displayedRating}/5`
+                        : "Rate this recipe"}
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={13}
+                      style={styles.ratingChevron}
+                    />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {!isPreviewMode && (
+                <View style={styles.recipeActionGroup}>
+                  {isOwnRecipe ? (
+                    <>
+                      <TouchableOpacity
+                        style={styles.cookActionButton}
+                        onPress={handleStartCookMode}
+                        activeOpacity={0.82}
+                      >
+                        <Ionicons name="play" size={20} color="white" />
+                        <Text style={styles.cookActionText}>Cook</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.recipeActionButton}
+                        onPress={handleOpenMealPlanSheet}
+                        activeOpacity={0.78}
+                        accessibilityLabel="Add to meal plan"
+                      >
+                        <Ionicons
+                          name="calendar-outline"
+                          size={21}
+                          style={styles.recipeActionIcon}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.recipeActionButton}
+                        onPress={handleOpenShoppingListSheet}
+                        activeOpacity={0.78}
+                        accessibilityLabel="Add ingredients to shopping list"
+                      >
+                        <Ionicons
+                          name="cart-outline"
+                          size={21}
+                          style={styles.recipeActionIcon}
+                        />
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.importActionButton}
+                      onPress={handleImportRecipe}
+                      disabled={importMutation.isPending}
+                      activeOpacity={0.82}
+                    >
+                      {importMutation.isPending ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <Ionicons
+                          name="download-outline"
+                          size={20}
+                          color="white"
+                        />
+                      )}
+                      <Text style={styles.cookActionText}>Import</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {!isPreviewMode && !isOwnRecipe && (
+                <View style={styles.actionRail}>
+                  <TouchableOpacity
+                    style={styles.authorCompact}
                     onPress={() =>
                       navigation.navigate("UserProfile", {
                         userId: recipe.owner.id,
@@ -857,42 +924,50 @@ export const RecipeDetailScreen = () => {
                       </View>
                     )}
                     <View style={styles.authorInfo}>
-                      <Text type="headline" numberOfLines={1}>
+                      <Text style={styles.authorLabel}>By</Text>
+                      <Text style={styles.authorName} numberOfLines={1}>
                         {recipe.owner.name}
-                      </Text>
-                      <Text type="caption">
-                        {recipe.userRecipesCount} recipes
                       </Text>
                     </View>
                   </TouchableOpacity>
-                  <VSpace size={16} />
-                </>
+                </View>
               )}
 
-              {/* Ingredients Section */}
-              <View style={styles.sectionHeadingRow}>
-                <Text style={styles.sectionHeading}>Ingredients</Text>
-                {isOwnRecipe && !isPreviewMode && (
-                  <TouchableOpacity
-                    style={styles.adjustInlineButton}
-                    onPress={handleOpenAdjustSheet}
-                  >
-                    <Ionicons
-                      name="options-outline"
-                      size={18}
-                      style={styles.adjustInlineIcon}
-                    />
-                    <Text style={styles.adjustInlineText}>Adjust</Text>
-                  </TouchableOpacity>
-                )}
+              <View style={styles.pageDivider} />
+
+              <View style={styles.recipeSection}>
+                <View style={styles.sectionHeadingRow}>
+                  <View>
+                    <Text style={styles.sectionHeading}>Ingredients</Text>
+                    <Text style={styles.sectionSubheading}>
+                      {recipe.ingredientSections.reduce(
+                        (total, section) => total + section.ingredients.length,
+                        0,
+                      )}{" "}
+                      items
+                    </Text>
+                  </View>
+                </View>
+                {renderIngredients()}
               </View>
-              {renderIngredients()}
 
-              <VSpace size={32} />
+              <View style={styles.pageDivider} />
 
-              {/* Method Section */}
-              <Text style={styles.sectionHeading}>Method</Text>
-              {renderMethod()}
+              <View style={styles.recipeSection}>
+                <View style={styles.sectionHeadingRow}>
+                  <View>
+                    <Text style={styles.sectionHeading}>Method</Text>
+                    <Text style={styles.sectionSubheading}>
+                      {recipe.instructionSections.reduce(
+                        (total, section) => total + section.instructions.length,
+                        0,
+                      )}{" "}
+                      steps
+                    </Text>
+                  </View>
+                </View>
+                {renderMethod()}
+              </View>
 
               <VSpace size={isPreviewMode || !isOwnRecipe ? 100 : 40} />
             </>
@@ -927,6 +1002,13 @@ export const RecipeDetailScreen = () => {
 
       {/* Collection Selector Sheet */}
       <CollectionSelectorSheet ref={collectionSheetRef} recipeId={recipe?.id} />
+
+      {/* Cooking Review Sheet */}
+      <CookingReviewSheet
+        ref={cookingReviewSheetRef}
+        recipeName={recipe?.name}
+        onSubmit={handleSubmitReview}
+      />
 
       {/* Sticky Footer */}
       {isPreviewMode && recipe ? (
@@ -1038,54 +1120,22 @@ const styles = StyleSheet.create((theme) => ({
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   overlayTitle: {
-    flex: 1,
     color: "white",
     textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
-  cookButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    minHeight: 44,
-    paddingHorizontal: 16,
-    borderRadius: 22,
-    backgroundColor: theme.colors.primary,
-    marginLeft: 12,
-  },
-  cookButtonText: {
-    color: "white",
-    fontSize: 15,
-    fontFamily: theme.fonts.semiBold,
-  },
-  importOverlayButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    overflow: "hidden",
-    marginLeft: 12,
-  },
-  importOverlayButtonBlur: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
-  },
 
   // White Card
   whiteCard: {
     backgroundColor: theme.colors.background,
-    paddingVertical: 20,
+    paddingTop: 18,
+    paddingBottom: 20,
     paddingHorizontal: 20,
     minHeight: 400,
   },
@@ -1132,7 +1182,13 @@ const styles = StyleSheet.create((theme) => ({
   tagsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tagText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.semiBold,
   },
   tagsIcon: {
     color: theme.colors.textSecondary,
@@ -1147,19 +1203,76 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: 22,
     fontFamily: theme.fonts.regular,
   },
-
+  summaryPanel: {
+    gap: 14,
+  },
+  recipeMetaGroup: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  recipeMetaItem: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    borderRadius: 17,
+    backgroundColor: theme.colors.inputBackground,
+  },
+  recipeMetaLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.semiBold,
+  },
+  recipeMetaValue: {
+    fontSize: 12,
+    color: theme.colors.text,
+    fontFamily: theme.fonts.semiBold,
+  },
+  ratingInlineButton: {
+    alignSelf: "flex-start",
+    minHeight: 30,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  ratingIcon: {
+    color: theme.colors.textSecondary,
+  },
+  ratingInlineText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.semiBold,
+  },
+  ratingChevron: {
+    color: theme.colors.textSecondary,
+  },
+  metaIcon: {
+    color: theme.colors.textSecondary,
+  },
   // Loading skeleton styles
   ingredientItemSkeleton: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    gap: 12,
+    paddingVertical: 10,
   },
   ingredientContentSkeleton: {
     flex: 1,
     gap: 6,
+  },
+  skeletonTagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  instructionItemSkeleton: {
+    flexDirection: "row",
+    gap: 12,
+    paddingVertical: 16,
+  },
+  instructionSkeletonContent: {
+    flex: 1,
+    gap: 8,
+    paddingTop: 4,
   },
 
   // Action Buttons
@@ -1167,22 +1280,52 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     gap: 12,
   },
-  actionButton: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 25,
-    backgroundColor: theme.colors.inputBackground,
+  actionRail: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
+    gap: 10,
+    paddingTop: 12,
+  },
+  recipeActionGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 14,
+  },
+  cookActionButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 25,
+    backgroundColor: theme.colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
-  actionButtonIcon: {
-    color: theme.colors.text,
+  importActionButton: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 25,
+    backgroundColor: theme.colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
-  actionButtonText: {
-    fontSize: 15,
+  cookActionText: {
+    color: "white",
+    fontSize: 17,
     fontFamily: theme.fonts.semiBold,
+  },
+  recipeActionButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  recipeActionIcon: {
     color: theme.colors.text,
   },
 
@@ -1221,7 +1364,27 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minWidth: 0,
   },
-  authorName: {},
+  authorCompact: {
+    flex: 1,
+    minHeight: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    borderRadius: 25,
+    backgroundColor: theme.colors.inputBackground,
+  },
+  authorLabel: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.semiBold,
+    textTransform: "uppercase",
+  },
+  authorName: {
+    fontSize: 15,
+    color: theme.colors.text,
+    fontFamily: theme.fonts.semiBold,
+  },
   attributionText: {
     color: theme.colors.textSecondary,
   },
@@ -1287,17 +1450,19 @@ const styles = StyleSheet.create((theme) => ({
 
   // Tab Content
   tabContent: {
-    minHeight: 200,
+    paddingTop: 16,
+  },
+  contentSectionGroup: {
+    paddingTop: 18,
   },
   sectionHeader: {
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 10,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     textTransform: "uppercase",
     color: theme.colors.textSecondary,
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     fontFamily: theme.fonts.semiBold,
   },
 
@@ -1305,12 +1470,29 @@ const styles = StyleSheet.create((theme) => ({
   sectionHeadingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-end",
+    paddingBottom: 2,
   },
   sectionHeading: {
     fontSize: 22,
     fontFamily: theme.fonts.bold,
     color: theme.colors.text,
+  },
+  sectionSubheading: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.semiBold,
+    marginTop: 2,
+  },
+  recipeSection: {
+    gap: 8,
+  },
+  pageDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginTop: 30,
+    marginBottom: 24,
+    opacity: 0.4,
   },
   adjustInlineButton: {
     flexDirection: "row",
@@ -1332,11 +1514,7 @@ const styles = StyleSheet.create((theme) => ({
 
   // Ingredients
   ingredientItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 10,
   },
   ingredientBullet: {
     width: 8,
@@ -1350,34 +1528,53 @@ const styles = StyleSheet.create((theme) => ({
   },
   ingredientQuantity: {
     fontFamily: theme.fonts.bold,
+    color: theme.colors.text,
   },
   ingredientName: {
     fontSize: 17,
     color: theme.colors.text,
+    lineHeight: 24,
   },
   ingredientPreparation: {
     fontSize: 14,
     fontStyle: "italic",
-    color: theme.colors.textTertiary,
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
 
   // Instructions
   instructionItem: {
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    flexDirection: "row",
+    gap: 12,
+    paddingVertical: 16,
+  },
+  stepMarkerColumn: {
+    width: 30,
+    alignItems: "center",
+  },
+  stepNumberBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.colors.inputBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 0,
   },
   stepNumber: {
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 13,
+    lineHeight: 17,
     fontFamily: theme.fonts.bold,
     color: theme.colors.primary,
-    opacity: 0.3,
+  },
+  instructionContent: {
+    flex: 1,
+    minWidth: 0,
   },
   instructionText: {
     fontSize: 17,
-    lineHeight: 26,
+    lineHeight: 27,
+    color: theme.colors.text,
   },
   stepImageThumbnail: {
     width: "100%",
