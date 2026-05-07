@@ -805,6 +805,11 @@ export const RecipeDetailScreen = () => {
                     />
                     <Text style={styles.recipeMetaLabel}>Serves</Text>
                     <Text style={styles.recipeMetaValue}>{servings}</Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={13}
+                      style={styles.recipeMetaButtonIcon}
+                    />
                   </TouchableOpacity>
                 </View>
                 {isOwnRecipe && !isPreviewMode ? (
@@ -979,6 +984,7 @@ export const RecipeDetailScreen = () => {
       <AdjustRecipeSheet
         ref={adjustRecipeSheetRef}
         servings={servings}
+        originalServings={recipe?.servings}
         onServingsChange={setServings}
         measurementSystem={measurementSystem}
         onMeasurementSystemChange={setMeasurementSystem}
@@ -1219,6 +1225,10 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: 10,
     borderRadius: 17,
     backgroundColor: theme.colors.inputBackground,
+  },
+  recipeMetaButtonIcon: {
+    marginLeft: -1,
+    color: theme.colors.textSecondary,
   },
   recipeMetaLabel: {
     fontSize: 12,

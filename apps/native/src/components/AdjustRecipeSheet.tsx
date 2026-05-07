@@ -13,10 +13,11 @@ import { PrimaryButton } from "./buttons/PrimaryButton";
 import { useUpdateProfile } from "@/api/user";
 import type { MeasurementSystem } from "@/lib/measurementPreferences";
 
-const QUICK_SERVINGS = [2, 4, 6, 8];
+const SERVING_MULTIPLIERS = [1, 2, 3, 4];
 
 export interface AdjustRecipeSheetProps {
   servings: number;
+  originalServings?: number | null;
   onServingsChange: (servings: number) => void;
   measurementSystem: MeasurementSystem;
   onMeasurementSystemChange: (system: MeasurementSystem) => void;
@@ -34,6 +35,7 @@ export const AdjustRecipeSheet = forwardRef<
   (
     {
       servings,
+      originalServings,
       onServingsChange,
       measurementSystem,
       onMeasurementSystemChange,
@@ -43,6 +45,8 @@ export const AdjustRecipeSheet = forwardRef<
     const theme = UnistylesRuntime.getTheme();
     const sheetRef = useRef<TrueSheet>(null);
     const updateProfileMutation = useUpdateProfile();
+    const baseServings =
+      originalServings && originalServings > 0 ? originalServings : 1;
 
     useImperativeHandle(ref, () => ({
       present: () => sheetRef.current?.present(),
@@ -100,6 +104,9 @@ export const AdjustRecipeSheet = forwardRef<
                 <Text type="heading" style={styles.sectionLabel}>
                   Servings
                 </Text>
+                <Text type="caption1" style={styles.originalServings}>
+                  Original: {baseServings}
+                </Text>
               </View>
               <View style={styles.servingsStepper}>
                 <BaseButton
@@ -131,12 +138,13 @@ export const AdjustRecipeSheet = forwardRef<
                 </BaseButton>
               </View>
               <View style={styles.quickRow}>
-                {QUICK_SERVINGS.map((value) => {
+                {SERVING_MULTIPLIERS.map((multiplier) => {
+                  const value = baseServings * multiplier;
                   const isSelected = value === servings;
 
                   return (
                     <BaseButton
-                      key={value}
+                      key={multiplier}
                       style={[
                         styles.quickButton,
                         isSelected && styles.quickButtonSelected,
@@ -150,7 +158,7 @@ export const AdjustRecipeSheet = forwardRef<
                           isSelected && styles.quickButtonTextSelected,
                         ]}
                       >
-                        {value}
+                        x{multiplier}
                       </Text>
                     </BaseButton>
                   );
@@ -221,6 +229,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   sectionLabel: {
     letterSpacing: 0,
+  },
+  originalServings: {
+    color: theme.colors.textSecondary,
   },
   servingsStepper: {
     flexDirection: "row",
