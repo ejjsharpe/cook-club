@@ -10,11 +10,7 @@ import { VSpace } from "./Space";
 
 import type { Recipe } from "@/hooks/useRecipeData";
 
-const RecipeSeparator = () => (
-  <View style={styles.separatorContainer}>
-    <View style={styles.separator} />
-  </View>
-);
+const RecipeSeparator = () => <View style={styles.recipeItemGap} />;
 
 export interface RecipeListRef {
   scrollToTop: () => void;
@@ -99,7 +95,7 @@ export const RecipeList = forwardRef<RecipeListRef, RecipeListProps>(
   },
 );
 
-const styles = StyleSheet.create((theme, rt) => ({
+const styles = StyleSheet.create((_theme, rt) => ({
   listContent: {
     paddingBottom: rt.insets.bottom + 48,
     flexGrow: 1,
@@ -108,13 +104,7 @@ const styles = StyleSheet.create((theme, rt) => ({
     paddingVertical: 20,
     alignItems: "center",
   },
-  separatorContainer: {
-    paddingVertical: 8,
-    paddingLeft: 134, // 20 (card padding) + 100 (thumbnail) + 14 (gap)
-    paddingRight: 20,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: theme.colors.border,
+  recipeItemGap: {
+    height: 16,
   },
 }));

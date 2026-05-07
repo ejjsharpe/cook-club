@@ -56,11 +56,7 @@ type CollectionRecipe = {
   images: { id: number; url: string }[];
 };
 
-const RecipeSeparator = () => (
-  <View style={styles.separatorContainer}>
-    <View style={styles.separator} />
-  </View>
-);
+const RecipeSeparator = () => <View style={styles.recipeItemGap} />;
 
 export interface RecipeBrowserSheetProps {
   /** Title displayed in the sheet header */
@@ -611,11 +607,7 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     paddingVertical: 60,
   },
-  separatorContainer: {
-    paddingHorizontal: 20,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: theme.colors.border,
+  recipeItemGap: {
+    height: 16,
   },
 }));
