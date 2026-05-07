@@ -21,9 +21,8 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
 
-    "baseUrl": "${configDir}",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "exclude": ["node_modules", "build", "dist"]
