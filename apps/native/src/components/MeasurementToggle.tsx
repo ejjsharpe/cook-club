@@ -1,8 +1,9 @@
 import React from "react";
-import { View, TouchableOpacity } from "react-native";
+import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
+import { BaseButton } from "./buttons/BaseButton";
 
 import {
   MeasurementSystem,
@@ -27,7 +28,7 @@ export function MeasurementToggle({
       </Text>
       <View style={styles.toggleContainer}>
         {options.map((option) => (
-          <TouchableOpacity
+          <BaseButton
             key={option}
             style={[
               styles.toggleButton,
@@ -44,7 +45,7 @@ export function MeasurementToggle({
             >
               {getMeasurementDisplayName(option)}
             </Text>
-          </TouchableOpacity>
+          </BaseButton>
         ))}
       </View>
     </View>
@@ -53,33 +54,45 @@ export function MeasurementToggle({
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    marginVertical: 8,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 24,
+    padding: 16,
   },
   label: {
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: 0,
   },
   toggleContainer: {
     flexDirection: "row",
-    borderRadius: 8,
-    backgroundColor: theme.colors.border,
-    padding: 2,
+    borderRadius: 22,
+    backgroundColor: theme.colors.background,
+    padding: 4,
   },
   toggleButton: {
     flex: 1,
+    minHeight: 40,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 20,
     alignItems: "center",
+    justifyContent: "center",
   },
   toggleButtonActive: {
     backgroundColor: theme.colors.primary,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 1,
   },
   toggleText: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.semiBold,
+    letterSpacing: 0,
+    textAlign: "center",
   },
   toggleTextActive: {
-    color: "#fff",
-    fontWeight: "600",
+    color: theme.colors.buttonText,
   },
 }));

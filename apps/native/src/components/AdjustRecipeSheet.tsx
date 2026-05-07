@@ -1,15 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { forwardRef, useImperativeHandle, useRef } from "react";
-import { View, TouchableOpacity } from "react-native";
+import { View } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { MeasurementToggle } from "./MeasurementToggle";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
+import { BaseButton } from "./buttons/BaseButton";
+import { PrimaryButton } from "./buttons/PrimaryButton";
 
 import { useUpdateProfile } from "@/api/user";
 import type { MeasurementSystem } from "@/lib/measurementPreferences";
+
+const QUICK_SERVINGS = [2, 4, 6, 8];
 
 export interface AdjustRecipeSheetProps {
   servings: number;
@@ -62,6 +66,10 @@ export const AdjustRecipeSheet = forwardRef<
       }
     };
 
+    const handleQuickServing = (value: number) => {
+      onServingsChange?.(value);
+    };
+
     const handleDismiss = () => {
       sheetRef.current?.dismiss();
     };
@@ -71,72 +79,95 @@ export const AdjustRecipeSheet = forwardRef<
         ref={sheetRef}
         detents={["auto"]}
         grabber={false}
+        backgroundBlur="system-material"
+        blurOptions={{ intensity: 84, interaction: true }}
         backgroundColor={theme.colors.background}
       >
         <View style={styles.container}>
-          {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerSpacer} />
             <Text type="headline">Adjust Recipe</Text>
-            <TouchableOpacity
-              onPress={handleDismiss}
-              style={styles.closeButton}
-            >
+            <BaseButton onPress={handleDismiss} style={styles.closeButton}>
               <View style={styles.closeButtonCircle}>
                 <Ionicons name="close" size={16} style={styles.closeIcon} />
               </View>
-            </TouchableOpacity>
+            </BaseButton>
           </View>
 
           <View style={styles.content}>
-            {/* Servings Stepper */}
             <View style={styles.servingsSection}>
-              <Text type="heading" style={styles.sectionLabel}>
-                Servings
-              </Text>
-              <VSpace size={12} />
+              <View style={styles.sectionHeader}>
+                <Text type="heading" style={styles.sectionLabel}>
+                  Servings
+                </Text>
+              </View>
               <View style={styles.servingsStepper}>
-                <TouchableOpacity
-                  style={styles.stepperButton}
+                <BaseButton
+                  style={[
+                    styles.stepperButton,
+                    (!servings || servings <= 1) &&
+                      styles.stepperButtonDisabled,
+                  ]}
                   onPress={handleDecrement}
                   disabled={!servings || servings <= 1}
                 >
                   <Ionicons
                     name="remove"
-                    size={24}
-                    style={[
-                      styles.stepperIcon,
-                      (!servings || servings <= 1) &&
-                        styles.stepperIconDisabled,
-                    ]}
+                    size={26}
+                    style={styles.stepperIcon}
                   />
-                </TouchableOpacity>
+                </BaseButton>
                 <View style={styles.servingsDisplay}>
                   <Text style={styles.servingsNumber}>{servings || 1}</Text>
+                  <Text type="caption1" style={styles.servingsCaption}>
+                    servings
+                  </Text>
                 </View>
-                <TouchableOpacity
+                <BaseButton
                   style={styles.stepperButton}
                   onPress={handleIncrement}
                 >
-                  <Ionicons name="add" size={24} style={styles.stepperIcon} />
-                </TouchableOpacity>
+                  <Ionicons name="add" size={26} style={styles.stepperIcon} />
+                </BaseButton>
+              </View>
+              <View style={styles.quickRow}>
+                {QUICK_SERVINGS.map((value) => {
+                  const isSelected = value === servings;
+
+                  return (
+                    <BaseButton
+                      key={value}
+                      style={[
+                        styles.quickButton,
+                        isSelected && styles.quickButtonSelected,
+                      ]}
+                      onPress={() => handleQuickServing(value)}
+                    >
+                      <Text
+                        type="footnote"
+                        style={[
+                          styles.quickButtonText,
+                          isSelected && styles.quickButtonTextSelected,
+                        ]}
+                      >
+                        {value}
+                      </Text>
+                    </BaseButton>
+                  );
+                })}
               </View>
             </View>
 
-            <VSpace size={24} />
+            <VSpace size={16} />
 
-            {/* Measurement Toggle */}
             <MeasurementToggle
               value={measurementSystem}
               onValueChange={handleMeasurementChange}
             />
 
-            <VSpace size={24} />
+            <VSpace size={18} />
 
-            {/* Done Button */}
-            <TouchableOpacity style={styles.doneButton} onPress={handleDismiss}>
-              <Text style={styles.doneButtonText}>Done</Text>
-            </TouchableOpacity>
+            <PrimaryButton onPress={handleDismiss}>Done</PrimaryButton>
           </View>
         </View>
       </TrueSheet>
@@ -146,14 +177,15 @@ export const AdjustRecipeSheet = forwardRef<
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    paddingBottom: 20,
+    paddingBottom: 0,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
   headerSpacer: {
     width: 30,
@@ -174,52 +206,84 @@ const styles = StyleSheet.create((theme) => ({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingBottom: 0,
   },
-  servingsSection: {},
+  servingsSection: {
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 24,
+    padding: 16,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
   sectionLabel: {
-    marginBottom: 4,
+    letterSpacing: 0,
   },
   servingsStepper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: 28,
-    overflow: "hidden",
+    justifyContent: "space-between",
   },
   stepperButton: {
-    width: 60,
-    height: 56,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: theme.colors.background,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  stepperButtonDisabled: {
+    opacity: 0.35,
   },
   stepperIcon: {
-    color: theme.colors.text,
-  },
-  stepperIconDisabled: {
-    opacity: 0.3,
+    color: theme.colors.primary,
   },
   servingsDisplay: {
     flex: 1,
-    height: 56,
+    minHeight: 92,
     justifyContent: "center",
     alignItems: "center",
   },
   servingsNumber: {
-    fontSize: 24,
+    fontSize: 56,
+    lineHeight: 62,
     fontFamily: theme.fonts.bold,
     color: theme.colors.text,
+    letterSpacing: 0,
   },
-  doneButton: {
-    height: 50,
-    backgroundColor: theme.colors.primary,
-    borderRadius: 25,
+  servingsCaption: {
+    color: theme.colors.textSecondary,
+    marginTop: -2,
+  },
+  quickRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 18,
+  },
+  quickButton: {
+    flex: 1,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.background,
     justifyContent: "center",
     alignItems: "center",
   },
-  doneButtonText: {
-    color: theme.colors.buttonText,
-    fontSize: 17,
+  quickButtonSelected: {
+    backgroundColor: theme.colors.primary,
+  },
+  quickButtonText: {
+    color: theme.colors.text,
     fontFamily: theme.fonts.semiBold,
+  },
+  quickButtonTextSelected: {
+    color: theme.colors.buttonText,
   },
 }));
