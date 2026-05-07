@@ -6,12 +6,14 @@
   },
   "scripts": {
     "dev": "wrangler dev --inspector-port 9231",
+    "build": "tsc --noEmit",
     "deploy": "wrangler deploy --minify",
     "check-types": "tsc --noEmit",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix"
   },
   "dependencies": {
+    "@repo/contracts": "workspace:*",
     "aws4fetch": "^1.0.20",
     "hono": "^4.10.6"
   },
@@ -23,5 +25,8 @@
   },
   "eslintConfig": {
     "extends": "universe/node"
+  },
+  "nx": {
+    "tags": ["type:app", "runtime:worker"]
   }
 }

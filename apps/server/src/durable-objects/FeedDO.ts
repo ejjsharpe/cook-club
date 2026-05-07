@@ -104,6 +104,7 @@ export class FeedDO implements DurableObject {
     const activityIds: number[] = [];
     let foundCursor = !cursor;
     let nextCursor: string | null = null;
+    let lastIncludedKey: string | null = null;
     let count = 0;
 
     for (const [key, activityId] of allItems) {
@@ -116,9 +117,10 @@ export class FeedDO implements DurableObject {
 
       if (count < limit) {
         activityIds.push(activityId);
+        lastIncludedKey = key;
         count++;
       } else {
-        nextCursor = key;
+        nextCursor = lastIncludedKey;
         break;
       }
     }

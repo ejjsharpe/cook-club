@@ -2,15 +2,25 @@ import { expo } from "@better-auth/expo";
 import { getDb } from "@repo/db";
 import * as schema from "@repo/db/schemas";
 import { getOrCreateDefaultCollections } from "@repo/db/services";
-import type { TRPCEnv } from "@repo/trpc/server/env";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { Resend } from "resend";
 
 const FROM_EMAIL = "Cook Club <noreply@cookclub.app>";
 
+export interface AuthEnv {
+  DATABASE_URL: string;
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+  FB_CLIENT_ID: string;
+  FB_CLIENT_SECRET: string;
+  BETTER_AUTH_SECRET: string;
+  BETTER_AUTH_URL: string;
+  RESEND_API_KEY: string;
+}
+
 async function sendEmail(
-  env: TRPCEnv,
+  env: AuthEnv,
   options: { to: string; subject: string; html: string },
 ) {
   const resend = new Resend(env.RESEND_API_KEY);
@@ -24,7 +34,7 @@ async function sendEmail(
   }
 }
 
-export function getAuth(env: TRPCEnv) {
+export function getAuth(env: AuthEnv) {
   const db = getDb(env);
 
   return betterAuth({
@@ -36,7 +46,6 @@ export function getAuth(env: TRPCEnv) {
       user: {
         create: {
           after: async (user) => {
-            // Create default collections for new users
             await getOrCreateDefaultCollections(db, user.id);
           },
         },
@@ -81,11 +90,6 @@ export function getAuth(env: TRPCEnv) {
         clientId: env.FB_CLIENT_ID,
         clientSecret: env.FB_CLIENT_SECRET,
       },
-      // apple: {
-      //   clientId: "",
-      //   clientSecret: "",
-      //   appBundleIdentifier: "",
-      // },
     },
     account: {
       accountLinking: {
@@ -94,3 +98,7 @@ export function getAuth(env: TRPCEnv) {
     },
   });
 }
+
+export type Auth = ReturnType<typeof getAuth>;
+export type AuthSession = Auth["$Infer"]["Session"]["session"];
+export type AuthUser = Auth["$Infer"]["Session"]["user"];

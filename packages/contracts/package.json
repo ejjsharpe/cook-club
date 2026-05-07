@@ -1,11 +1,13 @@
 {
-  "name": "@repo/shared",
+  "name": "@repo/contracts",
   "version": "1.0.0",
-  "main": "index.ts",
-  "types": "index.ts",
+  "type": "module",
   "exports": {
-    ".": "./index.ts",
-    "./aisleClassifier": "./src/aisleClassifier.ts"
+    ".": "./src/index.ts",
+    "./feed": "./src/feed.ts",
+    "./image-worker": "./src/image-worker.ts",
+    "./recipe-parser": "./src/recipe-parser.ts",
+    "./recipe": "./src/recipe.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -14,6 +16,7 @@
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
+    "@types/node": "^24.0.14",
     "eslint-config-universe": "15.0.3",
     "typescript": "^5.8.3"
   },
@@ -21,6 +24,6 @@
     "extends": "universe/node"
   },
   "nx": {
-    "tags": ["type:package", "scope:shared"]
+    "tags": ["type:package", "scope:contracts"]
   }
 }

@@ -1,4 +1,4 @@
-import type { ImageWorkerService } from "cook-club-image-worker/service";
+import type { ImageWorkerService } from "@repo/contracts/image-worker";
 
 export interface Env {
   AI: Ai;

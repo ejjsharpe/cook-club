@@ -28,6 +28,18 @@ export function createMockEnv() {
     RECIPE_PARSER: {
       parse: vi.fn(),
       chat: vi.fn(),
+      identifyIngredients: vi.fn(),
+      suggestRecipes: vi.fn(),
+      generateFromSuggestion: vi.fn(),
     },
+    IMAGE_WORKER: {
+      presign: vi.fn(),
+      verify: vi.fn(),
+      move: vi.fn(),
+      delete: vi.fn(),
+      uploadFromUrl: vi.fn(),
+    },
+    IMAGE_PUBLIC_URL: "https://images.example.com",
+    RESEND_API_KEY: "mock-resend-key",
   };
 }

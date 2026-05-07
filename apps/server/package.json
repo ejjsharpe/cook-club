@@ -5,20 +5,24 @@
   },
   "scripts": {
     "dev": "wait-on tcp:8788 && wait-on tcp:8789 && wrangler dev --ip 0.0.0.0 --inspector-port 9229",
+    "build": "tsc --noEmit",
     "deploy": "wrangler deploy --minify",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@better-auth/expo": "^1.4.1",
     "@hono/trpc-server": "^0.4.0",
-    "better-auth": "^1.4.1",
-    "hono": "^4.10.6",
-    "resend": "^6.9.1"
+    "@repo/auth": "workspace:*",
+    "@repo/contracts": "workspace:*",
+    "@repo/trpc": "workspace:*",
+    "hono": "^4.10.6"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.11.0",
     "@cloudflare/workers-types": "^4.20250718.0",
+    "@repo/tsconfig": "workspace:*",
     "@types/node": "^24.0.14",
     "eslint-config-universe": "15.0.3",
     "typescript": "^5.8.3",
@@ -28,5 +32,8 @@
   },
   "eslintConfig": {
     "extends": "universe/node"
+  },
+  "nx": {
+    "tags": ["type:app", "runtime:worker"]
   }
 }

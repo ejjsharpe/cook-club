@@ -14,7 +14,7 @@ export const users: UserData[] = [
     username: "emmarod",
     email: "emma.rodriguez@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=1"
+    image: "https://i.pravatar.cc/150?img=1",
   },
   {
     id: "user_002",
@@ -22,7 +22,7 @@ export const users: UserData[] = [
     username: "jameschen",
     email: "james.chen@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=12"
+    image: "https://i.pravatar.cc/150?img=12",
   },
   {
     id: "user_003",
@@ -30,7 +30,7 @@ export const users: UserData[] = [
     username: "sophiapatel",
     email: "sophia.patel@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=5"
+    image: "https://i.pravatar.cc/150?img=5",
   },
   {
     id: "user_004",
@@ -38,7 +38,7 @@ export const users: UserData[] = [
     username: "marcusj",
     email: "marcus.johnson@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=13"
+    image: "https://i.pravatar.cc/150?img=13",
   },
   {
     id: "user_005",
@@ -46,7 +46,7 @@ export const users: UserData[] = [
     username: "oliviakim",
     email: "olivia.kim@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=9"
+    image: "https://i.pravatar.cc/150?img=9",
   },
   {
     id: "user_006",
@@ -54,7 +54,7 @@ export const users: UserData[] = [
     username: "liamobrien",
     email: "liam.obrien@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=14"
+    image: "https://i.pravatar.cc/150?img=14",
   },
   {
     id: "user_007",
@@ -62,7 +62,7 @@ export const users: UserData[] = [
     username: "avamartinez",
     email: "ava.martinez@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=10"
+    image: "https://i.pravatar.cc/150?img=10",
   },
   {
     id: "user_008",
@@ -70,7 +70,7 @@ export const users: UserData[] = [
     username: "noahanderson",
     email: "noah.anderson@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=15"
+    image: "https://i.pravatar.cc/150?img=15",
   },
   {
     id: "user_009",
@@ -78,7 +78,7 @@ export const users: UserData[] = [
     username: "bellanguyen",
     email: "isabella.nguyen@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=16"
+    image: "https://i.pravatar.cc/150?img=16",
   },
   {
     id: "user_010",
@@ -86,7 +86,7 @@ export const users: UserData[] = [
     username: "ethanw",
     email: "ethan.williams@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=17"
+    image: "https://i.pravatar.cc/150?img=17",
   },
   {
     id: "user_011",
@@ -94,7 +94,7 @@ export const users: UserData[] = [
     username: "miathompson",
     email: "mia.thompson@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=20"
+    image: "https://i.pravatar.cc/150?img=20",
   },
   {
     id: "user_012",
@@ -102,7 +102,7 @@ export const users: UserData[] = [
     username: "alexsantos",
     email: "alex.santos@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=18"
+    image: "https://i.pravatar.cc/150?img=18",
   },
   {
     id: "user_013",
@@ -110,7 +110,7 @@ export const users: UserData[] = [
     username: "chloeharper",
     email: "chloe.harper@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=23"
+    image: "https://i.pravatar.cc/150?img=23",
   },
   {
     id: "user_014",
@@ -118,6 +118,6 @@ export const users: UserData[] = [
     username: "danielpark",
     email: "daniel.park@example.com",
     password: "Password123!",
-    image: "https://i.pravatar.cc/150?img=52"
-  }
+    image: "https://i.pravatar.cc/150?img=52",
+  },
 ];

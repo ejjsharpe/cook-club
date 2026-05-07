@@ -5,20 +5,20 @@ import {
   follows,
   user,
 } from "../../schemas";
-import { classifyIngredientAisle } from "@repo/shared";
+import {
+  classifyIngredientAisle,
+  normalizeIngredientName,
+  normalizeUnit,
+  parseIngredient,
+  parseIngredients,
+} from "@repo/shared";
 import { eq, and, or, gt, inArray } from "drizzle-orm";
 import { ServiceError } from "../errors";
 
-import {
-  parseIngredient,
-  normalizeIngredientName,
-  parseIngredients,
-} from "../../utils/ingredientParser";
-import { normalizeUnit } from "../../utils/unitNormalizer";
 import type { DbClient, TransactionClient } from "../types";
 
 // Re-export for convenience
-export { parseIngredient, normalizeIngredientName, parseIngredients };
+export { normalizeIngredientName, parseIngredient, parseIngredients };
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -122,14 +122,7 @@ export async function insertShoppingListItem(
 /**
  * Format quantity for display
  */
-export function formatQuantity(quantity: number | null): string {
-  if (!quantity) return "";
-
-  // Format quantity with up to 2 decimal places, removing trailing zeros
-  return quantity % 1 === 0
-    ? quantity.toString()
-    : quantity.toFixed(2).replace(/\.?0+$/, "");
-}
+export { formatQuantity } from "@repo/shared";
 
 // ─── Access Control ─────────────────────────────────────────────────────────
 

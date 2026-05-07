@@ -14,8 +14,8 @@ import {
   createRecipe,
   getRecipeDetail,
   importRecipe,
-  parseIngredients,
 } from "@repo/db/services";
+import { parseIngredients } from "@repo/shared";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, lt, desc, and, ilike, count, inArray, min } from "drizzle-orm";
@@ -23,6 +23,10 @@ import { eq, lt, desc, and, ilike, count, inArray, min } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { mapServiceError } from "../utils";
 import { propagateActivityToFollowers } from "../services/activity";
+import {
+  cleanupMovedRecipeImages,
+  prepareRecipeImages,
+} from "../services/recipe-image.service";
 
 const ImageRecord = type({
   url: "string.url",
@@ -342,15 +346,21 @@ export const recipeRouter = router({
       // Validate tags
       await validateTags(ctx.db, input.categories, input.cuisines);
 
+      let movedKeys: string[] = [];
+
       try {
-        // Create the recipe, passing image worker if we have upload IDs
+        const preparedImages = await prepareRecipeImages(input, {
+          imageWorker: ctx.env.IMAGE_WORKER,
+          imagePublicUrl: ctx.env.IMAGE_PUBLIC_URL,
+        });
+        movedKeys = preparedImages.movedKeys;
+
         const recipe = await createRecipe(
           ctx.db,
           ctx.user.id,
-          input,
-          hasUploadIds ? ctx.env.IMAGE_WORKER : undefined,
-          hasUploadIds ? ctx.env.IMAGE_PUBLIC_URL : undefined,
+          { ...input, images: preparedImages.images },
         );
+        movedKeys = [];
 
         // Create activity event for the import
         const activityEventResult = await ctx.db
@@ -380,11 +390,9 @@ export const recipeRouter = router({
 
         return recipe;
       } catch (err) {
+        await cleanupMovedRecipeImages(ctx.env.IMAGE_WORKER, movedKeys);
         console.error("Error saving recipe:", err);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to save recipe",
-        });
+        throw mapServiceError(err);
       }
     }),
 

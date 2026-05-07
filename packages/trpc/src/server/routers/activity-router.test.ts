@@ -3,20 +3,29 @@ import { TRPCError } from "@trpc/server";
 
 import { createMockEnv } from "../__mocks__/env";
 
-// Mock the activity propagation service (now in tRPC layer)
-vi.mock("../services/activity", () => ({
+const mockActivityServices = vi.hoisted(() => ({
   propagateActivityToFollowers: vi.fn().mockResolvedValue(undefined),
   hydrateFeed: vi.fn().mockResolvedValue(0),
 }));
 
-// Mock the db services (only hydrateActivityIds remains here)
-vi.mock("@repo/db/services", () => ({
+const mockDbServices = vi.hoisted(() => ({
   hydrateActivityIds: vi.fn().mockResolvedValue([]),
+  createNotification: vi.fn().mockResolvedValue(undefined),
+  ServiceError: class ServiceError extends Error {
+    code = "INTERNAL_ERROR";
+  },
 }));
+
+// Mock the activity propagation service (now in tRPC layer)
+vi.mock("../services/activity", () => mockActivityServices);
+
+// Mock the db services (only hydrateActivityIds remains here)
+vi.mock("@repo/db/services", () => mockDbServices);
 
 // Mock @repo/db/schemas to provide table objects
 vi.mock("@repo/db/schemas", () => ({
   activityEvents: { _name: "activity_events" },
+  activityLikes: { _name: "activity_likes" },
   cookingReviews: { _name: "cooking_reviews" },
   cookingReviewImages: { _name: "cooking_review_images" },
   recipes: { _name: "recipes" },
@@ -27,6 +36,10 @@ vi.mock("@repo/db/schemas", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((a, b) => ({ type: "eq", field: a, value: b })),
   desc: vi.fn((a) => ({ type: "desc", field: a })),
+  lt: vi.fn((a, b) => ({ type: "lt", field: a, value: b })),
+  and: vi.fn((...args) => ({ type: "and", conditions: args })),
+  sql: vi.fn(),
+  inArray: vi.fn((a, b) => ({ type: "inArray", field: a, values: b })),
 }));
 
 // Create a mock db that tracks queries and returns configured results
@@ -110,6 +123,9 @@ describe("activityRouter", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDbServices.hydrateActivityIds.mockResolvedValue([]);
+    mockActivityServices.hydrateFeed.mockResolvedValue(0);
+    mockActivityServices.propagateActivityToFollowers.mockResolvedValue(undefined);
     mockDb = createMockDb();
     mockEnv = createMockEnv();
   });
@@ -125,11 +141,12 @@ describe("activityRouter", () => {
           createdAt: Date.now(),
         },
       ];
+      mockDbServices.hydrateActivityIds.mockResolvedValueOnce(mockFeedItems);
 
       // Mock the DO fetch response
       mockEnv.USER_FEED._stub.fetch.mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ items: mockFeedItems, nextCursor: null }),
+          JSON.stringify({ activityIds: [1], nextCursor: null }),
           { headers: { "Content-Type": "application/json" } }
         )
       );
@@ -142,6 +159,11 @@ describe("activityRouter", () => {
       expect(result.items).toHaveLength(1);
       expect(result.items[0]!.id).toBe("1");
       expect(result.nextCursor).toBeNull();
+      expect(mockDbServices.hydrateActivityIds).toHaveBeenCalledWith(
+        expect.anything(),
+        [1],
+        "test-user-id",
+      );
 
       // Verify DO was called correctly
       expect(mockEnv.USER_FEED.idFromName).toHaveBeenCalledWith("test-user-id");
@@ -151,7 +173,7 @@ describe("activityRouter", () => {
     it("passes cursor parameter to Durable Object", async () => {
       mockEnv.USER_FEED._stub.fetch.mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ items: [], nextCursor: null }),
+          JSON.stringify({ activityIds: [], nextCursor: null }),
           { headers: { "Content-Type": "application/json" } }
         )
       );
@@ -170,7 +192,7 @@ describe("activityRouter", () => {
     it("returns nextCursor when more items exist", async () => {
       mockEnv.USER_FEED._stub.fetch.mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ items: [], nextCursor: "next-page-cursor" }),
+          JSON.stringify({ activityIds: [2], nextCursor: "next-page-cursor" }),
           { headers: { "Content-Type": "application/json" } }
         )
       );
@@ -331,7 +353,8 @@ describe("activityRouter", () => {
         expect.anything(), // db
         expect.anything(), // env
         100, // activity event id
-        "test-user-id" // user id
+        "test-user-id", // user id
+        expect.any(Date),
       );
     });
   });
@@ -377,8 +400,8 @@ describe("activityRouter", () => {
         },
       ]);
       mockDb._setResults("cooking_review_images", [
-        { url: "http://example.com/img1.jpg" },
-        { url: "http://example.com/img2.jpg" },
+        { reviewId: 1, url: "http://example.com/img1.jpg" },
+        { reviewId: 1, url: "http://example.com/img2.jpg" },
       ]);
 
       const ctx = createMockContext(mockDb, { env: mockEnv });

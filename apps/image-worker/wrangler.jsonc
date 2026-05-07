@@ -18,6 +18,7 @@
     }
   ],
   "vars": {
+    "R2_ACCOUNT_ID": "46fa47bc2bba51d75383b4dfe6e3deb1",
     // Public URL for serving images (dev uses R2 public URL, prod uses custom domain)
     "PUBLIC_URL": "https://pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev",
     // R2 bucket's public URL (used as origin for image transformations)
@@ -33,6 +34,7 @@
   "env": {
     "production": {
       "vars": {
+        "R2_ACCOUNT_ID": "46fa47bc2bba51d75383b4dfe6e3deb1",
         "PUBLIC_URL": "https://images.cook-club.app",
         "R2_ORIGIN_URL": "https://images.cook-club.app",
         "R2_BUCKET_NAME": "cook-club-images"

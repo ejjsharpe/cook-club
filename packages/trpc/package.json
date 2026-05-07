@@ -8,23 +8,33 @@
     "./server/types/feed": "./src/server/types/feed.ts"
   },
   "scripts": {
+    "build": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@repo/auth": "workspace:*",
+    "@repo/contracts": "workspace:*",
+    "@repo/db": "workspace:*",
     "@repo/shared": "workspace:*",
     "@trpc/client": "^11.4.3",
     "@trpc/server": "^11.4.3",
     "@trpc/tanstack-react-query": "^11.4.3",
     "arktype": "^2.1.20",
-    "cook-club-image-worker": "workspace:*",
-    "cook-club-recipe-parser": "workspace:*",
-    "cook-club-server": "workspace:*"
+    "drizzle-orm": "0.44.3"
   },
   "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
+    "eslint-config-universe": "15.0.3",
+    "typescript": "^5.8.3",
     "vitest": "^3.2.3"
   },
   "eslintConfig": {
     "extends": "universe/node"
+  },
+  "nx": {
+    "tags": ["type:package", "scope:api"]
   }
 }

@@ -10,9 +10,6 @@ import {
 import {
   getOrCreateShoppingList,
   insertShoppingListItem,
-  formatQuantity,
-  parseIngredient,
-  normalizeIngredientName,
   canUserAccessShoppingList,
   getShoppingLists as getShoppingListsService,
   getShoppingListShareableUsers as getShoppingListShareableUsersService,
@@ -26,7 +23,12 @@ import {
   getShoppingListShareStatus as getShoppingListShareStatusService,
   createNotification,
 } from "@repo/db/services";
-import { classifyIngredientAisle } from "@repo/shared";
+import {
+  classifyIngredientAisle,
+  formatQuantity,
+  normalizeIngredientName,
+  parseIngredient,
+} from "@repo/shared";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, and, desc, sql } from "drizzle-orm";

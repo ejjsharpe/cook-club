@@ -15,12 +15,10 @@ import {
   tags,
   user,
 } from "../../schemas";
-import type { ImageWorkerService } from "cook-club-image-worker/service";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { normalizeUnit, parseIngredient } from "@repo/shared";
 
-import { parseIngredient } from "../../utils/ingredientParser";
-import { normalizeUnit } from "../../utils/unitNormalizer";
 import { getOrCreateDefaultCollections } from "../collection/collection.service";
 import { ServiceError } from "../errors";
 import type { DbClient } from "../types";
@@ -62,9 +60,7 @@ export interface CreateRecipeInput {
   name: string;
   ingredientSections: CreateIngredientSection[];
   instructionSections: CreateInstructionSection[];
-  // Either images (direct URLs) or imageUploadIds (temp keys to be moved)
   images?: CreateRecipeImage[];
-  imageUploadIds?: string[];
   sourceUrl?: string;
   sourceType?: SourceType;
   categories?: string[];
@@ -75,8 +71,6 @@ export interface CreateRecipeInput {
   totalTime?: number; // minutes
   servings: number;
 }
-
-export type { ImageWorkerService };
 
 export interface IngredientSectionWithItems {
   id: number;
@@ -186,14 +180,10 @@ export async function createRecipe(
   db: DbClient,
   userId: string,
   input: CreateRecipeInput,
-  imageWorker?: ImageWorkerService,
-  imagePublicUrl?: string,
 ) {
-  // Validate that we have either images or imageUploadIds
   const hasDirectImages = input.images && input.images.length > 0;
-  const hasUploadIds = input.imageUploadIds && input.imageUploadIds.length > 0;
 
-  if (!hasDirectImages && !hasUploadIds) {
+  if (!hasDirectImages) {
     throw new ServiceError("BAD_REQUEST", "At least one image is required");
   }
 
@@ -356,41 +346,7 @@ export async function createRecipe(
       });
     }
 
-    // Handle images - either direct URLs or uploaded keys
-    let imageUrls: string[];
-
-    if (hasUploadIds && imageWorker && imagePublicUrl) {
-      // Move images from temp to permanent location
-      const moves = input.imageUploadIds!.map((uploadId) => {
-        // Extract extension from upload key (temp/{uuid}.{ext})
-        const ext = uploadId.split(".").pop() || "jpg";
-        const imageId = crypto.randomUUID();
-        const permanentKey = `recipes/covers/${recipe.id}/${imageId}.${ext}`;
-        return { from: uploadId, to: permanentKey };
-      });
-
-      const moveResult = await imageWorker.move(moves);
-
-      if (!moveResult.success) {
-        const failedMoves = moveResult.results.filter((r) => !r.success);
-        const errorDetails = failedMoves
-          .map((r) => `${r.from} -> ${r.to}: ${r.error}`)
-          .join(", ");
-        console.error("Failed to move uploaded images:", errorDetails);
-        throw new ServiceError(
-          "INTERNAL_ERROR",
-          `Failed to move uploaded images: ${errorDetails}`,
-        );
-      }
-
-      // Generate public URLs from permanent keys
-      imageUrls = moves.map((move) => `${imagePublicUrl}/${move.to}`);
-    } else if (hasDirectImages) {
-      // Use direct URLs as-is
-      imageUrls = input.images!.map((img) => img.url);
-    } else {
-      throw new ServiceError("BAD_REQUEST", "No valid images provided");
-    }
+    const imageUrls = input.images!.map((img) => img.url);
 
     // Insert images
     const images = await tx

@@ -3,24 +3,29 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { followsRouter } from "./follows-router";
 import { createMockEnv } from "../__mocks__/env";
 
-// Mock the propagation service
-const mockBackfillFeedFromUser = vi.fn().mockResolvedValue(undefined);
-const mockRemoveUserFromFeed = vi.fn().mockResolvedValue(undefined);
-
-vi.mock("../services/activity/activity-propagation.service", () => ({
-  backfillFeedFromUser: (...args: unknown[]) =>
-    mockBackfillFeedFromUser(...args),
-  removeUserFromFeed: (...args: unknown[]) => mockRemoveUserFromFeed(...args),
+const mocks = vi.hoisted(() => ({
+  backfillFeedFromUser: vi.fn().mockResolvedValue(undefined),
+  removeUserFromFeed: vi.fn().mockResolvedValue(undefined),
+  followUser: vi.fn(),
+  unfollowUser: vi.fn(),
+  getFollowList: vi.fn(),
+  createNotification: vi.fn().mockResolvedValue(undefined),
+  ServiceError: class ServiceError extends Error {
+    code = "INTERNAL_ERROR";
+  },
 }));
 
-// Mock the follows service
-const mockFollowUserService = vi.fn();
-const mockUnfollowUserService = vi.fn();
+vi.mock("../services/activity", () => ({
+  backfillFeedFromUser: mocks.backfillFeedFromUser,
+  removeUserFromFeed: mocks.removeUserFromFeed,
+}));
 
-vi.mock("../services/follows", () => ({
-  followUser: (...args: unknown[]) => mockFollowUserService(...args),
-  unfollowUser: (...args: unknown[]) => mockUnfollowUserService(...args),
-  getFollowList: vi.fn(),
+vi.mock("@repo/db/services", () => ({
+  followUser: mocks.followUser,
+  unfollowUser: mocks.unfollowUser,
+  getFollowList: mocks.getFollowList,
+  createNotification: mocks.createNotification,
+  ServiceError: mocks.ServiceError,
 }));
 
 // Mock @repo/db/schemas
@@ -38,6 +43,9 @@ vi.mock("drizzle-orm", () => ({
   ne: vi.fn((a, b) => ({ type: "ne", field: a, value: b })),
   like: vi.fn((a, b) => ({ type: "like", field: a, pattern: b })),
   count: vi.fn((a) => ({ type: "count", field: a })),
+  sql: vi.fn(),
+  notInArray: vi.fn((a, b) => ({ type: "notInArray", field: a, values: b })),
+  desc: vi.fn((a) => ({ type: "desc", field: a })),
 }));
 
 // Create a simple mock db
@@ -77,11 +85,14 @@ describe("followsRouter - activity integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockEnv = createMockEnv();
-    mockFollowUserService.mockResolvedValue({
+    mocks.backfillFeedFromUser.mockResolvedValue(undefined);
+    mocks.removeUserFromFeed.mockResolvedValue(undefined);
+    mocks.createNotification.mockResolvedValue(undefined);
+    mocks.followUser.mockResolvedValue({
       success: true,
       isNewFollow: true,
     });
-    mockUnfollowUserService.mockResolvedValue({ success: true });
+    mocks.unfollowUser.mockResolvedValue({ success: true });
   });
 
   describe("followUser - activity integration", () => {
@@ -94,7 +105,7 @@ describe("followsRouter - activity integration", () => {
       // Allow async fire-and-forget to run
       await new Promise((r) => setTimeout(r, 0));
 
-      expect(mockBackfillFeedFromUser).toHaveBeenCalledWith(
+      expect(mocks.backfillFeedFromUser).toHaveBeenCalledWith(
         expect.anything(), // db
         expect.anything(), // env
         "test-user-id", // current user
@@ -104,7 +115,7 @@ describe("followsRouter - activity integration", () => {
     });
 
     it("follow succeeds even if backfill fails", async () => {
-      mockBackfillFeedFromUser.mockRejectedValueOnce(
+      mocks.backfillFeedFromUser.mockRejectedValueOnce(
         new Error("Backfill failed"),
       );
 
@@ -124,7 +135,7 @@ describe("followsRouter - activity integration", () => {
 
       await caller.followUser({ userId: "user-to-follow" });
 
-      expect(mockFollowUserService).toHaveBeenCalledWith(
+      expect(mocks.followUser).toHaveBeenCalledWith(
         expect.anything(), // db
         "test-user-id", // current user
         "user-to-follow", // user to follow
@@ -142,7 +153,8 @@ describe("followsRouter - activity integration", () => {
       // Allow async fire-and-forget to run
       await new Promise((r) => setTimeout(r, 0));
 
-      expect(mockRemoveUserFromFeed).toHaveBeenCalledWith(
+      expect(mocks.removeUserFromFeed).toHaveBeenCalledWith(
+        expect.anything(), // db
         expect.anything(), // env
         "test-user-id", // current user
         "unfollowed-user-id", // unfollowed user
@@ -150,7 +162,7 @@ describe("followsRouter - activity integration", () => {
     });
 
     it("unfollow succeeds even if cleanup fails", async () => {
-      mockRemoveUserFromFeed.mockRejectedValueOnce(new Error("Cleanup failed"));
+      mocks.removeUserFromFeed.mockRejectedValueOnce(new Error("Cleanup failed"));
 
       const ctx = createMockContext({ env: mockEnv });
       const caller = followsRouter.createCaller(ctx as any);
@@ -169,7 +181,7 @@ describe("followsRouter - activity integration", () => {
 
       await caller.unfollowUser({ userId: "user-to-unfollow" });
 
-      expect(mockUnfollowUserService).toHaveBeenCalledWith(
+      expect(mocks.unfollowUser).toHaveBeenCalledWith(
         expect.anything(), // db
         "test-user-id", // current user
         "user-to-unfollow", // user to unfollow

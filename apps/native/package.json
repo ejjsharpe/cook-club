@@ -82,5 +82,8 @@
   "private": true,
   "trustedDependencies": [
     "react-native-nitro-modules"
-  ]
+  ],
+  "nx": {
+    "tags": ["type:app", "runtime:native"]
+  }
 }

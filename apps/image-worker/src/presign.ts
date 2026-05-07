@@ -23,11 +23,15 @@ export async function generatePresignedUploadUrl(
 
   // R2 uses the account ID and bucket name for the endpoint
   // The access key ID and secret are from API tokens with R2 permissions
-  const accountId = "46fa47bc2bba51d75383b4dfe6e3deb1";
+  const accountId = env.R2_ACCOUNT_ID;
   const bucketName = env.R2_BUCKET_NAME;
 
   const accessKeyId = env.R2_ACCESS_KEY_ID;
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY;
+
+  if (!accountId) {
+    throw new Error("R2 account ID not configured");
+  }
 
   if (!accessKeyId || !secretAccessKey) {
     throw new Error("R2 credentials not configured");

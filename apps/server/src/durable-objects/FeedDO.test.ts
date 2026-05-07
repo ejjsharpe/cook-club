@@ -1,22 +1,31 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { FeedDO } from "./FeedDO";
-import type { FeedItem } from "@repo/trpc/server/types/feed";
 
-// Create a mock storage that simulates DurableObjectStorage
+import { FeedDO } from "./FeedDO";
+
+const BASE_TIME = 1_700_000_000_000;
+
+interface FeedEntry {
+  activityEventId: number;
+  createdAt: number;
+}
+
 function createMockStorage() {
   const storage = new Map<string, unknown>();
 
   return {
     get: vi.fn(async (key: string) => storage.get(key)),
-    put: vi.fn(async (keyOrEntries: string | Record<string, unknown>, value?: unknown) => {
-      if (typeof keyOrEntries === "string") {
-        storage.set(keyOrEntries, value);
-      } else {
-        for (const [k, v] of Object.entries(keyOrEntries)) {
-          storage.set(k, v);
+    put: vi.fn(
+      async (keyOrEntries: string | Record<string, unknown>, value?: unknown) => {
+        if (typeof keyOrEntries === "string") {
+          storage.set(keyOrEntries, value);
+          return;
         }
-      }
-    }),
+
+        for (const [key, entryValue] of Object.entries(keyOrEntries)) {
+          storage.set(key, entryValue);
+        }
+      },
+    ),
     delete: vi.fn(async (keys: string | string[]) => {
       const keysArray = Array.isArray(keys) ? keys : [keys];
       for (const key of keysArray) {
@@ -31,14 +40,13 @@ function createMockStorage() {
           entries.push([key, value as T]);
         }
       }
-      // Sort by key
       entries.sort((a, b) => a[0].localeCompare(b[0]));
       if (options?.reverse) {
         entries.reverse();
       }
       return new Map(entries);
     }),
-    _storage: storage, // Expose for test inspection
+    _storage: storage,
   };
 }
 
@@ -50,24 +58,18 @@ function createMockState() {
   };
 }
 
-function createFeedItem(overrides: Partial<FeedItem> = {}): FeedItem {
-  const base = {
-    id: "1",
-    type: "recipe_import" as const,
-    actor: {
-      id: "user-1",
-      name: "Test User",
-      image: null,
-    },
-    recipe: {
-      id: 1,
-      name: "Test Recipe",
-      image: null,
-      sourceType: "manual" as const,
-    },
-    createdAt: Date.now(),
+function createFeedEntry(
+  activityEventId: number,
+  createdAt = BASE_TIME + activityEventId,
+): FeedEntry {
+  return { activityEventId, createdAt };
+}
+
+async function readFeedIds(response: Response) {
+  return (await response.json()) as {
+    activityIds: number[];
+    nextCursor: string | null;
   };
-  return { ...base, ...overrides } as FeedItem;
 }
 
 describe("FeedDO", () => {
@@ -80,321 +82,322 @@ describe("FeedDO", () => {
   });
 
   describe("fetch routing", () => {
-    it("routes POST /addFeedItem correctly", async () => {
-      const item = createFeedItem();
-      const request = new Request("http://do/addFeedItem", {
-        method: "POST",
-        body: JSON.stringify(item),
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const response = await feedDO.fetch(request);
+    it("routes POST /addActivityId correctly", async () => {
+      const response = await feedDO.fetch(
+        new Request("http://do/addActivityId", {
+          method: "POST",
+          body: JSON.stringify(createFeedEntry(123)),
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
 
       expect(response.status).toBe(200);
       expect(await response.text()).toBe("OK");
       expect(mockState._storage.size).toBe(1);
     });
 
-    it("routes POST /addFeedItems correctly", async () => {
-      const items = [
-        createFeedItem({ id: "1", createdAt: 1000 }),
-        createFeedItem({ id: "2", createdAt: 2000 }),
-      ];
-      const request = new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const response = await feedDO.fetch(request);
+    it("routes POST /addActivityIds correctly", async () => {
+      const response = await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify([createFeedEntry(1), createFeedEntry(2)]),
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
 
       expect(response.status).toBe(200);
       expect(await response.text()).toBe("OK");
       expect(mockState._storage.size).toBe(2);
     });
 
-    it("routes GET /getFeed correctly", async () => {
-      // Add some items first
-      const item = createFeedItem();
-      await feedDO.fetch(new Request("http://do/addFeedItem", {
-        method: "POST",
-        body: JSON.stringify(item),
-      }));
+    it("routes GET /getFeedIds correctly", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityId", {
+          method: "POST",
+          body: JSON.stringify(createFeedEntry(123)),
+        }),
+      );
 
-      const request = new Request("http://do/getFeed?limit=20");
-
-      const response = await feedDO.fetch(request);
+      const response = await feedDO.fetch(new Request("http://do/getFeedIds"));
 
       expect(response.status).toBe(200);
       expect(response.headers.get("Content-Type")).toBe("application/json");
-
-      const result = await response.json() as { items: FeedItem[] };
-      expect(result.items).toHaveLength(1);
+      expect(await readFeedIds(response)).toEqual({
+        activityIds: [123],
+        nextCursor: null,
+      });
     });
 
-    it("routes POST /removeItemsFromUser correctly", async () => {
-      // Add an item first
-      const item = createFeedItem({ actor: { id: "user-to-remove", name: "Test", image: null } });
-      await feedDO.fetch(new Request("http://do/addFeedItem", {
-        method: "POST",
-        body: JSON.stringify(item),
-      }));
+    it("routes POST /removeActivityIds correctly", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityId", {
+          method: "POST",
+          body: JSON.stringify(createFeedEntry(123)),
+        }),
+      );
       expect(mockState._storage.size).toBe(1);
 
-      const request = new Request("http://do/removeItemsFromUser", {
-        method: "POST",
-        body: JSON.stringify({ userId: "user-to-remove" }),
-      });
-
-      const response = await feedDO.fetch(request);
+      const response = await feedDO.fetch(
+        new Request("http://do/removeActivityIds", {
+          method: "POST",
+          body: JSON.stringify({ activityIds: [123] }),
+        }),
+      );
 
       expect(response.status).toBe(200);
       expect(await response.text()).toBe("OK");
       expect(mockState._storage.size).toBe(0);
     });
 
-    it("returns 404 for unknown routes", async () => {
-      const request = new Request("http://do/unknownRoute");
+    it("routes POST /clear correctly", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify([createFeedEntry(1), createFeedEntry(2)]),
+        }),
+      );
 
-      const response = await feedDO.fetch(request);
+      const response = await feedDO.fetch(
+        new Request("http://do/clear", { method: "POST" }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(mockState._storage.size).toBe(0);
+    });
+
+    it("returns 404 for unknown routes", async () => {
+      const response = await feedDO.fetch(new Request("http://do/unknownRoute"));
 
       expect(response.status).toBe(404);
       expect(await response.text()).toBe("Not Found");
     });
   });
 
-  describe("addFeedItem", () => {
-    it("stores item with timestamp-based key", async () => {
-      const item = createFeedItem({ id: "123", createdAt: 1705312800000 });
+  describe("addActivityId", () => {
+    it("stores activity ID with timestamp-based key", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityId", {
+          method: "POST",
+          body: JSON.stringify(createFeedEntry(123, BASE_TIME)),
+        }),
+      );
 
-      await feedDO.fetch(new Request("http://do/addFeedItem", {
-        method: "POST",
-        body: JSON.stringify(item),
-      }));
-
-      const keys = Array.from(mockState._storage.keys());
-      expect(keys).toHaveLength(1);
-      expect(keys[0]).toBe("item:1705312800000-123");
+      expect(Array.from(mockState._storage.keys())).toEqual([
+        `item:${BASE_TIME}-123`,
+      ]);
+      expect(mockState._storage.get(`item:${BASE_TIME}-123`)).toBe(123);
     });
   });
 
-  describe("addFeedItems", () => {
-    it("batch stores multiple items", async () => {
-      const items = [
-        createFeedItem({ id: "1", createdAt: 1000 }),
-        createFeedItem({ id: "2", createdAt: 2000 }),
-        createFeedItem({ id: "3", createdAt: 3000 }),
-      ];
-
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
+  describe("addActivityIds", () => {
+    it("batch stores multiple activity IDs", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify([
+            createFeedEntry(1, BASE_TIME + 1),
+            createFeedEntry(2, BASE_TIME + 2),
+            createFeedEntry(3, BASE_TIME + 3),
+          ]),
+        }),
+      );
 
       expect(mockState._storage.size).toBe(3);
-      expect(mockState._storage.has("item:1000-1")).toBe(true);
-      expect(mockState._storage.has("item:2000-2")).toBe(true);
-      expect(mockState._storage.has("item:3000-3")).toBe(true);
+      expect(mockState._storage.has(`item:${BASE_TIME + 1}-1`)).toBe(true);
+      expect(mockState._storage.has(`item:${BASE_TIME + 2}-2`)).toBe(true);
+      expect(mockState._storage.has(`item:${BASE_TIME + 3}-3`)).toBe(true);
     });
 
-    it("handles empty array", async () => {
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify([]),
-      }));
+    it("handles empty arrays", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify([]),
+        }),
+      );
 
       expect(mockState._storage.size).toBe(0);
     });
   });
 
-  describe("getFeed", () => {
-    it("returns items in reverse chronological order", async () => {
-      const items = [
-        createFeedItem({ id: "1", createdAt: 1000, recipe: { id: 1, name: "First", image: null, sourceType: "manual" } }),
-        createFeedItem({ id: "2", createdAt: 3000, recipe: { id: 2, name: "Third", image: null, sourceType: "manual" } }),
-        createFeedItem({ id: "3", createdAt: 2000, recipe: { id: 3, name: "Second", image: null, sourceType: "manual" } }),
-      ];
-
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
-
-      const response = await feedDO.fetch(new Request("http://do/getFeed?limit=10"));
-      const result = await response.json() as { items: FeedItem[]; nextCursor: string | null };
-
-      expect(result.items).toHaveLength(3);
-      expect(result.items[0]!.recipe.name).toBe("Third");
-      expect(result.items[1]!.recipe.name).toBe("Second");
-      expect(result.items[2]!.recipe.name).toBe("First");
-    });
-
-    it("respects limit parameter", async () => {
-      const items = Array.from({ length: 10 }, (_, i) =>
-        createFeedItem({ id: String(i), createdAt: i * 1000 })
+  describe("getFeedIds", () => {
+    it("returns activity IDs in reverse chronological order", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify([
+            createFeedEntry(10, BASE_TIME + 1),
+            createFeedEntry(30, BASE_TIME + 3),
+            createFeedEntry(20, BASE_TIME + 2),
+          ]),
+        }),
       );
 
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
-
-      const response = await feedDO.fetch(new Request("http://do/getFeed?limit=3"));
-      const result = await response.json() as { items: FeedItem[]; nextCursor: string | null };
-
-      expect(result.items).toHaveLength(3);
-    });
-
-    it("returns nextCursor when more items exist", async () => {
-      const items = Array.from({ length: 5 }, (_, i) =>
-        createFeedItem({ id: String(i), createdAt: i * 1000 })
+      const result = await readFeedIds(
+        await feedDO.fetch(new Request("http://do/getFeedIds?limit=10")),
       );
 
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
-
-      const response = await feedDO.fetch(new Request("http://do/getFeed?limit=3"));
-      const result = await response.json() as { items: FeedItem[]; nextCursor: string | null };
-
-      expect(result.nextCursor).not.toBeNull();
-      expect(result.nextCursor).toBe("item:1000-1"); // 4th item (0-indexed: id=1, createdAt=1000)
+      expect(result.activityIds).toEqual([30, 20, 10]);
     });
 
-    it("returns null nextCursor when no more items", async () => {
-      const items = [
-        createFeedItem({ id: "1", createdAt: 1000 }),
-        createFeedItem({ id: "2", createdAt: 2000 }),
-      ];
+    it("respects the limit parameter", async () => {
+      const entries = Array.from({ length: 10 }, (_, index) =>
+        createFeedEntry(index, BASE_TIME + index),
+      );
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify(entries),
+        }),
+      );
 
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
+      const result = await readFeedIds(
+        await feedDO.fetch(new Request("http://do/getFeedIds?limit=3")),
+      );
 
-      const response = await feedDO.fetch(new Request("http://do/getFeed?limit=10"));
-      const result = await response.json() as { items: FeedItem[]; nextCursor: string | null };
-
-      expect(result.items).toHaveLength(2);
-      expect(result.nextCursor).toBeNull();
+      expect(result.activityIds).toEqual([9, 8, 7]);
     });
 
-    it("handles cursor-based pagination", async () => {
-      const items = Array.from({ length: 6 }, (_, i) =>
-        createFeedItem({ id: String(i), createdAt: i * 1000 })
+    it("returns the last included key as nextCursor when more items exist", async () => {
+      const entries = Array.from({ length: 5 }, (_, index) =>
+        createFeedEntry(index, BASE_TIME + index),
+      );
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify(entries),
+        }),
       );
 
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
-
-      // First page
-      const response1 = await feedDO.fetch(new Request("http://do/getFeed?limit=3"));
-      const result1 = await response1.json() as { items: FeedItem[]; nextCursor: string | null };
-
-      expect(result1.items).toHaveLength(3);
-      expect(result1.items[0]!.id).toBe("5"); // Newest first (createdAt: 5000)
-      expect(result1.items[1]!.id).toBe("4");
-      expect(result1.items[2]!.id).toBe("3");
-      expect(result1.nextCursor).not.toBeNull();
-
-      // Second page using cursor - should get remaining 3 items
-      const response2 = await feedDO.fetch(
-        new Request(`http://do/getFeed?limit=3&cursor=${encodeURIComponent(result1.nextCursor!)}`)
+      const result = await readFeedIds(
+        await feedDO.fetch(new Request("http://do/getFeedIds?limit=3")),
       );
-      const result2 = await response2.json() as { items: FeedItem[]; nextCursor: string | null };
 
-      // Second page gets items after the cursor position
-      expect(result2.items.length).toBeGreaterThan(0);
-      // Verify we're getting the remaining items (not overlapping with first page)
-      const firstPageIds = result1.items.map(i => i.id);
-      const secondPageIds = result2.items.map(i => i.id);
-      expect(firstPageIds.some(id => secondPageIds.includes(id))).toBe(false);
+      expect(result.activityIds).toEqual([4, 3, 2]);
+      expect(result.nextCursor).toBe(`item:${BASE_TIME + 2}-2`);
+    });
+
+    it("returns null nextCursor when no more items exist", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify([createFeedEntry(1), createFeedEntry(2)]),
+        }),
+      );
+
+      const result = await readFeedIds(
+        await feedDO.fetch(new Request("http://do/getFeedIds?limit=10")),
+      );
+
+      expect(result).toEqual({ activityIds: [2, 1], nextCursor: null });
+    });
+
+    it("paginates without skipping the first item after the cursor", async () => {
+      const entries = Array.from({ length: 6 }, (_, index) =>
+        createFeedEntry(index, BASE_TIME + index),
+      );
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify(entries),
+        }),
+      );
+
+      const firstPage = await readFeedIds(
+        await feedDO.fetch(new Request("http://do/getFeedIds?limit=3")),
+      );
+      const secondPage = await readFeedIds(
+        await feedDO.fetch(
+          new Request(
+            `http://do/getFeedIds?limit=3&cursor=${encodeURIComponent(
+              firstPage.nextCursor!,
+            )}`,
+          ),
+        ),
+      );
+
+      expect(firstPage.activityIds).toEqual([5, 4, 3]);
+      expect(secondPage.activityIds).toEqual([2, 1, 0]);
+      expect(secondPage.nextCursor).toBeNull();
     });
   });
 
-  describe("removeItemsFromUser", () => {
-    it("removes all items from specified user", async () => {
-      const items = [
-        createFeedItem({ id: "1", actor: { id: "user-a", name: "User A", image: null }, createdAt: 1000 }),
-        createFeedItem({ id: "2", actor: { id: "user-b", name: "User B", image: null }, createdAt: 2000 }),
-        createFeedItem({ id: "3", actor: { id: "user-a", name: "User A", image: null }, createdAt: 3000 }),
-      ];
+  describe("removeActivityIds", () => {
+    it("removes requested activity IDs", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify([
+            createFeedEntry(1),
+            createFeedEntry(2),
+            createFeedEntry(3),
+          ]),
+        }),
+      );
 
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
-      expect(mockState._storage.size).toBe(3);
-
-      await feedDO.fetch(new Request("http://do/removeItemsFromUser", {
-        method: "POST",
-        body: JSON.stringify({ userId: "user-a" }),
-      }));
+      await feedDO.fetch(
+        new Request("http://do/removeActivityIds", {
+          method: "POST",
+          body: JSON.stringify({ activityIds: [1, 3] }),
+        }),
+      );
 
       expect(mockState._storage.size).toBe(1);
-
-      const response = await feedDO.fetch(new Request("http://do/getFeed"));
-      const result = await response.json() as { items: FeedItem[] };
-
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0]!.actor.id).toBe("user-b");
+      const result = await readFeedIds(
+        await feedDO.fetch(new Request("http://do/getFeedIds")),
+      );
+      expect(result.activityIds).toEqual([2]);
     });
 
-    it("leaves other users items intact", async () => {
-      const items = [
-        createFeedItem({ id: "1", actor: { id: "user-a", name: "User A", image: null }, createdAt: 1000 }),
-        createFeedItem({ id: "2", actor: { id: "user-b", name: "User B", image: null }, createdAt: 2000 }),
-      ];
+    it("leaves unrelated activity IDs intact", async () => {
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify([createFeedEntry(1), createFeedEntry(2)]),
+        }),
+      );
 
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
+      await feedDO.fetch(
+        new Request("http://do/removeActivityIds", {
+          method: "POST",
+          body: JSON.stringify({ activityIds: [999] }),
+        }),
+      );
 
-      await feedDO.fetch(new Request("http://do/removeItemsFromUser", {
-        method: "POST",
-        body: JSON.stringify({ userId: "user-c" }), // User with no items
-      }));
-
-      expect(mockState._storage.size).toBe(2); // All items remain
+      expect(mockState._storage.size).toBe(2);
     });
   });
 
   describe("maybePrune", () => {
     it("removes oldest items when exceeding MAX_FEED_ITEMS", async () => {
-      // MAX_FEED_ITEMS is 500 - we'll add 502 items
-      const items = Array.from({ length: 502 }, (_, i) =>
-        createFeedItem({ id: String(i), createdAt: i })
+      const entries = Array.from({ length: 502 }, (_, index) =>
+        createFeedEntry(index, BASE_TIME + index),
       );
 
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify(entries),
+        }),
+      );
 
-      // Should have pruned down to 500
       expect(mockState._storage.size).toBe(500);
-
-      // The oldest items (id: 0, 1) should be deleted
-      expect(mockState._storage.has("item:0-0")).toBe(false);
-      expect(mockState._storage.has("item:1-1")).toBe(false);
-
-      // Newer items should remain
-      expect(mockState._storage.has("item:501-501")).toBe(true);
+      expect(mockState._storage.has(`item:${BASE_TIME}-0`)).toBe(false);
+      expect(mockState._storage.has(`item:${BASE_TIME + 1}-1`)).toBe(false);
+      expect(mockState._storage.has(`item:${BASE_TIME + 501}-501`)).toBe(true);
     });
 
-    it("does nothing when under limit", async () => {
-      const items = Array.from({ length: 50 }, (_, i) =>
-        createFeedItem({ id: String(i), createdAt: i * 1000 })
+    it("does nothing when under the item limit", async () => {
+      const entries = Array.from({ length: 50 }, (_, index) =>
+        createFeedEntry(index, BASE_TIME + index),
       );
 
-      await feedDO.fetch(new Request("http://do/addFeedItems", {
-        method: "POST",
-        body: JSON.stringify(items),
-      }));
+      await feedDO.fetch(
+        new Request("http://do/addActivityIds", {
+          method: "POST",
+          body: JSON.stringify(entries),
+        }),
+      );
 
       expect(mockState._storage.size).toBe(50);
     });
