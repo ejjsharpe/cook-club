@@ -217,23 +217,3 @@ export const useSaveRecipe = () => {
     },
   });
 };
-
-// Update an existing recipe owned by the current user
-export const useUpdateRecipe = () => {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    ...trpc.recipe.updateRecipe.mutationOptions(),
-    onSuccess: () => {
-      queryClient.invalidateQueries(trpc.recipe.getUserRecipes.pathFilter());
-      queryClient.invalidateQueries(trpc.recipe.getRecipeDetail.pathFilter());
-      queryClient.invalidateQueries(
-        trpc.collection.getUserCollections.pathFilter(),
-      );
-      queryClient.invalidateQueries(
-        trpc.collection.getCollectionDetail.pathFilter(),
-      );
-    },
-  });
-};

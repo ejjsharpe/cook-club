@@ -12,7 +12,6 @@ import {
   queryPopularRecipesThisWeek,
   validateTags,
   createRecipe,
-  updateRecipe,
   getRecipeDetail,
   importRecipe,
 } from "@repo/db/services";
@@ -74,7 +73,7 @@ const SourceTypeValidator = type(
   "'url' | 'image' | 'text' | 'ai' | 'manual' | 'user'",
 );
 
-const RecipePostShape = {
+export const RecipePostValidator = type({
   name: "string",
   ingredientSections: IngredientSectionRecord.array().atLeastLength(1),
   instructionSections: InstructionSectionRecord.array().atLeastLength(1),
@@ -92,13 +91,6 @@ const RecipePostShape = {
   "cookTime?": "number", // minutes
   "totalTime?": "number", // minutes
   servings: "number > 0",
-} as const;
-
-export const RecipePostValidator = type(RecipePostShape);
-
-export const RecipeUpdateValidator = type({
-  ...RecipePostShape,
-  recipeId: "number",
 });
 
 const UrlValidator = type({ url: "string.url" });
@@ -400,52 +392,6 @@ export const recipeRouter = router({
       } catch (err) {
         await cleanupMovedRecipeImages(ctx.env.IMAGE_WORKER, movedKeys);
         console.error("Error saving recipe:", err);
-        throw mapServiceError(err);
-      }
-    }),
-
-  updateRecipe: authedProcedure
-    .input(RecipeUpdateValidator)
-    .mutation(async ({ input, ctx }) => {
-      if (input instanceof type.errors) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: input.summary,
-        });
-      }
-
-      const hasImages = input.images && input.images.length > 0;
-      const hasUploadIds =
-        input.imageUploadIds && input.imageUploadIds.length > 0;
-      if (!hasImages && !hasUploadIds) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "At least one image is required",
-        });
-      }
-
-      await validateTags(ctx.db, input.categories, input.cuisines);
-
-      let movedKeys: string[] = [];
-
-      try {
-        const preparedImages = await prepareRecipeImages(input, {
-          imageWorker: ctx.env.IMAGE_WORKER,
-          imagePublicUrl: ctx.env.IMAGE_PUBLIC_URL,
-        });
-        movedKeys = preparedImages.movedKeys;
-
-        const recipe = await updateRecipe(ctx.db, ctx.user.id, {
-          ...input,
-          id: input.recipeId,
-          images: preparedImages.images,
-        });
-        movedKeys = [];
-
-        return recipe;
-      } catch (err) {
-        await cleanupMovedRecipeImages(ctx.env.IMAGE_WORKER, movedKeys);
-        console.error("Error updating recipe:", err);
         throw mapServiceError(err);
       }
     }),

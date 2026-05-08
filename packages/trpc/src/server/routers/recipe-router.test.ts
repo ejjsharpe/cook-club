@@ -13,12 +13,10 @@ vi.mock("../services/activity", () => ({
 
 // Mock the recipe service
 const mockCreateRecipe = vi.fn();
-const mockUpdateRecipe = vi.fn();
 const mockValidateTags = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@repo/db/services", () => ({
   createRecipe: (...args: unknown[]) => mockCreateRecipe(...args),
-  updateRecipe: (...args: unknown[]) => mockUpdateRecipe(...args),
   getRecipeDetail: vi.fn(),
   importRecipe: vi.fn(),
   queryPopularRecipesThisWeek: vi.fn(),
@@ -145,7 +143,6 @@ describe("recipeRouter - activity integration", () => {
     mockDb = createMockDb();
     mockEnv = createMockEnv();
     mockCreateRecipe.mockResolvedValue({ id: 1, name: "Test Recipe" });
-    mockUpdateRecipe.mockResolvedValue({ id: 1 });
   });
 
   describe("postRecipe - activity integration", () => {
@@ -250,11 +247,11 @@ describe("recipeRouter - activity integration", () => {
 
       const ctx = createMockContext(mockDb, { env: mockEnv });
       const caller = recipeRouter.createCaller(ctx as any);
-      const { images: _images, ...inputWithoutImages } = validRecipeInput;
 
       await expect(
         caller.postRecipe({
-          ...inputWithoutImages,
+          ...validRecipeInput,
+          images: undefined,
           imageUploadIds: ["temp/abc.jpg"],
         }),
       ).rejects.toThrow();
@@ -279,11 +276,11 @@ describe("recipeRouter - activity integration", () => {
 
       const ctx = createMockContext(mockDb, { env: mockEnv });
       const caller = recipeRouter.createCaller(ctx as any);
-      const { images: _images, ...inputWithoutImages } = validRecipeInput;
 
       await expect(
         caller.postRecipe({
-          ...inputWithoutImages,
+          ...validRecipeInput,
+          images: undefined,
           imageUploadIds: ["temp/abc.jpg"],
         }),
       ).rejects.toThrow();
