@@ -362,7 +362,10 @@ export const HomeScreen = () => {
         );
 
         if (result.success) {
-          navigation.navigate("EditRecipe", { parsedRecipe: result });
+          navigation.navigate("RecipeDetail", {
+            parsedRecipe: result,
+            mode: "edit",
+          });
         } else {
           Alert.alert("Error", "Failed to parse recipe from URL");
         }

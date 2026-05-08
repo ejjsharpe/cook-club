@@ -11,6 +11,7 @@ import {
   useParseRecipeFromUrl,
   useParseRecipeFromText,
   useParseRecipeFromImage,
+  type ParsedRecipe,
 } from "@/api/recipe";
 import {
   getPendingShareIntent,
@@ -19,9 +20,7 @@ import {
 } from "@/lib/pendingShareIntent";
 import { imageToBase64 } from "@/utils/imageUtils";
 
-type ParsedRecipeResult = NonNullable<
-  ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"]
->;
+type ParsedRecipeResult = ParsedRecipe;
 
 export function ShareIntentHandler() {
   const { hasShareIntent, shareIntent, resetShareIntent } =
@@ -84,7 +83,10 @@ export function ShareIntentHandler() {
 
       if (result) {
         clearPendingShareIntent();
-        navigation.navigate("EditRecipe", { parsedRecipe: result });
+        navigation.navigate("RecipeDetail", {
+          parsedRecipe: result,
+          mode: "edit",
+        });
       } else {
         Alert.alert(
           "Couldn't parse recipe",

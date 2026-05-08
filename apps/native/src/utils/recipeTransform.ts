@@ -34,6 +34,7 @@ export function transformParsedRecipeForPreview(
           quantity: ing.quantity?.toString() ?? null,
           unit: ing.unit ?? null,
           name: ing.name,
+          preparation: null,
         })),
       }))
     : [
@@ -78,13 +79,15 @@ export function transformParsedRecipeForPreview(
     servings: data.servings ?? 4,
     sourceUrl: data.sourceUrl ?? null,
     sourceType: parsedRecipe.metadata.source,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    originalRecipeId: null,
+    originalOwnerId: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
 
     // Mock owner (will be replaced with actual user on save)
     owner: {
       id: "",
-      name: data.author ?? "Unknown",
+      name: "Unknown",
       email: "",
       image: null,
     },

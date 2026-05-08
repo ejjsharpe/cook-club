@@ -15,6 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
+import type { ParsedRecipe } from "@/api/recipe";
 import {
   BasicImportSheet,
   type BasicImportSheetRef,
@@ -107,12 +108,9 @@ export const AddRecipeScreen = () => {
     [titleOpacity],
   );
 
-  const handleRecipeParsed = (
-    result: ReactNavigation.RootParamList["EditRecipe"]["parsedRecipe"],
-  ) => {
-    // Navigate to preview mode - user can save directly or edit first
+  const handleRecipeParsed = (result: ParsedRecipe | undefined) => {
     if (result) {
-      navigate("RecipeDetail", { parsedRecipe: result });
+      navigate("RecipeDetail", { parsedRecipe: result, mode: "edit" });
     }
   };
 
@@ -121,7 +119,7 @@ export const AddRecipeScreen = () => {
   };
 
   const onPressCreate = () => {
-    navigate("EditRecipe", {});
+    navigate("RecipeDetail", { draft: true, mode: "edit" });
   };
 
   const onPressAIChef = () => {

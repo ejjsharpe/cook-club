@@ -13,10 +13,12 @@ vi.mock("../services/activity", () => ({
 
 // Mock the recipe service
 const mockCreateRecipe = vi.fn();
+const mockUpdateRecipe = vi.fn();
 const mockValidateTags = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@repo/db/services", () => ({
   createRecipe: (...args: unknown[]) => mockCreateRecipe(...args),
+  updateRecipe: (...args: unknown[]) => mockUpdateRecipe(...args),
   getRecipeDetail: vi.fn(),
   importRecipe: vi.fn(),
   queryPopularRecipesThisWeek: vi.fn(),
@@ -143,6 +145,7 @@ describe("recipeRouter - activity integration", () => {
     mockDb = createMockDb();
     mockEnv = createMockEnv();
     mockCreateRecipe.mockResolvedValue({ id: 1, name: "Test Recipe" });
+    mockUpdateRecipe.mockResolvedValue({ id: 1 });
   });
 
   describe("postRecipe - activity integration", () => {
@@ -247,11 +250,11 @@ describe("recipeRouter - activity integration", () => {
 
       const ctx = createMockContext(mockDb, { env: mockEnv });
       const caller = recipeRouter.createCaller(ctx as any);
+      const { images: _images, ...uploadRecipeInput } = validRecipeInput;
 
       await expect(
         caller.postRecipe({
-          ...validRecipeInput,
-          images: undefined,
+          ...uploadRecipeInput,
           imageUploadIds: ["temp/abc.jpg"],
         }),
       ).rejects.toThrow();
@@ -276,16 +279,108 @@ describe("recipeRouter - activity integration", () => {
 
       const ctx = createMockContext(mockDb, { env: mockEnv });
       const caller = recipeRouter.createCaller(ctx as any);
+      const { images: _images, ...uploadRecipeInput } = validRecipeInput;
 
       await expect(
         caller.postRecipe({
-          ...validRecipeInput,
-          images: undefined,
+          ...uploadRecipeInput,
           imageUploadIds: ["temp/abc.jpg"],
         }),
       ).rejects.toThrow();
 
       expect(mockEnv.IMAGE_WORKER.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("updateRecipe", () => {
+    const validRecipeInput = {
+      recipeId: 1,
+      name: "Updated Recipe",
+      prepTime: 10,
+      cookTime: 25,
+      servings: 4,
+      ingredientSections: [
+        {
+          name: null,
+          ingredients: [{ ingredient: "1 cup flour", index: 0 }],
+        },
+      ],
+      instructionSections: [
+        {
+          name: null,
+          instructions: [{ instruction: "Mix ingredients", index: 0 }],
+        },
+      ],
+      images: [{ url: "https://example.com/image.jpg" }],
+      cuisines: [],
+      categories: [],
+    };
+
+    it("updates a recipe through the recipe service", async () => {
+      const ctx = createMockContext(mockDb, { env: mockEnv });
+      const caller = recipeRouter.createCaller(ctx as any);
+
+      const result = await caller.updateRecipe(validRecipeInput);
+
+      expect(result.id).toBe(1);
+      expect(mockUpdateRecipe).toHaveBeenCalledWith(
+        mockDb,
+        "test-user-id",
+        expect.objectContaining({
+          recipeId: 1,
+          name: "Updated Recipe",
+          images: [{ url: "https://example.com/image.jpg" }],
+        }),
+      );
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("rejects updates without a non-empty ingredient", async () => {
+      const ctx = createMockContext(mockDb, { env: mockEnv });
+      const caller = recipeRouter.createCaller(ctx as any);
+
+      await expect(
+        caller.updateRecipe({
+          ...validRecipeInput,
+          ingredientSections: [
+            {
+              name: null,
+              ingredients: [{ ingredient: "   ", index: 0 }],
+            },
+          ],
+        }),
+      ).rejects.toThrow("At least one ingredient is required");
+
+      expect(mockUpdateRecipe).not.toHaveBeenCalled();
+    });
+
+    it("cleans up moved images when recipe update fails", async () => {
+      mockEnv.IMAGE_WORKER.move.mockResolvedValue({
+        success: true,
+        results: [
+          {
+            from: "temp/abc.jpg",
+            to: "recipes/covers/group/img.jpg",
+            success: true,
+          },
+        ],
+      });
+      mockUpdateRecipe.mockRejectedValueOnce(new Error("Recipe update failed"));
+
+      const ctx = createMockContext(mockDb, { env: mockEnv });
+      const caller = recipeRouter.createCaller(ctx as any);
+      const { images: _images, ...uploadRecipeInput } = validRecipeInput;
+
+      await expect(
+        caller.updateRecipe({
+          ...uploadRecipeInput,
+          imageUploadIds: ["temp/abc.jpg"],
+        }),
+      ).rejects.toThrow();
+
+      expect(mockEnv.IMAGE_WORKER.delete).toHaveBeenCalledWith([
+        expect.stringMatching(/^recipes\/covers\/.+\/.+\.jpg$/),
+      ]);
     });
   });
 });

@@ -21,7 +21,7 @@ import { normalizeUnit, parseIngredient } from "@repo/shared";
 
 import { getOrCreateDefaultCollections } from "../collection/collection.service";
 import { ServiceError } from "../errors";
-import type { DbClient } from "../types";
+import type { DbClient, TransactionClient } from "../types";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -72,6 +72,10 @@ export interface CreateRecipeInput {
   servings: number;
 }
 
+export interface UpdateRecipeInput extends CreateRecipeInput {
+  recipeId: number;
+}
+
 export interface IngredientSectionWithItems {
   id: number;
   name: string | null;
@@ -112,6 +116,147 @@ export type RecipeWithDetails = Omit<typeof recipes.$inferSelect, "ownerId"> & {
   userReviewRating: number | null;
   tags: { id: number; name: string; type: string }[];
 };
+
+function prepareRecipeIngredient(ing: CreateRecipeIngredient) {
+  if (ing.ingredient) {
+    const parsed = parseIngredient(ing.ingredient);
+    return {
+      index: ing.index,
+      quantity: parsed.quantity?.toString() || null,
+      unit: normalizeUnit(parsed.unit),
+      name: parsed.name,
+      preparation: parsed.preparation,
+    };
+  }
+
+  return {
+    index: ing.index,
+    quantity: ing.quantity || null,
+    unit: normalizeUnit(ing.unit || null),
+    name: ing.name || "",
+    preparation: ing.preparation || null,
+  };
+}
+
+async function insertIngredientSectionsForRecipe(
+  tx: TransactionClient,
+  recipeId: number,
+  sections: CreateIngredientSection[],
+) {
+  const insertedIngredientSections: IngredientSectionWithItems[] = [];
+
+  for (let sectionIdx = 0; sectionIdx < sections.length; sectionIdx++) {
+    const section = sections[sectionIdx]!;
+
+    const [insertedSection] = await tx
+      .insert(ingredientSections)
+      .values({
+        recipeId,
+        name: section.name,
+        index: sectionIdx,
+      })
+      .returning();
+
+    if (!insertedSection) {
+      throw new ServiceError(
+        "INTERNAL_ERROR",
+        "Failed to create ingredient section",
+      );
+    }
+
+    const parsedIngredients = section.ingredients.map(prepareRecipeIngredient);
+
+    const insertedIngredients =
+      parsedIngredients.length > 0
+        ? await tx
+            .insert(recipeIngredients)
+            .values(
+              parsedIngredients.map((ingredient) => ({
+                sectionId: insertedSection.id,
+                index: ingredient.index,
+                quantity: ingredient.quantity,
+                unit: ingredient.unit,
+                name: ingredient.name,
+                preparation: ingredient.preparation,
+              })),
+            )
+            .returning({
+              id: recipeIngredients.id,
+              index: recipeIngredients.index,
+              quantity: recipeIngredients.quantity,
+              unit: recipeIngredients.unit,
+              name: recipeIngredients.name,
+              preparation: recipeIngredients.preparation,
+            })
+        : [];
+
+    insertedIngredientSections.push({
+      id: insertedSection.id,
+      name: insertedSection.name,
+      index: insertedSection.index,
+      ingredients: insertedIngredients,
+    });
+  }
+
+  return insertedIngredientSections;
+}
+
+async function insertInstructionSectionsForRecipe(
+  tx: TransactionClient,
+  recipeId: number,
+  sections: CreateInstructionSection[],
+) {
+  const insertedInstructionSections: InstructionSectionWithItems[] = [];
+
+  for (let sectionIdx = 0; sectionIdx < sections.length; sectionIdx++) {
+    const section = sections[sectionIdx]!;
+
+    const [insertedSection] = await tx
+      .insert(instructionSections)
+      .values({
+        recipeId,
+        name: section.name,
+        index: sectionIdx,
+      })
+      .returning();
+
+    if (!insertedSection) {
+      throw new ServiceError(
+        "INTERNAL_ERROR",
+        "Failed to create instruction section",
+      );
+    }
+
+    const insertedInstructions =
+      section.instructions.length > 0
+        ? await tx
+            .insert(recipeInstructions)
+            .values(
+              section.instructions.map((instruction) => ({
+                sectionId: insertedSection.id,
+                index: instruction.index,
+                instruction: instruction.instruction,
+                imageUrl: instruction.imageUrl || null,
+              })),
+            )
+            .returning({
+              id: recipeInstructions.id,
+              index: recipeInstructions.index,
+              instruction: recipeInstructions.instruction,
+              imageUrl: recipeInstructions.imageUrl,
+            })
+        : [];
+
+    insertedInstructionSections.push({
+      id: insertedSection.id,
+      name: insertedSection.name,
+      index: insertedSection.index,
+      instructions: insertedInstructions,
+    });
+  }
+
+  return insertedInstructionSections;
+}
 
 // ─── Tag Validation ────────────────────────────────────────────────────────
 
@@ -212,139 +357,18 @@ export async function createRecipe(
       throw new ServiceError("INTERNAL_ERROR", "Failed to create recipe");
     }
 
-    // Insert ingredient sections and their items
-    const insertedIngredientSections: IngredientSectionWithItems[] = [];
-    for (
-      let sectionIdx = 0;
-      sectionIdx < input.ingredientSections.length;
-      sectionIdx++
-    ) {
-      const section = input.ingredientSections[sectionIdx]!;
+    const insertedIngredientSections = await insertIngredientSectionsForRecipe(
+      tx,
+      recipe.id,
+      input.ingredientSections,
+    );
 
-      // Insert section
-      const [insertedSection] = await tx
-        .insert(ingredientSections)
-        .values({
-          recipeId: recipe.id,
-          name: section.name,
-          index: sectionIdx,
-        })
-        .returning();
-
-      if (!insertedSection) {
-        throw new ServiceError(
-          "INTERNAL_ERROR",
-          "Failed to create ingredient section",
-        );
-      }
-
-      // Parse and insert ingredients for this section
-      const parsedIngredients = section.ingredients.map((ing) => {
-        if (ing.ingredient) {
-          const parsed = parseIngredient(ing.ingredient);
-          return {
-            index: ing.index,
-            quantity: parsed.quantity?.toString() || null,
-            unit: normalizeUnit(parsed.unit),
-            name: parsed.name,
-            preparation: parsed.preparation,
-          };
-        }
-        return {
-          index: ing.index,
-          quantity: ing.quantity || null,
-          unit: normalizeUnit(ing.unit || null),
-          name: ing.name || "",
-          preparation: ing.preparation || null,
-        };
-      });
-
-      const insertedIngredients =
-        parsedIngredients.length > 0
-          ? await tx
-              .insert(recipeIngredients)
-              .values(
-                parsedIngredients.map((ingredient) => ({
-                  sectionId: insertedSection.id,
-                  index: ingredient.index,
-                  quantity: ingredient.quantity,
-                  unit: ingredient.unit,
-                  name: ingredient.name,
-                  preparation: ingredient.preparation,
-                })),
-              )
-              .returning({
-                id: recipeIngredients.id,
-                index: recipeIngredients.index,
-                quantity: recipeIngredients.quantity,
-                unit: recipeIngredients.unit,
-                name: recipeIngredients.name,
-                preparation: recipeIngredients.preparation,
-              })
-          : [];
-
-      insertedIngredientSections.push({
-        id: insertedSection.id,
-        name: insertedSection.name,
-        index: insertedSection.index,
-        ingredients: insertedIngredients,
-      });
-    }
-
-    // Insert instruction sections and their items
-    const insertedInstructionSections: InstructionSectionWithItems[] = [];
-    for (
-      let sectionIdx = 0;
-      sectionIdx < input.instructionSections.length;
-      sectionIdx++
-    ) {
-      const section = input.instructionSections[sectionIdx]!;
-
-      // Insert section
-      const [insertedSection] = await tx
-        .insert(instructionSections)
-        .values({
-          recipeId: recipe.id,
-          name: section.name,
-          index: sectionIdx,
-        })
-        .returning();
-
-      if (!insertedSection) {
-        throw new ServiceError(
-          "INTERNAL_ERROR",
-          "Failed to create instruction section",
-        );
-      }
-
-      // Insert instructions for this section
-      const insertedInstructions =
-        section.instructions.length > 0
-          ? await tx
-              .insert(recipeInstructions)
-              .values(
-                section.instructions.map((instruction) => ({
-                  sectionId: insertedSection.id,
-                  index: instruction.index,
-                  instruction: instruction.instruction,
-                  imageUrl: instruction.imageUrl || null,
-                })),
-              )
-              .returning({
-                id: recipeInstructions.id,
-                index: recipeInstructions.index,
-                instruction: recipeInstructions.instruction,
-                imageUrl: recipeInstructions.imageUrl,
-              })
-          : [];
-
-      insertedInstructionSections.push({
-        id: insertedSection.id,
-        name: insertedSection.name,
-        index: insertedSection.index,
-        instructions: insertedInstructions,
-      });
-    }
+    const insertedInstructionSections =
+      await insertInstructionSectionsForRecipe(
+        tx,
+        recipe.id,
+        input.instructionSections,
+      );
 
     const imageUrls = input.images!.map((img) => img.url);
 
@@ -375,6 +399,105 @@ export async function createRecipe(
       instructionSections: insertedInstructionSections,
       images,
     };
+  });
+}
+
+// ─── Recipe Update ─────────────────────────────────────────────────────────
+
+/**
+ * Update a recipe owned by the current user. Editable child content is replaced
+ * as a single transaction while collections, tags, source metadata, and reviews
+ * are preserved.
+ */
+export async function updateRecipe(
+  db: DbClient,
+  userId: string,
+  input: UpdateRecipeInput,
+): Promise<{ id: number }> {
+  const hasDirectImages = input.images && input.images.length > 0;
+
+  if (!hasDirectImages) {
+    throw new ServiceError("BAD_REQUEST", "At least one image is required");
+  }
+
+  const hasIngredients = input.ingredientSections.some(
+    (section) => section.ingredients.length > 0,
+  );
+  if (!hasIngredients) {
+    throw new ServiceError("BAD_REQUEST", "At least one ingredient is required");
+  }
+
+  const hasInstructions = input.instructionSections.some(
+    (section) => section.instructions.length > 0,
+  );
+  if (!hasInstructions) {
+    throw new ServiceError("BAD_REQUEST", "At least one instruction is required");
+  }
+
+  return await db.transaction(async (tx) => {
+    const existingRecipe = await tx
+      .select({
+        id: recipes.id,
+        ownerId: recipes.ownerId,
+      })
+      .from(recipes)
+      .where(eq(recipes.id, input.recipeId))
+      .then((rows) => rows[0]);
+
+    if (!existingRecipe) {
+      throw new ServiceError("NOT_FOUND", "Recipe not found");
+    }
+
+    if (existingRecipe.ownerId !== userId) {
+      throw new ServiceError("FORBIDDEN", "You can only edit your own recipes");
+    }
+
+    const [updatedRecipe] = await tx
+      .update(recipes)
+      .set({
+        name: input.name,
+        description: input.description || null,
+        prepTime: input.prepTime || null,
+        cookTime: input.cookTime || null,
+        totalTime: input.totalTime || null,
+        servings: input.servings,
+        updatedAt: new Date(),
+      })
+      .where(eq(recipes.id, input.recipeId))
+      .returning({ id: recipes.id });
+
+    if (!updatedRecipe) {
+      throw new ServiceError("INTERNAL_ERROR", "Failed to update recipe");
+    }
+
+    await tx.delete(recipeImages).where(eq(recipeImages.recipeId, input.recipeId));
+    await tx
+      .delete(ingredientSections)
+      .where(eq(ingredientSections.recipeId, input.recipeId));
+    await tx
+      .delete(instructionSections)
+      .where(eq(instructionSections.recipeId, input.recipeId));
+
+    await insertIngredientSectionsForRecipe(
+      tx,
+      input.recipeId,
+      input.ingredientSections,
+    );
+    await insertInstructionSectionsForRecipe(
+      tx,
+      input.recipeId,
+      input.instructionSections,
+    );
+
+    const imageUrls = input.images!.map((img) => img.url);
+    await tx.insert(recipeImages).values(
+      imageUrls.map((url) => ({
+        recipeId: input.recipeId,
+        url,
+      })),
+    );
+
+    return { id: updatedRecipe.id };
   });
 }
 

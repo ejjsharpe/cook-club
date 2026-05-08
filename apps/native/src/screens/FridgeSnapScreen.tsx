@@ -194,7 +194,10 @@ export const FridgeSnapScreen = () => {
 
   const handleEditRecipe = () => {
     if (state.generatedRecipe) {
-      navigate("EditRecipe", { parsedRecipe: state.generatedRecipe });
+      navigate("RecipeDetail", {
+        parsedRecipe: state.generatedRecipe,
+        mode: "edit",
+      });
     }
   };
 

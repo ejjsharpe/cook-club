@@ -423,9 +423,6 @@ export const MealPlanScreen = () => {
           maintainVisibleContentPosition={{ disabled: false }}
           ListHeaderComponent={ListHeaderComponent}
           contentContainerStyle={styles.listContent}
-          initialScrollIndexParams={{
-            viewOffset: -(insets.top + HEADER_HEIGHT),
-          }}
           initialScrollIndex={
             todayHeaderIndex >= 0 ? todayHeaderIndex : undefined
           }

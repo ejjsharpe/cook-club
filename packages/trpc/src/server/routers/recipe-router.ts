@@ -12,6 +12,7 @@ import {
   queryPopularRecipesThisWeek,
   validateTags,
   createRecipe,
+  updateRecipe,
   getRecipeDetail,
   importRecipe,
 } from "@repo/db/services";
@@ -93,6 +94,27 @@ export const RecipePostValidator = type({
   servings: "number > 0",
 });
 
+export const RecipeUpdateValidator = type({
+  recipeId: "number",
+  name: "string",
+  ingredientSections: IngredientSectionRecord.array().atLeastLength(1),
+  instructionSections: InstructionSectionRecord.array().atLeastLength(1),
+  // Either images (direct URLs) or imageUploadIds (temp keys from upload)
+  "images?": ImageRecord.array(),
+  "imageUploadIds?": "string[]",
+
+  "sourceUrl?": "string",
+  "sourceType?": SourceTypeValidator,
+  "categories?": "string[]",
+  "cuisines?": "string[]",
+
+  "description?": "string",
+  "prepTime?": "number", // minutes
+  "cookTime?": "number", // minutes
+  "totalTime?": "number", // minutes
+  servings: "number > 0",
+});
+
 const UrlValidator = type({ url: "string.url" });
 
 const MimeTypeValidator = type("'image/jpeg' | 'image/png' | 'image/webp'");
@@ -125,6 +147,66 @@ const RecipeSuggestionValidator = type({
   matchedIngredients: "string[]",
   additionalIngredients: "string[]",
 });
+
+interface RecipePayloadInput {
+  name: string;
+  images?: { url: string }[];
+  imageUploadIds?: string[];
+  ingredientSections: {
+    ingredients: (
+      | { ingredient: string; index: number }
+      | { name: string; index: number }
+    )[];
+  }[];
+  instructionSections: {
+    instructions: { instruction: string; index: number }[];
+  }[];
+}
+
+function validateRecipePayload(input: RecipePayloadInput) {
+  if (!input.name.trim()) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Recipe name is required",
+    });
+  }
+
+  const hasImages = input.images && input.images.length > 0;
+  const hasUploadIds = input.imageUploadIds && input.imageUploadIds.length > 0;
+  if (!hasImages && !hasUploadIds) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "At least one image is required",
+    });
+  }
+
+  const hasIngredients = input.ingredientSections.some((section) =>
+    section.ingredients.some((ingredient) => {
+      if ("ingredient" in ingredient) {
+        return ingredient.ingredient.trim().length > 0;
+      }
+      return ingredient.name.trim().length > 0;
+    }),
+  );
+  if (!hasIngredients) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "At least one ingredient is required",
+    });
+  }
+
+  const hasInstructions = input.instructionSections.some((section) =>
+    section.instructions.some(
+      (instruction) => instruction.instruction.trim().length > 0,
+    ),
+  );
+  if (!hasInstructions) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "At least one instruction is required",
+    });
+  }
+}
 
 export const recipeRouter = router({
   // Parse recipe from URL using AI
@@ -332,16 +414,7 @@ export const recipeRouter = router({
         });
       }
 
-      // Validate that at least one image source is provided
-      const hasImages = input.images && input.images.length > 0;
-      const hasUploadIds =
-        input.imageUploadIds && input.imageUploadIds.length > 0;
-      if (!hasImages && !hasUploadIds) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "At least one image is required",
-        });
-      }
+      validateRecipePayload(input);
 
       // Validate tags
       await validateTags(ctx.db, input.categories, input.cuisines);
@@ -392,6 +465,41 @@ export const recipeRouter = router({
       } catch (err) {
         await cleanupMovedRecipeImages(ctx.env.IMAGE_WORKER, movedKeys);
         console.error("Error saving recipe:", err);
+        throw mapServiceError(err);
+      }
+    }),
+
+  updateRecipe: authedProcedure
+    .input(RecipeUpdateValidator)
+    .mutation(async ({ input, ctx }) => {
+      if (input instanceof type.errors) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: input.summary,
+        });
+      }
+
+      validateRecipePayload(input);
+
+      let movedKeys: string[] = [];
+
+      try {
+        const preparedImages = await prepareRecipeImages(input, {
+          imageWorker: ctx.env.IMAGE_WORKER,
+          imagePublicUrl: ctx.env.IMAGE_PUBLIC_URL,
+        });
+        movedKeys = preparedImages.movedKeys;
+
+        const recipe = await updateRecipe(ctx.db, ctx.user.id, {
+          ...input,
+          images: preparedImages.images,
+        });
+        movedKeys = [];
+
+        return recipe;
+      } catch (err) {
+        await cleanupMovedRecipeImages(ctx.env.IMAGE_WORKER, movedKeys);
+        console.error("Error updating recipe:", err);
         throw mapServiceError(err);
       }
     }),

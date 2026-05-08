@@ -87,9 +87,9 @@ export const GenerateRecipeScreen = () => {
           setConversationState(result.updatedState);
           setStatus("idle");
         } else if (result.type === "recipe") {
-          // Recipe generated - navigate to edit screen
+          // Recipe generated - navigate to detail editor
           setStatus("idle");
-          navigate("EditRecipe", {
+          navigate("RecipeDetail", {
             parsedRecipe: {
               success: true,
               data: result.recipe,
@@ -99,6 +99,7 @@ export const GenerateRecipeScreen = () => {
                 confidence: "high" as const,
               },
             },
+            mode: "edit",
           });
         }
       } catch {
