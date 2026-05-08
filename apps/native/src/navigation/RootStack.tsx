@@ -17,7 +17,6 @@ import { AccountScreen } from "@/screens/AccountScreen";
 import { CollectionDetailScreen } from "@/screens/CollectionDetailScreen";
 import { CookModeScreen } from "@/screens/CookModeScreen";
 import { EditProfileScreen } from "@/screens/EditProfileScreen";
-import EditRecipeScreen from "@/screens/EditRecipeScreen";
 import { EmailVerificationScreen } from "@/screens/EmailVerificationScreen";
 import { FollowsScreen } from "@/screens/FollowsScreen";
 import FridgeSnapScreen from "@/screens/FridgeSnapScreen";
@@ -42,7 +41,6 @@ export interface AppParamList extends ParamListBase {
   EditProfile: undefined;
   Settings: undefined;
   Notifications: undefined;
-  EditRecipe: { parsedRecipe?: ParsedRecipe };
   GenerateRecipe: undefined;
   FridgeSnap: undefined;
   UserProfile: { userId: string };
@@ -115,7 +113,6 @@ const RootStack = createNativeStackNavigator({
       },
       screens: {
         Tabs: TabNavigator,
-        EditRecipe: { screen: EditRecipeScreen },
         GenerateRecipe: { screen: GenerateRecipeScreen },
         FridgeSnap: { screen: FridgeSnapScreen },
         EditProfile: { screen: EditProfileScreen },
