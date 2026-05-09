@@ -36,6 +36,43 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { router, authedProcedure } from "../trpc";
 import { mapServiceError } from "../utils";
 
+type RecipeShoppingIngredient = {
+  id: number;
+  quantity: string | null;
+  unit: string | null;
+  name: string;
+};
+
+export function filterSelectedRecipeIngredients(
+  ingredients: RecipeShoppingIngredient[],
+  ingredientIds?: number[],
+) {
+  if (!ingredientIds) {
+    return ingredients;
+  }
+
+  const selectedIds = new Set(ingredientIds);
+  if (selectedIds.size === 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Select at least one ingredient",
+    });
+  }
+
+  const selectedIngredients = ingredients.filter((ingredient) =>
+    selectedIds.has(ingredient.id),
+  );
+
+  if (selectedIngredients.length !== selectedIds.size) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "One or more selected ingredients do not belong to this recipe",
+    });
+  }
+
+  return selectedIngredients;
+}
+
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 export const shoppingRouter = router({
@@ -49,151 +86,151 @@ export const shoppingRouter = router({
       }),
     )
     .query(async ({ ctx, input }) => {
-    try {
-      let shoppingList: typeof shoppingLists.$inferSelect;
+      try {
+        let shoppingList: typeof shoppingLists.$inferSelect;
 
-      if (input.shoppingListId) {
-        // Fetch specific list with access check
-        const hasAccess = await canUserAccessShoppingList(
-          ctx.db,
-          ctx.user.id,
-          input.shoppingListId,
-        );
-        if (!hasAccess) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "You do not have access to this shopping list",
-          });
-        }
-        const list = await ctx.db
-          .select()
-          .from(shoppingLists)
-          .where(eq(shoppingLists.id, input.shoppingListId))
-          .then((rows) => rows[0]);
-        if (!list) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Shopping list not found",
-          });
-        }
-        shoppingList = list;
-      } else {
-        shoppingList = await getOrCreateShoppingList(ctx.db, ctx.user.id);
-      }
-
-      // Get all individual items (one row per recipe-ingredient)
-      const rawItems = await ctx.db
-        .select()
-        .from(shoppingListItems)
-        .where(eq(shoppingListItems.shoppingListId, shoppingList.id))
-        .orderBy(desc(shoppingListItems.createdAt));
-
-      // Aggregate items by ingredientName + unit
-      const aggregatedItemsMap = new Map<
-        string,
-        {
-          ingredientName: string;
-          displayName: string;
-          unit: string | null;
-          totalQuantity: number;
-          isChecked: boolean;
-          aisle: string;
-          items: {
-            id: number;
-            quantity: number | null;
-            sourceRecipeId: number | null;
-            sourceRecipeName: string | null;
-          }[];
-        }
-      >();
-
-      for (const item of rawItems) {
-        const key = `${item.ingredientName}::${item.unit || "null"}`;
-        const quantity = item.quantity ? parseFloat(item.quantity) : 0;
-
-        if (!aggregatedItemsMap.has(key)) {
-          aggregatedItemsMap.set(key, {
-            ingredientName: item.ingredientName,
-            displayName: item.displayName,
-            unit: item.unit,
-            totalQuantity: quantity,
-            isChecked: item.isChecked,
-            aisle: item.aisle,
-            items: [
-              {
-                id: item.id,
-                quantity,
-                sourceRecipeId: item.sourceRecipeId,
-                sourceRecipeName: item.sourceRecipeName,
-              },
-            ],
-          });
+        if (input.shoppingListId) {
+          // Fetch specific list with access check
+          const hasAccess = await canUserAccessShoppingList(
+            ctx.db,
+            ctx.user.id,
+            input.shoppingListId,
+          );
+          if (!hasAccess) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "You do not have access to this shopping list",
+            });
+          }
+          const list = await ctx.db
+            .select()
+            .from(shoppingLists)
+            .where(eq(shoppingLists.id, input.shoppingListId))
+            .then((rows) => rows[0]);
+          if (!list) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Shopping list not found",
+            });
+          }
+          shoppingList = list;
         } else {
-          const existing = aggregatedItemsMap.get(key)!;
-          existing.totalQuantity += quantity;
-          existing.items.push({
-            id: item.id,
-            quantity,
-            sourceRecipeId: item.sourceRecipeId,
-            sourceRecipeName: item.sourceRecipeName,
-          });
-          // If ANY item is checked, mark the whole group as checked
-          if (item.isChecked) {
-            existing.isChecked = true;
+          shoppingList = await getOrCreateShoppingList(ctx.db, ctx.user.id);
+        }
+
+        // Get all individual items (one row per recipe-ingredient)
+        const rawItems = await ctx.db
+          .select()
+          .from(shoppingListItems)
+          .where(eq(shoppingListItems.shoppingListId, shoppingList.id))
+          .orderBy(desc(shoppingListItems.createdAt));
+
+        // Aggregate items by ingredientName + unit
+        const aggregatedItemsMap = new Map<
+          string,
+          {
+            ingredientName: string;
+            displayName: string;
+            unit: string | null;
+            totalQuantity: number;
+            isChecked: boolean;
+            aisle: string;
+            items: {
+              id: number;
+              quantity: number | null;
+              sourceRecipeId: number | null;
+              sourceRecipeName: string | null;
+            }[];
+          }
+        >();
+
+        for (const item of rawItems) {
+          const key = `${item.ingredientName}::${item.unit || "null"}`;
+          const quantity = item.quantity ? parseFloat(item.quantity) : 0;
+
+          if (!aggregatedItemsMap.has(key)) {
+            aggregatedItemsMap.set(key, {
+              ingredientName: item.ingredientName,
+              displayName: item.displayName,
+              unit: item.unit,
+              totalQuantity: quantity,
+              isChecked: item.isChecked,
+              aisle: item.aisle,
+              items: [
+                {
+                  id: item.id,
+                  quantity,
+                  sourceRecipeId: item.sourceRecipeId,
+                  sourceRecipeName: item.sourceRecipeName,
+                },
+              ],
+            });
+          } else {
+            const existing = aggregatedItemsMap.get(key)!;
+            existing.totalQuantity += quantity;
+            existing.items.push({
+              id: item.id,
+              quantity,
+              sourceRecipeId: item.sourceRecipeId,
+              sourceRecipeName: item.sourceRecipeName,
+            });
+            // If ANY item is checked, mark the whole group as checked
+            if (item.isChecked) {
+              existing.isChecked = true;
+            }
           }
         }
+
+        // Convert map to array and format for display
+        const items = Array.from(aggregatedItemsMap.values()).map((agg) => ({
+          // We use the first item's ID as the group ID for operations
+          id: agg.items[0]?.id || 0,
+          ingredientName: agg.ingredientName,
+          displayText: agg.unit
+            ? `${formatQuantity(agg.totalQuantity)} ${agg.unit} ${agg.displayName}`
+            : agg.totalQuantity
+              ? `${formatQuantity(agg.totalQuantity)} ${agg.displayName}`
+              : agg.displayName,
+          quantity: agg.totalQuantity,
+          unit: agg.unit,
+          isChecked: agg.isChecked,
+          aisle: agg.aisle,
+          // Return the underlying items for detailed view
+          sourceItems: agg.items,
+        }));
+
+        // Sort: unchecked first, then by display text
+        items.sort((a, b) => {
+          if (a.isChecked !== b.isChecked) {
+            return a.isChecked ? 1 : -1;
+          }
+          return a.displayText.localeCompare(b.displayText);
+        });
+
+        // Get all recipes in the shopping list
+        const recipesList = await ctx.db
+          .select({
+            id: shoppingListRecipes.recipeId,
+            name: shoppingListRecipes.recipeName,
+            imageUrl: shoppingListRecipes.recipeImageUrl,
+          })
+          .from(shoppingListRecipes)
+          .where(eq(shoppingListRecipes.shoppingListId, shoppingList.id))
+          .orderBy(desc(shoppingListRecipes.createdAt));
+
+        return {
+          shoppingList,
+          items,
+          recipes: recipesList,
+        };
+      } catch (err) {
+        console.error("Error fetching shopping list:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch shopping list",
+        });
       }
-
-      // Convert map to array and format for display
-      const items = Array.from(aggregatedItemsMap.values()).map((agg) => ({
-        // We use the first item's ID as the group ID for operations
-        id: agg.items[0]?.id || 0,
-        ingredientName: agg.ingredientName,
-        displayText: agg.unit
-          ? `${formatQuantity(agg.totalQuantity)} ${agg.unit} ${agg.displayName}`
-          : agg.totalQuantity
-            ? `${formatQuantity(agg.totalQuantity)} ${agg.displayName}`
-            : agg.displayName,
-        quantity: agg.totalQuantity,
-        unit: agg.unit,
-        isChecked: agg.isChecked,
-        aisle: agg.aisle,
-        // Return the underlying items for detailed view
-        sourceItems: agg.items,
-      }));
-
-      // Sort: unchecked first, then by display text
-      items.sort((a, b) => {
-        if (a.isChecked !== b.isChecked) {
-          return a.isChecked ? 1 : -1;
-        }
-        return a.displayText.localeCompare(b.displayText);
-      });
-
-      // Get all recipes in the shopping list
-      const recipesList = await ctx.db
-        .select({
-          id: shoppingListRecipes.recipeId,
-          name: shoppingListRecipes.recipeName,
-          imageUrl: shoppingListRecipes.recipeImageUrl,
-        })
-        .from(shoppingListRecipes)
-        .where(eq(shoppingListRecipes.shoppingListId, shoppingList.id))
-        .orderBy(desc(shoppingListRecipes.createdAt));
-
-      return {
-        shoppingList,
-        items,
-        recipes: recipesList,
-      };
-    } catch (err) {
-      console.error("Error fetching shopping list:", err);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to fetch shopping list",
-      });
-    }
-  }),
+    }),
 
   /**
    * Add recipe ingredients to shopping list with optional scaling
@@ -203,10 +240,11 @@ export const shoppingRouter = router({
       type({
         recipeId: "number",
         "servings?": "number", // Optional: scale recipe to this many servings
+        "ingredientIds?": "number[]",
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { recipeId, servings } = input;
+      const { recipeId, servings, ingredientIds } = input;
 
       try {
         const shoppingList = await getOrCreateShoppingList(ctx.db, ctx.user.id);
@@ -259,6 +297,7 @@ export const shoppingRouter = router({
         // Get recipe ingredients (through ingredient sections)
         const ingredients = await ctx.db
           .select({
+            id: recipeIngredients.id,
             quantity: recipeIngredients.quantity,
             unit: recipeIngredients.unit,
             name: recipeIngredients.name,
@@ -270,6 +309,10 @@ export const shoppingRouter = router({
           )
           .where(eq(ingredientSections.recipeId, recipeId))
           .orderBy(ingredientSections.index, recipeIngredients.index);
+        const selectedIngredients = filterSelectedRecipeIngredients(
+          ingredients,
+          ingredientIds,
+        );
 
         // Calculate scaling factor if custom servings requested
         const scalingFactor =
@@ -287,7 +330,7 @@ export const shoppingRouter = router({
           });
 
           // Process each ingredient - create ONE row per ingredient
-          for (const ing of ingredients) {
+          for (const ing of selectedIngredients) {
             // Parse quantity and apply scaling
             const baseQuantity = ing.quantity ? parseFloat(ing.quantity) : null;
             const scaledQuantity = baseQuantity
@@ -786,10 +829,11 @@ export const shoppingRouter = router({
         recipeId: "number",
         shoppingListId: "number",
         "servings?": "number",
+        "ingredientIds?": "number[]",
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { recipeId, shoppingListId, servings } = input;
+      const { recipeId, shoppingListId, servings, ingredientIds } = input;
 
       try {
         // Verify the shopping list belongs to the user
@@ -859,6 +903,7 @@ export const shoppingRouter = router({
         // Get recipe ingredients (through ingredient sections)
         const ingredients = await ctx.db
           .select({
+            id: recipeIngredients.id,
             quantity: recipeIngredients.quantity,
             unit: recipeIngredients.unit,
             name: recipeIngredients.name,
@@ -870,6 +915,10 @@ export const shoppingRouter = router({
           )
           .where(eq(ingredientSections.recipeId, recipeId))
           .orderBy(ingredientSections.index, recipeIngredients.index);
+        const selectedIngredients = filterSelectedRecipeIngredients(
+          ingredients,
+          ingredientIds,
+        );
 
         // Calculate scaling factor if custom servings requested
         const scalingFactor =
@@ -879,7 +928,7 @@ export const shoppingRouter = router({
         await ctx.db.transaction(async (tx) => {
           // Add recipe to shopping list recipes
           await tx.insert(shoppingListRecipes).values({
-            shoppingListId: shoppingListId,
+            shoppingListId,
             recipeId: recipe.id,
             recipeName: recipe.name,
             recipeImageUrl: firstImage?.url || null,
@@ -887,14 +936,14 @@ export const shoppingRouter = router({
           });
 
           // Process each ingredient
-          for (const ing of ingredients) {
+          for (const ing of selectedIngredients) {
             const baseQuantity = ing.quantity ? parseFloat(ing.quantity) : null;
             const scaledQuantity = baseQuantity
               ? baseQuantity * scalingFactor
               : null;
 
             await insertShoppingListItem(tx, {
-              shoppingListId: shoppingListId,
+              shoppingListId,
               ingredientName: ing.name,
               quantity: scaledQuantity,
               unit: ing.unit,
@@ -1008,7 +1057,10 @@ export const shoppingRouter = router({
           type: "shopping_list_invite",
           shoppingListId: input.shoppingListId,
         }).catch((err) => {
-          console.error("Error creating shopping list invite notification:", err);
+          console.error(
+            "Error creating shopping list invite notification:",
+            err,
+          );
         });
 
         return result;
@@ -1078,7 +1130,10 @@ export const shoppingRouter = router({
   // Get pending invitations for current user
   getPendingShoppingListInvitations: authedProcedure.query(async ({ ctx }) => {
     try {
-      return await getPendingShoppingListInvitationsService(ctx.db, ctx.user.id);
+      return await getPendingShoppingListInvitationsService(
+        ctx.db,
+        ctx.user.id,
+      );
     } catch (err) {
       throw mapServiceError(err);
     }

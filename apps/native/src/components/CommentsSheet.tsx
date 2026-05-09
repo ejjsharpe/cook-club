@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { AppSheet } from "./AppSheet";
 import { CommentCard } from "./CommentCard";
 import { Text } from "./Text";
 
@@ -56,10 +57,6 @@ export const CommentsSheet = forwardRef<CommentsSheetRef, CommentsSheetProps>(
       present: () => sheetRef.current?.present(),
       dismiss: () => sheetRef.current?.dismiss(),
     }));
-
-    const handleDismiss = useCallback(() => {
-      sheetRef.current?.dismiss();
-    }, []);
 
     const handleSubmit = useCallback(async () => {
       if (!commentText.trim()) return;
@@ -140,25 +137,14 @@ export const CommentsSheet = forwardRef<CommentsSheetRef, CommentsSheetProps>(
     );
 
     return (
-      <TrueSheet
+      <AppSheet
         ref={sheetRef}
+        title="Comments"
         detents={[0.8]}
-        grabber={false}
         footer={FooterComponent}
         scrollable
         backgroundColor={theme.colors.background}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <Text type="headline">Comments</Text>
-          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
-            <View style={styles.closeButtonCircle}>
-              <Ionicons name="close" size={16} style={styles.closeIcon} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
         {/* Comments List */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -209,36 +195,12 @@ export const CommentsSheet = forwardRef<CommentsSheetRef, CommentsSheetProps>(
             }
           />
         )}
-      </TrueSheet>
+      </AppSheet>
     );
   },
 );
 
 const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

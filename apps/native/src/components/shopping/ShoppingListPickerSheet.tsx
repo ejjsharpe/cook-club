@@ -16,6 +16,7 @@ import {
   useDeleteShoppingList,
   type ShoppingListWithMeta,
 } from "../../api/shopping";
+import { AppSheet } from "../AppSheet";
 import { VSpace } from "../Space";
 import { Text } from "../Text";
 
@@ -114,10 +115,6 @@ export const ShoppingListPickerSheet = forwardRef<
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const handleClose = () => {
-    sheetRef.current?.dismiss();
-  };
-
   const handleSelectList = (listId: number) => {
     onSelectList?.(listId);
     sheetRef.current?.dismiss();
@@ -163,24 +160,13 @@ export const ShoppingListPickerSheet = forwardRef<
   const sharedLists = shoppingLists?.filter((l) => !l.isOwner) ?? [];
 
   return (
-    <TrueSheet
+    <AppSheet
       ref={sheetRef}
+      title="Select Shopping List"
       detents={["auto"]}
-      grabber={false}
       backgroundColor={theme.colors.background}
     >
       <View>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <Text type="headline">Select Shopping List</Text>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <View style={styles.closeButtonCircle}>
-              <Ionicons name="close" size={16} style={styles.closeIcon} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
         <ScrollView style={styles.scrollView}>
           <View style={styles.scrollContent}>
             {isLoading ? (
@@ -298,35 +284,11 @@ export const ShoppingListPickerSheet = forwardRef<
           </View>
         </ScrollView>
       </View>
-    </TrueSheet>
+    </AppSheet>
   );
 });
 
 const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   scrollView: {
     maxHeight: 500,
   },

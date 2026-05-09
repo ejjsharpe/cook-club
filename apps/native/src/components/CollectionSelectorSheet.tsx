@@ -4,7 +4,6 @@ import {
   forwardRef,
   useState,
   useImperativeHandle,
-  useCallback,
   useRef,
   useEffect,
   useMemo,
@@ -17,8 +16,9 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
 
+import { AppSheet } from "./AppSheet";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
 import {
@@ -41,7 +41,6 @@ export const CollectionSelectorSheet = forwardRef<
   CollectionSelectorSheetRef,
   CollectionSelectorSheetProps
 >(({ recipeId }, ref) => {
-  const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
@@ -85,10 +84,6 @@ export const CollectionSelectorSheet = forwardRef<
     present: () => sheetRef.current?.present(),
     dismiss: () => sheetRef.current?.dismiss(),
   }));
-
-  const handleDismiss = useCallback(() => {
-    sheetRef.current?.dismiss();
-  }, []);
 
   const handleToggleCollection = (collectionId: number) => {
     setSelectedIds((prev) => {
@@ -156,24 +151,8 @@ export const CollectionSelectorSheet = forwardRef<
   const hasCollections = collections && collections.length > 0;
 
   return (
-    <TrueSheet
-      ref={sheetRef}
-      detents={["auto"]}
-      grabber={false}
-      backgroundColor={theme.colors.background}
-    >
+    <AppSheet ref={sheetRef} title="Save to collection" detents={["auto"]}>
       <View>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <Text type="headline">Save to collection</Text>
-          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
-            <View style={styles.closeButtonCircle}>
-              <Ionicons name="close" size={16} style={styles.closeIcon} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
         <ScrollView style={styles.scrollView}>
           <View style={styles.scrollContent}>
             {isLoading ? (
@@ -336,35 +315,11 @@ export const CollectionSelectorSheet = forwardRef<
           </View>
         </ScrollView>
       </View>
-    </TrueSheet>
+    </AppSheet>
   );
 });
 
 const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   scrollView: {
     maxHeight: 500,
   },

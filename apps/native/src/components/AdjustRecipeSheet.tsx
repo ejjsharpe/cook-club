@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { forwardRef, useImperativeHandle, useRef } from "react";
 import { View } from "react-native";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
 
+import { AppSheet } from "./AppSheet";
 import { MeasurementToggle } from "./MeasurementToggle";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
@@ -42,7 +43,6 @@ export const AdjustRecipeSheet = forwardRef<
     },
     ref,
   ) => {
-    const theme = UnistylesRuntime.getTheme();
     const sheetRef = useRef<TrueSheet>(null);
     const updateProfileMutation = useUpdateProfile();
     const baseServings =
@@ -79,139 +79,93 @@ export const AdjustRecipeSheet = forwardRef<
     };
 
     return (
-      <TrueSheet
+      <AppSheet
         ref={sheetRef}
+        title="Adjust Recipe"
         detents={["auto"]}
-        grabber={false}
         backgroundBlur="system-material"
         blurOptions={{ intensity: 84, interaction: true }}
-        backgroundColor={theme.colors.background}
       >
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <View style={styles.headerSpacer} />
-            <Text type="headline">Adjust Recipe</Text>
-            <BaseButton onPress={handleDismiss} style={styles.closeButton}>
-              <View style={styles.closeButtonCircle}>
-                <Ionicons name="close" size={16} style={styles.closeIcon} />
-              </View>
-            </BaseButton>
-          </View>
-
-          <View style={styles.content}>
-            <View style={styles.servingsSection}>
-              <View style={styles.sectionHeader}>
-                <Text type="heading" style={styles.sectionLabel}>
-                  Servings
-                </Text>
-                <Text type="caption1" style={styles.originalServings}>
-                  Original: {baseServings}
-                </Text>
-              </View>
-              <View style={styles.servingsStepper}>
-                <BaseButton
-                  style={[
-                    styles.stepperButton,
-                    (!servings || servings <= 1) &&
-                      styles.stepperButtonDisabled,
-                  ]}
-                  onPress={handleDecrement}
-                  disabled={!servings || servings <= 1}
-                >
-                  <Ionicons
-                    name="remove"
-                    size={26}
-                    style={styles.stepperIcon}
-                  />
-                </BaseButton>
-                <View style={styles.servingsDisplay}>
-                  <Text style={styles.servingsNumber}>{servings || 1}</Text>
-                  <Text type="caption1" style={styles.servingsCaption}>
-                    servings
-                  </Text>
-                </View>
-                <BaseButton
-                  style={styles.stepperButton}
-                  onPress={handleIncrement}
-                >
-                  <Ionicons name="add" size={26} style={styles.stepperIcon} />
-                </BaseButton>
-              </View>
-              <View style={styles.quickRow}>
-                {SERVING_MULTIPLIERS.map((multiplier) => {
-                  const value = baseServings * multiplier;
-                  const isSelected = value === servings;
-
-                  return (
-                    <BaseButton
-                      key={multiplier}
-                      style={[
-                        styles.quickButton,
-                        isSelected && styles.quickButtonSelected,
-                      ]}
-                      onPress={() => handleQuickServing(value)}
-                    >
-                      <Text
-                        type="footnote"
-                        style={[
-                          styles.quickButtonText,
-                          isSelected && styles.quickButtonTextSelected,
-                        ]}
-                      >
-                        x{multiplier}
-                      </Text>
-                    </BaseButton>
-                  );
-                })}
-              </View>
+        <View style={styles.content}>
+          <View style={styles.servingsSection}>
+            <View style={styles.sectionHeader}>
+              <Text type="heading" style={styles.sectionLabel}>
+                Servings
+              </Text>
+              <Text type="caption1" style={styles.originalServings}>
+                Original: {baseServings}
+              </Text>
             </View>
+            <View style={styles.servingsStepper}>
+              <BaseButton
+                style={[
+                  styles.stepperButton,
+                  (!servings || servings <= 1) && styles.stepperButtonDisabled,
+                ]}
+                onPress={handleDecrement}
+                disabled={!servings || servings <= 1}
+              >
+                <Ionicons name="remove" size={26} style={styles.stepperIcon} />
+              </BaseButton>
+              <View style={styles.servingsDisplay}>
+                <Text style={styles.servingsNumber}>{servings || 1}</Text>
+                <Text type="caption1" style={styles.servingsCaption}>
+                  servings
+                </Text>
+              </View>
+              <BaseButton
+                style={styles.stepperButton}
+                onPress={handleIncrement}
+              >
+                <Ionicons name="add" size={26} style={styles.stepperIcon} />
+              </BaseButton>
+            </View>
+            <View style={styles.quickRow}>
+              {SERVING_MULTIPLIERS.map((multiplier) => {
+                const value = baseServings * multiplier;
+                const isSelected = value === servings;
 
-            <VSpace size={16} />
-
-            <MeasurementToggle
-              value={measurementSystem}
-              onValueChange={handleMeasurementChange}
-            />
-
-            <VSpace size={18} />
-
-            <PrimaryButton onPress={handleDismiss}>Done</PrimaryButton>
+                return (
+                  <BaseButton
+                    key={multiplier}
+                    style={[
+                      styles.quickButton,
+                      isSelected && styles.quickButtonSelected,
+                    ]}
+                    onPress={() => handleQuickServing(value)}
+                  >
+                    <Text
+                      type="footnote"
+                      style={[
+                        styles.quickButtonText,
+                        isSelected && styles.quickButtonTextSelected,
+                      ]}
+                    >
+                      x{multiplier}
+                    </Text>
+                  </BaseButton>
+                );
+              })}
+            </View>
           </View>
+
+          <VSpace size={16} />
+
+          <MeasurementToggle
+            value={measurementSystem}
+            onValueChange={handleMeasurementChange}
+          />
+
+          <VSpace size={18} />
+
+          <PrimaryButton onPress={handleDismiss}>Done</PrimaryButton>
         </View>
-      </TrueSheet>
+      </AppSheet>
     );
   },
 );
 
 const styles = StyleSheet.create((theme) => ({
-  container: {
-    paddingBottom: 0,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   content: {
     paddingHorizontal: 20,
     paddingBottom: 0,

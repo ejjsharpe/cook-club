@@ -422,15 +422,6 @@ export const RecipeDetailScreen = () => {
   const shoppingListSheetRef = useRef<ShoppingListSelectorSheetRef>(null);
   const collectionSheetRef = useRef<CollectionSelectorSheetRef>(null);
   const cookingReviewSheetRef = useRef<CookingReviewSheetRef>(null);
-  const [shoppingListIngredients, setShoppingListIngredients] = useState<
-    {
-      id: number;
-      quantity: string | null;
-      unit: string | null;
-      name: string;
-      preparation?: string | null;
-    }[]
-  >([]);
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [ratingOverride, setRatingOverride] = useState<number | null>(null);
@@ -528,6 +519,30 @@ export const RecipeDetailScreen = () => {
   const isOwnRecipe = recipe?.owner.id === userData?.user?.id;
   const displayedRating = ratingOverride ?? recipe?.userReviewRating ?? null;
   const servingMultiplier = recipe?.servings ? servings / recipe.servings : 1;
+  const shoppingListIngredientSections = useMemo(
+    () =>
+      recipe
+        ? recipe.ingredientSections.map((section) => ({
+            id: section.id,
+            name: section.name,
+            ingredients: section.ingredients.map((ing) => ({
+              id: ing.id,
+              quantity: ing.quantity
+                ? (parseFloat(ing.quantity) * servingMultiplier).toString()
+                : null,
+              unit: ing.unit,
+              name: ing.name,
+              preparation: ing.preparation,
+            })),
+          }))
+        : [],
+    [recipe, servingMultiplier],
+  );
+  const shoppingListIngredients = useMemo(
+    () =>
+      shoppingListIngredientSections.flatMap((section) => section.ingredients),
+    [shoppingListIngredientSections],
+  );
   const isSaving =
     saveRecipeMutation.isPending ||
     updateRecipeMutation.isPending ||
@@ -570,20 +585,6 @@ export const RecipeDetailScreen = () => {
 
   const handleOpenShoppingListSheet = () => {
     if (!recipe) return;
-
-    const allIngredients = recipe.ingredientSections.flatMap((section) =>
-      section.ingredients.map((ing) => ({
-        id: ing.id,
-        quantity: ing.quantity
-          ? (parseFloat(ing.quantity) * servingMultiplier).toString()
-          : null,
-        unit: ing.unit,
-        name: ing.name,
-        preparation: ing.preparation,
-      })),
-    );
-
-    setShoppingListIngredients(allIngredients);
     shoppingListSheetRef.current?.present();
   };
 
@@ -2159,6 +2160,7 @@ export const RecipeDetailScreen = () => {
         recipeId={recipe?.id}
         recipeName={recipe?.name}
         ingredients={shoppingListIngredients}
+        ingredientSections={shoppingListIngredientSections}
         servings={servings}
       />
 

@@ -14,6 +14,7 @@ import {
 import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
+import { AppSheet } from "./AppSheet";
 import { Input } from "./Input";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
@@ -241,28 +242,14 @@ export const SmartImportSheet = forwardRef<
   };
 
   return (
-    <TrueSheet
+    <AppSheet
       ref={sheetRef}
+      title="Smart Import"
       detents={["auto"]}
-      grabber={false}
       dismissible={!isLoading}
       backgroundColor={theme.colors.background}
+      closeDisabled={isLoading}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerSpacer} />
-        <Text type="headline">Smart Import</Text>
-        <TouchableOpacity
-          onPress={handleClose}
-          disabled={isLoading}
-          style={styles.closeButton}
-        >
-          <View style={styles.closeButtonCircle}>
-            <Ionicons name="close" size={16} style={styles.closeIcon} />
-          </View>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           {/* Mode Selector */}
@@ -425,35 +412,11 @@ export const SmartImportSheet = forwardRef<
           )}
         </View>
       </ScrollView>
-    </TrueSheet>
+    </AppSheet>
   );
 });
 
 const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   content: {
     paddingHorizontal: 20,
   },

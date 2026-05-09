@@ -26,6 +26,7 @@ import {
   useRemoveShoppingListMember,
   type ShoppingListShareableUser,
 } from "../../api/shopping";
+import { AppSheet } from "../AppSheet";
 import { VSpace } from "../Space";
 import { Text } from "../Text";
 
@@ -159,10 +160,6 @@ export const ShoppingListShareSheet = forwardRef<
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const handleClose = () => {
-    sheetRef.current?.dismiss();
-  };
-
   const sharedUserIds = new Set(shareStatus?.map((s) => s.userId) ?? []);
   const invitedUserIds = new Set(invitationStatus?.map((i) => i.userId) ?? []);
 
@@ -226,31 +223,15 @@ export const ShoppingListShareSheet = forwardRef<
   const invitedCount = invitationStatus?.length ?? 0;
 
   return (
-    <TrueSheet
+    <AppSheet
       ref={sheetRef}
+      title="Share Shopping List"
+      subtitle={listName}
       detents={[0.8]}
-      grabber={false}
       backgroundColor={theme.colors.background}
       scrollable
     >
       <View>
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <View style={styles.headerCenter}>
-            <Text type="headline">Share Shopping List</Text>
-            {listName && (
-              <Text type="caption" style={styles.listNameText}>
-                {listName}
-              </Text>
-            )}
-          </View>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <View style={styles.closeButtonCircle}>
-              <Ionicons name="close" size={16} style={styles.closeIcon} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
         <ScrollView style={styles.scrollView}>
           <View style={styles.scrollContent}>
             {isLoading ? (
@@ -308,42 +289,11 @@ export const ShoppingListShareSheet = forwardRef<
           </View>
         </ScrollView>
       </View>
-    </TrueSheet>
+    </AppSheet>
   );
 });
 
 const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  headerCenter: {
-    alignItems: "center",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  listNameText: {
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   scrollView: {
     maxHeight: 500,
   },

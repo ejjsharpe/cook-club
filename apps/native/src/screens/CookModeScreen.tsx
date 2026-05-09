@@ -26,6 +26,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { AppSheet } from "@/components/AppSheet";
 import { Text } from "@/components/Text";
 import { getImageUrl } from "@/utils/imageUrl";
 
@@ -574,10 +575,10 @@ export const CookModeScreen = () => {
         </View>
       )}
 
-      <TrueSheet
+      <AppSheet
         ref={timerSheetRef}
+        title="Timer"
         detents={["auto"]}
-        grabber={false}
         backgroundColor={theme.colors.background}
         footer={
           <View
@@ -603,17 +604,6 @@ export const CookModeScreen = () => {
         }
       >
         <View style={styles.timerSheetContent}>
-          <View style={styles.timerSheetHeader}>
-            <Text type="headline" style={styles.ingredientsSheetTitle}>
-              Timer
-            </Text>
-            <TouchableOpacity
-              style={styles.sheetCloseButton}
-              onPress={() => timerSheetRef.current?.dismiss()}
-            >
-              <Ionicons name="close" size={24} style={styles.closeIcon} />
-            </TouchableOpacity>
-          </View>
           <View style={styles.timerSheetBody}>
             <View style={styles.timerControlGroup}>
               <View style={styles.timerPicker}>
@@ -662,7 +652,7 @@ export const CookModeScreen = () => {
             </View>
           </View>
         </View>
-      </TrueSheet>
+      </AppSheet>
 
       <Modal
         visible={ingredientsVisible}
@@ -868,14 +858,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   timerControlIcon: {
     color: theme.colors.background,
-  },
-  timerSheetHeader: {
-    minHeight: 72,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 12,
   },
   ingredientsSheet: {
     flex: 1,

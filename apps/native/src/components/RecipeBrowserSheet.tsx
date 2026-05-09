@@ -17,6 +17,7 @@ import {
 import Animated from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
+import { AppSheet } from "./AppSheet";
 import { CollectionGridCard, GRID_GAP } from "./CollectionGridCard";
 import { FilterSheet, type FilterSheetRef } from "./FilterBottomSheet";
 import { RecipeCard } from "./RecipeCard";
@@ -117,10 +118,6 @@ export const RecipeBrowserSheet = forwardRef<
       collectionId: selectedCollectionId ?? 0,
       enabled: selectedCollectionId !== null,
     });
-
-  const handleClose = () => {
-    sheetRef.current?.dismiss();
-  };
 
   const handleDismiss = () => {
     // Reset state when sheet is dismissed
@@ -320,11 +317,23 @@ export const RecipeBrowserSheet = forwardRef<
     );
   };
 
+  const headerLeading =
+    selectedCollectionId !== null ? (
+      <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+        <Ionicons name="chevron-back" size={24} style={styles.backIcon} />
+      </TouchableOpacity>
+    ) : undefined;
+
   return (
-    <TrueSheet
+    <AppSheet
       ref={sheetRef}
+      title={
+        selectedCollectionId !== null
+          ? (collectionDetail?.name ?? "Collection")
+          : title
+      }
+      leading={headerLeading}
       detents={[1]}
-      grabber={false}
       backgroundColor={theme.colors.background}
       scrollable
       onDidDismiss={handleDismiss}
@@ -333,33 +342,6 @@ export const RecipeBrowserSheet = forwardRef<
         {selectedCollectionId !== null ? (
           // Collection drill-down view
           <View style={styles.container}>
-            <View style={styles.collectionHeader}>
-              <TouchableOpacity
-                onPress={handleBackPress}
-                style={styles.backButton}
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={24}
-                  style={styles.backIcon}
-                />
-              </TouchableOpacity>
-              <Text
-                type="headline"
-                numberOfLines={1}
-                style={styles.collectionTitle}
-              >
-                {collectionDetail?.name ?? "Collection"}
-              </Text>
-              <TouchableOpacity
-                onPress={handleClose}
-                style={styles.closeButton}
-              >
-                <View style={styles.closeButtonCircle}>
-                  <Ionicons name="close" size={16} style={styles.closeIcon} />
-                </View>
-              </TouchableOpacity>
-            </View>
             {isLoadingCollection ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" />
@@ -389,20 +371,6 @@ export const RecipeBrowserSheet = forwardRef<
         ) : (
           // Main browser view with inline layout
           <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerSpacer} />
-              <Text type="headline">{title}</Text>
-              <TouchableOpacity
-                onPress={handleClose}
-                style={styles.closeButton}
-              >
-                <View style={styles.closeButtonCircle}>
-                  <Ionicons name="close" size={16} style={styles.closeIcon} />
-                </View>
-              </TouchableOpacity>
-            </View>
-
             {/* Search Row */}
             <View style={styles.searchRow}>
               <Animated.View
@@ -460,7 +428,7 @@ export const RecipeBrowserSheet = forwardRef<
 
       {/* Filter Sheet */}
       <FilterSheet ref={filterSheetRef} {...filterSheetProps} />
-    </TrueSheet>
+    </AppSheet>
   );
 });
 
@@ -468,31 +436,6 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
-
   // Search row styles
   searchRow: {
     flexDirection: "row",
@@ -578,20 +521,11 @@ const styles = StyleSheet.create((theme) => ({
   },
 
   // Collection drill-down view
-  collectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
   backButton: {
-    marginRight: 8,
+    marginLeft: -4,
   },
   backIcon: {
     color: theme.colors.text,
-  },
-  collectionTitle: {
-    flex: 1,
   },
   loadingContainer: {
     flex: 1,

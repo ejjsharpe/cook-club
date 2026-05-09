@@ -20,10 +20,11 @@ import {
   MealPlanPickerSheet,
   type MealPlanPickerSheetRef,
 } from "./MealPlanPickerSheet";
+import { AppSheet } from "../AppSheet";
+import { Text } from "../Text";
 
 import { useGetMealPlans, useAddRecipeToMealPlan } from "@/api/mealPlan";
 import { useSelectedMealPlan } from "@/lib/mealPlanPreferences";
-import { Text } from "../Text";
 
 type MealType = "breakfast" | "lunch" | "dinner";
 
@@ -86,9 +87,8 @@ export const AddToMealPlanSheet = forwardRef<
   const days = useMemo(() => getNext7Days(), []);
 
   const [selectedDate, setSelectedDate] = useState(days[0]!.dateStr);
-  const [selectedMealType, setSelectedMealType] = useState<MealType>(
-    getDefaultMealType,
-  );
+  const [selectedMealType, setSelectedMealType] =
+    useState<MealType>(getDefaultMealType);
 
   const { selectedPlan, setSelectedPlan } = useSelectedMealPlan();
   const { data: mealPlans } = useGetMealPlans();
@@ -152,27 +152,13 @@ export const AddToMealPlanSheet = forwardRef<
 
   return (
     <>
-      <TrueSheet
+      <AppSheet
         ref={sheetRef}
+        title="Add to Meal Plan"
         detents={["auto"]}
-        grabber={false}
         backgroundColor={theme.colors.background}
       >
         <View>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerSpacer} />
-            <Text type="headline">Add to Meal Plan</Text>
-            <TouchableOpacity
-              onPress={handleDismiss}
-              style={styles.closeButton}
-            >
-              <View style={styles.closeButtonCircle}>
-                <Ionicons name="close" size={16} style={styles.closeIcon} />
-              </View>
-            </TouchableOpacity>
-          </View>
-
           <ScrollView style={styles.scrollView}>
             <View style={styles.scrollContent}>
               {/* Recipe name */}
@@ -196,7 +182,11 @@ export const AddToMealPlanSheet = forwardRef<
                         size={18}
                         style={styles.planIcon}
                       />
-                      <Text type="body" numberOfLines={1} style={styles.planName}>
+                      <Text
+                        type="body"
+                        numberOfLines={1}
+                        style={styles.planName}
+                      >
                         {activePlan.name}
                       </Text>
                     </View>
@@ -305,7 +295,7 @@ export const AddToMealPlanSheet = forwardRef<
             </View>
           </ScrollView>
         </View>
-      </TrueSheet>
+      </AppSheet>
 
       {/* Nested plan picker sheet */}
       <MealPlanPickerSheet
@@ -318,30 +308,6 @@ export const AddToMealPlanSheet = forwardRef<
 });
 
 const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   scrollView: {
     maxHeight: 500,
   },

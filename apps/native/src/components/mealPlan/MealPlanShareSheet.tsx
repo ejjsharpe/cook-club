@@ -26,6 +26,7 @@ import {
   useRemoveMealPlanMember,
   type ShareableUser,
 } from "../../api/mealPlan";
+import { AppSheet } from "../AppSheet";
 import { VSpace } from "../Space";
 import { Text } from "../Text";
 
@@ -158,10 +159,6 @@ export const MealPlanShareSheet = forwardRef<
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const handleClose = () => {
-    sheetRef.current?.dismiss();
-  };
-
   // Build lookup maps
   const sharedUserIds = new Set(shareStatus?.map((s) => s.userId) ?? []);
   const invitedUserIds = new Set(invitationStatus?.map((i) => i.userId) ?? []);
@@ -223,32 +220,15 @@ export const MealPlanShareSheet = forwardRef<
   const invitedCount = invitationStatus?.length ?? 0;
 
   return (
-    <TrueSheet
+    <AppSheet
       ref={sheetRef}
+      title="Share Meal Plan"
+      subtitle={planName}
       detents={[0.8]}
-      grabber={false}
       backgroundColor={theme.colors.background}
       scrollable
     >
       <View>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <View style={styles.headerCenter}>
-            <Text type="headline">Share Meal Plan</Text>
-            {planName && (
-              <Text type="caption" style={styles.planNameText}>
-                {planName}
-              </Text>
-            )}
-          </View>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <View style={styles.closeButtonCircle}>
-              <Ionicons name="close" size={16} style={styles.closeIcon} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
         <ScrollView style={styles.scrollView}>
           <View style={styles.scrollContent}>
             {isLoading ? (
@@ -306,44 +286,13 @@ export const MealPlanShareSheet = forwardRef<
           </View>
         </ScrollView>
       </View>
-    </TrueSheet>
+    </AppSheet>
   );
 });
 
 const styles = StyleSheet.create((theme) => ({
   indicator: {
     backgroundColor: theme.colors.border,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  headerCenter: {
-    alignItems: "center",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  planNameText: {
-    color: theme.colors.textSecondary,
-    marginTop: 2,
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
   },
   scrollView: {
     maxHeight: 500,

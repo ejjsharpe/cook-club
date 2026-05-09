@@ -1,15 +1,9 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { forwardRef, useState, useImperativeHandle, useRef } from "react";
-import {
-  View,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-} from "react-native";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { View, ActivityIndicator, Alert, ScrollView } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
+import { AppSheet } from "./AppSheet";
 import { Input } from "./Input";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
@@ -54,7 +48,6 @@ export const BasicImportSheet = forwardRef<
   BasicImportSheetRef,
   BasicImportSheetProps
 >(({ onRecipeParsed }, ref) => {
-  const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -111,27 +104,13 @@ export const BasicImportSheet = forwardRef<
   };
 
   return (
-    <TrueSheet
+    <AppSheet
       ref={sheetRef}
+      title="Basic Import"
       detents={["auto"]}
-      grabber={false}
       dismissible={!isLoading}
-      backgroundColor={theme.colors.background}
+      closeDisabled={isLoading}
     >
-      <View style={styles.header}>
-        <View style={styles.headerSpacer} />
-        <Text type="headline">Basic Import</Text>
-        <TouchableOpacity
-          onPress={handleClose}
-          disabled={isLoading}
-          style={styles.closeButton}
-        >
-          <View style={styles.closeButtonCircle}>
-            <Ionicons name="close" size={16} style={styles.closeIcon} />
-          </View>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           <Text type="subheadline" style={styles.label}>
@@ -169,38 +148,11 @@ export const BasicImportSheet = forwardRef<
           )}
         </View>
       </ScrollView>
-    </TrueSheet>
+    </AppSheet>
   );
 });
 
 const styles = StyleSheet.create((theme) => ({
-  sheet: {
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   content: {
     paddingHorizontal: 20,
   },

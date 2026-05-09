@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import {
   forwardRef,
@@ -10,6 +9,7 @@ import {
 import { View, TouchableOpacity, ScrollView } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
+import { AppSheet } from "./AppSheet";
 import { VSpace } from "./Space";
 import { TagChip } from "./TagChip";
 import { Text } from "./Text";
@@ -100,27 +100,13 @@ export const FilterSheet = forwardRef<FilterSheetRef, FilterSheetProps>(
     };
 
     return (
-      <TrueSheet
+      <AppSheet
         ref={sheetRef}
+        title="Filters"
         detents={["auto"]}
-        grabber={false}
         backgroundColor={theme.colors.background}
       >
         <View>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerSpacer} />
-            <Text type="headline">Filters</Text>
-            <TouchableOpacity
-              onPress={handleDismiss}
-              style={styles.closeButton}
-            >
-              <View style={styles.closeButtonCircle}>
-                <Ionicons name="close" size={16} style={styles.closeIcon} />
-              </View>
-            </TouchableOpacity>
-          </View>
-
           <ScrollView style={styles.scrollView}>
             <View style={styles.scrollContent}>
               {/* Time Filter Section */}
@@ -177,36 +163,12 @@ export const FilterSheet = forwardRef<FilterSheetRef, FilterSheetProps>(
             </TouchableOpacity>
           </View>
         </View>
-      </TrueSheet>
+      </AppSheet>
     );
   },
 );
 
 const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   scrollView: {
     maxHeight: 500,
   },

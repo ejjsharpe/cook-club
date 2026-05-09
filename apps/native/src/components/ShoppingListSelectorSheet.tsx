@@ -6,6 +6,8 @@ import {
   useImperativeHandle,
   useCallback,
   useRef,
+  useEffect,
+  useMemo,
 } from "react";
 import {
   View,
@@ -14,9 +16,10 @@ import {
   ActivityIndicator,
   ScrollView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { VSpace } from "./Space";
+import { AppSheet } from "./AppSheet";
 import { Text } from "./Text";
 
 import {
@@ -34,10 +37,17 @@ interface Ingredient {
   preparation?: string | null;
 }
 
+interface IngredientSection {
+  id?: number | string | null;
+  name?: string | null;
+  ingredients: Ingredient[];
+}
+
 export interface ShoppingListSelectorSheetProps {
   recipeId?: number;
   recipeName?: string;
   ingredients?: Ingredient[];
+  ingredientSections?: IngredientSection[];
   servings?: number;
 }
 
@@ -49,144 +59,288 @@ export interface ShoppingListSelectorSheetRef {
 export const ShoppingListSelectorSheet = forwardRef<
   ShoppingListSelectorSheetRef,
   ShoppingListSelectorSheetProps
->(({ recipeId, recipeName, ingredients, servings }, ref) => {
-  const theme = UnistylesRuntime.getTheme();
-  const sheetRef = useRef<TrueSheet>(null);
-  const [selectedListId, setSelectedListId] = useState<number | null>(null);
-  const [isCreatingList, setIsCreatingList] = useState(false);
-  const [newListName, setNewListName] = useState("");
+>(
+  (
+    { recipeId, recipeName, ingredients, ingredientSections, servings },
+    ref,
+  ) => {
+    const theme = UnistylesRuntime.getTheme();
+    const insets = useSafeAreaInsets();
+    const sheetRef = useRef<TrueSheet>(null);
+    const [selectedListId, setSelectedListId] = useState<number | null>(null);
+    const [selectedIngredientIds, setSelectedIngredientIds] = useState<
+      Set<number>
+    >(new Set());
+    const [isCreatingList, setIsCreatingList] = useState(false);
+    const [newListName, setNewListName] = useState("");
 
-  const { data: lists, isLoading } = useGetUserShoppingLists();
-  const createListMutation = useCreateShoppingList();
-  const addRecipeMutation = useAddRecipeToSpecificList();
+    const { data: lists, isLoading } = useGetUserShoppingLists();
+    const createListMutation = useCreateShoppingList();
+    const addRecipeMutation = useAddRecipeToSpecificList();
 
-  useImperativeHandle(ref, () => ({
-    present: () => sheetRef.current?.present(),
-    dismiss: () => sheetRef.current?.dismiss(),
-  }));
-
-  const handleDismiss = useCallback(() => {
-    sheetRef.current?.dismiss();
-  }, []);
-
-  const handleSelectList = (listId: number) => {
-    setSelectedListId(listId);
-  };
-
-  const handleCreateList = async () => {
-    if (!newListName.trim()) return;
-
-    try {
-      const newList = await createListMutation.mutateAsync({
-        name: newListName.trim(),
-      });
-
-      if (newList) {
-        setSelectedListId(newList.id);
-        setNewListName("");
-        setIsCreatingList(false);
+    const sections = useMemo<IngredientSection[]>(() => {
+      if (ingredientSections?.length) {
+        return ingredientSections.filter(
+          (section) => section.ingredients.length,
+        );
       }
-    } catch {
-      // Error handled in mutation
-    }
-  };
 
-  const handleAddToList = async () => {
-    if (!recipeId || !selectedListId) return;
-
-    try {
-      await addRecipeMutation.mutateAsync({
-        recipeId,
-        shoppingListId: selectedListId,
-        servings,
-      });
-      handleDismiss();
-    } catch {
-      // Error handled in mutation
-    }
-  };
-
-  const hasLists = lists && lists.length > 0;
-  const isAddDisabled = !selectedListId || addRecipeMutation.isPending;
-
-  // Format ingredient for display
-  const formatIngredient = (ing: Ingredient) => {
-    const quantity = ing.quantity ? parseFloat(ing.quantity) : null;
-    const formattedQuantity = quantity
-      ? quantity % 1 === 0
-        ? quantity.toString()
-        : quantity.toFixed(2).replace(/\.?0+$/, "")
-      : null;
-
-    const displayUnit = formatUnit(ing.unit, quantity);
-    const needsSpace = displayUnit && !isCompactUnit(displayUnit);
-
-    let text = "";
-    if (formattedQuantity) {
-      text += formattedQuantity;
-      if (displayUnit) {
-        text += needsSpace ? " " : "";
-        text += displayUnit;
+      if (ingredients?.length) {
+        return [{ id: "ingredients", name: null, ingredients }];
       }
-      text += " ";
-    } else if (displayUnit) {
-      text += displayUnit + " ";
-    }
-    text += ing.name;
 
-    return text;
-  };
+      return [];
+    }, [ingredientSections, ingredients]);
 
-  return (
-    <TrueSheet
-      ref={sheetRef}
-      detents={["auto"]}
-      grabber={false}
-      backgroundColor={theme.colors.background}
-    >
-      <View>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerSpacer} />
-          <Text type="headline">Add to Shopping List</Text>
-          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
-            <View style={styles.closeButtonCircle}>
-              <Ionicons name="close" size={16} style={styles.closeIcon} />
-            </View>
-          </TouchableOpacity>
-        </View>
+    const allIngredients = useMemo(
+      () => sections.flatMap((section) => section.ingredients),
+      [sections],
+    );
 
+    const allIngredientIds = useMemo(
+      () => allIngredients.map((ingredient) => ingredient.id),
+      [allIngredients],
+    );
+
+    const selectedCount = selectedIngredientIds.size;
+    const totalCount = allIngredientIds.length;
+    const hasLists = lists && lists.length > 0;
+    const isAddDisabled =
+      !selectedListId || selectedCount === 0 || addRecipeMutation.isPending;
+
+    const selectDefaultList = useCallback(() => {
+      if (!lists?.length) return;
+      setSelectedListId((current) => {
+        if (current && lists.some((list) => list.id === current)) {
+          return current;
+        }
+
+        return lists.find((list) => list.isDefault)?.id ?? lists[0]?.id ?? null;
+      });
+    }, [lists]);
+
+    useEffect(() => {
+      selectDefaultList();
+    }, [selectDefaultList]);
+
+    useImperativeHandle(ref, () => ({
+      present: () => {
+        setSelectedIngredientIds(new Set(allIngredientIds));
+        selectDefaultList();
+        sheetRef.current?.present();
+      },
+      dismiss: () => sheetRef.current?.dismiss(),
+    }));
+
+    const handleDismiss = useCallback(() => {
+      sheetRef.current?.dismiss();
+    }, []);
+
+    const handleSheetDismiss = useCallback(() => {
+      setIsCreatingList(false);
+      setNewListName("");
+    }, []);
+
+    const handleSelectList = (listId: number) => {
+      setSelectedListId(listId);
+    };
+
+    const handleToggleIngredient = (ingredientId: number) => {
+      setSelectedIngredientIds((current) => {
+        const next = new Set(current);
+        if (next.has(ingredientId)) {
+          next.delete(ingredientId);
+        } else {
+          next.add(ingredientId);
+        }
+        return next;
+      });
+    };
+
+    const handleSelectAllIngredients = () => {
+      setSelectedIngredientIds(new Set(allIngredientIds));
+    };
+
+    const handleClearIngredients = () => {
+      setSelectedIngredientIds(new Set());
+    };
+
+    const handleCreateList = async () => {
+      if (!newListName.trim()) return;
+
+      try {
+        const newList = await createListMutation.mutateAsync({
+          name: newListName.trim(),
+        });
+
+        if (newList) {
+          setSelectedListId(newList.id);
+          setNewListName("");
+          setIsCreatingList(false);
+        }
+      } catch {
+        // Error handled in mutation
+      }
+    };
+
+    const handleAddToList = async () => {
+      if (!recipeId || !selectedListId || selectedCount === 0) return;
+
+      try {
+        await addRecipeMutation.mutateAsync({
+          recipeId,
+          shoppingListId: selectedListId,
+          servings,
+          ingredientIds: Array.from(selectedIngredientIds),
+        });
+        handleDismiss();
+      } catch {
+        // Error handled in mutation
+      }
+    };
+
+    const formatIngredient = (ing: Ingredient) => {
+      const quantity = ing.quantity ? parseFloat(ing.quantity) : null;
+      const formattedQuantity = quantity
+        ? quantity % 1 === 0
+          ? quantity.toString()
+          : quantity.toFixed(2).replace(/\.?0+$/, "")
+        : null;
+
+      const displayUnit = formatUnit(ing.unit, quantity);
+      const needsSpace = displayUnit && !isCompactUnit(displayUnit);
+
+      let text = "";
+      if (formattedQuantity) {
+        text += formattedQuantity;
+        if (displayUnit) {
+          text += needsSpace ? " " : "";
+          text += displayUnit;
+        }
+        text += " ";
+      } else if (displayUnit) {
+        text += displayUnit + " ";
+      }
+      text += ing.name;
+
+      return text;
+    };
+
+    const renderFooter = () => (
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <TouchableOpacity
+          style={[styles.addButton, isAddDisabled && styles.addButtonDisabled]}
+          onPress={handleAddToList}
+          disabled={isAddDisabled}
+        >
+          {addRecipeMutation.isPending ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Ionicons
+                name="cart-outline"
+                size={20}
+                style={styles.addButtonIcon}
+              />
+              <Text style={styles.addButtonText}>
+                Add {selectedCount}{" "}
+                {selectedCount === 1 ? "Ingredient" : "Ingredients"}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+
+    return (
+      <AppSheet
+        ref={sheetRef}
+        title="Add to Shopping List"
+        subtitle={recipeName ? recipeName : "Choose ingredients"}
+        detents={[1]}
+        scrollable
+        backgroundColor={theme.colors.background}
+        footer={renderFooter()}
+        onDidDismiss={handleSheetDismiss}
+      >
         <ScrollView style={styles.scrollView}>
           <View style={styles.scrollContent}>
-            {/* Ingredients Preview */}
-            {ingredients && ingredients.length > 0 && (
-              <>
-                <Text type="heading" style={styles.sectionTitle}>
-                  Ingredients from {recipeName || "recipe"}
+            <View style={styles.sectionHeadingRow}>
+              <View>
+                <Text type="heading">Ingredients</Text>
+                <Text type="caption" style={styles.sectionSubtitle}>
+                  {selectedCount} of {totalCount} selected
                 </Text>
-                <VSpace size={8} />
-                <View style={styles.ingredientsPreview}>
-                  {ingredients.slice(0, 5).map((ing: Ingredient) => (
-                    <View key={ing.id} style={styles.ingredientRow}>
-                      <View style={styles.ingredientBullet} />
-                      <Text
-                        type="body"
-                        style={styles.ingredientText}
-                        numberOfLines={1}
-                      >
-                        {formatIngredient(ing)}
-                      </Text>
-                    </View>
-                  ))}
-                  {ingredients.length > 5 && (
-                    <Text type="caption" style={styles.moreText}>
-                      +{ingredients.length - 5} more ingredients
+              </View>
+              <TouchableOpacity
+                style={styles.selectToggleButton}
+                onPress={
+                  selectedCount === totalCount
+                    ? handleClearIngredients
+                    : handleSelectAllIngredients
+                }
+                disabled={totalCount === 0}
+              >
+                <Text type="caption" style={styles.selectToggleText}>
+                  {selectedCount === totalCount ? "Clear" : "Select all"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.group}>
+              {sections.map((section, sectionIndex) => (
+                <View key={section.id ?? `section-${sectionIndex}`}>
+                  {section.name ? (
+                    <Text type="caption" style={styles.ingredientSectionTitle}>
+                      {section.name}
                     </Text>
-                  )}
+                  ) : null}
+                  {section.ingredients.map((ingredient, ingredientIndex) => {
+                    const isSelected = selectedIngredientIds.has(ingredient.id);
+                    const isLastInGroup =
+                      sectionIndex === sections.length - 1 &&
+                      ingredientIndex === section.ingredients.length - 1;
+
+                    return (
+                      <TouchableOpacity
+                        key={ingredient.id}
+                        style={[
+                          styles.ingredientRow,
+                          isLastInGroup && styles.lastGroupRow,
+                        ]}
+                        onPress={() => handleToggleIngredient(ingredient.id)}
+                        activeOpacity={0.78}
+                      >
+                        <View
+                          style={[
+                            styles.checkCircle,
+                            isSelected && styles.checkCircleSelected,
+                          ]}
+                        >
+                          {isSelected ? (
+                            <Ionicons
+                              name="checkmark"
+                              size={16}
+                              style={styles.checkIcon}
+                            />
+                          ) : null}
+                        </View>
+                        <View style={styles.ingredientTextWrap}>
+                          <Text type="body" style={styles.ingredientText}>
+                            {formatIngredient(ingredient)}
+                          </Text>
+                          {ingredient.preparation ? (
+                            <Text type="caption" style={styles.preparationText}>
+                              {ingredient.preparation}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                <VSpace size={24} />
-              </>
-            )}
+              ))}
+            </View>
 
             {isLoading ? (
               <View style={styles.loadingContainer}>
@@ -194,69 +348,81 @@ export const ShoppingListSelectorSheet = forwardRef<
               </View>
             ) : (
               <>
-                {/* Shopping Lists */}
-                <Text type="heading" style={styles.sectionTitle}>
-                  Select a list
-                </Text>
-                <VSpace size={12} />
+                <View style={styles.sectionHeadingRow}>
+                  <View>
+                    <Text type="heading">Shopping List</Text>
+                    <Text type="caption" style={styles.sectionSubtitle}>
+                      Choose where these items should go
+                    </Text>
+                  </View>
+                </View>
 
                 {hasLists ? (
-                  <>
-                    {lists.map((list) => (
+                  <View style={styles.group}>
+                    {lists.map((list, index) => (
                       <TouchableOpacity
                         key={list.id}
-                        style={styles.listRow}
+                        style={[
+                          styles.listRow,
+                          index === lists.length - 1 && styles.lastGroupRow,
+                        ]}
                         onPress={() => handleSelectList(list.id)}
+                        activeOpacity={0.78}
                       >
                         <View style={styles.listInfo}>
                           <Ionicons
-                            name="list-outline"
+                            name={
+                              list.isOwner ? "list-outline" : "people-outline"
+                            }
                             size={20}
                             style={styles.listIcon}
                           />
-                          <Text type="body">{list.name}</Text>
+                          <View style={styles.listTextWrap}>
+                            <Text type="body" numberOfLines={1}>
+                              {list.name}
+                            </Text>
+                            {!list.isOwner ? (
+                              <Text type="caption" style={styles.listMeta}>
+                                Shared by {list.owner.name}
+                              </Text>
+                            ) : list.isDefault ? (
+                              <Text type="caption" style={styles.listMeta}>
+                                Default
+                              </Text>
+                            ) : null}
+                          </View>
                         </View>
-                        <View
-                          style={[
-                            styles.radio,
-                            selectedListId === list.id && styles.radioSelected,
-                          ]}
-                        >
-                          {selectedListId === list.id && (
-                            <View style={styles.radioInner} />
-                          )}
-                        </View>
+                        {selectedListId === list.id ? (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={24}
+                            style={styles.selectedListIcon}
+                          />
+                        ) : (
+                          <View style={styles.radio} />
+                        )}
                       </TouchableOpacity>
                     ))}
-                    <VSpace size={16} />
-                  </>
+                  </View>
                 ) : (
-                  <>
+                  <View style={styles.emptyState}>
                     <Text type="bodyFaded" style={styles.emptyText}>
-                      No shopping lists yet. Create your first one below!
+                      Create a shopping list to add these ingredients.
                     </Text>
-                    <VSpace size={16} />
-                  </>
+                  </View>
                 )}
 
-                {/* Create New List */}
                 {isCreatingList ? (
-                  <>
-                    <Text type="heading" style={styles.sectionTitle}>
-                      New list name
-                    </Text>
-                    <VSpace size={12} />
-                    <View style={styles.inputRow}>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="e.g., Weekly Groceries"
-                        placeholderTextColor="#999"
-                        value={newListName}
-                        onChangeText={setNewListName}
-                        autoFocus
-                      />
-                    </View>
-                    <VSpace size={12} />
+                  <View style={styles.createListPanel}>
+                    <Text type="heading">New list name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. Weekly Groceries"
+                      placeholderTextColor={theme.colors.placeholderText}
+                      value={newListName}
+                      onChangeText={setNewListName}
+                      autoFocus
+                    />
                     <View style={styles.createActions}>
                       <TouchableOpacity
                         style={styles.cancelButton}
@@ -291,15 +457,16 @@ export const ShoppingListSelectorSheet = forwardRef<
                         )}
                       </TouchableOpacity>
                     </View>
-                  </>
+                  </View>
                 ) : (
                   <TouchableOpacity
                     style={styles.newListButton}
                     onPress={() => setIsCreatingList(true)}
+                    activeOpacity={0.78}
                   >
                     <Ionicons
                       name="add-circle-outline"
-                      size={24}
+                      size={22}
                       style={styles.newListIcon}
                     />
                     <Text type="body" style={styles.newListText}>
@@ -307,122 +474,111 @@ export const ShoppingListSelectorSheet = forwardRef<
                     </Text>
                   </TouchableOpacity>
                 )}
-
-                <VSpace size={24} />
-
-                {/* Add Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.addButton,
-                    isAddDisabled && styles.addButtonDisabled,
-                  ]}
-                  onPress={handleAddToList}
-                  disabled={isAddDisabled}
-                >
-                  {addRecipeMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name="cart-outline"
-                        size={20}
-                        style={styles.addButtonIcon}
-                      />
-                      <Text style={styles.addButtonText}>Add to List</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
               </>
             )}
           </View>
         </ScrollView>
-      </View>
-    </TrueSheet>
-  );
-});
+      </AppSheet>
+    );
+  },
+);
 
 const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerSpacer: {
-    width: 30,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  closeButtonCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.colors.inputBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeIcon: {
-    color: theme.colors.textSecondary,
-  },
   scrollView: {
-    maxHeight: 500,
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 18,
+    paddingBottom: 24,
+    gap: 14,
   },
-  loadingContainer: {
+  sectionHeadingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 40,
+    gap: 12,
   },
-  sectionTitle: {
-    marginBottom: 4,
+  sectionSubtitle: {
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
-
-  // Ingredients Preview
-  ingredientsPreview: {
+  selectToggleButton: {
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderRadius: 16,
     backgroundColor: theme.colors.inputBackground,
+  },
+  selectToggleText: {
+    color: theme.colors.primary,
+    fontFamily: theme.fonts.semiBold,
+  },
+  group: {
+    overflow: "hidden",
     borderRadius: theme.borderRadius.medium,
-    padding: 12,
+    backgroundColor: theme.colors.inputBackground,
+  },
+  ingredientSectionTitle: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+    color: theme.colors.textSecondary,
+    textTransform: "uppercase",
+    fontFamily: theme.fonts.semiBold,
   },
   ingredientRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 4,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
-  ingredientBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  lastGroupRow: {
+    borderBottomWidth: 0,
+  },
+  checkCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.background,
+  },
+  checkCircleSelected: {
+    borderColor: theme.colors.primary,
     backgroundColor: theme.colors.primary,
-    marginRight: 10,
+  },
+  checkIcon: {
+    color: theme.colors.buttonText,
+  },
+  ingredientTextWrap: {
+    flex: 1,
+    gap: 2,
   },
   ingredientText: {
     flex: 1,
-    fontSize: 14,
-    color: theme.colors.text,
   },
-  moreText: {
+  preparationText: {
     color: theme.colors.textSecondary,
-    marginTop: 4,
-    marginLeft: 16,
   },
-
-  // List Selection
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: 32,
+  },
   listRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 13,
     paddingHorizontal: 16,
-    borderRadius: theme.borderRadius.medium,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: 8,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
   listInfo: {
     flexDirection: "row",
@@ -433,65 +589,70 @@ const styles = StyleSheet.create((theme) => ({
   listIcon: {
     color: theme.colors.textSecondary,
   },
+  listTextWrap: {
+    flex: 1,
+  },
+  listMeta: {
+    color: theme.colors.textSecondary,
+    marginTop: 1,
+  },
+  selectedListIcon: {
+    color: theme.colors.primary,
+  },
   radio: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: theme.colors.background,
   },
-  radioSelected: {
-    borderColor: theme.colors.primary,
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: theme.colors.primary,
+  emptyState: {
+    padding: 18,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.inputBackground,
   },
   emptyText: {
     textAlign: "center",
-    paddingVertical: 20,
   },
-
-  // Create New List
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  createListPanel: {
+    gap: 12,
+    padding: 14,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.inputBackground,
   },
   input: {
-    flex: 1,
+    minHeight: 48,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.medium,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     fontSize: 16,
     color: theme.colors.text,
     backgroundColor: theme.colors.background,
   },
   createActions: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: theme.borderRadius.medium,
+    minHeight: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: theme.colors.border,
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.background,
   },
   createButton: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: theme.borderRadius.medium,
+    minHeight: 44,
+    borderRadius: 22,
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.primary,
   },
   createButtonDisabled: {
     opacity: 0.5,
@@ -503,24 +664,26 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    gap: 8,
+    minHeight: 48,
     borderRadius: theme.borderRadius.medium,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
     borderStyle: "dashed",
   },
   newListIcon: {
-    color: theme.colors.text,
-    opacity: 0.6,
-    marginRight: 8,
+    color: theme.colors.textSecondary,
   },
   newListText: {
-    color: theme.colors.text,
-    opacity: 0.6,
+    color: theme.colors.textSecondary,
   },
-
-  // Add Button
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+  },
   addButton: {
     flexDirection: "row",
     alignItems: "center",
