@@ -225,6 +225,7 @@ export interface CollectionDetailResult {
     cookTime: number | null; // minutes
     servings: number | null;
     sourceUrl: string | null;
+    coverImage: string | null;
     images: { id: number; url: string }[];
     createdAt: Date;
   }[];
@@ -287,12 +288,17 @@ export async function getCollectionDetail(
   }
 
   // Map recipes with their images
-  const recipesWithImages = recipesInCollection.map((recipe) => ({
-    ...recipe,
-    images: allRecipeImages
+  const recipesWithImages = recipesInCollection.map((recipe) => {
+    const images = allRecipeImages
       .filter((img) => img.recipeId === recipe.id)
-      .map((img) => ({ id: img.id, url: img.url })),
-  }));
+      .map((img) => ({ id: img.id, url: img.url }));
+
+    return {
+      ...recipe,
+      coverImage: images[0]?.url ?? null,
+      images,
+    };
+  });
 
   return {
     id: collection.id,

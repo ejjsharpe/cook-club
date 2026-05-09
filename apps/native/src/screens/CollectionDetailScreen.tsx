@@ -153,7 +153,6 @@ export const CollectionDetailScreen = () => {
                       description: null,
                       prepTime: null,
                       nutrition: null,
-                      coverImage: null,
                       owner: {
                         id: "current-user",
                         name: "You",
