@@ -137,17 +137,6 @@ const ChatInputValidator = type({
   conversationState: ConversationStateValidator,
 });
 
-// Fridge Snap types
-const RecipeSuggestionValidator = type({
-  id: "string",
-  name: "string",
-  description: "string",
-  estimatedTime: "number",
-  difficulty: "'easy' | 'medium' | 'hard'",
-  matchedIngredients: "string[]",
-  additionalIngredients: "string[]",
-});
-
 interface RecipePayloadInput {
   name: string;
   images?: { url: string }[];
@@ -322,79 +311,6 @@ export const recipeRouter = router({
       });
 
       if (result.type === "error") {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: result.error.message,
-        });
-      }
-
-      return result;
-    }),
-
-  // Fridge Snap: Identify ingredients from fridge image
-  identifyIngredientsFromImage: authedProcedure
-    .input(
-      type({
-        imageBase64: "string",
-        mimeType: MimeTypeValidator,
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const result = await ctx.env.RECIPE_PARSER.identifyIngredients({
-        imageBase64: input.imageBase64,
-        mimeType: input.mimeType,
-      });
-
-      if (!result.success) {
-        console.log({ result });
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: result.error.message,
-        });
-      }
-
-      return result;
-    }),
-
-  // Fridge Snap: Get recipe suggestions from ingredients
-  getRecipeSuggestions: authedProcedure
-    .input(
-      type({
-        ingredients: "string[]",
-        "count?": "number",
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const result = await ctx.env.RECIPE_PARSER.suggestRecipes({
-        ingredients: input.ingredients,
-        count: input.count ?? 4,
-      });
-
-      if (!result.success) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: result.error.message,
-        });
-      }
-
-      return result;
-    }),
-
-  // Fridge Snap: Generate full recipe from a suggestion
-  generateRecipeFromSuggestion: authedProcedure
-    .input(
-      type({
-        suggestion: RecipeSuggestionValidator,
-        availableIngredients: "string[]",
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const result = await ctx.env.RECIPE_PARSER.generateFromSuggestion({
-        suggestion: input.suggestion,
-        availableIngredients: input.availableIngredients,
-      });
-
-      if (!result.success) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: result.error.message,

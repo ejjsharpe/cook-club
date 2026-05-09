@@ -1,19 +1,7 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 
-import type {
-  IdentifyIngredientsInput,
-  IdentifyIngredientsResponse,
-  SuggestRecipesInput,
-  SuggestRecipesResponse,
-  GenerateFromSuggestionInput,
-} from "./service";
 import { parseImage } from "./services/image-parser";
-import { identifyIngredients } from "./services/ingredient-identifier";
 import { processChat } from "./services/recipe-generator";
-import {
-  suggestRecipes,
-  generateFromSuggestion,
-} from "./services/recipe-suggester";
 import { parseText } from "./services/text-parser";
 import { parseUrl } from "./services/url-parser";
 import type {
@@ -39,12 +27,6 @@ export type {
   ChatResponse,
   ChatMessage,
   RecipeConversationState,
-  IdentifyIngredientsInput,
-  IdentifyIngredientsResponse,
-  SuggestRecipesInput,
-  SuggestRecipesResponse,
-  GenerateFromSuggestionInput,
-  RecipeSuggestion,
 } from "./service";
 export type { ParseResult, ParseError } from "./types";
 
@@ -135,59 +117,6 @@ export class RecipeParser extends WorkerEntrypoint<Env> {
     );
   }
 
-  /**
-   * Identify ingredients from a fridge/pantry image
-   *
-   * @param input - Image data and mime type
-   * @returns IdentifyIngredientsResponse - List of identified ingredients or error
-   *
-   * @example
-   * const result = await env.RECIPE_PARSER.identifyIngredients({
-   *   imageBase64: "base64ImageData...",
-   *   mimeType: "image/jpeg"
-   * });
-   */
-  async identifyIngredients(
-    input: IdentifyIngredientsInput,
-  ): Promise<IdentifyIngredientsResponse> {
-    return await identifyIngredients(this.env, input);
-  }
-
-  /**
-   * Get recipe suggestions based on available ingredients
-   *
-   * @param input - List of ingredients and optional count
-   * @returns SuggestRecipesResponse - List of recipe suggestions or error
-   *
-   * @example
-   * const result = await env.RECIPE_PARSER.suggestRecipes({
-   *   ingredients: ["eggs", "cheese", "butter"],
-   *   count: 4
-   * });
-   */
-  async suggestRecipes(
-    input: SuggestRecipesInput,
-  ): Promise<SuggestRecipesResponse> {
-    return await suggestRecipes(this.env, input);
-  }
-
-  /**
-   * Generate a full recipe from a suggestion
-   *
-   * @param input - The suggestion and available ingredients
-   * @returns ParseResponse - Complete recipe or error
-   *
-   * @example
-   * const result = await env.RECIPE_PARSER.generateFromSuggestion({
-   *   suggestion: { id: "...", name: "Cheese Omelette", ... },
-   *   availableIngredients: ["eggs", "cheese", "butter"]
-   * });
-   */
-  async generateFromSuggestion(
-    input: GenerateFromSuggestionInput,
-  ): Promise<ParseResponse> {
-    return await generateFromSuggestion(this.env, input);
-  }
 }
 
 /**

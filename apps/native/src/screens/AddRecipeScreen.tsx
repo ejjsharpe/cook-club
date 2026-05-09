@@ -130,10 +130,6 @@ export const AddRecipeScreen = () => {
     basicImportSheetRef.current?.present();
   };
 
-  const onPressFridgeSnap = () => {
-    navigate("FridgeSnap");
-  };
-
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -176,13 +172,6 @@ export const AddRecipeScreen = () => {
             label="AI Chef"
             subtitle="Describe what you want and AI will create a recipe."
             onPress={onPressAIChef}
-          />
-          <View style={styles.separator} />
-          <ActionRow
-            icon="camera"
-            label="Fridge Snap"
-            subtitle="Take a photo of your fridge and get recipe ideas."
-            onPress={onPressFridgeSnap}
           />
         </View>
 
