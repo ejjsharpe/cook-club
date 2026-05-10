@@ -33,6 +33,7 @@ import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { ScalePressable } from "@/components/buttons/ScalePressable";
 
 type UserProfileScreenParams = {
   UserProfile: {
@@ -232,9 +233,7 @@ export const UserProfileScreen = () => {
     return (
       <View style={styles.container}>
         <View style={styles.headerRow}>
-          <View style={styles.headerButton}>
-            <BackButton />
-          </View>
+          <BackButton />
         </View>
         <View style={styles.centered}>
           <Text type="bodyFaded">User not found</Text>
@@ -413,21 +412,20 @@ export const UserProfileScreen = () => {
     <View style={styles.container}>
       {/* Floating header */}
       <View style={styles.headerRow}>
-        <View style={styles.headerButton}>
-          <BackButton />
-        </View>
+        <BackButton />
         {isOwnProfile && profile && (
-          <TouchableOpacity
+          <ScalePressable
             style={styles.headerButton}
             onPress={handleSettings}
-            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Open settings"
           >
             <Ionicons
               name="settings-outline"
               size={22}
               style={styles.settingsIcon}
             />
-          </TouchableOpacity>
+          </ScalePressable>
         )}
       </View>
 

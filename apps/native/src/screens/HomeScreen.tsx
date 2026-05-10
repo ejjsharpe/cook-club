@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState, useCallback, useMemo, useRef, memo, useEffect } from "react";
 import {
   View,
-  TouchableOpacity,
   Pressable,
   RefreshControl,
   FlatList,
@@ -51,6 +50,7 @@ import { HomeFeedSkeleton, SkeletonContainer } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { UserSearchCard } from "@/components/UserSearchCard";
+import { ScalePressable } from "@/components/buttons/ScalePressable";
 import { useDebounce } from "@/hooks/useDebounce";
 
 // ─── Header Component ─────────────────────────────────────────────────────────
@@ -685,13 +685,14 @@ export const HomeScreen = () => {
       {showFloatingSearch && (
         <>
           <Animated.View style={backButtonAnimatedStyle}>
-            <TouchableOpacity
+            <ScalePressable
               onPress={handleExitSearch}
               style={styles.backButton}
-              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Exit search"
             >
               <Ionicons name="arrow-back" size={24} style={styles.backIcon} />
-            </TouchableOpacity>
+            </ScalePressable>
           </Animated.View>
 
           <Animated.View

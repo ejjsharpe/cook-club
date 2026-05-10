@@ -28,6 +28,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { AppSheet } from "@/components/AppSheet";
 import { Ionicons } from "@/components/Ionicons";
 import { Text } from "@/components/Text";
+import { ScalePressable } from "@/components/buttons/ScalePressable";
 import { getImageUrl } from "@/utils/imageUrl";
 
 interface Instruction {
@@ -474,12 +475,14 @@ export const CookModeScreen = () => {
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity
+        <ScalePressable
           style={styles.closeButton}
           onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Exit cook mode"
         >
           <Ionicons name="close" size={28} style={styles.closeIcon} />
-        </TouchableOpacity>
+        </ScalePressable>
         <View style={styles.headerTitleContainer}>
           <Text type="headline" numberOfLines={1} style={styles.headerTitle}>
             {recipeName}

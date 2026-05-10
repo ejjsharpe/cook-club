@@ -163,7 +163,7 @@ const ItemContent = ({
     backgroundColor: interpolateColor(
       swipeProgress.value,
       [0, 1],
-      ["transparent", theme.colors.inputBackground],
+      ["transparent", theme.colors.pressHighlight],
     ),
   }));
 
@@ -358,7 +358,9 @@ export const ShoppingListScreen = () => {
   const { data, isLoading, error } = useGetShoppingList(
     activeList ? { shoppingListId: activeList.id } : undefined,
   );
-  const toggleMutation = useToggleItemChecked();
+  const toggleMutation = useToggleItemChecked(
+    activeList ? { shoppingListId: activeList.id } : undefined,
+  );
   const removeMutation = useRemoveItem();
   const clearMutation = useClearCheckedItems();
   const removeRecipeMutation = useRemoveRecipeFromList();

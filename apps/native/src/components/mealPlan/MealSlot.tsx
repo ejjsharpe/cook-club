@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { useCallback } from "react";
-import { View, TouchableOpacity } from "react-native";
+import { Pressable, View } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
   useSharedValue,
@@ -82,9 +82,9 @@ const DeleteAction = ({
   return (
     <View style={styles.deleteActionContainer}>
       <Animated.View style={deleteButtonStyle}>
-        <TouchableOpacity style={styles.deleteActionPill} onPress={onDelete}>
+        <Pressable style={styles.deleteActionPill} onPress={onDelete}>
           <Ionicons name="trash" size={20} color="#fff" />
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
     </View>
   );
@@ -115,66 +115,72 @@ const SlotContent = ({
   }));
 
   return (
-    <TouchableOpacity
-      style={styles.slot}
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.7}
-    >
-      <Animated.View style={[styles.slotInner, backgroundStyle]}>
-        {/* Left: Image or Icon container */}
-        {entry ? (
-          entry.recipeImageUrl ? (
-            <Image
-              source={{ uri: entry.recipeImageUrl }}
-              style={styles.recipeImage}
-              contentFit="cover"
-            />
-          ) : (
-            <View style={styles.iconContainer}>
+    <Pressable style={styles.slot} onPress={onPress} disabled={disabled}>
+      {({ pressed }) => (
+        <>
+          {pressed && (
+            <View pointerEvents="none" style={styles.pressHighlight} />
+          )}
+          <Animated.View style={[styles.slotInner, backgroundStyle]}>
+            {/* Left: Image or Icon container */}
+            {entry ? (
+              entry.recipeImageUrl ? (
+                <Image
+                  source={{ uri: entry.recipeImageUrl }}
+                  style={styles.recipeImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={styles.iconContainer}>
+                  <Ionicons
+                    name="restaurant-outline"
+                    size={20}
+                    color={theme.colors.textTertiary}
+                  />
+                </View>
+              )
+            ) : (
+              <View style={styles.iconContainer}>
+                <Ionicons
+                  name={MEAL_ICONS[mealType]}
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </View>
+            )}
+
+            {/* Center: Text content */}
+            <View style={styles.textContainer}>
+              <Text type="caption" style={styles.mealLabel}>
+                {MEAL_LABELS[mealType]}
+              </Text>
+              {entry ? (
+                <Text type="body" numberOfLines={1}>
+                  {entry.recipeName}
+                </Text>
+              ) : (
+                <Text type="bodyFaded">Add recipe</Text>
+              )}
+            </View>
+
+            {/* Right: Chevron or Add icon */}
+            {entry ? (
               <Ionicons
-                name="restaurant-outline"
+                name="chevron-forward"
                 size={20}
                 color={theme.colors.textTertiary}
               />
-            </View>
-          )
-        ) : (
-          <View style={styles.iconContainer}>
-            <Ionicons
-              name={MEAL_ICONS[mealType]}
-              size={20}
-              color={theme.colors.primary}
-            />
-          </View>
-        )}
-
-        {/* Center: Text content */}
-        <View style={styles.textContainer}>
-          <Text type="caption" style={styles.mealLabel}>
-            {MEAL_LABELS[mealType]}
-          </Text>
-          {entry ? (
-            <Text type="body" numberOfLines={1}>
-              {entry.recipeName}
-            </Text>
-          ) : (
-            <Text type="bodyFaded">Add recipe</Text>
-          )}
-        </View>
-
-        {/* Right: Chevron or Add icon */}
-        {entry ? (
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={theme.colors.textTertiary}
-          />
-        ) : (
-          <Ionicons name="add-circle" size={24} color={theme.colors.primary} />
-        )}
-      </Animated.View>
-    </TouchableOpacity>
+            ) : (
+              <Ionicons
+                name="add-circle"
+                size={24}
+                color={theme.colors.primary}
+              />
+            )}
+          </Animated.View>
+        </>
+      )}
+    </Pressable>
   );
 };
 
@@ -231,6 +237,11 @@ export const MealSlot = ({
 const styles = StyleSheet.create((theme) => ({
   slot: {
     minHeight: 72,
+    position: "relative",
+  },
+  pressHighlight: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.pressHighlight,
   },
   slotInner: {
     flexDirection: "row",

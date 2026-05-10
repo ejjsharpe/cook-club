@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { View, TouchableOpacity } from "react-native";
+import { Pressable, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
@@ -40,50 +40,69 @@ interface Props {
 
 export const RecipeCard = ({ recipe, onPress }: Props) => {
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.thumbnail}>
-        {recipe.coverImage ? (
-          <Image
-            source={{ uri: getImageUrl(recipe.coverImage, "recipe-thumb") }}
-            style={styles.thumbnailImage}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-          />
-        ) : (
-          <View style={styles.thumbnailPlaceholder}>
-            <Ionicons
-              name="image-outline"
-              size={32}
-              style={styles.placeholderIcon}
-            />
+    <Pressable style={styles.card} onPress={onPress}>
+      {({ pressed }) => (
+        <>
+          {pressed && (
+            <View pointerEvents="none" style={styles.pressHighlight} />
+          )}
+          <View style={styles.thumbnail}>
+            {recipe.coverImage ? (
+              <Image
+                source={{ uri: getImageUrl(recipe.coverImage, "recipe-thumb") }}
+                style={styles.thumbnailImage}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View style={styles.thumbnailPlaceholder}>
+                <Ionicons
+                  name="image-outline"
+                  size={32}
+                  style={styles.placeholderIcon}
+                />
+              </View>
+            )}
           </View>
-        )}
-      </View>
 
-      <View style={styles.content}>
-        <Text type="headline" numberOfLines={2}>
-          {recipe.name}
-        </Text>
-        {recipe.totalTime && (
-          <View style={styles.metaItem}>
-            <Ionicons name="time-outline" size={14} style={styles.metaIcon} />
-            <Text type="subheadline" style={styles.metaText}>
-              {formatMinutes(recipe.totalTime)}
+          <View style={styles.content}>
+            <Text type="headline" numberOfLines={2}>
+              {recipe.name}
             </Text>
+            {recipe.totalTime && (
+              <View style={styles.metaItem}>
+                <Ionicons
+                  name="time-outline"
+                  size={14}
+                  style={styles.metaIcon}
+                />
+                <Text type="subheadline" style={styles.metaText}>
+                  {formatMinutes(recipe.totalTime)}
+                </Text>
+              </View>
+            )}
+            {recipe.sourceUrl && (
+              <View style={styles.metaItem}>
+                <Ionicons
+                  name="link-outline"
+                  size={14}
+                  style={styles.metaIcon}
+                />
+                <Text
+                  type="subheadline"
+                  style={styles.metaText}
+                  numberOfLines={1}
+                >
+                  {new URL(recipe.sourceUrl).hostname.replace(/^www\./, "")}
+                </Text>
+              </View>
+            )}
           </View>
-        )}
-        {recipe.sourceUrl && (
-          <View style={styles.metaItem}>
-            <Ionicons name="link-outline" size={14} style={styles.metaIcon} />
-            <Text type="subheadline" style={styles.metaText} numberOfLines={1}>
-              {new URL(recipe.sourceUrl).hostname.replace(/^www\./, "")}
-            </Text>
-          </View>
-        )}
-      </View>
 
-      <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
-    </TouchableOpacity>
+          <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
+        </>
+      )}
+    </Pressable>
   );
 };
 
@@ -94,6 +113,11 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     paddingHorizontal: 20,
     gap: 14,
+    position: "relative",
+  },
+  pressHighlight: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.pressHighlight,
   },
   thumbnail: {
     width: 100,

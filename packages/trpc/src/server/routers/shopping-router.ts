@@ -200,11 +200,9 @@ export const shoppingRouter = router({
           sourceItems: agg.items,
         }));
 
-        // Sort: unchecked first, then by display text
+        // Keep item ordering independent of checked state so checking an item
+        // does not move it after the server response refreshes the cache.
         items.sort((a, b) => {
-          if (a.isChecked !== b.isChecked) {
-            return a.isChecked ? 1 : -1;
-          }
           return a.displayText.localeCompare(b.displayText);
         });
 

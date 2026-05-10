@@ -6,7 +6,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
   Alert,
   Dimensions,
 } from "react-native";
@@ -31,6 +30,7 @@ import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { useWelcomeOverlay } from "@/components/WelcomeOverlay";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
+import { ScalePressable } from "@/components/buttons/ScalePressable";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { MeasurementSystem } from "@/lib/measurementPreferences";
 
@@ -202,13 +202,14 @@ export default function OnboardingScreen() {
         <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.buttonRow}>
             <Animated.View style={animatedBackButtonStyle}>
-              <TouchableOpacity
+              <ScalePressable
                 style={styles.backButton}
                 onPress={handleBack}
-                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Previous onboarding step"
               >
                 <Text style={styles.backButtonText}>Back</Text>
-              </TouchableOpacity>
+              </ScalePressable>
             </Animated.View>
             <View style={styles.nextButtonFlex}>
               <PrimaryButton

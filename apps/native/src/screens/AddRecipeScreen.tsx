@@ -1,8 +1,8 @@
 import { useNavigation } from "@react-navigation/native";
 import { useCallback, useRef } from "react";
 import {
+  Pressable,
   View,
-  TouchableOpacity,
   ScrollView,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -47,7 +47,7 @@ const ActionRow = ({
   const theme = UnistylesRuntime.getTheme();
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[
         styles.row,
         disabled && styles.rowDisabled,
@@ -55,30 +55,39 @@ const ActionRow = ({
       ]}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.7}
     >
-      <View
-        style={[styles.iconContainer, featured && styles.iconContainerFeatured]}
-      >
-        <Ionicons name={icon} size={24} color={theme.colors.primary} />
-      </View>
-      <View style={styles.textContainer}>
-        <View style={styles.labelRow}>
-          <Text type="body">{label}</Text>
-          {featured && (
-            <View style={styles.badge}>
-              <Text type="caption" style={styles.badgeText}>
-                Recommended
-              </Text>
-            </View>
+      {({ pressed }) => (
+        <>
+          {pressed && !disabled && (
+            <View pointerEvents="none" style={styles.pressHighlight} />
           )}
-        </View>
-        <Text type="subheadline" style={styles.subtitle}>
-          {subtitle}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
-    </TouchableOpacity>
+          <View
+            style={[
+              styles.iconContainer,
+              featured && styles.iconContainerFeatured,
+            ]}
+          >
+            <Ionicons name={icon} size={24} color={theme.colors.primary} />
+          </View>
+          <View style={styles.textContainer}>
+            <View style={styles.labelRow}>
+              <Text type="body">{label}</Text>
+              {featured && (
+                <View style={styles.badge}>
+                  <Text type="caption" style={styles.badgeText}>
+                    Recommended
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text type="subheadline" style={styles.subtitle}>
+              {subtitle}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
+        </>
+      )}
+    </Pressable>
   );
 };
 
@@ -245,6 +254,11 @@ const styles = StyleSheet.create((theme, rt) => ({
     alignItems: "center",
     padding: 16,
     gap: 16,
+    position: "relative",
+  },
+  pressHighlight: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.pressHighlight,
   },
   rowDisabled: {
     opacity: 0.5,

@@ -38,6 +38,7 @@ import { SearchBar, SEARCH_BAR_HEIGHT } from "@/components/SearchBar";
 import { Skeleton, RecipeCardSkeleton, FadeIn } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import { ScalePressable } from "@/components/buttons/ScalePressable";
 import type {
   Recipe,
   CollectionWithMetadata,
@@ -1136,13 +1137,14 @@ export const MyRecipesScreen = () => {
         ]}
         pointerEvents={isSearchActive ? "auto" : "none"}
       >
-        <TouchableOpacity
+        <ScalePressable
           onPress={handleExitSearch}
           style={styles.backButton}
-          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Exit search"
         >
           <Ionicons name="arrow-back" size={24} style={styles.backIcon} />
-        </TouchableOpacity>
+        </ScalePressable>
       </Animated.View>
 
       {/* Filter Button - always mounted for worklet pre-warming */}

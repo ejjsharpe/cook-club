@@ -167,7 +167,7 @@ export const useAddRecipeToShoppingList = () => {
 };
 
 // Toggle item checked status with optimistic updates
-export const useToggleItemChecked = () => {
+export const useToggleItemChecked = (params?: { shoppingListId?: number }) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -180,8 +180,9 @@ export const useToggleItemChecked = () => {
       const shoppingListFilter = trpc.shopping.getShoppingList.pathFilter();
       await queryClient.cancelQueries(shoppingListFilter);
 
-      // Snapshot previous value
-      const shoppingListQueryKey = trpc.shopping.getShoppingList.queryKey();
+      const shoppingListQueryKey = trpc.shopping.getShoppingList.queryKey(
+        params?.shoppingListId ? { shoppingListId: params.shoppingListId } : {},
+      );
       const previous = queryClient.getQueryData(shoppingListQueryKey);
 
       // Optimistically update
@@ -199,11 +200,8 @@ export const useToggleItemChecked = () => {
     },
     onError: (_err, _variables, context) => {
       // Rollback on error
-      if (context?.previous && context?.shoppingListQueryKey) {
-        queryClient.setQueryData(
-          context.shoppingListQueryKey,
-          context.previous,
-        );
+      if (context?.shoppingListQueryKey) {
+        queryClient.setQueryData(context.shoppingListQueryKey, context.previous);
       }
     },
     onSettled: () => {

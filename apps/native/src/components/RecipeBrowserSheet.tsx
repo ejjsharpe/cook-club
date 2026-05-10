@@ -28,6 +28,7 @@ import { Text } from "./Text";
 import { useGetCollectionDetail } from "../api/collection";
 
 import { Ionicons } from "@/components/Ionicons";
+import { ScalePressable } from "@/components/buttons/ScalePressable";
 import {
   useRecipeCollectionBrowser,
   type Recipe,
@@ -319,9 +320,14 @@ export const RecipeBrowserSheet = forwardRef<
 
   const headerLeading =
     selectedCollectionId !== null ? (
-      <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+      <ScalePressable
+        onPress={handleBackPress}
+        style={styles.backButton}
+        accessibilityRole="button"
+        accessibilityLabel="Back to collections"
+      >
         <Ionicons name="chevron-back" size={24} style={styles.backIcon} />
-      </TouchableOpacity>
+      </ScalePressable>
     ) : undefined;
 
   return (

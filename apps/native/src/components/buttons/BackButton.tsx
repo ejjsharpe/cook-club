@@ -1,19 +1,20 @@
 import { useNavigation } from "@react-navigation/native";
-import { TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Ionicons } from "@/components/Ionicons";
+import { ScalePressable } from "@/components/buttons/ScalePressable";
 
 export const BackButton = () => {
   const { goBack } = useNavigation();
   return (
-    <TouchableOpacity
+    <ScalePressable
       style={styles.button}
       onPress={goBack}
-      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="Go back"
     >
       <Ionicons name="arrow-back" size={22} style={styles.icon} />
-    </TouchableOpacity>
+    </ScalePressable>
   );
 };
 
