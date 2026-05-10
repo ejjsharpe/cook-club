@@ -8,7 +8,7 @@ import {
   generateTempKey,
   validateKey,
 } from "./presign";
-import type { UploadFromUrlResponse } from "./service";
+import type { UploadFromUrlResponse, UploadImageResponse } from "./service";
 import { buildCfImageOptions, parseTransformOptions } from "./transform";
 import type {
   Env,
@@ -25,7 +25,7 @@ export type {
   MoveResult,
   MoveResponse,
 } from "./types";
-export type { UploadFromUrlResponse } from "./service";
+export type { UploadFromUrlResponse, UploadImageResponse } from "./service";
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -234,6 +234,50 @@ export class ImageWorker extends WorkerEntrypoint<Env> {
         success: true,
         publicUrl,
         key: destinationKey,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Upload image bytes to a temporary R2 object.
+   * Used by trusted service bindings for generated images.
+   */
+  async uploadImage(
+    imageData: ArrayBuffer,
+    contentType: "image/jpeg" | "image/png" | "image/webp",
+  ): Promise<UploadImageResponse> {
+    try {
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+      if (!allowedTypes.includes(contentType)) {
+        return {
+          success: false,
+          error: "Invalid content type",
+        };
+      }
+
+      if (imageData.byteLength > MAX_FILE_SIZE) {
+        return {
+          success: false,
+          error: `Image too large: ${imageData.byteLength} bytes (max ${MAX_FILE_SIZE})`,
+        };
+      }
+
+      const key = generateTempKey(extensionFromContentType(contentType));
+      await this.env.IMAGES.put(key, imageData, {
+        httpMetadata: {
+          contentType,
+        },
+      });
+
+      return {
+        success: true,
+        publicUrl: `${this.env.PUBLIC_URL}/${key}`,
+        key,
       };
     } catch (error) {
       return {

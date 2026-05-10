@@ -1,7 +1,9 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 
 import { parseImage } from "./services/image-parser";
+import { generateRecipeImage } from "./services/recipe-image-generator";
 import { processChat } from "./services/recipe-generator";
+import { personalizeRecipe } from "./services/recipe-personalizer";
 import { parseText } from "./services/text-parser";
 import { parseUrl } from "./services/url-parser";
 import type {
@@ -10,6 +12,9 @@ import type {
   ParseResponse,
   ChatInput,
   ChatResponse,
+  GenerateRecipeImageInput,
+  GenerateRecipeImageResponse,
+  PersonalizeRecipeInput,
 } from "./types";
 
 export type {
@@ -27,6 +32,10 @@ export type {
   ChatResponse,
   ChatMessage,
   RecipeConversationState,
+  GenerateRecipeImageInput,
+  GenerateRecipeImageResponse,
+  PersonalizationGoal,
+  PersonalizeRecipeInput,
 } from "./service";
 export type { ParseResult, ParseError } from "./types";
 
@@ -117,6 +126,15 @@ export class RecipeParser extends WorkerEntrypoint<Env> {
     );
   }
 
+  async personalize(input: PersonalizeRecipeInput): Promise<ParseResponse> {
+    return await personalizeRecipe(this.env.AI, input);
+  }
+
+  async generateImage(
+    input: GenerateRecipeImageInput,
+  ): Promise<GenerateRecipeImageResponse> {
+    return await generateRecipeImage(this.env, input);
+  }
 }
 
 /**

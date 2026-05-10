@@ -4,6 +4,7 @@ export type {
   MoveResponse,
   MoveResult,
   PresignedUrlResponse,
+  UploadImageResponse,
   UploadFromUrlResponse,
   VerifyResponse,
 } from "@repo/contracts/image-worker";

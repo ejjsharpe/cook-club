@@ -55,6 +55,7 @@ function cacheImages(images: any[]) {
 export default function App() {
   const [isFontsLoaded, isFontsError] = useFonts({
     "Satoshi-Regular": require("@/assets/fonts/Satoshi/Satoshi-Regular.otf"),
+    "Satoshi-Medium": require("@/assets/fonts/Satoshi/Satoshi-Medium.otf"),
     "Satoshi-Bold": require("@/assets/fonts/Satoshi/Satoshi-Bold.otf"),
     "Satoshi-Black": require("@/assets/fonts/Satoshi/Satoshi-Black.otf"),
     "Satoshi-Italic": require("@/assets/fonts/Satoshi/Satoshi-Italic.otf"),

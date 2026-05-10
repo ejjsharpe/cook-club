@@ -18,6 +18,10 @@ export type {
   RecipeConversationState,
   ChatInput,
   ChatResponse,
+  GenerateRecipeImageInput,
+  GenerateRecipeImageResponse,
+  PersonalizationGoal,
+  PersonalizeRecipeInput,
 } from "./service";
 
 // Alias for backwards compatibility

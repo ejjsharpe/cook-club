@@ -1,6 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
+  Alert,
   Pressable,
   View,
   ScrollView,
@@ -14,12 +15,24 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import type { ParsedRecipe } from "@/api/recipe";
+import {
+  usePersonalizeRecipe,
+  type ParsedRecipe,
+  type PersonalizationGoal,
+} from "@/api/recipe";
 import {
   BasicImportSheet,
   type BasicImportSheetRef,
 } from "@/components/BasicImportSheet";
 import { Ionicons } from "@/components/Ionicons";
+import {
+  PersonaliseRecipeSheet,
+  type PersonaliseRecipeSheetRef,
+} from "@/components/PersonaliseRecipeSheet";
+import {
+  RecipeBrowserSheet,
+  type RecipeBrowserSheetRef,
+} from "@/components/RecipeBrowserSheet";
 import {
   SmartImportSheet,
   type SmartImportSheetRef,
@@ -98,6 +111,11 @@ export const AddRecipeScreen = () => {
   // Sheet refs
   const smartImportSheetRef = useRef<SmartImportSheetRef>(null);
   const basicImportSheetRef = useRef<BasicImportSheetRef>(null);
+  const recipeBrowserSheetRef = useRef<RecipeBrowserSheetRef>(null);
+  const personaliseRecipeSheetRef = useRef<PersonaliseRecipeSheetRef>(null);
+  const [selectedPersonaliseRecipeId, setSelectedPersonaliseRecipeId] =
+    useState<number | null>(null);
+  const personalizeRecipeMutation = usePersonalizeRecipe();
 
   // Scroll tracking for header fade
   const titleOpacity = useSharedValue(1);
@@ -135,8 +153,51 @@ export const AddRecipeScreen = () => {
     navigate("GenerateRecipe");
   };
 
+  const onPressPersonalise = () => {
+    recipeBrowserSheetRef.current?.present();
+  };
+
   const onPressBasicImport = () => {
     basicImportSheetRef.current?.present();
+  };
+
+  const handleSelectRecipeToPersonalise = async (recipeId: number) => {
+    setSelectedPersonaliseRecipeId(recipeId);
+    setTimeout(() => {
+      personaliseRecipeSheetRef.current?.present();
+    }, 350);
+  };
+
+  const handlePersonaliseRecipe = async (input: {
+    goals: PersonalizationGoal[];
+    allergyNotes?: string;
+    customNotes?: string;
+  }) => {
+    if (!selectedPersonaliseRecipeId) {
+      Alert.alert("Choose a recipe", "Select a recipe to personalise first.");
+      return;
+    }
+
+    try {
+      const result = await personalizeRecipeMutation.mutateAsync({
+        recipeId: selectedPersonaliseRecipeId,
+        goals: input.goals,
+        allergyNotes: input.allergyNotes,
+        customNotes: input.customNotes,
+      });
+
+      personaliseRecipeSheetRef.current?.dismiss();
+      setSelectedPersonaliseRecipeId(null);
+      navigate("RecipeDetail", {
+        parsedRecipe: result as ParsedRecipe,
+        mode: "edit",
+      });
+    } catch (err: any) {
+      Alert.alert(
+        "Personalisation Failed",
+        err?.message || "Something went wrong while personalising the recipe.",
+      );
+    }
   };
 
   return (
@@ -182,6 +243,13 @@ export const AddRecipeScreen = () => {
             subtitle="Describe what you want and AI will create a recipe."
             onPress={onPressAIChef}
           />
+          <View style={styles.separator} />
+          <ActionRow
+            icon="sparkles"
+            label="Personalise recipe"
+            subtitle="Make it vegan, cheaper, healthier, kid-friendly, or meal-prep ready."
+            onPress={onPressPersonalise}
+          />
         </View>
 
         <VSpace size={24} />
@@ -214,6 +282,16 @@ export const AddRecipeScreen = () => {
       <BasicImportSheet
         ref={basicImportSheetRef}
         onRecipeParsed={handleRecipeParsed}
+      />
+      <RecipeBrowserSheet
+        ref={recipeBrowserSheetRef}
+        title="Choose Recipe"
+        onSelectRecipe={handleSelectRecipeToPersonalise}
+      />
+      <PersonaliseRecipeSheet
+        ref={personaliseRecipeSheetRef}
+        isSubmitting={personalizeRecipeMutation.isPending}
+        onSubmit={handlePersonaliseRecipe}
       />
     </View>
   );

@@ -31,6 +31,13 @@ export interface UploadFromUrlResponse {
   error?: string;
 }
 
+export interface UploadImageResponse {
+  success: boolean;
+  publicUrl?: string;
+  key?: string;
+  error?: string;
+}
+
 export interface ImageWorkerService {
   presign(contentType: ImageContentType): Promise<PresignedUrlResponse>;
   verify(keys: string[]): Promise<VerifyResponse>;
@@ -40,4 +47,8 @@ export interface ImageWorkerService {
     sourceUrl: string,
     destinationKey: string,
   ): Promise<UploadFromUrlResponse>;
+  uploadImage(
+    imageData: ArrayBuffer,
+    contentType: ImageContentType,
+  ): Promise<UploadImageResponse>;
 }

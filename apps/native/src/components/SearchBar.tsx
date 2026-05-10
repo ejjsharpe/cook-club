@@ -78,6 +78,9 @@ const styles = StyleSheet.create((theme) => ({
   input: {
     flex: 1,
     fontSize: 17,
+    lineHeight: 22,
+    includeFontPadding: false,
+    textAlignVertical: "center",
     color: theme.colors.text,
     fontFamily: theme.fonts.regular,
   },

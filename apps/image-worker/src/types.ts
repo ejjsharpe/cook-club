@@ -21,6 +21,7 @@ export type {
   VerifyResponse,
   MoveResult,
   MoveResponse,
+  UploadImageResponse,
 } from "./service";
 
 export interface TransformOptions {

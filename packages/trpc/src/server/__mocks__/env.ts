@@ -28,6 +28,8 @@ export function createMockEnv() {
     RECIPE_PARSER: {
       parse: vi.fn(),
       chat: vi.fn(),
+      personalize: vi.fn(),
+      generateImage: vi.fn(),
     },
     IMAGE_WORKER: {
       presign: vi.fn(),
@@ -35,6 +37,7 @@ export function createMockEnv() {
       move: vi.fn(),
       delete: vi.fn(),
       uploadFromUrl: vi.fn(),
+      uploadImage: vi.fn(),
     },
     IMAGE_PUBLIC_URL: "https://images.example.com",
     RESEND_API_KEY: "mock-resend-key",

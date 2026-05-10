@@ -41,6 +41,8 @@ import {
   useRecipeDetail,
   useImportRecipe,
   useDeleteRecipe,
+  useGenerateRecipeImage,
+  usePersonalizeRecipe,
   useSaveRecipe,
   useUpdateRecipe,
   type ParsedRecipe,
@@ -61,6 +63,10 @@ import {
 } from "@/components/CookingReviewSheet";
 import { Ionicons } from "@/components/Ionicons";
 import { PageIndicator } from "@/components/PageIndicator";
+import {
+  PersonaliseRecipeSheet,
+  type PersonaliseRecipeSheetRef,
+} from "@/components/PersonaliseRecipeSheet";
 import {
   ShoppingListSelectorSheet,
   type ShoppingListSelectorSheetRef,
@@ -402,6 +408,8 @@ export const RecipeDetailScreen = () => {
   const updateRecipeMutation = useUpdateRecipe();
   const importMutation = useImportRecipe();
   const deleteMutation = useDeleteRecipe();
+  const personalizeRecipeMutation = usePersonalizeRecipe();
+  const generateRecipeImageMutation = useGenerateRecipeImage();
   const createCookingReviewMutation = useCreateCookingReview();
 
   const [servings, setServings] = useState(1);
@@ -417,7 +425,10 @@ export const RecipeDetailScreen = () => {
   const initialDraftRef = useRef<RecipeDraft | null>(draft);
   const draftSourceRef = useRef<string | null>(null);
   const hasInitializedServings = useRef(false);
+  const draftImageListRef = useRef<FlatList<DraftImage>>(null);
+  const pendingImageScrollIndexRef = useRef<number | null>(null);
   const adjustRecipeSheetRef = useRef<AdjustRecipeSheetRef>(null);
+  const personaliseRecipeSheetRef = useRef<PersonaliseRecipeSheetRef>(null);
   const addToMealPlanSheetRef = useRef<AddToMealPlanSheetRef>(null);
   const shoppingListSheetRef = useRef<ShoppingListSelectorSheetRef>(null);
   const collectionSheetRef = useRef<CollectionSelectorSheetRef>(null);
@@ -516,6 +527,22 @@ export const RecipeDetailScreen = () => {
     recipe?.images.length,
   ]);
 
+  useEffect(() => {
+    const index = pendingImageScrollIndexRef.current;
+    if (!isEditing || !draft || index === null || draft.images.length <= index) {
+      return;
+    }
+
+    pendingImageScrollIndexRef.current = null;
+    setCurrentImageIndex(index);
+    requestAnimationFrame(() => {
+      draftImageListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+      });
+    });
+  }, [draft, isEditing]);
+
   const isOwnRecipe = recipe?.owner.id === userData?.user?.id;
   const displayedRating = ratingOverride ?? recipe?.userReviewRating ?? null;
   const servingMultiplier = recipe?.servings ? servings / recipe.servings : 1;
@@ -546,7 +573,8 @@ export const RecipeDetailScreen = () => {
   const isSaving =
     saveRecipeMutation.isPending ||
     updateRecipeMutation.isPending ||
-    isUploadingImages;
+    isUploadingImages ||
+    generateRecipeImageMutation.isPending;
 
   const updateDraft = useCallback(
     (updater: (current: RecipeDraft) => RecipeDraft) => {
@@ -586,6 +614,11 @@ export const RecipeDetailScreen = () => {
   const handleOpenShoppingListSheet = () => {
     if (!recipe) return;
     shoppingListSheetRef.current?.present();
+  };
+
+  const handleOpenPersonaliseSheet = () => {
+    if (!recipe || isPreviewMode || isEditing) return;
+    personaliseRecipeSheetRef.current?.present();
   };
 
   const handleOpenReviewSheet = () => {
@@ -635,6 +668,33 @@ export const RecipeDetailScreen = () => {
       const message =
         err?.message || "Something went wrong while importing the recipe.";
       Alert.alert("Import Failed", message);
+    }
+  };
+
+  const handlePersonaliseRecipe = async (input: {
+    goals: Parameters<typeof personalizeRecipeMutation.mutateAsync>[0]["goals"];
+    allergyNotes?: string;
+    customNotes?: string;
+  }) => {
+    if (!recipe) return;
+
+    try {
+      const result = await personalizeRecipeMutation.mutateAsync({
+        recipeId: recipe.id,
+        goals: input.goals,
+        allergyNotes: input.allergyNotes,
+        customNotes: input.customNotes,
+      });
+      personaliseRecipeSheetRef.current?.dismiss();
+      navigation.navigate("RecipeDetail", {
+        parsedRecipe: result as ParsedRecipe,
+        mode: "edit",
+      });
+    } catch (err: any) {
+      Alert.alert(
+        "Personalisation Failed",
+        err?.message || "Something went wrong while personalising the recipe.",
+      );
     }
   };
 
@@ -689,6 +749,56 @@ export const RecipeDetailScreen = () => {
       );
     }
   }, [uploadImages]);
+
+  const handleGenerateRecipeImage = useCallback(async () => {
+    if (!draft) return;
+
+    if (!draft.name.trim()) {
+      Alert.alert("Add a title", "Add a recipe title before creating an image.");
+      return;
+    }
+
+    const ingredients = draft.ingredientSections.flatMap((section) =>
+      section.ingredients
+        .map((ingredient) => ingredient.text.trim())
+        .filter(Boolean),
+    );
+    const instructions = draft.instructionSections.flatMap((section) =>
+      section.instructions
+        .map((instruction) => instruction.instruction.trim())
+        .filter(Boolean),
+    );
+
+    try {
+      const result = await generateRecipeImageMutation.mutateAsync({
+        name: draft.name.trim(),
+        description: draft.description.trim() || null,
+        ingredients,
+        instructions,
+      });
+
+      const imageId = createDraftId("generated-image");
+      const nextImageIndex = draft.images.length;
+      pendingImageScrollIndexRef.current = nextImageIndex;
+      updateDraft((current) => ({
+        ...current,
+        images: [
+          ...current.images,
+          {
+            id: imageId,
+            uri: result.publicUrl,
+            isRemote: false,
+            uploadKey: result.imageUploadId,
+          },
+        ],
+      }));
+    } catch (err: any) {
+      Alert.alert(
+        "Image creation failed",
+        err?.message || "Something went wrong while creating the image.",
+      );
+    }
+  }, [draft, generateRecipeImageMutation, updateDraft]);
 
   const handleRemoveCurrentImage = useCallback(() => {
     updateDraft((current) => {
@@ -1219,6 +1329,7 @@ export const RecipeDetailScreen = () => {
 
   const renderImageEditOverlay = () => {
     if (!isEditing || !draft) return null;
+    const isCreatingImage = generateRecipeImageMutation.isPending;
 
     return (
       <View style={styles.heroEditRow}>
@@ -1232,6 +1343,19 @@ export const RecipeDetailScreen = () => {
           <View style={styles.heroCountChip}>
             <Text style={styles.heroCountText}>{draft.images.length}</Text>
           </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.heroEditButton, isCreatingImage && styles.heroButtonDisabled]}
+          onPress={handleGenerateRecipeImage}
+          activeOpacity={0.78}
+          disabled={isCreatingImage}
+        >
+          {isCreatingImage ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Ionicons name="sparkles" size={17} color="white" />
+          )}
+          <Text style={styles.heroEditButtonText}>AI image</Text>
         </TouchableOpacity>
         {draft.images.length > 0 ? (
           <TouchableOpacity
@@ -1250,20 +1374,56 @@ export const RecipeDetailScreen = () => {
   const renderHero = () => {
     if (isEditing && draft) {
       if (draft.images.length === 0) {
+        const isCreatingImage = generateRecipeImageMutation.isPending;
+
         return (
           <View style={styles.imageCarouselContainer}>
-            <TouchableOpacity
-              style={styles.emptyHero}
-              onPress={handlePickRecipeImage}
-              activeOpacity={0.82}
-            >
+            <View style={styles.emptyHero}>
               <Ionicons
-                name="camera-outline"
+                name="image-outline"
                 size={30}
                 style={styles.emptyHeroIcon}
               />
               <Text style={styles.emptyHeroText}>Add recipe photo</Text>
-            </TouchableOpacity>
+              <View style={styles.emptyHeroActions}>
+                <TouchableOpacity
+                  style={styles.emptyHeroButton}
+                  onPress={handlePickRecipeImage}
+                  activeOpacity={0.82}
+                >
+                  <Ionicons
+                    name="camera-outline"
+                    size={18}
+                    style={styles.emptyHeroButtonIcon}
+                  />
+                  <Text style={styles.emptyHeroButtonText}>Choose photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.emptyHeroButton,
+                    styles.emptyHeroButtonPrimary,
+                    isCreatingImage && styles.heroButtonDisabled,
+                  ]}
+                  onPress={handleGenerateRecipeImage}
+                  activeOpacity={0.82}
+                  disabled={isCreatingImage}
+                >
+                  {isCreatingImage ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Ionicons name="sparkles" size={18} color="white" />
+                  )}
+                  <Text
+                    style={[
+                      styles.emptyHeroButtonText,
+                      styles.emptyHeroButtonTextPrimary,
+                    ]}
+                  >
+                    Create with AI
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
             <LinearGradient
               colors={["transparent", "rgba(0,0,0,0.58)"]}
               style={styles.imageOverlay}
@@ -1290,6 +1450,7 @@ export const RecipeDetailScreen = () => {
         <View style={styles.imageCarouselContainer}>
           <Animated.View style={imageAnimatedStyle}>
             <FlatList
+              ref={draftImageListRef}
               data={draft.images}
               renderItem={renderDraftImage}
               keyExtractor={(item) => item.id}
@@ -1297,6 +1458,17 @@ export const RecipeDetailScreen = () => {
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={handleImageScroll}
+              getItemLayout={(_, index) => ({
+                length: SCREEN_WIDTH,
+                offset: SCREEN_WIDTH * index,
+                index,
+              })}
+              onScrollToIndexFailed={({ index }) => {
+                draftImageListRef.current?.scrollToOffset({
+                  offset: SCREEN_WIDTH * index,
+                  animated: true,
+                });
+              }}
             />
           </Animated.View>
           <PageIndicator
@@ -2021,6 +2193,18 @@ export const RecipeDetailScreen = () => {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.recipeActionButton}
+                        onPress={handleOpenPersonaliseSheet}
+                        activeOpacity={0.78}
+                        accessibilityLabel="Personalise recipe with AI"
+                      >
+                        <Ionicons
+                          name="sparkles-outline"
+                          size={21}
+                          style={styles.recipeActionIcon}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.recipeActionButton}
                         onPress={handleOpenMealPlanSheet}
                         activeOpacity={0.78}
                         accessibilityLabel="Add to meal plan"
@@ -2045,23 +2229,37 @@ export const RecipeDetailScreen = () => {
                       </TouchableOpacity>
                     </>
                   ) : (
-                    <TouchableOpacity
-                      style={styles.importActionButton}
-                      onPress={handleImportRecipe}
-                      disabled={importMutation.isPending}
-                      activeOpacity={0.82}
-                    >
-                      {importMutation.isPending ? (
-                        <ActivityIndicator size="small" color="white" />
-                      ) : (
+                    <>
+                      <TouchableOpacity
+                        style={styles.importActionButton}
+                        onPress={handleOpenPersonaliseSheet}
+                        activeOpacity={0.82}
+                      >
                         <Ionicons
-                          name="download-outline"
+                          name="sparkles-outline"
                           size={20}
                           color="white"
                         />
-                      )}
-                      <Text style={styles.cookActionText}>Import</Text>
-                    </TouchableOpacity>
+                        <Text style={styles.cookActionText}>Personalise</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.recipeActionButton}
+                        onPress={handleImportRecipe}
+                        disabled={importMutation.isPending}
+                        activeOpacity={0.78}
+                        accessibilityLabel="Import recipe"
+                      >
+                        {importMutation.isPending ? (
+                          <ActivityIndicator size="small" />
+                        ) : (
+                          <Ionicons
+                            name="download-outline"
+                            size={21}
+                            style={styles.recipeActionIcon}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    </>
                   )}
                 </Animated.View>
               )}
@@ -2151,6 +2349,12 @@ export const RecipeDetailScreen = () => {
         onServingsChange={setServings}
         measurementSystem={measurementSystem}
         onMeasurementSystemChange={setMeasurementSystem}
+      />
+
+      <PersonaliseRecipeSheet
+        ref={personaliseRecipeSheetRef}
+        isSubmitting={personalizeRecipeMutation.isPending}
+        onSubmit={handlePersonaliseRecipe}
       />
 
       <AddToMealPlanSheet
@@ -2301,6 +2505,38 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: 15,
     fontFamily: theme.fonts.semiBold,
   },
+  emptyHeroActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
+  },
+  emptyHeroButton: {
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: 19,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  emptyHeroButtonPrimary: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  emptyHeroButtonIcon: {
+    color: theme.colors.text,
+  },
+  emptyHeroButtonText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontFamily: theme.fonts.semiBold,
+  },
+  emptyHeroButtonTextPrimary: {
+    color: "white",
+  },
   imageOverlay: {
     position: "absolute",
     bottom: 0,
@@ -2355,6 +2591,9 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+  },
+  heroButtonDisabled: {
+    opacity: 0.65,
   },
   heroEditButtonText: {
     color: "white",

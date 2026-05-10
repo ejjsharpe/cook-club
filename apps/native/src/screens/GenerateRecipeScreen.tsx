@@ -4,18 +4,17 @@ import {
   View,
   FlatList,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
 } from "react-native";
 import Animated, { FadeInUp, FadeInDown } from "react-native-reanimated";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { useGenerateRecipeChat } from "@/api/chat";
 import { Ionicons } from "@/components/Ionicons";
 import { SafeAreaView } from "@/components/SafeAreaView";
-import { HSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
 import type { ChatMessage, ConversationState, ChatStatus } from "@/types/chat";
@@ -40,8 +39,15 @@ const INITIAL_STATE: ConversationState = {
   maxCookingTime: null,
 };
 
+const RECIPE_PROMPTS = [
+  "High-protein dinner in 30 minutes",
+  "Use up herbs and vegetables",
+  "Something cozy for two",
+];
+
 export const GenerateRecipeScreen = () => {
   const { navigate } = useNavigation();
+  const theme = UnistylesRuntime.getTheme();
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
   const [inputText, setInputText] = useState("");
@@ -125,29 +131,57 @@ export const GenerateRecipeScreen = () => {
         <Animated.View
           entering={isFirst ? undefined : FadeInUp.duration(300).springify()}
           style={[
-            styles.messageBubble,
-            isUser ? styles.userBubble : styles.assistantBubble,
+            styles.messageRow,
+            isUser ? styles.userMessageRow : styles.assistantMessageRow,
           ]}
         >
-          <Text style={isUser ? styles.userText : styles.assistantText}>
-            {item.content}
-          </Text>
-
-          {item.suggestedReplies && item.suggestedReplies.length > 0 && (
-            <View style={styles.suggestedReplies}>
-              {item.suggestedReplies.map((reply, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.suggestionChip}
-                  onPress={() => sendMessage(reply)}
-                  disabled={status !== "idle"}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.suggestionText}>{reply}</Text>
-                </TouchableOpacity>
-              ))}
+          {!isUser && (
+            <View style={styles.avatar}>
+              <Ionicons name="restaurant" size={18} style={styles.avatarIcon} />
             </View>
           )}
+
+          <View style={styles.messageStack}>
+            {!isUser && (
+              <Text type="caption" style={styles.senderLabel}>
+                AI Chef
+              </Text>
+            )}
+            <View
+              style={[
+                styles.messageBubble,
+                isUser ? styles.userBubble : styles.assistantBubble,
+              ]}
+            >
+              <Text style={isUser ? styles.userText : styles.assistantText}>
+                {item.content}
+              </Text>
+            </View>
+
+            {item.suggestedReplies && item.suggestedReplies.length > 0 && (
+              <View style={styles.suggestedReplies}>
+                {item.suggestedReplies.map((reply) => (
+                  <Pressable
+                    key={reply}
+                    style={({ pressed }) => [
+                      styles.suggestionChip,
+                      pressed && status === "idle" && styles.pressedChip,
+                      status !== "idle" && styles.disabledChip,
+                    ]}
+                    onPress={() => sendMessage(reply)}
+                    disabled={status !== "idle"}
+                  >
+                    <Text style={styles.suggestionText}>{reply}</Text>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={14}
+                      style={styles.suggestionIcon}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
         </Animated.View>
       );
     },
@@ -158,83 +192,131 @@ export const GenerateRecipeScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
       <View style={styles.header}>
         <BackButton />
-        <Text type="title2">Create with AI</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerTitleWrap}>
+          <Text type="headline" style={styles.headerTitle}>
+            AI Chef
+          </Text>
+          <Text type="caption" style={styles.headerSubtitle}>
+            Recipe builder
+          </Text>
+        </View>
+        <View style={styles.headerAction}>
+          <Ionicons name="sparkles" size={18} style={styles.headerIcon} />
+        </View>
       </View>
 
-      {/* Chat Messages */}
       <FlatList
         ref={flatListRef}
         data={messages}
         renderItem={renderMessage}
         keyExtractor={keyExtractor}
         contentContainerStyle={styles.messageList}
+        ListHeaderComponent={
+          <Animated.View entering={FadeInDown.duration(240)}>
+            <View style={styles.heroCard}>
+              <View style={styles.heroIcon}>
+                <Ionicons
+                  name="sparkles"
+                  size={22}
+                  style={styles.heroIconGlyph}
+                />
+              </View>
+              <View style={styles.heroText}>
+                <Text type="headline">Build a recipe from what you have</Text>
+                <Text type="subheadline" style={styles.heroSubtitle}>
+                  Share ingredients, time, cravings, or dietary needs. I will
+                  narrow it down before creating the recipe.
+                </Text>
+              </View>
+            </View>
+            <View style={styles.promptRow}>
+              {RECIPE_PROMPTS.map((prompt) => (
+                <Pressable
+                  key={prompt}
+                  style={({ pressed }) => [
+                    styles.promptChip,
+                    pressed && status === "idle" && styles.pressedChip,
+                    status !== "idle" && styles.disabledChip,
+                  ]}
+                  onPress={() => sendMessage(prompt)}
+                  disabled={status !== "idle"}
+                >
+                  <Text type="caption" style={styles.promptText}>
+                    {prompt}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </Animated.View>
+        }
         onContentSizeChange={() =>
           flatListRef.current?.scrollToEnd({ animated: true })
         }
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       />
 
-      {/* Loading Indicator */}
       {status !== "idle" && (
         <Animated.View
           entering={FadeInDown.duration(200)}
           style={styles.loadingContainer}
         >
-          <ActivityIndicator size="small" />
-          <HSpace size={8} />
-          <Text type="caption">
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+          <Text type="caption" style={styles.loadingText}>
             {status === "generating"
               ? "Creating your recipe..."
-              : "Thinking..."}
+              : "Thinking through the next step..."}
           </Text>
         </Animated.View>
       )}
 
-      {/* Input Area */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={10}
       >
         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Type your message..."
-            placeholderTextColor="#999"
-            multiline
-            maxLength={500}
-            editable={status === "idle"}
-            onSubmitEditing={() => sendMessage(inputText)}
-            blurOnSubmit={false}
-          />
-          <TouchableOpacity
-            style={[
+          <View style={styles.inputPill}>
+            <TextInput
+              style={styles.textInput}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Ask for a recipe..."
+              placeholderTextColor={theme.colors.placeholderText}
+              multiline
+              maxLength={500}
+              editable={status === "idle"}
+              onSubmitEditing={() => sendMessage(inputText)}
+              blurOnSubmit={false}
+            />
+          </View>
+          <Pressable
+            style={({ pressed }) => [
               styles.sendButton,
+              pressed &&
+                inputText.trim() &&
+                status === "idle" &&
+                styles.sendButtonPressed,
               (!inputText.trim() || status !== "idle") &&
                 styles.sendButtonDisabled,
             ]}
             onPress={() => sendMessage(inputText)}
             disabled={!inputText.trim() || status !== "idle"}
-            activeOpacity={0.7}
           >
             <Ionicons
               name="arrow-up"
               size={20}
-              color={inputText.trim() && status === "idle" ? "#fff" : "#999"}
+              color={inputText.trim() && status === "idle" ? "#fff" : "#9A9A9A"}
             />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -242,38 +324,134 @@ const styles = StyleSheet.create((theme) => ({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 12,
+    gap: 12,
+    backgroundColor: "transparent",
   },
-  headerSpacer: {
-    width: 24,
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: "center",
+    gap: 1,
+    marginLeft: -36,
+  },
+  headerTitle: {
+    color: theme.colors.text,
+  },
+  headerSubtitle: {
+    color: theme.colors.textSecondary,
+  },
+  headerAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.primary + "12",
+  },
+  headerIcon: {
+    color: theme.colors.primary,
   },
   messageList: {
-    padding: 16,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
     flexGrow: 1,
+    gap: 14,
+  },
+  heroCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 16,
+    borderRadius: theme.borderRadius.large,
+    backgroundColor: theme.colors.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  heroIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.primary + "12",
+  },
+  heroIconGlyph: {
+    color: theme.colors.primary,
+  },
+  heroText: {
+    flex: 1,
+    gap: 4,
+  },
+  heroSubtitle: {
+    color: theme.colors.textSecondary,
+  },
+  promptRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  promptChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  promptText: {
+    color: theme.colors.text,
+    fontFamily: theme.fonts.medium,
+  },
+  messageRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  userMessageRow: {
+    justifyContent: "flex-end",
+  },
+  assistantMessageRow: {
+    justifyContent: "flex-start",
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  avatarIcon: {
+    color: theme.colors.primary,
+  },
+  messageStack: {
+    maxWidth: "82%",
+    gap: 5,
+  },
+  senderLabel: {
+    color: theme.colors.textSecondary,
+    paddingLeft: 4,
   },
   messageBubble: {
-    maxWidth: "85%",
-    padding: 12,
-    borderRadius: 16,
-    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 20,
+    borderCurve: "continuous",
   },
   userBubble: {
-    alignSelf: "flex-end",
     backgroundColor: theme.colors.primary,
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 6,
   },
   assistantBubble: {
-    alignSelf: "flex-start",
-    backgroundColor:
-      theme.colors.background === "#FFFFFF"
-        ? "rgba(0,0,0,0.06)"
-        : "rgba(255,255,255,0.1)",
-    borderBottomLeftRadius: 4,
+    backgroundColor: theme.colors.inputBackground,
+    borderBottomLeftRadius: 6,
   },
   userText: {
     color: "#fff",
@@ -288,64 +466,98 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: 22,
   },
   suggestedReplies: {
-    marginTop: 12,
+    paddingTop: 2,
     gap: 8,
   },
   suggestionChip: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.primary + "66",
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: theme.borderRadius.full,
+  },
+  pressedChip: {
+    opacity: 0.65,
+    transform: [{ scale: 0.98 }],
+  },
+  disabledChip: {
+    opacity: 0.5,
   },
   suggestionText: {
     color: theme.colors.primary,
     fontSize: 14,
     fontFamily: theme.fonts.medium,
   },
+  suggestionIcon: {
+    color: theme.colors.primary,
+  },
   loadingContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
+    alignSelf: "center",
+    gap: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 13,
+    marginBottom: 8,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  loadingText: {
+    color: theme.colors.textSecondary,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
+    paddingTop: 10,
+    paddingBottom: rt.insets.bottom + 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
     gap: 8,
   },
-  textInput: {
+  inputPill: {
     flex: 1,
-    maxHeight: 100,
+    minHeight: 44,
+    maxHeight: 108,
+    justifyContent: "center",
+    borderRadius: 22,
+    borderCurve: "continuous",
+    backgroundColor: theme.colors.inputBackground,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  textInput: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor:
-      theme.colors.background === "#FFFFFF"
-        ? "rgba(0,0,0,0.04)"
-        : "rgba(255,255,255,0.06)",
     fontSize: 16,
+    lineHeight: 21,
+    includeFontPadding: false,
+    textAlignVertical: "center",
     fontFamily: theme.fonts.regular,
     color: theme.colors.text,
   },
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: theme.colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
+  sendButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.96 }],
+  },
   sendButtonDisabled: {
-    backgroundColor:
-      theme.colors.background === "#FFFFFF"
-        ? "rgba(0,0,0,0.1)"
-        : "rgba(255,255,255,0.1)",
+    backgroundColor: theme.colors.inputBackground,
   },
 }));
 

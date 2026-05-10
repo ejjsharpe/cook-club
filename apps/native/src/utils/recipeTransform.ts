@@ -78,7 +78,7 @@ export function transformParsedRecipeForPreview(
     totalTime: data.totalTime ?? null,
     servings: data.servings ?? 4,
     sourceUrl: data.sourceUrl ?? null,
-    sourceType: parsedRecipe.metadata.source,
+    sourceType: data.sourceType ?? parsedRecipe.metadata.source,
     originalRecipeId: null,
     originalOwnerId: null,
     createdAt: new Date().toISOString(),
@@ -202,7 +202,7 @@ export function transformParsedRecipeForSave(parsedRecipe: ParsedRecipe) {
     })),
     images: (data.images ?? []).map((url) => ({ url })),
     sourceUrl: data.sourceUrl || undefined,
-    sourceType: parsedRecipe.metadata.source as
+    sourceType: (data.sourceType ?? parsedRecipe.metadata.source) as
       | "url"
       | "text"
       | "image"

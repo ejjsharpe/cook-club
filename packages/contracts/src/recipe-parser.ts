@@ -9,6 +9,19 @@ export type ParseInput =
       mimeType: "image/jpeg" | "image/png" | "image/webp";
     };
 
+export type PersonalizationGoal =
+  | "vegetarian"
+  | "vegan"
+  | "gluten_free"
+  | "dairy_free"
+  | "low_carb"
+  | "high_protein"
+  | "budget"
+  | "healthier"
+  | "kid_friendly"
+  | "batch_cook"
+  | "meal_prep";
+
 export interface ParseMetadata {
   source: "url" | "text" | "image";
   parseMethod?: "structured_data" | "ai_enhanced" | "ai_only";
@@ -47,6 +60,34 @@ export interface ChatInput {
   conversationState: RecipeConversationState;
 }
 
+export interface PersonalizeRecipeInput {
+  recipe: ParsedRecipe;
+  goals: PersonalizationGoal[];
+  allergyNotes?: string | null;
+  customNotes?: string | null;
+}
+
+export interface GenerateRecipeImageInput {
+  name: string;
+  description?: string | null;
+  ingredients?: string[];
+  instructions?: string[];
+}
+
+export type GenerateRecipeImageResponse =
+  | {
+      success: true;
+      imageUploadId: string;
+      publicUrl: string;
+    }
+  | {
+      success: false;
+      error: {
+        code: string;
+        message: string;
+      };
+    };
+
 export type ChatResponse =
   | {
       type: "message";
@@ -68,4 +109,8 @@ export type ChatResponse =
 export interface RecipeParserService {
   parse(input: ParseInput): Promise<ParseResponse>;
   chat(input: ChatInput): Promise<ChatResponse>;
+  personalize(input: PersonalizeRecipeInput): Promise<ParseResponse>;
+  generateImage(
+    input: GenerateRecipeImageInput,
+  ): Promise<GenerateRecipeImageResponse>;
 }

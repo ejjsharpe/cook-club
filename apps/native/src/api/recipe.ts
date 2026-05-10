@@ -1,4 +1,4 @@
-import type { Outputs } from "@repo/trpc/client";
+import type { Inputs, Outputs } from "@repo/trpc/client";
 import { useTRPC } from "@repo/trpc/client";
 import {
   useQuery,
@@ -12,6 +12,8 @@ export type Recipe = Outputs["recipe"]["getRecipeDetail"];
 export type RecipeListItem =
   Outputs["recipe"]["getUserRecipes"]["items"][number];
 export type ParsedRecipe = Outputs["recipe"]["parseRecipeFromUrl"];
+export type PersonalizationGoal =
+  Inputs["recipe"]["personalizeRecipe"]["goals"][number];
 export type Tag = RecipeListItem["tags"][number];
 
 // Parse recipe from URL using AI (Smart Import)
@@ -236,4 +238,25 @@ export const useUpdateRecipe = () => {
       );
     },
   });
+};
+
+// Personalise a recipe with AI and return an editable parsed recipe preview
+export const usePersonalizeRecipe = () => {
+  const trpc = useTRPC();
+
+  return useMutation(
+    trpc.recipe.personalizeRecipe.mutationOptions({
+      retry: false,
+    }),
+  );
+};
+
+export const useGenerateRecipeImage = () => {
+  const trpc = useTRPC();
+
+  return useMutation(
+    trpc.recipe.generateRecipeImage.mutationOptions({
+      retry: false,
+    }),
+  );
 };

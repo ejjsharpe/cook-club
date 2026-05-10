@@ -14,12 +14,13 @@ vi.mock("../services/activity", () => ({
 // Mock the recipe service
 const mockCreateRecipe = vi.fn();
 const mockUpdateRecipe = vi.fn();
+const mockGetRecipeDetail = vi.fn();
 const mockValidateTags = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@repo/db/services", () => ({
   createRecipe: (...args: unknown[]) => mockCreateRecipe(...args),
   updateRecipe: (...args: unknown[]) => mockUpdateRecipe(...args),
-  getRecipeDetail: vi.fn(),
+  getRecipeDetail: (...args: unknown[]) => mockGetRecipeDetail(...args),
   importRecipe: vi.fn(),
   queryPopularRecipesThisWeek: vi.fn(),
   ServiceError: class ServiceError extends Error {
@@ -146,6 +147,51 @@ describe("recipeRouter - activity integration", () => {
     mockEnv = createMockEnv();
     mockCreateRecipe.mockResolvedValue({ id: 1, name: "Test Recipe" });
     mockUpdateRecipe.mockResolvedValue({ id: 1 });
+    mockGetRecipeDetail.mockResolvedValue({
+      id: 1,
+      name: "Creamy Pasta",
+      description: "A weeknight pasta.",
+      prepTime: 10,
+      cookTime: 20,
+      totalTime: 30,
+      servings: 4,
+      sourceUrl: null,
+      sourceType: "manual",
+      images: [{ id: 1, url: "https://example.com/pasta.jpg" }],
+      ingredientSections: [
+        {
+          id: 1,
+          name: null,
+          index: 0,
+          ingredients: [
+            {
+              id: 1,
+              index: 0,
+              quantity: "1",
+              unit: "cup",
+              name: "cream",
+              preparation: null,
+            },
+          ],
+        },
+      ],
+      instructionSections: [
+        {
+          id: 1,
+          name: null,
+          index: 0,
+          instructions: [
+            {
+              id: 1,
+              index: 0,
+              instruction: "Cook pasta.",
+              imageUrl: null,
+            },
+          ],
+        },
+      ],
+      tags: [],
+    });
   });
 
   describe("postRecipe - activity integration", () => {
@@ -381,6 +427,84 @@ describe("recipeRouter - activity integration", () => {
       expect(mockEnv.IMAGE_WORKER.delete).toHaveBeenCalledWith([
         expect.stringMatching(/^recipes\/covers\/.+\/.+\.jpg$/),
       ]);
+    });
+  });
+
+  describe("personalizeRecipe", () => {
+    it("calls the recipe parser with the current user's recipe detail", async () => {
+      mockEnv.RECIPE_PARSER.personalize.mockResolvedValue({
+        success: true,
+        data: {
+          name: "Vegan Pasta",
+          ingredientSections: [
+            {
+              name: null,
+              ingredients: [{ index: 0, quantity: 1, unit: "cup", name: "cashews" }],
+            },
+          ],
+          instructionSections: [
+            {
+              name: null,
+              instructions: [{ index: 0, instruction: "Cook pasta." }],
+            },
+          ],
+          images: ["https://example.com/pasta.jpg"],
+          sourceType: "ai",
+        },
+        metadata: {
+          source: "text",
+          parseMethod: "ai_only",
+          confidence: "medium",
+        },
+      });
+
+      const ctx = createMockContext(mockDb, { env: mockEnv });
+      const caller = recipeRouter.createCaller(ctx as any);
+
+      const result = await caller.personalizeRecipe({
+        recipeId: 1,
+        goals: ["vegan"],
+        allergyNotes: "avoid dairy",
+        customNotes: "keep it quick",
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockGetRecipeDetail).toHaveBeenCalledWith(
+        mockDb,
+        1,
+        "test-user-id",
+      );
+      expect(mockEnv.RECIPE_PARSER.personalize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          goals: ["vegan"],
+          allergyNotes: "avoid dairy",
+          customNotes: "keep it quick",
+          recipe: expect.objectContaining({
+            name: "Creamy Pasta",
+            images: ["https://example.com/pasta.jpg"],
+          }),
+        }),
+      );
+    });
+
+    it("maps parser failures to a bad request", async () => {
+      mockEnv.RECIPE_PARSER.personalize.mockResolvedValue({
+        success: false,
+        error: {
+          code: "PERSONALIZATION_ERROR",
+          message: "Failed to personalise recipe",
+        },
+      });
+
+      const ctx = createMockContext(mockDb, { env: mockEnv });
+      const caller = recipeRouter.createCaller(ctx as any);
+
+      await expect(
+        caller.personalizeRecipe({
+          recipeId: 1,
+          goals: ["meal_prep"],
+        }),
+      ).rejects.toThrow("Failed to personalise recipe");
     });
   });
 });

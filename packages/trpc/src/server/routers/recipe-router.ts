@@ -1,3 +1,4 @@
+import type { ParsedRecipe, PersonalizationGoal } from "@repo/contracts";
 import {
   recipeImages,
   recipes,
@@ -21,13 +22,13 @@ import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, lt, desc, and, ilike, count, inArray, min } from "drizzle-orm";
 
-import { router, authedProcedure } from "../trpc";
-import { mapServiceError } from "../utils";
 import { propagateActivityToFollowers } from "../services/activity";
 import {
   cleanupMovedRecipeImages,
   prepareRecipeImages,
 } from "../services/recipe-image.service";
+import { router, authedProcedure } from "../trpc";
+import { mapServiceError } from "../utils";
 
 const ImageRecord = type({
   url: "string.url",
@@ -72,6 +73,12 @@ const InstructionSectionRecord = type({
 
 const SourceTypeValidator = type(
   "'url' | 'image' | 'text' | 'ai' | 'manual' | 'user'",
+);
+
+type SourceType = "url" | "image" | "text" | "ai" | "manual" | "user";
+
+const PersonalizationGoalValidator = type(
+  "'vegetarian' | 'vegan' | 'gluten_free' | 'dairy_free' | 'low_carb' | 'high_protein' | 'budget' | 'healthier' | 'kid_friendly' | 'batch_cook' | 'meal_prep'",
 );
 
 export const RecipePostValidator = type({
@@ -137,6 +144,20 @@ const ChatInputValidator = type({
   conversationState: ConversationStateValidator,
 });
 
+const PersonalizeRecipeValidator = type({
+  recipeId: "number",
+  goals: PersonalizationGoalValidator.array(),
+  "allergyNotes?": "string | null",
+  "customNotes?": "string | null",
+});
+
+const GenerateRecipeImageValidator = type({
+  name: "string",
+  "description?": "string | null",
+  "ingredients?": "string[]",
+  "instructions?": "string[]",
+});
+
 interface RecipePayloadInput {
   name: string;
   images?: { url: string }[];
@@ -150,6 +171,68 @@ interface RecipePayloadInput {
   instructionSections: {
     instructions: { instruction: string; index: number }[];
   }[];
+}
+
+function toParserSourceType(
+  sourceType: string | null | undefined,
+): NonNullable<ParsedRecipe["sourceType"]> {
+  if (
+    sourceType === "url" ||
+    sourceType === "image" ||
+    sourceType === "text" ||
+    sourceType === "ai" ||
+    sourceType === "manual"
+  ) {
+    return sourceType;
+  }
+
+  return "manual";
+}
+
+function recipeDetailToParsedRecipe(
+  recipe: Awaited<ReturnType<typeof getRecipeDetail>>,
+): ParsedRecipe {
+  return {
+    name: recipe.name,
+    description: recipe.description,
+    prepTime: recipe.prepTime,
+    cookTime: recipe.cookTime,
+    totalTime: recipe.totalTime,
+    servings: recipe.servings,
+    sourceUrl: recipe.sourceUrl,
+    sourceType: toParserSourceType(recipe.sourceType),
+    images: recipe.images.map((image) => image.url),
+    ingredientSections: recipe.ingredientSections.map((section) => ({
+      name: section.name,
+      ingredients: section.ingredients.map((ingredient, index) => ({
+        index,
+        quantity: ingredient.quantity ? Number(ingredient.quantity) : null,
+        unit: ingredient.unit,
+        name: ingredient.preparation
+          ? `${ingredient.name}, ${ingredient.preparation}`
+          : ingredient.name,
+      })),
+    })),
+    instructionSections: recipe.instructionSections.map((section) => ({
+      name: section.name,
+      instructions: section.instructions.map((instruction, index) => ({
+        index,
+        instruction: instruction.instruction,
+        imageUrl: instruction.imageUrl,
+      })),
+    })),
+    suggestedTags: recipe.tags
+      .filter(
+        (tag) =>
+          tag.type === "cuisine" ||
+          tag.type === "meal_type" ||
+          tag.type === "occasion",
+      )
+      .map((tag) => ({
+        type: tag.type as "cuisine" | "meal_type" | "occasion",
+        name: tag.name,
+      })),
+  };
 }
 
 function validateRecipePayload(input: RecipePayloadInput) {
@@ -210,7 +293,11 @@ export const recipeRouter = router({
         });
 
         if (!result.success) {
-          console.log("Smart import failed:", result.error.code, result.error.message);
+          console.log(
+            "Smart import failed:",
+            result.error.code,
+            result.error.message,
+          );
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: result.error.message,
@@ -320,6 +407,83 @@ export const recipeRouter = router({
       return result;
     }),
 
+  personalizeRecipe: authedProcedure
+    .input(PersonalizeRecipeValidator)
+    .mutation(async ({ ctx, input }) => {
+      if (input instanceof type.errors) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: input.summary,
+        });
+      }
+
+      const hasGoal = input.goals.length > 0;
+      const hasNotes =
+        Boolean(input.allergyNotes?.trim()) ||
+        Boolean(input.customNotes?.trim());
+
+      if (!hasGoal && !hasNotes) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Choose at least one personalisation option or add notes.",
+        });
+      }
+
+      try {
+        const recipe = await getRecipeDetail(
+          ctx.db,
+          input.recipeId,
+          ctx.user.id,
+        );
+        const result = await ctx.env.RECIPE_PARSER.personalize({
+          recipe: recipeDetailToParsedRecipe(recipe),
+          goals: input.goals as PersonalizationGoal[],
+          allergyNotes: input.allergyNotes ?? null,
+          customNotes: input.customNotes ?? null,
+        });
+
+        if (!result.success) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: result.error.message,
+          });
+        }
+
+        return result;
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error personalising recipe:", err);
+        throw mapServiceError(err);
+      }
+    }),
+
+  generateRecipeImage: authedProcedure
+    .input(GenerateRecipeImageValidator)
+    .mutation(async ({ ctx, input }) => {
+      if (input instanceof type.errors) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: input.summary,
+        });
+      }
+
+      const result = await ctx.env.RECIPE_PARSER.generateImage({
+        name: input.name,
+        description: input.description ?? null,
+        ingredients: input.ingredients ?? [],
+        instructions: input.instructions ?? [],
+      });
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.error.message,
+        });
+      }
+
+      return result;
+    }),
+
   postRecipe: authedProcedure
     .input(RecipePostValidator)
     .mutation(async ({ input, ctx }) => {
@@ -344,11 +508,10 @@ export const recipeRouter = router({
         });
         movedKeys = preparedImages.movedKeys;
 
-        const recipe = await createRecipe(
-          ctx.db,
-          ctx.user.id,
-          { ...input, images: preparedImages.images },
-        );
+        const recipe = await createRecipe(ctx.db, ctx.user.id, {
+          ...input,
+          images: preparedImages.images,
+        });
         movedKeys = [];
 
         // Create activity event for the import

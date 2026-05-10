@@ -11,6 +11,7 @@ const createImageWorker = () => ({
   move: vi.fn(),
   delete: vi.fn(),
   uploadFromUrl: vi.fn(),
+  uploadImage: vi.fn(),
 });
 
 describe("recipe image service", () => {
