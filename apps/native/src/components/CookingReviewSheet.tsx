@@ -4,19 +4,20 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import {
   forwardRef,
-  useState,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from "react";
 import {
-  View,
-  TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   Alert,
   Keyboard,
+  Pressable,
   ScrollView,
+  TextInput,
+  View,
 } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -34,6 +35,8 @@ interface ReviewData {
 
 export interface CookingReviewSheetProps {
   recipeName?: string;
+  initialRating?: number | null;
+  isSubmitting?: boolean;
   onSubmit?: (data: ReviewData) => Promise<void>;
 }
 
@@ -45,241 +48,339 @@ export interface CookingReviewSheetRef {
 export const CookingReviewSheet = forwardRef<
   CookingReviewSheetRef,
   CookingReviewSheetProps
->(({ recipeName = "", onSubmit }, ref) => {
-  const sheetRef = useRef<TrueSheet>(null);
-  const [rating, setRating] = useState(0);
-  const [reviewText, setReviewText] = useState("");
-  const [images, setImages] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+>(
+  (
+    { recipeName = "", initialRating = null, isSubmitting = false, onSubmit },
+    ref,
+  ) => {
+    const sheetRef = useRef<TrueSheet>(null);
+    const [rating, setRating] = useState(initialRating ?? 0);
+    const [reviewText, setReviewText] = useState("");
+    const [images, setImages] = useState<string[]>([]);
+    const [isSubmittingLocal, setIsSubmittingLocal] = useState(false);
+    const isBusy = isSubmitting || isSubmittingLocal;
 
-  useImperativeHandle(ref, () => ({
-    present: () => sheetRef.current?.present(),
-    dismiss: () => sheetRef.current?.dismiss(),
-  }));
+    const resetForm = useCallback(() => {
+      setRating(initialRating ?? 0);
+      setReviewText("");
+      setImages([]);
+      setIsSubmittingLocal(false);
+    }, [initialRating]);
 
-  // Reset form when sheet opens
-  useEffect(() => {
-    setRating(0);
-    setReviewText("");
-    setImages([]);
-    setIsSubmitting(false);
-  }, [recipeName]);
+    useImperativeHandle(
+      ref,
+      () => ({
+        present: () => {
+          resetForm();
+          sheetRef.current?.present();
+        },
+        dismiss: () => sheetRef.current?.dismiss(),
+      }),
+      [resetForm],
+    );
 
-  const handleDismiss = () => {
-    sheetRef.current?.dismiss();
-  };
+    useEffect(() => {
+      resetForm();
+    }, [recipeName, resetForm]);
 
-  const handlePickImages = async () => {
-    if (images.length >= MAX_IMAGES) {
-      Alert.alert(
-        "Maximum images",
-        `You can only add up to ${MAX_IMAGES} images`,
-      );
-      return;
-    }
+    const handleDismiss = () => {
+      sheetRef.current?.dismiss();
+    };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsMultipleSelection: true,
-      selectionLimit: MAX_IMAGES - images.length,
-      quality: 0.8,
-    });
+    const handlePickImages = async () => {
+      if (images.length >= MAX_IMAGES) {
+        Alert.alert(
+          "Maximum images",
+          `You can only add up to ${MAX_IMAGES} images`,
+        );
+        return;
+      }
 
-    if (!result.canceled) {
-      const newImages = result.assets.map((asset) => asset.uri);
-      setImages((prev) => [...prev, ...newImages].slice(0, MAX_IMAGES));
-    }
-  };
-
-  const handleRemoveImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async () => {
-    if (rating === 0) {
-      Alert.alert("Rating required", "Please select a star rating");
-      return;
-    }
-
-    if (!onSubmit) return;
-
-    Keyboard.dismiss();
-    setIsSubmitting(true);
-
-    try {
-      await onSubmit({
-        rating,
-        reviewText: reviewText.trim() || undefined,
-        imageUrls: images.length > 0 ? images : undefined,
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        selectionLimit: MAX_IMAGES - images.length,
+        quality: 0.8,
       });
-      handleDismiss();
-    } catch {
-      Alert.alert("Error", "Failed to submit review. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
-  const canSubmit = rating > 0 && !isSubmitting;
+      if (!result.canceled) {
+        const newImages = result.assets.map((asset) => asset.uri);
+        setImages((prev) => [...prev, ...newImages].slice(0, MAX_IMAGES));
+      }
+    };
 
-  return (
-    <AppSheet
-      ref={sheetRef}
-      title="I made this!"
-      subtitle={recipeName}
-      detents={["auto"]}
-    >
-      <View>
-        <ScrollView style={styles.scrollView}>
-          <View style={styles.scrollContent}>
-            {/* Star Rating */}
-            <View style={styles.section}>
-              <Text type="body" style={styles.sectionLabel}>
+    const handleRemoveImage = (index: number) => {
+      setImages((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const handleSubmit = async () => {
+      if (rating === 0) {
+        Alert.alert("Rating required", "Please select a star rating");
+        return;
+      }
+
+      if (!onSubmit) return;
+
+      Keyboard.dismiss();
+      setIsSubmittingLocal(true);
+
+      try {
+        await onSubmit({
+          rating,
+          reviewText: reviewText.trim() || undefined,
+          imageUrls: images.length > 0 ? images : undefined,
+        });
+        handleDismiss();
+      } catch {
+        Alert.alert("Could not post rating", "Please try again.");
+      } finally {
+        setIsSubmittingLocal(false);
+      }
+    };
+
+    const canSubmit = rating > 0 && !isBusy;
+    const ratingLabel =
+      rating === 0
+        ? "Tap to rate"
+        : rating === 1
+          ? "1 star"
+          : `${rating} stars`;
+
+    return (
+      <AppSheet
+        ref={sheetRef}
+        title="Rate recipe"
+        subtitle={recipeName}
+        detents={[0.8]}
+        scrollable
+        closeDisabled={isBusy}
+        footer={
+          <View style={styles.footer}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.submitButton,
+                !canSubmit && styles.submitButtonDisabled,
+                pressed && canSubmit && styles.submitButtonPressed,
+              ]}
+              onPress={handleSubmit}
+              disabled={!canSubmit}
+              accessibilityRole="button"
+              accessibilityLabel="Post recipe rating"
+            >
+              {isBusy ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Text style={styles.submitButtonText}>Post rating</Text>
+                  <Ionicons
+                    name="arrow-up"
+                    size={18}
+                    style={styles.submitButtonIcon}
+                  />
+                </>
+              )}
+            </Pressable>
+          </View>
+        }
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.ratingPanel}>
+            <View style={styles.ratingHeader}>
+              <Text type="headline" style={styles.ratingTitle}>
                 How was it?
               </Text>
-              <View style={styles.starRow}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
+              <Text type="caption" style={styles.ratingValue}>
+                {ratingLabel}
+              </Text>
+            </View>
+
+            <View style={styles.starRow} accessibilityRole="radiogroup">
+              {[1, 2, 3, 4, 5].map((star) => {
+                const selected = star <= rating;
+
+                return (
+                  <Pressable
                     key={star}
                     onPress={() => setRating(star)}
-                    activeOpacity={0.7}
+                    disabled={isBusy}
+                    hitSlop={10}
+                    style={({ pressed }) => [
+                      styles.starButton,
+                      selected && styles.starButtonSelected,
+                      pressed && !isBusy && styles.starButtonPressed,
+                    ]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: star === rating }}
+                    accessibilityLabel={`${star} star${star === 1 ? "" : "s"}`}
                   >
                     <Ionicons
-                      name={star <= rating ? "star" : "star-outline"}
-                      size={40}
-                      style={
-                        star <= rating ? styles.starFilled : styles.starEmpty
-                      }
-                    />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <VSpace size={24} />
-
-            {/* Review Text */}
-            <View style={styles.section}>
-              <Text type="body" style={styles.sectionLabel}>
-                Add a note (optional)
-              </Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Share your thoughts about this recipe..."
-                placeholderTextColor="#999"
-                value={reviewText}
-                onChangeText={setReviewText}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
-
-            <VSpace size={24} />
-
-            {/* Photos */}
-            <View style={styles.section}>
-              <Text type="body" style={styles.sectionLabel}>
-                Add photos (optional)
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.imagesRow}
-              >
-                {images.map((uri, index) => (
-                  <View key={index} style={styles.imageContainer}>
-                    <Image
-                      source={{ uri }}
-                      style={styles.image}
-                      cachePolicy="memory-disk"
-                    />
-                    <TouchableOpacity
-                      style={styles.removeImageButton}
-                      onPress={() => handleRemoveImage(index)}
-                    >
-                      <Ionicons name="close-circle" size={24} color="white" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-                {images.length < MAX_IMAGES && (
-                  <TouchableOpacity
-                    style={styles.addImageButton}
-                    onPress={handlePickImages}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name="camera-outline"
+                      name={selected ? "star" : "star-outline"}
                       size={32}
-                      style={styles.addImageIcon}
+                      style={selected ? styles.starFilled : styles.starEmpty}
                     />
-                    <Text type="bodyFaded" style={styles.addImageText}>
-                      Add photo
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
-        </ScrollView>
 
-        {/* Submit Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              !canSubmit && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={!canSubmit}
-            activeOpacity={0.8}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.submitButtonText}>Post Review</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    </AppSheet>
-  );
-});
+          <VSpace size={18} />
+
+          <View style={styles.section}>
+            <Text type="body" style={styles.sectionLabel}>
+              Add a note
+            </Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="What stood out?"
+              placeholderTextColor="#8E8E93"
+              value={reviewText}
+              onChangeText={setReviewText}
+              editable={!isBusy}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
+          <VSpace size={18} />
+
+          <View style={styles.section}>
+            <Text type="body" style={styles.sectionLabel}>
+              Photos
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.imagesRow}
+              keyboardShouldPersistTaps="handled"
+            >
+              {images.map((uri, index) => (
+                <View key={`${uri}-${index}`} style={styles.imageContainer}>
+                  <Image
+                    source={{ uri }}
+                    style={styles.image}
+                    cachePolicy="memory-disk"
+                  />
+                  <Pressable
+                    style={styles.removeImageButton}
+                    onPress={() => handleRemoveImage(index)}
+                    disabled={isBusy}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove photo"
+                  >
+                    <Ionicons name="close" size={16} color="white" />
+                  </Pressable>
+                </View>
+              ))}
+
+              {images.length < MAX_IMAGES && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.addImageButton,
+                    pressed && !isBusy && styles.addImageButtonPressed,
+                  ]}
+                  onPress={handlePickImages}
+                  disabled={isBusy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add photo"
+                >
+                  <Ionicons
+                    name="camera-outline"
+                    size={26}
+                    style={styles.addImageIcon}
+                  />
+                  <Text type="bodyFaded" style={styles.addImageText}>
+                    Add photo
+                  </Text>
+                </Pressable>
+              )}
+            </ScrollView>
+          </View>
+        </ScrollView>
+      </AppSheet>
+    );
+  },
+);
 
 const styles = StyleSheet.create((theme) => ({
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 18,
+  },
+  ratingPanel: {
+    borderRadius: 24,
+    backgroundColor: theme.colors.inputBackground,
+    padding: 16,
+    gap: 16,
+  },
+  ratingHeader: {
+    alignItems: "center",
+    gap: 4,
+  },
+  ratingTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  ratingValue: {
+    color: theme.colors.textSecondary,
+    fontVariant: ["tabular-nums"],
   },
   section: {
     gap: 12,
   },
   sectionLabel: {
     fontWeight: "600",
+    color: theme.colors.text,
   },
   starRow: {
     flexDirection: "row",
-    gap: 8,
+    justifyContent: "center",
+    gap: 6,
+  },
+  starButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.background,
+  },
+  starButtonSelected: {
+    backgroundColor: "rgba(249, 0, 0, 0.1)",
+  },
+  starButtonPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.96 }],
   },
   starFilled: {
     color: theme.colors.primary,
   },
   starEmpty: {
-    color: theme.colors.border,
+    color: "rgba(120, 120, 128, 0.45)",
   },
   textInput: {
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: 18,
     padding: 16,
     fontSize: 16,
     color: theme.colors.text,
-    minHeight: 100,
+    minHeight: 112,
     fontFamily: theme.fonts.regular,
   },
   imagesRow: {
     gap: 12,
+    paddingRight: 20,
   },
   imageContainer: {
     position: "relative",
@@ -287,50 +388,69 @@ const styles = StyleSheet.create((theme) => ({
   image: {
     width: 100,
     height: 100,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   removeImageButton: {
     position: "absolute",
-    top: -8,
-    right: -8,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 12,
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
   },
   addImageButton: {
     width: 100,
     height: 100,
-    borderRadius: 12,
-    borderWidth: 2,
+    borderRadius: 16,
+    borderWidth: 1,
     borderColor: theme.colors.border,
-    borderStyle: "dashed",
+    backgroundColor: theme.colors.inputBackground,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
   },
+  addImageButtonPressed: {
+    opacity: 0.72,
+  },
   addImageIcon: {
-    color: theme.colors.border,
+    color: theme.colors.textSecondary,
   },
   addImageText: {
     fontSize: 12,
   },
   footer: {
-    padding: 20,
-    paddingBottom: 34,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 18,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
   },
   submitButton: {
     backgroundColor: theme.colors.primary,
-    borderRadius: 12,
+    borderRadius: 999,
     paddingVertical: 16,
     alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   submitButtonDisabled: {
     opacity: 0.5,
   },
+  submitButtonPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.99 }],
+  },
   submitButtonText: {
     color: theme.colors.buttonText,
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+  },
+  submitButtonIcon: {
+    color: theme.colors.buttonText,
   },
 }));

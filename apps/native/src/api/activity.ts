@@ -42,8 +42,17 @@ export const useCreateCookingReview = () => {
   return useMutation(
     trpc.activity.createCookingReview.mutationOptions({
       onSuccess: () => {
-        // Invalidate feed queries to show the new review
         queryClient.invalidateQueries(trpc.activity.getFeed.pathFilter());
+        queryClient.invalidateQueries(
+          trpc.activity.getUserActivities.pathFilter(),
+        );
+        queryClient.invalidateQueries(
+          trpc.activity.getRecipeReviews.pathFilter(),
+        );
+        queryClient.invalidateQueries(
+          trpc.activity.getRecipeRating.pathFilter(),
+        );
+        queryClient.invalidateQueries(trpc.recipe.getRecipeDetail.pathFilter());
       },
     }),
   );

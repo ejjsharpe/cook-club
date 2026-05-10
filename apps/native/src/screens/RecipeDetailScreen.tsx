@@ -610,11 +610,15 @@ export const RecipeDetailScreen = () => {
   }) => {
     if (!recipe) return;
 
+    const uploadedReviewImages = data.imageUrls?.length
+      ? await uploadImages(data.imageUrls)
+      : [];
+
     await createCookingReviewMutation.mutateAsync({
       recipeId: recipe.id,
       rating: data.rating,
       reviewText: data.reviewText,
-      imageUrls: data.imageUrls,
+      imageUrls: uploadedReviewImages.map((image) => image.publicUrl),
     });
     setRatingOverride(data.rating);
   };
@@ -2169,6 +2173,10 @@ export const RecipeDetailScreen = () => {
       <CookingReviewSheet
         ref={cookingReviewSheetRef}
         recipeName={recipe?.name}
+        initialRating={displayedRating}
+        isSubmitting={
+          createCookingReviewMutation.isPending || isUploadingImages
+        }
         onSubmit={handleSubmitReview}
       />
 
