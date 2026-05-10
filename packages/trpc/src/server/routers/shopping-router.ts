@@ -11,6 +11,7 @@ import {
   getOrCreateShoppingList,
   insertShoppingListItem,
   canUserAccessShoppingList,
+  canUserEditShoppingList,
   getShoppingLists as getShoppingListsService,
   getShoppingListShareableUsers as getShoppingListShareableUsersService,
   inviteToShoppingList as inviteToShoppingListService,
@@ -836,22 +837,29 @@ export const shoppingRouter = router({
       const { recipeId, shoppingListId, servings, ingredientIds } = input;
 
       try {
-        // Verify the shopping list belongs to the user
+        // Verify the user can edit the shopping list
         const shoppingList = await ctx.db
           .select()
           .from(shoppingLists)
-          .where(
-            and(
-              eq(shoppingLists.id, shoppingListId),
-              eq(shoppingLists.userId, ctx.user.id),
-            ),
-          )
+          .where(eq(shoppingLists.id, shoppingListId))
           .then((rows) => rows[0]);
 
         if (!shoppingList) {
           throw new TRPCError({
             code: "NOT_FOUND",
             message: "Shopping list not found",
+          });
+        }
+
+        const canEdit = await canUserEditShoppingList(
+          ctx.db,
+          ctx.user.id,
+          shoppingListId,
+        );
+        if (!canEdit) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You do not have access to this shopping list",
           });
         }
 

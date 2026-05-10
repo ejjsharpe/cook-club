@@ -774,7 +774,10 @@ export const ShoppingListScreen = () => {
       </KeyboardStickyView>
 
       {/* Sheets */}
-      <AddRecipeToShoppingListSheet ref={addRecipeSheetRef} />
+      <AddRecipeToShoppingListSheet
+        ref={addRecipeSheetRef}
+        shoppingListId={activeList?.id}
+      />
       <ShoppingListShareSheet
         ref={shareSheetRef}
         shoppingListId={activeList?.id}

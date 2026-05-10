@@ -49,6 +49,7 @@ export interface ShoppingListSelectorSheetProps {
   ingredients?: Ingredient[];
   ingredientSections?: IngredientSection[];
   servings?: number;
+  targetShoppingListId?: number;
 }
 
 export interface ShoppingListSelectorSheetRef {
@@ -61,7 +62,14 @@ export const ShoppingListSelectorSheet = forwardRef<
   ShoppingListSelectorSheetProps
 >(
   (
-    { recipeId, recipeName, ingredients, ingredientSections, servings },
+    {
+      recipeId,
+      recipeName,
+      ingredients,
+      ingredientSections,
+      servings,
+      targetShoppingListId,
+    },
     ref,
   ) => {
     const theme = UnistylesRuntime.getTheme();
@@ -71,12 +79,19 @@ export const ShoppingListSelectorSheet = forwardRef<
     const [selectedIngredientIds, setSelectedIngredientIds] = useState<
       Set<number>
     >(new Set());
+    const [selectedServings, setSelectedServings] = useState(1);
     const [isCreatingList, setIsCreatingList] = useState(false);
     const [newListName, setNewListName] = useState("");
 
     const { data: lists, isLoading } = useGetUserShoppingLists();
     const createListMutation = useCreateShoppingList();
     const addRecipeMutation = useAddRecipeToSpecificList();
+    const isTargetListLocked = targetShoppingListId !== undefined;
+    const baseServings = servings && servings > 0 ? servings : 1;
+    const canAdjustServings = servings !== undefined && servings > 0;
+    const servingMultiplier = canAdjustServings
+      ? selectedServings / baseServings
+      : 1;
 
     const sections = useMemo<IngredientSection[]>(() => {
       if (ingredientSections?.length) {
@@ -109,6 +124,11 @@ export const ShoppingListSelectorSheet = forwardRef<
       !selectedListId || selectedCount === 0 || addRecipeMutation.isPending;
 
     const selectDefaultList = useCallback(() => {
+      if (targetShoppingListId !== undefined) {
+        setSelectedListId(targetShoppingListId);
+        return;
+      }
+
       if (!lists?.length) return;
       setSelectedListId((current) => {
         if (current && lists.some((list) => list.id === current)) {
@@ -117,15 +137,20 @@ export const ShoppingListSelectorSheet = forwardRef<
 
         return lists.find((list) => list.isDefault)?.id ?? lists[0]?.id ?? null;
       });
-    }, [lists]);
+    }, [lists, targetShoppingListId]);
 
     useEffect(() => {
       selectDefaultList();
     }, [selectDefaultList]);
 
+    useEffect(() => {
+      setSelectedServings(baseServings);
+    }, [baseServings]);
+
     useImperativeHandle(ref, () => ({
       present: () => {
         setSelectedIngredientIds(new Set(allIngredientIds));
+        setSelectedServings(baseServings);
         selectDefaultList();
         sheetRef.current?.present();
       },
@@ -165,6 +190,14 @@ export const ShoppingListSelectorSheet = forwardRef<
       setSelectedIngredientIds(new Set());
     };
 
+    const handleDecrementServings = () => {
+      setSelectedServings((current) => Math.max(1, current - 1));
+    };
+
+    const handleIncrementServings = () => {
+      setSelectedServings((current) => current + 1);
+    };
+
     const handleCreateList = async () => {
       if (!newListName.trim()) return;
 
@@ -190,7 +223,7 @@ export const ShoppingListSelectorSheet = forwardRef<
         await addRecipeMutation.mutateAsync({
           recipeId,
           shoppingListId: selectedListId,
-          servings,
+          servings: canAdjustServings ? selectedServings : undefined,
           ingredientIds: Array.from(selectedIngredientIds),
         });
         handleDismiss();
@@ -201,13 +234,14 @@ export const ShoppingListSelectorSheet = forwardRef<
 
     const formatIngredient = (ing: Ingredient) => {
       const quantity = ing.quantity ? parseFloat(ing.quantity) : null;
-      const formattedQuantity = quantity
-        ? quantity % 1 === 0
-          ? quantity.toString()
-          : quantity.toFixed(2).replace(/\.?0+$/, "")
+      const scaledQuantity = quantity ? quantity * servingMultiplier : null;
+      const formattedQuantity = scaledQuantity
+        ? scaledQuantity % 1 === 0
+          ? scaledQuantity.toString()
+          : scaledQuantity.toFixed(2).replace(/\.?0+$/, "")
         : null;
 
-      const displayUnit = formatUnit(ing.unit, quantity);
+      const displayUnit = formatUnit(ing.unit, scaledQuantity);
       const needsSpace = displayUnit && !isCompactUnit(displayUnit);
 
       let text = "";
@@ -265,6 +299,44 @@ export const ShoppingListSelectorSheet = forwardRef<
       >
         <ScrollView style={styles.scrollView}>
           <View style={styles.scrollContent}>
+            {canAdjustServings ? (
+              <View style={styles.servingsRow}>
+                <View>
+                  <Text type="heading">Servings</Text>
+                  <Text type="caption" style={styles.sectionSubtitle}>
+                    Adjust quantities before adding
+                  </Text>
+                </View>
+                <View style={styles.servingsStepper}>
+                  <TouchableOpacity
+                    style={[
+                      styles.stepperButton,
+                      selectedServings <= 1 && styles.stepperButtonDisabled,
+                    ]}
+                    onPress={handleDecrementServings}
+                    disabled={selectedServings <= 1}
+                    accessibilityLabel="Decrease servings"
+                  >
+                    <Ionicons
+                      name="remove"
+                      size={20}
+                      style={styles.stepperIcon}
+                    />
+                  </TouchableOpacity>
+                  <View style={styles.servingsValueWrap}>
+                    <Text style={styles.servingsValue}>{selectedServings}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.stepperButton}
+                    onPress={handleIncrementServings}
+                    accessibilityLabel="Increase servings"
+                  >
+                    <Ionicons name="add" size={20} style={styles.stepperIcon} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+
             <View style={styles.sectionHeadingRow}>
               <View>
                 <Text type="heading">Ingredients</Text>
@@ -287,7 +359,7 @@ export const ShoppingListSelectorSheet = forwardRef<
               </TouchableOpacity>
             </View>
 
-            <View style={styles.group}>
+            <View style={styles.ingredientList}>
               {sections.map((section, sectionIndex) => (
                 <View key={section.id ?? `section-${sectionIndex}`}>
                   {section.name ? (
@@ -295,19 +367,13 @@ export const ShoppingListSelectorSheet = forwardRef<
                       {section.name}
                     </Text>
                   ) : null}
-                  {section.ingredients.map((ingredient, ingredientIndex) => {
+                  {section.ingredients.map((ingredient) => {
                     const isSelected = selectedIngredientIds.has(ingredient.id);
-                    const isLastInGroup =
-                      sectionIndex === sections.length - 1 &&
-                      ingredientIndex === section.ingredients.length - 1;
 
                     return (
                       <TouchableOpacity
                         key={ingredient.id}
-                        style={[
-                          styles.ingredientRow,
-                          isLastInGroup && styles.lastGroupRow,
-                        ]}
+                        style={styles.ingredientRow}
                         onPress={() => handleToggleIngredient(ingredient.id)}
                         activeOpacity={0.78}
                       >
@@ -342,7 +408,7 @@ export const ShoppingListSelectorSheet = forwardRef<
               ))}
             </View>
 
-            {isLoading ? (
+            {isTargetListLocked ? null : isLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" />
               </View>
@@ -514,15 +580,54 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.primary,
     fontFamily: theme.fonts.semiBold,
   },
+  servingsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    paddingVertical: 4,
+  },
+  servingsStepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  stepperButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.inputBackground,
+  },
+  stepperButtonDisabled: {
+    opacity: 0.35,
+  },
+  stepperIcon: {
+    color: theme.colors.primary,
+  },
+  servingsValueWrap: {
+    minWidth: 34,
+    alignItems: "center",
+  },
+  servingsValue: {
+    color: theme.colors.text,
+    fontSize: 22,
+    lineHeight: 28,
+    fontFamily: theme.fonts.bold,
+  },
   group: {
     overflow: "hidden",
     borderRadius: theme.borderRadius.medium,
     backgroundColor: theme.colors.inputBackground,
   },
+  ingredientList: {
+    gap: 2,
+  },
   ingredientSectionTitle: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 4,
+    paddingHorizontal: 2,
+    paddingTop: 8,
+    paddingBottom: 6,
     color: theme.colors.textSecondary,
     textTransform: "uppercase",
     fontFamily: theme.fonts.semiBold,
@@ -530,11 +635,10 @@ const styles = StyleSheet.create((theme) => ({
   ingredientRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    gap: 14,
+    minHeight: 46,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
   },
   lastGroupRow: {
     borderBottomWidth: 0,
