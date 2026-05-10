@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { memo } from "react";
 import { ActivityIndicator } from "react-native";
 import Animated, {
@@ -9,6 +8,8 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { VSpace } from "./Space";
 import { Text } from "./Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 type SearchType = "recipes" | "collections" | "users";
 

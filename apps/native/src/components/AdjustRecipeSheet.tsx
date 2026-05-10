@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { forwardRef, useImperativeHandle, useRef } from "react";
 import { View } from "react-native";
@@ -12,6 +11,7 @@ import { BaseButton } from "./buttons/BaseButton";
 import { PrimaryButton } from "./buttons/PrimaryButton";
 
 import { useUpdateProfile } from "@/api/user";
+import { Ionicons } from "@/components/Ionicons";
 import type { MeasurementSystem } from "@/lib/measurementPreferences";
 
 const SERVING_MULTIPLIERS = [1, 2, 3, 4];

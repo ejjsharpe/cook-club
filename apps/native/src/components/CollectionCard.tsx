@@ -1,9 +1,10 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { View, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 interface CollectionOwner {
   id: string;

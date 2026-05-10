@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import {
   forwardRef,
@@ -27,6 +26,8 @@ import {
   useUpdateRecipeCollections,
 } from "../api/collection";
 import { useDeleteRecipe } from "../api/recipe";
+
+import { Ionicons } from "@/components/Ionicons";
 
 export interface CollectionSelectorSheetProps {
   recipeId?: number;

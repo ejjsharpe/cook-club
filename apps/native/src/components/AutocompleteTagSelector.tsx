@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useState, useMemo, useRef } from "react";
 import { View, TextInput, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -7,6 +6,7 @@ import { VSpace } from "./Space";
 import { Text } from "./Text";
 
 import { useAllTags } from "@/api/recipe";
+import { Ionicons } from "@/components/Ionicons";
 
 interface Tag {
   id: number;

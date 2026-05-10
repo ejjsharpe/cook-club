@@ -1,6 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused, useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   FlashList,
   type FlashListRef,
@@ -26,6 +24,7 @@ import {
   type MealPlanEntry,
 } from "@/api/mealPlan";
 import { useUser } from "@/api/user";
+import { Ionicons } from "@/components/Ionicons";
 import { MealPlanSkeleton } from "@/components/Skeleton";
 import { StackedAvatars } from "@/components/StackedAvatars";
 import { Text } from "@/components/Text";
@@ -117,7 +116,7 @@ export const MealPlanScreen = () => {
     DAY_FOOTER_HEIGHT,
   } = useMealPlanDates();
 
-  const { data: entries, isFetched: entriesFetched } = useGetMealPlanEntries({
+  const { data: entries } = useGetMealPlanEntries({
     mealPlanId: activePlan?.id ?? 0,
     startDate: startDateString,
     endDate: endDateString,

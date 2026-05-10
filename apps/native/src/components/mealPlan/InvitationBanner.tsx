@@ -1,9 +1,10 @@
-import { Ionicons } from "@expo/vector-icons";
 import { View, TouchableOpacity, Image, ActivityIndicator } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import type { PendingMealPlanInvitation } from "../../api/mealPlan";
 import { Text } from "../Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 interface InvitationBannerProps {
   invitation: PendingMealPlanInvitation;

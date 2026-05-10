@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import {
   forwardRef,
@@ -28,6 +27,7 @@ import { SwipeableTabView } from "./SwipeableTabView";
 import { Text } from "./Text";
 import { useGetCollectionDetail } from "../api/collection";
 
+import { Ionicons } from "@/components/Ionicons";
 import {
   useRecipeCollectionBrowser,
   type Recipe,

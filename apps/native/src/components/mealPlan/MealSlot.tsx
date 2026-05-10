@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useCallback } from "react";
 import { View, TouchableOpacity } from "react-native";
@@ -15,6 +14,7 @@ import Animated, {
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useAnimatedTheme } from "react-native-unistyles/reanimated";
 
+import { Ionicons } from "@/components/Ionicons";
 import { Text } from "@/components/Text";
 
 interface MealSlotProps {

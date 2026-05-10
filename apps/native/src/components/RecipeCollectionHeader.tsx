@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { View, TouchableOpacity } from "react-native";
 import Animated, {
@@ -15,6 +14,7 @@ import { SearchBar } from "./SearchBar";
 import { SegmentedControl, type TabOption } from "./SegmentedControl";
 import { VSpace } from "./Space";
 
+import { Ionicons } from "@/components/Ionicons";
 import type { TabType } from "@/hooks/useTabNavigation";
 
 // Header content heights

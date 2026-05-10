@@ -1,7 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, type RefObject } from "react";
 import { View, TextInput, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+
+import { Ionicons } from "@/components/Ionicons";
 
 export const SEARCH_BAR_HEIGHT = 44;
 

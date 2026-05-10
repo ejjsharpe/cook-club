@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { Image } from "expo-image";
@@ -27,6 +26,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { AppSheet } from "@/components/AppSheet";
+import { Ionicons } from "@/components/Ionicons";
 import { Text } from "@/components/Text";
 import { getImageUrl } from "@/utils/imageUrl";
 

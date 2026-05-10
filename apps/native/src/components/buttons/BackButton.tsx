@@ -1,7 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+
+import { Ionicons } from "@/components/Ionicons";
 
 export const BackButton = () => {
   const { goBack } = useNavigation();

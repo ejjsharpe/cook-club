@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
@@ -43,6 +42,7 @@ import {
 } from "@/components/CommentsSheet";
 import { EmptyFeedState } from "@/components/EmptyFeedState";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
+import { Ionicons } from "@/components/Ionicons";
 import { NotificationBadge } from "@/components/NotificationBadge";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { SearchBar, SEARCH_BAR_HEIGHT } from "@/components/SearchBar";

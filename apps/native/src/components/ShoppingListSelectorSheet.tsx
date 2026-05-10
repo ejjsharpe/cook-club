@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import {
   forwardRef,
@@ -27,6 +26,7 @@ import {
   useCreateShoppingList,
   useAddRecipeToSpecificList,
 } from "@/api/shopping";
+import { Ionicons } from "@/components/Ionicons";
 import { isCompactUnit, formatUnit } from "@/utils/measurementUtils";
 
 interface Ingredient {

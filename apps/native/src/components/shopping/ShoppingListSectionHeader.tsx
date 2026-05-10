@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { memo } from "react";
 import { View } from "react-native";
 import Animated, {
@@ -9,6 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
+import { Ionicons } from "@/components/Ionicons";
 import { Text } from "@/components/Text";
 
 interface SectionCheckProps {

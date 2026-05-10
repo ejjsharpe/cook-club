@@ -1,9 +1,10 @@
-import { Ionicons } from "@expo/vector-icons";
 import { View, TouchableOpacity, Image, ActivityIndicator } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import type { PendingShoppingListInvitation } from "../../api/shopping";
 import { Text } from "../Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 interface ShoppingListInvitationBannerProps {
   invitation: PendingShoppingListInvitation;

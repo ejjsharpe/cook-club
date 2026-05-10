@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { memo } from "react";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -7,6 +6,8 @@ import { SEARCH_BAR_HEIGHT } from "./SearchBar";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
 import { BaseButton } from "./buttons/BaseButton";
+
+import { Ionicons } from "@/components/Ionicons";
 
 const TAB_BAR_HEIGHT = 80; // Approximate native tab bar height
 

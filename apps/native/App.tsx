@@ -1,4 +1,3 @@
-import "@/styles/unistyles";
 import { DefaultTheme } from "@react-navigation/native";
 import { Asset } from "expo-asset";
 import { useFonts } from "expo-font";
@@ -11,7 +10,7 @@ import React, { useEffect, useState, StrictMode } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import startImage1 from "@/assets/images/start-food-1.jpg";
 import startImage10 from "@/assets/images/start-food-10.jpg";
@@ -35,7 +34,6 @@ import { TRPCProvider } from "@/lib/trpc";
 import { Navigation } from "@/navigation/RootStack";
 
 SplashScreen.preventAutoHideAsync();
-SystemUI.setBackgroundColorAsync(UnistylesRuntime.getTheme().colors.background);
 
 const prefix = Linking.createURL("/");
 const linking = {
@@ -64,6 +62,9 @@ export default function App() {
   const isFontsReady = isFontsLoaded || isFontsError;
   const [isImagesReady, setIsImagesReady] = useState(false);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const [navigationState, setNavigationState] =
+    useState<React.ComponentProps<typeof Navigation>["initialState"]>();
+  const { theme, rt } = useUnistyles();
 
   useEffect(() => {
     const loadImages = async () => {
@@ -87,22 +88,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    SystemUI.setBackgroundColorAsync(theme.colors.background);
+  }, [theme.colors.background]);
+
+  useEffect(() => {
     if (isFontsReady && isNavigationReady && isImagesReady) {
       SplashScreen.hideAsync();
     }
   }, [isFontsReady, isNavigationReady, isImagesReady]);
 
   const onNavigationReady = () => setIsNavigationReady(true);
-
-  if (!isFontsReady) {
-    return null;
-  }
-
-  const theme = UnistylesRuntime.getTheme();
-  const themeName = UnistylesRuntime.themeName;
-
+  const navigationKey = `${rt.themeName ?? "theme"}:${theme.colors.background}`;
   const navigationTheme = {
-    dark: themeName === "dark",
+    dark: rt.themeName === "dark",
     fonts: DefaultTheme.fonts,
     colors: {
       primary: theme.colors.primary,
@@ -113,6 +111,10 @@ export default function App() {
       notification: theme.colors.primary,
     },
   };
+
+  if (!isFontsReady) {
+    return null;
+  }
 
   return (
     <StrictMode>
@@ -128,7 +130,10 @@ export default function App() {
                       <WelcomeOverlayProvider>
                         <OfflineIndicator />
                         <Navigation
+                          key={navigationKey}
                           onReady={onNavigationReady}
+                          initialState={navigationState}
+                          onStateChange={setNavigationState}
                           linking={linking}
                           theme={navigationTheme}
                         />

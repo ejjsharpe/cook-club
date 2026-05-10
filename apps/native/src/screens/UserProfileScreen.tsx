@@ -1,5 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
-import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { useRoute, useNavigation } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,7 +11,7 @@ import {
   TouchableOpacity,
   Share,
 } from "react-native";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 
 import type {
   FeedItem,
@@ -27,6 +26,7 @@ import {
   type CommentsSheetRef,
 } from "@/components/CommentsSheet";
 import { ImportActivityCard } from "@/components/ImportActivityCard";
+import { Ionicons } from "@/components/Ionicons";
 import { ReviewActivityCard } from "@/components/ReviewActivityCard";
 import { SkeletonContainer, UserProfileSkeleton } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
@@ -40,10 +40,11 @@ type UserProfileScreenParams = {
   };
 };
 
-type UserProfileScreenRouteProp = RouteProp<
-  UserProfileScreenParams,
-  "UserProfile"
->;
+const ThemedActivityIndicator = withUnistyles(ActivityIndicator, (theme) => ({
+  color: theme.colors.primary,
+}));
+const ThemedFlashList = withUnistyles(FlashList<FeedItem>);
+const HEADER_HEIGHT = 52;
 
 export const UserProfileScreen = () => {
   const route = useRoute<UserProfileScreenParams>("UserProfile");
@@ -193,7 +194,7 @@ export const UserProfileScreen = () => {
     if (isLoadingActivities) {
       return (
         <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" />
+          <ThemedActivityIndicator size="large" />
         </View>
       );
     }
@@ -213,7 +214,7 @@ export const UserProfileScreen = () => {
     if (isFetchingNextActivities) {
       return (
         <View style={styles.footer}>
-          <ActivityIndicator />
+          <ThemedActivityIndicator />
         </View>
       );
     }
@@ -227,13 +228,10 @@ export const UserProfileScreen = () => {
     });
   };
 
-  const insets = UnistylesRuntime.insets;
-  const HEADER_HEIGHT = 52;
-
   if (error) {
     return (
       <View style={styles.container}>
-        <View style={[styles.headerRow, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.headerRow}>
           <View style={styles.headerButton}>
             <BackButton />
           </View>
@@ -414,7 +412,7 @@ export const UserProfileScreen = () => {
   return (
     <View style={styles.container}>
       {/* Floating header */}
-      <View style={[styles.headerRow, { paddingTop: insets.top + 8 }]}>
+      <View style={styles.headerRow}>
         <View style={styles.headerButton}>
           <BackButton />
         </View>
@@ -436,12 +434,12 @@ export const UserProfileScreen = () => {
       <SkeletonContainer
         isLoading={isLoading || !profile}
         skeleton={
-          <View style={{ paddingTop: insets.top + HEADER_HEIGHT + 8 }}>
+          <View style={styles.skeletonContent}>
             <UserProfileSkeleton />
           </View>
         }
       >
-        <FlashList
+        <ThemedFlashList
           data={activities}
           renderItem={renderActivityItem}
           keyExtractor={(item) => item.id}
@@ -451,13 +449,7 @@ export const UserProfileScreen = () => {
           onEndReached={handleLoadMoreActivities}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.listContent,
-            {
-              paddingTop: insets.top + HEADER_HEIGHT + 8,
-              paddingBottom: insets.bottom + 20,
-            },
-          ]}
+          contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <VSpace size={16} />}
         />
       </SkeletonContainer>
@@ -471,9 +463,10 @@ export const UserProfileScreen = () => {
   );
 };
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   container: {
     flex: 1,
+    backgroundColor: theme.colors.background,
   },
   headerRow: {
     position: "absolute",
@@ -484,6 +477,7 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
+    paddingTop: rt.insets.top + 8,
     zIndex: 100,
   },
   headerButton: {
@@ -610,7 +604,13 @@ const styles = StyleSheet.create((theme) => ({
     width: "100%",
     paddingLeft: 4,
   },
-  listContent: {},
+  skeletonContent: {
+    paddingTop: rt.insets.top + HEADER_HEIGHT + 8,
+  },
+  listContent: {
+    paddingTop: rt.insets.top + HEADER_HEIGHT + 8,
+    paddingBottom: rt.insets.bottom + 20,
+  },
   emptyContainer: {
     paddingVertical: 40,
     paddingHorizontal: 20,

@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import {
   forwardRef,
@@ -22,6 +21,8 @@ import { AppSheet } from "../AppSheet";
 import { Avatar } from "../Avatar";
 import { VSpace } from "../Space";
 import { Text } from "../Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 interface AnimatedAvatarProps {
   user: ShareStatus;

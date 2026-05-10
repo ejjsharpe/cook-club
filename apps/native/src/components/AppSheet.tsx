@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import {
   TrueSheet,
   type TrueSheetProps,
@@ -8,6 +7,8 @@ import { TouchableOpacity, View } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { Text } from "./Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 export interface AppSheetProps
   extends Omit<TrueSheetProps, "children" | "header"> {

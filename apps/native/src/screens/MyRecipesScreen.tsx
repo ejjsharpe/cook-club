@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useCallback, useMemo, useRef, useState, useEffect, memo } from "react";
 import {
@@ -32,6 +31,7 @@ import {
 import { useGetUserRecipes, type RecipeListItem } from "@/api/recipe";
 import { CollectionGridCard, ImageGrid } from "@/components/CollectionGridCard";
 import { CreateCollectionCard } from "@/components/CreateCollectionCard";
+import { Ionicons } from "@/components/Ionicons";
 import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeCollectionBrowser } from "@/components/RecipeCollectionBrowser";
 import { SearchBar, SEARCH_BAR_HEIGHT } from "@/components/SearchBar";

@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useCallback, useRef } from "react";
 import {
@@ -20,6 +19,7 @@ import {
   BasicImportSheet,
   type BasicImportSheetRef,
 } from "@/components/BasicImportSheet";
+import { Ionicons } from "@/components/Ionicons";
 import {
   SmartImportSheet,
   type SmartImportSheetRef,

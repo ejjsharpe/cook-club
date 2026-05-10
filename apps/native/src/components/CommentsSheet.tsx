@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import {
   forwardRef,
@@ -29,6 +28,7 @@ import {
   type Comment,
 } from "@/api/comment";
 import { useUser } from "@/api/user";
+import { Ionicons } from "@/components/Ionicons";
 
 export interface CommentsSheetProps {
   activityEventId: number;

@@ -1,10 +1,11 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useState } from "react";
 import { View, TouchableOpacity, type LayoutChangeEvent } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 const GRID_GAP = 20;
 

@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { formatDistanceToNow } from "date-fns";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,6 +10,7 @@ import { Text } from "./Text";
 
 import type { RecipeImportFeedItem } from "@/api/activity";
 import { useImportRecipe } from "@/api/recipe";
+import { Ionicons } from "@/components/Ionicons";
 
 interface Props {
   activity: RecipeImportFeedItem;

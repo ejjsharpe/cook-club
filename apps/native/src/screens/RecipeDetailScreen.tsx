@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -60,6 +59,7 @@ import {
   CookingReviewSheet,
   type CookingReviewSheetRef,
 } from "@/components/CookingReviewSheet";
+import { Ionicons } from "@/components/Ionicons";
 import { PageIndicator } from "@/components/PageIndicator";
 import {
   ShoppingListSelectorSheet,

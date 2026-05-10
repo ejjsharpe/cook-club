@@ -1,9 +1,9 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { useState } from "react";
 import { View, Alert } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
+import { Ionicons } from "@/components/Ionicons";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";

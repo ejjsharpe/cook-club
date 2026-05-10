@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { formatDistanceToNow, differenceInDays } from "date-fns";
 import { Image } from "expo-image";
 import { memo, useMemo } from "react";
@@ -8,6 +7,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { Text } from "./Text";
 
 import type { NotificationItem } from "@/api/notification";
+import { Ionicons } from "@/components/Ionicons";
 
 const INVITATION_EXPIRY_DAYS = 7;
 

@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { UnistylesRuntime } from "react-native-unistyles";
+import { useUnistyles } from "react-native-unistyles";
 
 import { ShareIntentHandler } from "@/components/ShareIntentHandler";
 import { AddRecipeScreen } from "@/screens/AddRecipeScreen";
@@ -11,7 +11,8 @@ import { ShoppingListScreen } from "@/screens/ShoppingListScreen";
 const Tab = createBottomTabNavigator();
 
 export const TabNavigator = () => {
-  const theme = UnistylesRuntime.getTheme();
+  const { theme } = useUnistyles();
+
   return (
     <>
       <ShareIntentHandler />

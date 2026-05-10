@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import {
   forwardRef,
@@ -29,6 +28,8 @@ import {
 import { AppSheet } from "../AppSheet";
 import { VSpace } from "../Space";
 import { Text } from "../Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 type FriendState = "none" | "invited" | "shared";
 

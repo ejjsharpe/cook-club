@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import {
   forwardRef,
@@ -24,6 +23,7 @@ import { AppSheet } from "../AppSheet";
 import { Text } from "../Text";
 
 import { useGetMealPlans, useAddRecipeToMealPlan } from "@/api/mealPlan";
+import { Ionicons } from "@/components/Ionicons";
 import { useSelectedMealPlan } from "@/lib/mealPlanPreferences";
 
 type MealType = "breakfast" | "lunch" | "dinner";

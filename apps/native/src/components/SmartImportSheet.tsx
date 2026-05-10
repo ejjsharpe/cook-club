@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -26,6 +25,7 @@ import {
   useParseRecipeFromImage,
   type ParsedRecipe,
 } from "@/api/recipe";
+import { Ionicons } from "@/components/Ionicons";
 import { imageToBase64 } from "@/utils/imageUtils";
 
 type ImportMode = "url" | "text" | "image";

@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -24,6 +23,8 @@ import { StyleSheet } from "react-native-unistyles";
 import { AppSheet } from "./AppSheet";
 import { VSpace } from "./Space";
 import { Text } from "./Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 const MAX_IMAGES = 5;
 

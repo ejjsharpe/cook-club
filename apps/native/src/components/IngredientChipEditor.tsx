@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useState, useRef } from "react";
 import {
   View,
@@ -10,6 +9,8 @@ import {
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { Text } from "./Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 interface Props {
   ingredients: string[];

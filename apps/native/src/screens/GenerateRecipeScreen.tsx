@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -14,6 +13,7 @@ import Animated, { FadeInUp, FadeInDown } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useGenerateRecipeChat } from "@/api/chat";
+import { Ionicons } from "@/components/Ionicons";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { HSpace } from "@/components/Space";
 import { Text } from "@/components/Text";

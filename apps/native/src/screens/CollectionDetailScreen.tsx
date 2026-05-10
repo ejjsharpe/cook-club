@@ -1,5 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
-import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { useRoute, useNavigation } from "@react-navigation/native";
 import { useState } from "react";
 import {
   View,
@@ -12,6 +11,7 @@ import {
 import { StyleSheet } from "react-native-unistyles";
 
 import { useGetCollectionDetail, useDeleteCollection } from "@/api/collection";
+import { Ionicons } from "@/components/Ionicons";
 import { NavigationHeader } from "@/components/NavigationHeader";
 import { RecipeCard } from "@/components/RecipeCard";
 import { SafeAreaView } from "@/components/SafeAreaView";
@@ -23,11 +23,6 @@ type CollectionDetailScreenParams = {
     collectionId: number;
   };
 };
-
-type CollectionDetailScreenRouteProp = RouteProp<
-  CollectionDetailScreenParams,
-  "CollectionDetail"
->;
 
 export const CollectionDetailScreen = () => {
   const route = useRoute<CollectionDetailScreenParams>("CollectionDetail");

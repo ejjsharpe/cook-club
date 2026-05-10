@@ -1,11 +1,11 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useState } from "react";
 import { View, TouchableOpacity, Alert, ScrollView } from "react-native";
-import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 
 import { useSignOut } from "@/api/auth";
 import { useUpdateProfile, useUser } from "@/api/user";
+import { Ionicons } from "@/components/Ionicons";
 import { NavigationHeader } from "@/components/NavigationHeader";
 import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
@@ -25,6 +25,8 @@ type SettingsRowProps = {
   onPress: () => void;
   destructive?: boolean;
 };
+
+const StyledScrollView = withUnistyles(ScrollView);
 
 const SettingsRow = ({
   icon,
@@ -100,7 +102,6 @@ export const SettingsScreen = () => {
   const navigation = useNavigation();
   const signOutMutation = useSignOut();
   const updateProfileMutation = useUpdateProfile();
-  const insets = UnistylesRuntime.insets;
   const [currentTheme, setCurrentTheme] =
     useState<ThemePreference>(getThemePreference);
   const { data: userData } = useUser();
@@ -135,10 +136,10 @@ export const SettingsScreen = () => {
     <SafeAreaView edges={["top"]} style={styles.container}>
       <NavigationHeader title="Settings" />
 
-      <ScrollView
+      <StyledScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={styles.scrollContent}
       >
         {/* Appearance Section */}
         <VSpace size={16} />
@@ -208,12 +209,12 @@ export const SettingsScreen = () => {
             destructive
           />
         </View>
-      </ScrollView>
+      </StyledScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -221,6 +222,9 @@ const styles = StyleSheet.create((theme) => ({
   scrollView: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+  scrollContent: {
+    paddingBottom: rt.insets.bottom + 20,
   },
   sectionTitle: {
     marginLeft: 4,

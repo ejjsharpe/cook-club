@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { TrueSheet } from "@lodev09/react-native-true-sheet";
 import { forwardRef, useState, useImperativeHandle, useRef } from "react";
 import {
@@ -19,6 +18,8 @@ import {
 import { AppSheet } from "../AppSheet";
 import { VSpace } from "../Space";
 import { Text } from "../Text";
+
+import { Ionicons } from "@/components/Ionicons";
 
 interface PlanItemProps {
   plan: MealPlan;

@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -48,6 +47,7 @@ import {
   useAcceptShoppingListInvitation,
   useDeclineShoppingListInvitation,
 } from "@/api/shopping";
+import { Ionicons } from "@/components/Ionicons";
 import { ShoppingListSkeleton, SkeletonContainer } from "@/components/Skeleton";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
