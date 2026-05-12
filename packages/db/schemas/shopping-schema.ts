@@ -8,7 +8,9 @@ import {
   index,
   uniqueIndex,
   numeric,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
 import { recipes } from "./recipe-schema";
 
@@ -25,7 +27,12 @@ export const shoppingLists = pgTable(
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
-  (table) => [index("shopping_lists_user_id_idx").on(table.userId)]
+  (table) => [
+    index("shopping_lists_user_id_idx").on(table.userId),
+    uniqueIndex("shopping_lists_one_default_per_user_idx")
+      .on(table.userId)
+      .where(sql`${table.isDefault} = true`),
+  ]
 );
 
 // ─── Shopping List Items: individual recipe-ingredient rows ──────────────
@@ -94,7 +101,7 @@ export const shoppingListRecipes = pgTable(
       table.shoppingListId
     ),
     index("shopping_list_recipes_recipe_id_idx").on(table.recipeId),
-    index("shopping_list_recipes_shopping_list_recipe_idx").on(
+    uniqueIndex("shopping_list_recipes_shopping_list_recipe_idx").on(
       table.shoppingListId,
       table.recipeId
     ),
@@ -141,6 +148,10 @@ export const shoppingListInvitations = pgTable(
     uniqueIndex("shopping_list_invitations_unique_idx").on(
       table.shoppingListId,
       table.invitedUserId
+    ),
+    check(
+      "shopping_list_invitations_status_check",
+      sql`${table.status} IN ('pending', 'accepted', 'declined')`,
     ),
   ]
 );

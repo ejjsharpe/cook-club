@@ -190,6 +190,15 @@ describe("activityRouter", () => {
     });
 
     it("returns nextCursor when more items exist", async () => {
+      mockDbServices.hydrateActivityIds.mockResolvedValueOnce([
+        {
+          id: "2",
+          type: "recipe_import",
+          actorId: "user-1",
+          actorName: "User One",
+          createdAt: Date.now(),
+        },
+      ]);
       mockEnv.USER_FEED._stub.fetch.mockResolvedValueOnce(
         new Response(
           JSON.stringify({ activityIds: [2], nextCursor: "next-page-cursor" }),
@@ -203,6 +212,47 @@ describe("activityRouter", () => {
       const result = await caller.getFeed({ limit: 20 });
 
       expect(result.nextCursor).toBe("next-page-cursor");
+    });
+
+    it("rehydrates when first-page Durable Object IDs are stale", async () => {
+      mockDbServices.hydrateActivityIds
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            id: "10",
+            type: "recipe_import",
+            actorId: "user-1",
+            actorName: "User One",
+            createdAt: Date.now(),
+          },
+        ]);
+
+      mockEnv.USER_FEED._stub.fetch
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ activityIds: [999], nextCursor: null }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({ activityIds: [10], nextCursor: null }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+        );
+
+      const ctx = createMockContext(mockDb, { env: mockEnv });
+      const caller = activityRouter.createCaller(ctx as any);
+
+      const result = await caller.getFeed({ limit: 20 });
+
+      expect(mockActivityServices.hydrateFeed).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        "test-user-id",
+      );
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]!.id).toBe("10");
     });
 
     it("throws error when DO fetch fails", async () => {

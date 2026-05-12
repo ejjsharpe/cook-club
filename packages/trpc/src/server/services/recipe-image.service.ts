@@ -1,4 +1,4 @@
-import type { ImageWorkerService } from "@repo/contracts/image-worker";
+import type { ImageService } from "@repo/contracts/images";
 import { TRPCError } from "@trpc/server";
 
 interface RecipeImageInput {
@@ -7,8 +7,9 @@ interface RecipeImageInput {
 }
 
 interface PrepareRecipeImagesDeps {
-  imageWorker: ImageWorkerService;
+  imageService: ImageService;
   imagePublicUrl: string;
+  ownerId: string;
 }
 
 export interface PreparedRecipeImages {
@@ -36,13 +37,13 @@ export async function prepareRecipeImages(
     };
   });
 
-  const moveResult = await deps.imageWorker.move(moves);
+  const moveResult = await deps.imageService.move(moves, deps.ownerId);
   const successfulMovedKeys = moveResult.results
     .filter((result) => result.success)
     .map((result) => result.to);
 
   if (!moveResult.success) {
-    await cleanupMovedRecipeImages(deps.imageWorker, successfulMovedKeys);
+    await cleanupMovedRecipeImages(deps.imageService, successfulMovedKeys);
 
     const failedMoves = moveResult.results.filter((result) => !result.success);
     const message = failedMoves
@@ -64,13 +65,13 @@ export async function prepareRecipeImages(
 }
 
 export async function cleanupMovedRecipeImages(
-  imageWorker: ImageWorkerService,
+  imageService: ImageService,
   movedKeys: string[],
 ) {
   if (movedKeys.length === 0) return;
 
   try {
-    await imageWorker.delete(movedKeys);
+    await imageService.delete(movedKeys);
   } catch (err) {
     console.error("Failed to clean up moved recipe images:", err);
   }

@@ -17,10 +17,13 @@
     "migrate:prod": "dotenvx run -f .env.production -- drizzle-kit migrate",
     "push": "dotenvx run -- drizzle-kit push",
     "push:prod": "dotenvx run -f .env.production -- drizzle-kit push",
-    "seed": "dotenvx run -- bun run seed.ts"
+    "reset:dev-schema": "dotenvx run -- bun run scripts/reset-dev-schema.ts",
+    "seed": "dotenvx run -- bun run seed.ts",
+    "seed:reset": "dotenvx run -- bun run seed.ts --clear",
+    "seed:prod": "dotenvx run -f .env.production -- bun run seed.ts"
   },
   "dependencies": {
-    "@neondatabase/serverless": "latest",
+    "@neondatabase/serverless": "^1.1.0",
     "@repo/contracts": "workspace:*",
     "@repo/shared": "workspace:*",
     "bcryptjs": "^3.0.3",

@@ -32,14 +32,8 @@ export function ShareIntentHandler() {
   const hasProcessedRef = useRef(false);
   const hasCheckedPendingRef = useRef(false);
 
-  // Parse hooks - we'll use refetch for URL and text
-  const [pendingUrl, setPendingUrl] = useState("");
-  const [pendingText, setPendingText] = useState("");
-
-  const { refetch: fetchFromUrl } = useParseRecipeFromUrl({ url: pendingUrl });
-  const { refetch: fetchFromText } = useParseRecipeFromText({
-    text: pendingText,
-  });
+  const parseFromUrl = useParseRecipeFromUrl();
+  const parseFromText = useParseRecipeFromText();
   const parseFromImage = useParseRecipeFromImage();
 
   // Process a share intent (either new or pending)
@@ -51,20 +45,19 @@ export function ShareIntentHandler() {
 
       if (intent.type === "url") {
         setProcessingMessage("Fetching recipe from URL...");
-        setPendingUrl(intent.content);
-        // Need to wait for the state to update, then refetch
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        const urlResult = await fetchFromUrl();
-        if (urlResult.data?.success) {
-          result = urlResult.data;
+        const urlResult = await parseFromUrl.mutateAsync({
+          url: intent.content,
+        });
+        if (urlResult.success) {
+          result = urlResult;
         }
       } else if (intent.type === "text") {
         setProcessingMessage("Parsing recipe from text...");
-        setPendingText(intent.content);
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        const textResult = await fetchFromText();
-        if (textResult.data?.success) {
-          result = textResult.data;
+        const textResult = await parseFromText.mutateAsync({
+          text: intent.content,
+        });
+        if (textResult.success) {
+          result = textResult;
         }
       } else if (intent.type === "image") {
         setProcessingMessage("Analyzing recipe image...");

@@ -3,15 +3,19 @@
  * Types flow from microservices → tRPC → server.
  */
 
+import type { AuthEnv } from "@repo/auth";
 import type {
   DurableObjectNamespace,
-  ImageWorkerService,
-  RecipeParserService,
+  ImageService,
+  RecipeAIService,
 } from "@repo/contracts";
-import type { AuthEnv } from "@repo/auth";
+
+export interface RateLimitBinding {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
 
 // Re-export service types for convenience
-export type { ImageWorkerService, RecipeParserService } from "@repo/contracts";
+export type { ImageService, RecipeAIService } from "@repo/contracts";
 export type {
   DurableObjectNamespace,
   DurableObjectId,
@@ -24,8 +28,12 @@ export type {
  */
 export interface TRPCEnv extends AuthEnv {
   // Service bindings
-  RECIPE_PARSER: RecipeParserService;
+  RECIPE_AI: RecipeAIService;
   USER_FEED: DurableObjectNamespace;
-  IMAGE_WORKER: ImageWorkerService;
+  IMAGE_SERVICE: ImageService;
   IMAGE_PUBLIC_URL: string;
+  API_RATE_LIMITER?: RateLimitBinding;
+  AI_RATE_LIMITER?: RateLimitBinding;
+  IMAGE_AI_RATE_LIMITER?: RateLimitBinding;
+  UPLOAD_RATE_LIMITER?: RateLimitBinding;
 }

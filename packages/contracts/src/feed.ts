@@ -1,4 +1,10 @@
-export type FeedSourceType = "url" | "image" | "text" | "ai" | "manual" | "user";
+export type FeedSourceType =
+  | "url"
+  | "image"
+  | "text"
+  | "ai"
+  | "manual"
+  | "user";
 
 interface UrlSourcedRecipe {
   id: number;

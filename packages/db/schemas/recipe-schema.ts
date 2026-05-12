@@ -5,9 +5,9 @@ import {
   serial,
   timestamp,
   index,
-  boolean,
   numeric,
   uniqueIndex,
+  check,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -53,6 +53,10 @@ export const recipes = pgTable(
       "gin",
       sql`to_tsvector('english', ${table.name})`
     ),
+    check(
+      "recipes_source_type_check",
+      sql`${table.sourceType} IN ('url', 'image', 'text', 'ai', 'manual', 'user')`,
+    ),
   ]
 );
 
@@ -80,6 +84,10 @@ export const collections = pgTable(
     uniqueIndex("collections_user_default_type_unique_idx")
       .on(table.userId, table.defaultType)
       .where(sql`${table.defaultType} IS NOT NULL`),
+    check(
+      "collections_default_type_check",
+      sql`${table.defaultType} IS NULL OR ${table.defaultType} IN ('want_to_cook', 'cooked')`,
+    ),
   ]
 );
 
@@ -99,7 +107,7 @@ export const recipeCollections = pgTable(
   (table) => [
     index("recipe_collections_recipe_id_idx").on(table.recipeId),
     index("recipe_collections_collection_id_idx").on(table.collectionId),
-    index("recipe_collections_recipe_collection_idx").on(
+    uniqueIndex("recipe_collections_recipe_collection_idx").on(
       table.recipeId,
       table.collectionId
     ),
@@ -211,7 +219,11 @@ export const tags = pgTable(
   },
   (table) => [
     index("tags_type_idx").on(table.type),
-    index("tags_type_name_idx").on(table.type, table.name),
+    uniqueIndex("tags_type_name_idx").on(table.type, table.name),
+    check(
+      "tags_type_check",
+      sql`${table.type} IN ('cuisine', 'category', 'dietary', 'meal_type', 'occasion')`,
+    ),
   ]
 );
 
@@ -229,6 +241,7 @@ export const recipeTags = pgTable(
   (table) => [
     index("recipe_tags_recipe_id_idx").on(table.recipeId),
     index("recipe_tags_tag_id_idx").on(table.tagId),
+    uniqueIndex("recipe_tags_recipe_tag_idx").on(table.recipeId, table.tagId),
   ]
 );
 

@@ -1,0 +1,93 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cookclub-api",
+  "main": "src/index.ts",
+  "account_id": "46fa47bc2bba51d75383b4dfe6e3deb1",
+  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2025-02-20",
+  "dev": {
+    "port": 8787
+  },
+  "services": [
+    { "binding": "RECIPE_AI", "service": "cookclub-recipe-ai", "entrypoint": "RecipeAI" },
+    { "binding": "IMAGE_SERVICE", "service": "cookclub-images", "entrypoint": "ImageService" }
+  ],
+  "ratelimits": [
+    {
+      "name": "API_RATE_LIMITER",
+      "namespace_id": "4601001",
+      "simple": { "limit": 300, "period": 60 }
+    },
+    {
+      "name": "AI_RATE_LIMITER",
+      "namespace_id": "4601002",
+      "simple": { "limit": 30, "period": 60 }
+    },
+    {
+      "name": "IMAGE_AI_RATE_LIMITER",
+      "namespace_id": "4601003",
+      "simple": { "limit": 6, "period": 60 }
+    },
+    {
+      "name": "UPLOAD_RATE_LIMITER",
+      "namespace_id": "4601004",
+      "simple": { "limit": 60, "period": 60 }
+    }
+  ],
+  "vars": {
+    "BETTER_AUTH_URL": "http://localhost:8787",
+    // Public URL for images (dev uses R2 public URL, prod uses custom domain)
+    "IMAGE_PUBLIC_URL": "https://pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "USER_FEED", "class_name": "FeedDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_classes": ["FeedDO"] }
+  ],
+  // Production environment overrides
+  "env": {
+    "production": {
+      "services": [
+        { "binding": "RECIPE_AI", "service": "cookclub-recipe-ai-production", "entrypoint": "RecipeAI" },
+        { "binding": "IMAGE_SERVICE", "service": "cookclub-images-production", "entrypoint": "ImageService" }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "USER_FEED", "class_name": "FeedDO" }
+        ]
+      },
+      "routes": [
+        { "pattern": "api.cookclub.app", "custom_domain": true }
+      ],
+      "ratelimits": [
+        {
+          "name": "API_RATE_LIMITER",
+          "namespace_id": "4601001",
+          "simple": { "limit": 300, "period": 60 }
+        },
+        {
+          "name": "AI_RATE_LIMITER",
+          "namespace_id": "4601002",
+          "simple": { "limit": 30, "period": 60 }
+        },
+        {
+          "name": "IMAGE_AI_RATE_LIMITER",
+          "namespace_id": "4601003",
+          "simple": { "limit": 6, "period": 60 }
+        },
+        {
+          "name": "UPLOAD_RATE_LIMITER",
+          "namespace_id": "4601004",
+          "simple": { "limit": 60, "period": 60 }
+        }
+      ],
+      "vars": {
+        "BETTER_AUTH_URL": "https://api.cookclub.app",
+        "IMAGE_PUBLIC_URL": "https://images.cookclub.app"
+      }
+    }
+  }
+}

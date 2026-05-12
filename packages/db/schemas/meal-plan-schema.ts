@@ -8,7 +8,9 @@ import {
   boolean,
   index,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
 import { recipes } from "./recipe-schema";
 
@@ -21,7 +23,7 @@ export const mealPlans = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    // Marks user's primary personal plan (enforced in app code - one default per user)
+    // Marks user's primary personal plan.
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
@@ -29,6 +31,9 @@ export const mealPlans = pgTable(
   (table) => [
     // Index for listing user's plans (no unique - allows multiple)
     index("meal_plans_user_id_idx").on(table.userId),
+    uniqueIndex("meal_plans_one_default_per_user_idx")
+      .on(table.userId)
+      .where(sql`${table.isDefault} = true`),
   ]
 );
 
@@ -70,6 +75,10 @@ export const mealPlanEntries = pgTable(
       table.mealPlanId,
       table.date,
       table.mealType
+    ),
+    check(
+      "meal_plan_entries_meal_type_check",
+      sql`${table.mealType} IN ('breakfast', 'lunch', 'dinner')`,
     ),
   ]
 );
@@ -114,6 +123,10 @@ export const mealPlanInvitations = pgTable(
     uniqueIndex("meal_plan_invitations_unique_idx").on(
       table.mealPlanId,
       table.invitedUserId
+    ),
+    check(
+      "meal_plan_invitations_status_check",
+      sql`${table.status} IN ('pending', 'accepted', 'declined')`,
     ),
   ]
 );

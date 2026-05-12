@@ -1,7 +1,7 @@
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState, useCallback, useMemo, useRef, memo, useEffect } from "react";
 import {
   View,
@@ -176,7 +176,9 @@ export const HomeScreen = () => {
   const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const parseRecipeFromUrl = useMutation(
+    trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
+  );
 
   // ─── State ────────────────────────────────────────────────────────────────────
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -357,9 +359,7 @@ export const HomeScreen = () => {
 
       setIsImporting(true);
       try {
-        const result = await queryClient.fetchQuery(
-          trpc.recipe.parseRecipeFromUrl.queryOptions({ url: sourceUrl }),
-        );
+        const result = await parseRecipeFromUrl.mutateAsync({ url: sourceUrl });
 
         if (result.success) {
           navigation.navigate("RecipeDetail", {
@@ -376,7 +376,7 @@ export const HomeScreen = () => {
         setIsImporting(false);
       }
     },
-    [isImporting, queryClient, trpc, navigation],
+    [isImporting, parseRecipeFromUrl, navigation],
   );
 
   const handleLikePress = useCallback(

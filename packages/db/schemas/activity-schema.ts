@@ -6,7 +6,9 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
 import { recipes } from "./recipe-schema";
 
@@ -34,6 +36,10 @@ export const activityEvents = pgTable(
       table.userId,
       table.createdAt.desc()
     ),
+    check(
+      "activity_events_type_check",
+      sql`${table.type} IN ('recipe_import', 'cooking_review')`,
+    ),
   ]
 );
 
@@ -60,7 +66,14 @@ export const cookingReviews = pgTable(
   (table) => [
     index("cooking_reviews_user_id_idx").on(table.userId),
     index("cooking_reviews_recipe_id_idx").on(table.recipeId),
-    index("cooking_reviews_user_recipe_idx").on(table.userId, table.recipeId),
+    uniqueIndex("cooking_reviews_user_recipe_idx").on(
+      table.userId,
+      table.recipeId
+    ),
+    check(
+      "cooking_reviews_rating_check",
+      sql`${table.rating} BETWEEN 1 AND 5`,
+    ),
   ]
 );
 

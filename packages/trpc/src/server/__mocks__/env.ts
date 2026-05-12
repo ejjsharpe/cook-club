@@ -25,13 +25,13 @@ export function createMockEnv() {
     BETTER_AUTH_URL: "http://localhost:8787",
     FB_CLIENT_ID: "mock-fb-id",
     FB_CLIENT_SECRET: "mock-fb-secret",
-    RECIPE_PARSER: {
+    RECIPE_AI: {
       parse: vi.fn(),
       chat: vi.fn(),
       personalize: vi.fn(),
       generateImage: vi.fn(),
     },
-    IMAGE_WORKER: {
+    IMAGE_SERVICE: {
       presign: vi.fn(),
       verify: vi.fn(),
       move: vi.fn(),

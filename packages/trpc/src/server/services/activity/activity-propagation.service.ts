@@ -154,6 +154,7 @@ export async function hydrateFeed(
 
   if (allEntries.length > 0) {
     const feedDO = env.USER_FEED.get(env.USER_FEED.idFromName(userId));
+    await feedDO.fetch(new Request("http://do/clear", { method: "POST" }));
     await feedDO.fetch(
       new Request("http://do/addActivityIds", {
         method: "POST",

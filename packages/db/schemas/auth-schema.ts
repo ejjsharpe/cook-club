@@ -1,30 +1,43 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   text,
   timestamp,
   boolean,
   index,
+  check,
 } from "drizzle-orm/pg-core";
 
-export const user = pgTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").notNull(),
-  image: text("image"),
-  createdAt: timestamp("created_at").notNull(),
-  updatedAt: timestamp("updated_at").notNull(),
+export const user = pgTable(
+  "user",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: boolean("email_verified").notNull(),
+    image: text("image"),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
 
-  // Profile fields
-  username: text("username").unique(),
-  bio: text("bio"),
+    // Profile fields
+    username: text("username").unique(),
+    bio: text("bio"),
 
-  // Onboarding tracking
-  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
+    // Onboarding tracking
+    onboardingCompleted: boolean("onboarding_completed")
+      .notNull()
+      .default(false),
 
-  // Preferences
-  measurementPreference: text("measurement_preference"),
-});
+    // Preferences
+    measurementPreference: text("measurement_preference"),
+  },
+  (table) => [
+    check(
+      "user_measurement_preference_check",
+      sql`${table.measurementPreference} IS NULL OR ${table.measurementPreference} IN ('auto', 'metric', 'imperial')`,
+    ),
+  ],
+);
 
 export const session = pgTable(
   "session",
@@ -43,7 +56,7 @@ export const session = pgTable(
   (table) => [
     index("session_user_id_idx").on(table.userId),
     index("session_expires_at_idx").on(table.expiresAt),
-  ]
+  ],
 );
 
 export const account = pgTable(
@@ -68,7 +81,7 @@ export const account = pgTable(
   (table) => [
     index("account_user_id_idx").on(table.userId),
     index("account_provider_account_idx").on(table.providerId, table.accountId),
-  ]
+  ],
 );
 
 export const verification = pgTable("verification", {

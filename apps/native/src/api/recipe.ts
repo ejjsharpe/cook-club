@@ -17,36 +17,30 @@ export type PersonalizationGoal =
 export type Tag = RecipeListItem["tags"][number];
 
 // Parse recipe from URL using AI (Smart Import)
-export const useParseRecipeFromUrl = ({ url }: { url: string }) => {
+export const useParseRecipeFromUrl = () => {
   const trpc = useTRPC();
 
-  return useQuery({
-    ...trpc.recipe.parseRecipeFromUrl.queryOptions({ url }),
-    enabled: false, // Manual fetch
-    retry: false,
-  });
+  return useMutation(
+    trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
+  );
 };
 
 // Parse recipe from URL using structured data only (Basic Import - no AI)
-export const useParseRecipeFromUrlBasic = ({ url }: { url: string }) => {
+export const useParseRecipeFromUrlBasic = () => {
   const trpc = useTRPC();
 
-  return useQuery({
-    ...trpc.recipe.parseRecipeFromUrlBasic.queryOptions({ url }),
-    enabled: false, // Manual fetch
-    retry: false,
-  });
+  return useMutation(
+    trpc.recipe.parseRecipeFromUrlBasic.mutationOptions({ retry: false }),
+  );
 };
 
 // Parse recipe from text using AI
-export const useParseRecipeFromText = ({ text }: { text: string }) => {
+export const useParseRecipeFromText = () => {
   const trpc = useTRPC();
 
-  return useQuery({
-    ...trpc.recipe.parseRecipeFromText.queryOptions({ text }),
-    enabled: false, // Manual fetch
-    retry: false,
-  });
+  return useMutation(
+    trpc.recipe.parseRecipeFromText.mutationOptions({ retry: false }),
+  );
 };
 
 // Parse recipe from image using AI

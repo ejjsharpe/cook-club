@@ -1,1 +1,0 @@
-ALTER TABLE "recipe_ingredients" ADD COLUMN "preparation" text;

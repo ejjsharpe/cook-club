@@ -5,7 +5,7 @@ import {
   prepareRecipeImages,
 } from "./recipe-image.service";
 
-const createImageWorker = () => ({
+const createImageService = () => ({
   presign: vi.fn(),
   verify: vi.fn(),
   move: vi.fn(),
@@ -16,23 +16,27 @@ const createImageWorker = () => ({
 
 describe("recipe image service", () => {
   it("uses direct image URLs without moving objects", async () => {
-    const imageWorker = createImageWorker();
+    const imageService = createImageService();
 
     const result = await prepareRecipeImages(
       { images: [{ url: "https://example.com/image.jpg" }] },
-      { imageWorker, imagePublicUrl: "https://images.example.com" },
+      {
+        imageService,
+        imagePublicUrl: "https://images.example.com",
+        ownerId: "user-id",
+      },
     );
 
     expect(result).toEqual({
       images: [{ url: "https://example.com/image.jpg" }],
       movedKeys: [],
     });
-    expect(imageWorker.move).not.toHaveBeenCalled();
+    expect(imageService.move).not.toHaveBeenCalled();
   });
 
   it("moves upload IDs and returns permanent public URLs", async () => {
-    const imageWorker = createImageWorker();
-    imageWorker.move.mockResolvedValue({
+    const imageService = createImageService();
+    imageService.move.mockResolvedValue({
       success: true,
       results: [
         {
@@ -45,15 +49,22 @@ describe("recipe image service", () => {
 
     const result = await prepareRecipeImages(
       { imageUploadIds: ["temp/abc.jpg"] },
-      { imageWorker, imagePublicUrl: "https://images.example.com/" },
+      {
+        imageService,
+        imagePublicUrl: "https://images.example.com/",
+        ownerId: "user-id",
+      },
     );
 
-    expect(imageWorker.move).toHaveBeenCalledWith([
-      {
-        from: "temp/abc.jpg",
-        to: expect.stringMatching(/^recipes\/covers\/.+\/.+\.jpg$/),
-      },
-    ]);
+    expect(imageService.move).toHaveBeenCalledWith(
+      [
+        {
+          from: "temp/abc.jpg",
+          to: expect.stringMatching(/^recipes\/covers\/.+\/.+\.jpg$/),
+        },
+      ],
+      "user-id",
+    );
     expect(result.images[0]?.url).toMatch(
       /^https:\/\/images\.example\.com\/recipes\/covers\/.+\/.+\.jpg$/,
     );
@@ -61,8 +72,8 @@ describe("recipe image service", () => {
   });
 
   it("preserves direct image URLs when moving uploaded images", async () => {
-    const imageWorker = createImageWorker();
-    imageWorker.move.mockResolvedValue({
+    const imageService = createImageService();
+    imageService.move.mockResolvedValue({
       success: true,
       results: [
         {
@@ -78,7 +89,11 @@ describe("recipe image service", () => {
         images: [{ url: "https://example.com/existing.jpg" }],
         imageUploadIds: ["temp/abc.webp"],
       },
-      { imageWorker, imagePublicUrl: "https://images.example.com" },
+      {
+        imageService,
+        imagePublicUrl: "https://images.example.com",
+        ownerId: "user-id",
+      },
     );
 
     expect(result.images).toHaveLength(2);
@@ -91,8 +106,8 @@ describe("recipe image service", () => {
   });
 
   it("throws when an image move fails", async () => {
-    const imageWorker = createImageWorker();
-    imageWorker.move.mockResolvedValue({
+    const imageService = createImageService();
+    imageService.move.mockResolvedValue({
       success: false,
       results: [
         {
@@ -107,14 +122,18 @@ describe("recipe image service", () => {
     await expect(
       prepareRecipeImages(
         { imageUploadIds: ["temp/abc.jpg"] },
-        { imageWorker, imagePublicUrl: "https://images.example.com" },
+        {
+          imageService,
+          imagePublicUrl: "https://images.example.com",
+          ownerId: "user-id",
+        },
       ),
     ).rejects.toThrow("Failed to move uploaded images");
   });
 
   it("cleans up successful moves when a later move fails", async () => {
-    const imageWorker = createImageWorker();
-    imageWorker.move.mockResolvedValue({
+    const imageService = createImageService();
+    imageService.move.mockResolvedValue({
       success: false,
       results: [
         {
@@ -134,20 +153,24 @@ describe("recipe image service", () => {
     await expect(
       prepareRecipeImages(
         { imageUploadIds: ["temp/abc.jpg", "temp/def.jpg"] },
-        { imageWorker, imagePublicUrl: "https://images.example.com" },
+        {
+          imageService,
+          imagePublicUrl: "https://images.example.com",
+          ownerId: "user-id",
+        },
       ),
     ).rejects.toThrow("Failed to move uploaded images");
 
-    expect(imageWorker.delete).toHaveBeenCalledWith([
+    expect(imageService.delete).toHaveBeenCalledWith([
       "recipes/covers/group/img-1.jpg",
     ]);
   });
 
   it("deletes moved objects during compensation cleanup", async () => {
-    const imageWorker = createImageWorker();
+    const imageService = createImageService();
 
-    await cleanupMovedRecipeImages(imageWorker, ["recipes/covers/a/b.jpg"]);
+    await cleanupMovedRecipeImages(imageService, ["recipes/covers/a/b.jpg"]);
 
-    expect(imageWorker.delete).toHaveBeenCalledWith(["recipes/covers/a/b.jpg"]);
+    expect(imageService.delete).toHaveBeenCalledWith(["recipes/covers/a/b.jpg"]);
   });
 });

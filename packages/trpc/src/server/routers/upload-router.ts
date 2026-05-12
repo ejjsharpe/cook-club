@@ -1,5 +1,6 @@
 import { type } from "arktype";
 
+import { enforceRateLimit } from "../rate-limit";
 import { authedProcedure, router } from "../trpc";
 
 const RequestUploadUrlValidator = type({
@@ -14,6 +15,7 @@ export const uploadRouter = router({
   requestUploadUrl: authedProcedure
     .input(RequestUploadUrlValidator)
     .mutation(async ({ ctx, input }) => {
-      return await ctx.env.IMAGE_WORKER.presign(input.contentType);
+      await enforceRateLimit(ctx, "upload_presign");
+      return await ctx.env.IMAGE_SERVICE.presign(input.contentType, ctx.user.id);
     }),
 });

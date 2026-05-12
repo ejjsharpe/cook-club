@@ -6,7 +6,9 @@ import {
   timestamp,
   boolean,
   index,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { user } from "./auth-schema";
 import { activityEvents } from "./activity-schema";
 import { mealPlans } from "./meal-plan-schema";
@@ -58,6 +60,10 @@ export const notifications = pgTable(
     index("notifications_recipient_unread_idx").on(
       table.recipientId,
       table.isRead
+    ),
+    check(
+      "notifications_type_check",
+      sql`${table.type} IN ('follow', 'meal_plan_share', 'meal_plan_invite', 'shopping_list_invite', 'activity_like', 'activity_comment', 'comment_reply')`,
     ),
   ]
 );

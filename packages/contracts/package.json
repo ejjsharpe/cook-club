@@ -5,8 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./feed": "./src/feed.ts",
-    "./image-worker": "./src/image-worker.ts",
-    "./recipe-parser": "./src/recipe-parser.ts",
+    "./images": "./src/images.ts",
+    "./recipe-ai": "./src/recipe-ai.ts",
     "./recipe": "./src/recipe.ts"
   },
   "scripts": {

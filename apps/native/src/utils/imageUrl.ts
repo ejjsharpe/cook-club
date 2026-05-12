@@ -25,7 +25,7 @@ const PRESETS: Record<Exclude<ImagePreset, "full">, string> = {
 
 // Image hosts that support Cloudflare Image Resizing
 const TRANSFORMABLE_HOSTS = [
-  "images.cook-club.app", // Production
+  "images.cookclub.app", // Production
   "pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev", // Dev R2 bucket
 ];
 
@@ -38,7 +38,7 @@ const TRANSFORMABLE_HOSTS = [
  *
  * @example
  * getImageUrl(recipe.coverImage, 'recipe-card')
- * // => "https://images.cook-club.app/recipes/covers/123/abc.jpg?w=800&h=533&fit=cover&format=auto"
+ * // => "https://images.cookclub.app/recipes/covers/123/abc.jpg?w=800&h=533&fit=cover&format=auto"
  */
 export function getImageUrl(
   url: string | null | undefined,

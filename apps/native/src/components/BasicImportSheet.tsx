@@ -52,7 +52,7 @@ export const BasicImportSheet = forwardRef<
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const { refetch: fetchFromUrl } = useParseRecipeFromUrlBasic({ url });
+  const parseFromUrl = useParseRecipeFromUrlBasic();
 
   useImperativeHandle(ref, () => ({
     present: () => sheetRef.current?.present(),
@@ -81,16 +81,15 @@ export const BasicImportSheet = forwardRef<
     setIsLoading(true);
 
     try {
-      const result = await fetchFromUrl();
-      if (result.data?.success) {
-        onRecipeParsed?.(result.data);
+      const result = await parseFromUrl.mutateAsync({ url });
+      if (result.success) {
+        onRecipeParsed?.(result);
         handleClose();
       } else {
-        // Show error message from the API or a default message
-        const errorMessage =
-          result.error?.message ||
-          "This website doesn't have recipe data we can read. Try a different recipe website.";
-        Alert.alert("Import Failed", errorMessage);
+        Alert.alert(
+          "Import Failed",
+          "This website doesn't have recipe data we can read. Try a different recipe website.",
+        );
       }
     } catch (error) {
       console.error("Import error:", error);

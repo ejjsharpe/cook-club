@@ -7,6 +7,9 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { Resend } from "resend";
 
 const FROM_EMAIL = "Cook Club <noreply@cookclub.app>";
+const AUTH_BASE_PATH = "/auth";
+const SOCIAL_PROVIDERS = ["google", "facebook", "apple"] as const;
+type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
 
 export interface AuthEnv {
   DATABASE_URL: string;
@@ -14,9 +17,13 @@ export interface AuthEnv {
   GOOGLE_CLIENT_SECRET: string;
   FB_CLIENT_ID: string;
   FB_CLIENT_SECRET: string;
+  APPLE_CLIENT_ID?: string;
+  APPLE_CLIENT_SECRET?: string;
+  APPLE_BUNDLE_IDENTIFIER?: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   RESEND_API_KEY: string;
+  TRUSTED_ORIGINS?: string;
 }
 
 async function sendEmail(
@@ -34,10 +41,52 @@ async function sendEmail(
   }
 }
 
+function getTrustedOrigins(env: AuthEnv): string[] {
+  const configured =
+    env.TRUSTED_ORIGINS?.split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean) ?? [];
+
+  return Array.from(
+    new Set([
+      "cookclub://",
+      "https://cookclub.app",
+      "https://www.cookclub.app",
+      "https://api.cookclub.app",
+      env.BETTER_AUTH_URL,
+      ...configured,
+    ]),
+  );
+}
+
+function getAuthBaseUrl(env: AuthEnv): string {
+  return `${env.BETTER_AUTH_URL.replace(/\/+$/, "")}${AUTH_BASE_PATH}`;
+}
+
+function getCallbackUrl(env: AuthEnv, provider: SocialProvider): string {
+  return `${getAuthBaseUrl(env)}/callback/${provider}`;
+}
+
 export function getAuth(env: AuthEnv) {
   const db = getDb(env);
+  const appleProvider =
+    env.APPLE_CLIENT_ID && env.APPLE_CLIENT_SECRET
+      ? {
+          apple: {
+            clientId: env.APPLE_CLIENT_ID,
+            clientSecret: env.APPLE_CLIENT_SECRET,
+            redirectURI: getCallbackUrl(env, "apple"),
+            ...(env.APPLE_BUNDLE_IDENTIFIER && {
+              appBundleIdentifier: env.APPLE_BUNDLE_IDENTIFIER,
+            }),
+          },
+        }
+      : {};
 
   return betterAuth({
+    baseURL: env.BETTER_AUTH_URL,
+    basePath: AUTH_BASE_PATH,
+    secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, {
       provider: "pg",
       schema,
@@ -51,9 +100,8 @@ export function getAuth(env: AuthEnv) {
         },
       },
     },
-    plugins: [expo({ disableOriginOverride: true })],
-    trustedOrigins: ["cookclub://"],
-    advanced: { disableOriginCheck: true },
+    plugins: [expo()],
+    trustedOrigins: getTrustedOrigins(env),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
@@ -85,11 +133,14 @@ export function getAuth(env: AuthEnv) {
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
+        redirectURI: getCallbackUrl(env, "google"),
       },
       facebook: {
         clientId: env.FB_CLIENT_ID,
         clientSecret: env.FB_CLIENT_SECRET,
+        redirectURI: getCallbackUrl(env, "facebook"),
       },
+      ...appleProvider,
     },
     account: {
       accountLinking: {

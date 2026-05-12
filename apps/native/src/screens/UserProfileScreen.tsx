@@ -1,7 +1,7 @@
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
 import { FlashList } from "@shopify/flash-list";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useMemo, useCallback, useState, useRef } from "react";
 import {
@@ -52,7 +52,9 @@ export const UserProfileScreen = () => {
   const navigation = useNavigation();
   const { userId } = route.params;
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const parseRecipeFromUrl = useMutation(
+    trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
+  );
 
   const commentsSheetRef = useRef<CommentsSheetRef>(null);
 
@@ -124,9 +126,7 @@ export const UserProfileScreen = () => {
 
       setIsImporting(true);
       try {
-        const result = await queryClient.fetchQuery(
-          trpc.recipe.parseRecipeFromUrl.queryOptions({ url: sourceUrl }),
-        );
+        const result = await parseRecipeFromUrl.mutateAsync({ url: sourceUrl });
 
         if (result.success) {
           navigation.navigate("RecipeDetail", {
@@ -143,7 +143,7 @@ export const UserProfileScreen = () => {
         setIsImporting(false);
       }
     },
-    [isImporting, queryClient, trpc, navigation],
+    [isImporting, parseRecipeFromUrl, navigation],
   );
 
   const handleCommentPress = useCallback((activityEventId: number) => {

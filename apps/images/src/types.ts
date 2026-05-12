@@ -1,0 +1,44 @@
+export interface Env {
+  IMAGES: R2Bucket;
+  // R2 API credentials for presigned URLs
+  R2_ACCOUNT_ID: string;
+  R2_ACCESS_KEY_ID: string;
+  R2_SECRET_ACCESS_KEY: string;
+  // Explicit S3-compatible API endpoint for the bucket.
+  // Example: https://{accountId}.r2.cloudflarestorage.com/{bucketName}
+  R2_S3_API_URL: string;
+  // R2 bucket name for generating presigned URLs (must match the bucket used by IMAGES binding)
+  R2_BUCKET_NAME: string;
+  // Public URL base for the image service (e.g., https://images.cookclub.app)
+  // This is used for generating public URLs returned to clients
+  PUBLIC_URL: string;
+  // Public origin URL used for image transformations.
+  // This may be the images hostname; origin subrequests include an
+  // internal header so they return the original image without transforming again.
+  R2_ORIGIN_URL: string;
+}
+
+// Re-export service types for convenience
+export type {
+  ImageService,
+  PresignedUrlResponse,
+  VerifyResponse,
+  MoveResult,
+  MoveResponse,
+  UploadImageResponse,
+} from "./service";
+
+export interface TransformOptions {
+  width?: number;
+  height?: number;
+  fit?: "cover" | "contain" | "scale-down";
+  format?: "auto" | "webp" | "avif" | "jpeg" | "png";
+  quality?: number;
+}
+
+export interface PresignedUrlRequest {
+  key: string;
+  contentType: string;
+  expiresIn?: number;
+  maxFileSize?: number;
+}

@@ -1,4 +1,4 @@
 export * from "./feed";
-export * from "./image-worker";
+export * from "./images";
 export * from "./recipe";
-export * from "./recipe-parser";
+export * from "./recipe-ai";

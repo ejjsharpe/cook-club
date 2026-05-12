@@ -1,0 +1,56 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cookclub-images",
+  "main": "src/index.ts",
+  "account_id": "46fa47bc2bba51d75383b4dfe6e3deb1",
+  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2025-02-20",
+  "dev": {
+    "port": 8789
+  },
+  "workers_dev": false,
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "cook-club-images",
+      "preview_bucket_name": "cook-club-images-dev",
+      "remote": true
+    }
+  ],
+  "vars": {
+    "R2_ACCOUNT_ID": "46fa47bc2bba51d75383b4dfe6e3deb1",
+    "R2_S3_API_URL": "https://46fa47bc2bba51d75383b4dfe6e3deb1.r2.cloudflarestorage.com/cook-club-images-dev",
+    // Public URL for serving images (dev uses R2 public URL, prod uses custom domain)
+    "PUBLIC_URL": "https://pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev",
+    // Public origin URL used for image transformations
+    "R2_ORIGIN_URL": "https://pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev",
+    // R2 bucket name for presigned URLs (must match preview_bucket_name in dev, bucket_name in prod)
+    "R2_BUCKET_NAME": "cook-club-images-dev"
+  },
+  // Scheduled cleanup for orphaned temp images
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  },
+  // Production environment overrides
+  "env": {
+    "production": {
+      "r2_buckets": [
+        {
+          "binding": "IMAGES",
+          "bucket_name": "cook-club-images",
+          "remote": true
+        }
+      ],
+      "routes": [
+        { "pattern": "images.cookclub.app", "custom_domain": true }
+      ],
+      "vars": {
+        "R2_ACCOUNT_ID": "46fa47bc2bba51d75383b4dfe6e3deb1",
+        "R2_S3_API_URL": "https://46fa47bc2bba51d75383b4dfe6e3deb1.r2.cloudflarestorage.com/cook-club-images",
+        "PUBLIC_URL": "https://images.cookclub.app",
+        "R2_ORIGIN_URL": "https://images.cookclub.app",
+        "R2_BUCKET_NAME": "cook-club-images"
+      }
+    }
+  }
+}

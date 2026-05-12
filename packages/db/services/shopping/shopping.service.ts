@@ -44,7 +44,9 @@ export async function getOrCreateShoppingList(db: DbClient, userId: string) {
   const existingList = await db
     .select()
     .from(shoppingLists)
-    .where(eq(shoppingLists.userId, userId))
+    .where(
+      and(eq(shoppingLists.userId, userId), eq(shoppingLists.isDefault, true)),
+    )
     .then((rows) => rows[0]);
 
   if (existingList) {
@@ -60,9 +62,22 @@ export async function getOrCreateShoppingList(db: DbClient, userId: string) {
       createdAt: new Date(),
       updatedAt: new Date(),
     })
+    .onConflictDoNothing()
     .returning();
 
-  return newList[0]!;
+  if (newList[0]) {
+    return newList[0];
+  }
+
+  const finalList = await db
+    .select()
+    .from(shoppingLists)
+    .where(
+      and(eq(shoppingLists.userId, userId), eq(shoppingLists.isDefault, true)),
+    )
+    .then((rows) => rows[0]);
+
+  return finalList!;
 }
 
 /**

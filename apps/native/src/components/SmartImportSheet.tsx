@@ -128,8 +128,8 @@ export const SmartImportSheet = forwardRef<
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { refetch: fetchFromUrl } = useParseRecipeFromUrl({ url });
-  const { refetch: fetchFromText } = useParseRecipeFromText({ text });
+  const parseFromUrl = useParseRecipeFromUrl();
+  const parseFromText = useParseRecipeFromText();
   const parseFromImage = useParseRecipeFromImage();
 
   useImperativeHandle(ref, () => ({
@@ -182,9 +182,9 @@ export const SmartImportSheet = forwardRef<
           Alert.alert("Error", "Please enter a URL");
           return;
         }
-        const result = await fetchFromUrl();
-        if (result.data?.success) {
-          onRecipeParsed?.(result.data);
+        const result = await parseFromUrl.mutateAsync({ url });
+        if (result.success) {
+          onRecipeParsed?.(result);
           handleClose();
         } else {
           Alert.alert("Error", "Failed to parse recipe from URL");
@@ -197,9 +197,9 @@ export const SmartImportSheet = forwardRef<
           );
           return;
         }
-        const result = await fetchFromText();
-        if (result.data?.success) {
-          onRecipeParsed?.(result.data);
+        const result = await parseFromText.mutateAsync({ text });
+        if (result.success) {
+          onRecipeParsed?.(result);
           handleClose();
         } else {
           Alert.alert("Error", "Failed to parse recipe from text");

@@ -282,7 +282,7 @@ describe("recipeRouter - activity integration", () => {
     });
 
     it("cleans up moved images when recipe creation fails", async () => {
-      mockEnv.IMAGE_WORKER.move.mockResolvedValue({
+      mockEnv.IMAGE_SERVICE.move.mockResolvedValue({
         success: true,
         results: [
           {
@@ -305,13 +305,13 @@ describe("recipeRouter - activity integration", () => {
         }),
       ).rejects.toThrow();
 
-      expect(mockEnv.IMAGE_WORKER.delete).toHaveBeenCalledWith([
+      expect(mockEnv.IMAGE_SERVICE.delete).toHaveBeenCalledWith([
         expect.stringMatching(/^recipes\/covers\/.+\/.+\.jpg$/),
       ]);
     });
 
     it("does not clean up moved images after recipe creation succeeds", async () => {
-      mockEnv.IMAGE_WORKER.move.mockResolvedValue({
+      mockEnv.IMAGE_SERVICE.move.mockResolvedValue({
         success: true,
         results: [
           {
@@ -334,7 +334,7 @@ describe("recipeRouter - activity integration", () => {
         }),
       ).rejects.toThrow();
 
-      expect(mockEnv.IMAGE_WORKER.delete).not.toHaveBeenCalled();
+      expect(mockEnv.IMAGE_SERVICE.delete).not.toHaveBeenCalled();
     });
   });
 
@@ -401,7 +401,7 @@ describe("recipeRouter - activity integration", () => {
     });
 
     it("cleans up moved images when recipe update fails", async () => {
-      mockEnv.IMAGE_WORKER.move.mockResolvedValue({
+      mockEnv.IMAGE_SERVICE.move.mockResolvedValue({
         success: true,
         results: [
           {
@@ -424,7 +424,7 @@ describe("recipeRouter - activity integration", () => {
         }),
       ).rejects.toThrow();
 
-      expect(mockEnv.IMAGE_WORKER.delete).toHaveBeenCalledWith([
+      expect(mockEnv.IMAGE_SERVICE.delete).toHaveBeenCalledWith([
         expect.stringMatching(/^recipes\/covers\/.+\/.+\.jpg$/),
       ]);
     });
@@ -432,7 +432,7 @@ describe("recipeRouter - activity integration", () => {
 
   describe("personalizeRecipe", () => {
     it("calls the recipe parser with the current user's recipe detail", async () => {
-      mockEnv.RECIPE_PARSER.personalize.mockResolvedValue({
+      mockEnv.RECIPE_AI.personalize.mockResolvedValue({
         success: true,
         data: {
           name: "Vegan Pasta",
@@ -474,7 +474,7 @@ describe("recipeRouter - activity integration", () => {
         1,
         "test-user-id",
       );
-      expect(mockEnv.RECIPE_PARSER.personalize).toHaveBeenCalledWith(
+      expect(mockEnv.RECIPE_AI.personalize).toHaveBeenCalledWith(
         expect.objectContaining({
           goals: ["vegan"],
           allergyNotes: "avoid dairy",
@@ -488,7 +488,7 @@ describe("recipeRouter - activity integration", () => {
     });
 
     it("maps parser failures to a bad request", async () => {
-      mockEnv.RECIPE_PARSER.personalize.mockResolvedValue({
+      mockEnv.RECIPE_AI.personalize.mockResolvedValue({
         success: false,
         error: {
           code: "PERSONALIZATION_ERROR",

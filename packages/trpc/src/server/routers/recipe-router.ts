@@ -27,6 +27,7 @@ import {
   cleanupMovedRecipeImages,
   prepareRecipeImages,
 } from "../services/recipe-image.service";
+import { enforceRateLimit } from "../rate-limit";
 import { router, authedProcedure } from "../trpc";
 import { mapServiceError } from "../utils";
 
@@ -284,10 +285,10 @@ export const recipeRouter = router({
   // Parse recipe from URL using AI
   parseRecipeFromUrl: authedProcedure
     .input(UrlValidator)
-    .query(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       try {
-        console.log(input.url);
-        const result = await ctx.env.RECIPE_PARSER.parse({
+        await enforceRateLimit(ctx, "recipe_parse_url");
+        const result = await ctx.env.RECIPE_AI.parse({
           type: "url",
           data: input.url,
         });
@@ -318,9 +319,10 @@ export const recipeRouter = router({
   // Parse recipe from URL using structured data only (no AI) - for Basic Import
   parseRecipeFromUrlBasic: authedProcedure
     .input(UrlValidator)
-    .query(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       try {
-        const result = await ctx.env.RECIPE_PARSER.parse({
+        await enforceRateLimit(ctx, "recipe_parse_url_basic");
+        const result = await ctx.env.RECIPE_AI.parse({
           type: "url",
           data: input.url,
           structuredOnly: true,
@@ -347,8 +349,9 @@ export const recipeRouter = router({
   // Parse recipe from text using AI
   parseRecipeFromText: authedProcedure
     .input(type({ text: "string" }))
-    .query(async ({ ctx, input }) => {
-      const result = await ctx.env.RECIPE_PARSER.parse({
+    .mutation(async ({ ctx, input }) => {
+      await enforceRateLimit(ctx, "recipe_parse_text");
+      const result = await ctx.env.RECIPE_AI.parse({
         type: "text",
         data: input.text,
       });
@@ -372,7 +375,8 @@ export const recipeRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const result = await ctx.env.RECIPE_PARSER.parse({
+      await enforceRateLimit(ctx, "recipe_parse_image");
+      const result = await ctx.env.RECIPE_AI.parse({
         type: "image",
         data: input.imageBase64,
         mimeType: input.mimeType,
@@ -392,7 +396,8 @@ export const recipeRouter = router({
   generateRecipeChat: authedProcedure
     .input(ChatInputValidator)
     .mutation(async ({ ctx, input }) => {
-      const result = await ctx.env.RECIPE_PARSER.chat({
+      await enforceRateLimit(ctx, "recipe_chat");
+      const result = await ctx.env.RECIPE_AI.chat({
         messages: input.messages,
         conversationState: input.conversationState,
       });
@@ -430,12 +435,13 @@ export const recipeRouter = router({
       }
 
       try {
+        await enforceRateLimit(ctx, "recipe_personalize");
         const recipe = await getRecipeDetail(
           ctx.db,
           input.recipeId,
           ctx.user.id,
         );
-        const result = await ctx.env.RECIPE_PARSER.personalize({
+        const result = await ctx.env.RECIPE_AI.personalize({
           recipe: recipeDetailToParsedRecipe(recipe),
           goals: input.goals as PersonalizationGoal[],
           allergyNotes: input.allergyNotes ?? null,
@@ -467,11 +473,13 @@ export const recipeRouter = router({
         });
       }
 
-      const result = await ctx.env.RECIPE_PARSER.generateImage({
+      await enforceRateLimit(ctx, "recipe_generate_image");
+      const result = await ctx.env.RECIPE_AI.generateImage({
         name: input.name,
         description: input.description ?? null,
         ingredients: input.ingredients ?? [],
         instructions: input.instructions ?? [],
+        ownerId: ctx.user.id,
       });
 
       if (!result.success) {
@@ -503,8 +511,9 @@ export const recipeRouter = router({
 
       try {
         const preparedImages = await prepareRecipeImages(input, {
-          imageWorker: ctx.env.IMAGE_WORKER,
+          imageService: ctx.env.IMAGE_SERVICE,
           imagePublicUrl: ctx.env.IMAGE_PUBLIC_URL,
+          ownerId: ctx.user.id,
         });
         movedKeys = preparedImages.movedKeys;
 
@@ -542,7 +551,7 @@ export const recipeRouter = router({
 
         return recipe;
       } catch (err) {
-        await cleanupMovedRecipeImages(ctx.env.IMAGE_WORKER, movedKeys);
+        await cleanupMovedRecipeImages(ctx.env.IMAGE_SERVICE, movedKeys);
         console.error("Error saving recipe:", err);
         throw mapServiceError(err);
       }
@@ -564,8 +573,9 @@ export const recipeRouter = router({
 
       try {
         const preparedImages = await prepareRecipeImages(input, {
-          imageWorker: ctx.env.IMAGE_WORKER,
+          imageService: ctx.env.IMAGE_SERVICE,
           imagePublicUrl: ctx.env.IMAGE_PUBLIC_URL,
+          ownerId: ctx.user.id,
         });
         movedKeys = preparedImages.movedKeys;
 
@@ -577,7 +587,7 @@ export const recipeRouter = router({
 
         return recipe;
       } catch (err) {
-        await cleanupMovedRecipeImages(ctx.env.IMAGE_WORKER, movedKeys);
+        await cleanupMovedRecipeImages(ctx.env.IMAGE_SERVICE, movedKeys);
         console.error("Error updating recipe:", err);
         throw mapServiceError(err);
       }

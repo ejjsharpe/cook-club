@@ -8,6 +8,7 @@ import { socialRecipes } from "./data/social-recipes";
 import * as readline from "readline";
 import { hashPassword } from "better-auth/crypto";
 import { extractPreparation } from "./utils/ingredientParser";
+import { classifyIngredientAisle, normalizeIngredientName } from "@repo/shared";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -28,6 +29,31 @@ function randomDate(daysAgo: number): Date {
   return new Date(randomTime);
 }
 
+function randomDateBetween(start: Date, end: Date = new Date()): Date {
+  if (start.getTime() >= end.getTime()) {
+    return end;
+  }
+
+  const randomTime =
+    start.getTime() + Math.random() * (end.getTime() - start.getTime());
+  return new Date(randomTime);
+}
+
+function randomDateAfter(start: Date, maxDaysAfter: number): Date {
+  const now = new Date();
+  const latest = new Date(
+    Math.min(
+      now.getTime(),
+      start.getTime() + maxDaysAfter * 24 * 60 * 60 * 1000
+    )
+  );
+  return randomDateBetween(start, latest);
+}
+
+function maxDate(...dates: Date[]): Date {
+  return new Date(Math.max(...dates.map((date) => date.getTime())));
+}
+
 function shuffle<T>(array: T[]): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -43,6 +69,73 @@ function randomInt(min: number, max: number): number {
 
 function randomChoice<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)]!;
+}
+
+function formatDateOffset(daysOffset: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysOffset);
+  return date.toISOString().slice(0, 10);
+}
+
+async function seedNotification(
+  db: DbClient,
+  usersById: Map<string, typeof schema.user.$inferSelect>,
+  params: {
+    recipientId: string;
+    actorId: string;
+    type: typeof schema.notifications.$inferInsert.type;
+    createdAt: Date;
+    isRead?: boolean;
+    activityEventId?: number;
+    mealPlanId?: number;
+    shoppingListId?: number;
+    commentId?: number;
+  }
+): Promise<boolean> {
+  if (params.recipientId === params.actorId) {
+    return false;
+  }
+
+  const actor = usersById.get(params.actorId);
+  if (!actor) {
+    return false;
+  }
+
+  await db.insert(schema.notifications).values({
+    recipientId: params.recipientId,
+    actorId: params.actorId,
+    type: params.type,
+    activityEventId: params.activityEventId ?? null,
+    mealPlanId: params.mealPlanId ?? null,
+    shoppingListId: params.shoppingListId ?? null,
+    commentId: params.commentId ?? null,
+    actorName: actor.name,
+    actorImage: actor.image,
+    isRead: params.isRead ?? Math.random() < 0.55,
+    createdAt: params.createdAt,
+  });
+
+  return true;
+}
+
+async function shouldClearDatabase(): Promise<boolean> {
+  if (process.argv.includes("--clear")) {
+    return true;
+  }
+
+  if (process.argv.includes("--no-clear")) {
+    return false;
+  }
+
+  if (process.env.SEED_CLEAR === "true") {
+    return true;
+  }
+
+  const answer = await question(
+    "⚠️  Do you want to clear existing data before seeding? (yes/no): "
+  );
+
+  return answer.toLowerCase() === "yes" || answer.toLowerCase() === "y";
 }
 
 // Parse ingredient text to extract quantity, unit, name, and preparation
@@ -111,11 +204,19 @@ async function clearDatabase(db: DbClient) {
   console.log("🗑️  Clearing existing data...");
 
   // Delete in order respecting foreign keys
+  await db.delete(schema.notifications);
   await db.delete(schema.comments);
   await db.delete(schema.activityLikes);
   await db.delete(schema.cookingReviewImages);
   await db.delete(schema.cookingReviews);
   await db.delete(schema.activityEvents);
+  await db.delete(schema.mealPlanInvitations);
+  await db.delete(schema.mealPlanEntries);
+  await db.delete(schema.mealPlans);
+  await db.delete(schema.shoppingListInvitations);
+  await db.delete(schema.shoppingListItems);
+  await db.delete(schema.shoppingListRecipes);
+  await db.delete(schema.shoppingLists);
   await db.delete(schema.follows);
   await db.delete(schema.recipeCollections);
   await db.delete(schema.collections);
@@ -251,7 +352,7 @@ async function seedRecipes(
   for (const r of recipeData) {
     const user = shuffledUsers[userIndex % shuffledUsers.length]!;
 
-    const createdAt = randomDate(60);
+    const createdAt = randomDateAfter(user.createdAt, 60);
 
     // Determine source type: use explicit sourceType if provided,
     // use "url" if sourceUrl exists, otherwise cycle through source types
@@ -379,6 +480,7 @@ async function seedRecipes(
 
 async function seedSocialRecipes(
   db: DbClient,
+  users: (typeof schema.user.$inferSelect)[],
   allTags: (typeof schema.tags.$inferSelect)[]
 ) {
   console.log("📱 Seeding social media recipes...");
@@ -386,7 +488,8 @@ async function seedSocialRecipes(
   const recipes: (typeof schema.recipes.$inferSelect)[] = [];
 
   for (const r of socialRecipes) {
-    const createdAt = randomDate(30);
+    const owner = users.find((user) => user.id === r.ownerId);
+    const createdAt = owner ? randomDateAfter(owner.createdAt, 30) : randomDate(30);
 
     // Create the recipe with specific owner
     const [recipe] = await db
@@ -532,12 +635,16 @@ async function seedFollows(
   for (const user of users) {
     for (const socialUserId of socialMediaUsers) {
       if (user.id !== socialUserId) {
+        const socialUser = users.find((u) => u.id === socialUserId);
         const pairKey = `${user.id}->${socialUserId}`;
         if (!followPairs.has(pairKey)) {
           await db.insert(schema.follows).values({
             followerId: user.id,
             followingId: socialUserId,
-            createdAt: randomDate(60),
+            createdAt: randomDateAfter(
+              socialUser ? maxDate(user.createdAt, socialUser.createdAt) : user.createdAt,
+              60
+            ),
           });
           followPairs.add(pairKey);
           followsCount++;
@@ -557,7 +664,10 @@ async function seedFollows(
         await db.insert(schema.follows).values({
           followerId: user.id,
           followingId: userToFollow.id,
-          createdAt: randomDate(60),
+          createdAt: randomDateAfter(
+            maxDate(user.createdAt, userToFollow.createdAt),
+            60
+          ),
         });
         followPairs.add(pairKey);
         followsCount++;
@@ -566,6 +676,214 @@ async function seedFollows(
   }
 
   console.log(`✅ Seeded ${followsCount} follow relationships`);
+}
+
+async function seedMealPlans(
+  db: DbClient,
+  users: (typeof schema.user.$inferSelect)[],
+  allRecipes: (typeof schema.recipes.$inferSelect)[]
+) {
+  console.log("🗓️  Seeding meal plans...");
+
+  const mealTypes = ["breakfast", "lunch", "dinner"] as const;
+  const extraPlanNames = ["Meal Prep Week", "Family Dinners", "Weekend Cooking"];
+  const seededPlans: (typeof schema.mealPlans.$inferSelect)[] = [];
+  let entriesCount = 0;
+
+  async function addEntries(
+    plan: typeof schema.mealPlans.$inferSelect,
+    recipesForPlan: (typeof schema.recipes.$inferSelect)[],
+    dayOffset: number,
+    maxEntries: number
+  ) {
+    const entryCount = Math.min(recipesForPlan.length, maxEntries);
+
+    for (let i = 0; i < entryCount; i++) {
+      const recipe = recipesForPlan[i]!;
+      const [image] = await db
+        .select({ url: schema.recipeImages.url })
+        .from(schema.recipeImages)
+        .where(eq(schema.recipeImages.recipeId, recipe.id))
+        .limit(1);
+
+      const createdAt = randomDateAfter(plan.createdAt, 7);
+      await db.insert(schema.mealPlanEntries).values({
+        mealPlanId: plan.id,
+        date: formatDateOffset(dayOffset + i),
+        mealType: mealTypes[i % mealTypes.length]!,
+        recipeId: recipe.id,
+        recipeName: recipe.name,
+        recipeImageUrl: image?.url ?? null,
+        createdAt,
+        updatedAt: createdAt,
+      });
+
+      entriesCount++;
+    }
+  }
+
+  for (const [index, user] of users.entries()) {
+    const createdAt = randomDateAfter(user.createdAt, 20);
+    const [defaultPlan] = await db
+      .insert(schema.mealPlans)
+      .values({
+        userId: user.id,
+        name: "My Meal Plan",
+        isDefault: true,
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .returning();
+
+    if (!defaultPlan) continue;
+    seededPlans.push(defaultPlan);
+
+    const userRecipes = shuffle(allRecipes.filter((r) => r.ownerId === user.id));
+    await addEntries(defaultPlan, userRecipes, 0, randomInt(3, 6));
+
+    if (index % 3 === 0 && userRecipes.length > 2) {
+      const sharedPlanCreatedAt = randomDateAfter(createdAt, 5);
+      const [sharedPlan] = await db
+        .insert(schema.mealPlans)
+        .values({
+          userId: user.id,
+          name: extraPlanNames[index % extraPlanNames.length]!,
+          isDefault: false,
+          createdAt: sharedPlanCreatedAt,
+          updatedAt: sharedPlanCreatedAt,
+        })
+        .returning();
+
+      if (sharedPlan) {
+        seededPlans.push(sharedPlan);
+        await addEntries(sharedPlan, shuffle(userRecipes), 3, randomInt(2, 4));
+      }
+    }
+  }
+
+  console.log(
+    `✅ Seeded ${seededPlans.length} meal plans with ${entriesCount} entries`
+  );
+  return seededPlans;
+}
+
+async function seedShoppingLists(
+  db: DbClient,
+  users: (typeof schema.user.$inferSelect)[],
+  allRecipes: (typeof schema.recipes.$inferSelect)[]
+) {
+  console.log("🛒 Seeding shopping lists...");
+
+  const extraListNames = ["Batch Cook Shop", "Dinner Party List", "Weekend Market"];
+  const seededLists: (typeof schema.shoppingLists.$inferSelect)[] = [];
+  let recipeCount = 0;
+  let itemCount = 0;
+
+  async function addRecipesToList(
+    shoppingList: typeof schema.shoppingLists.$inferSelect,
+    recipesForList: (typeof schema.recipes.$inferSelect)[],
+    maxRecipes: number
+  ) {
+    const recipesToAdd = recipesForList.slice(
+      0,
+      Math.min(recipesForList.length, maxRecipes)
+    );
+
+    for (const recipe of recipesToAdd) {
+      const [image] = await db
+        .select({ url: schema.recipeImages.url })
+        .from(schema.recipeImages)
+        .where(eq(schema.recipeImages.recipeId, recipe.id))
+        .limit(1);
+
+      const addedAt = randomDateAfter(shoppingList.createdAt, 5);
+      await db.insert(schema.shoppingListRecipes).values({
+        shoppingListId: shoppingList.id,
+        recipeId: recipe.id,
+        recipeName: recipe.name,
+        recipeImageUrl: image?.url ?? null,
+        createdAt: addedAt,
+      });
+      recipeCount++;
+
+      const sections = await db
+        .select()
+        .from(schema.ingredientSections)
+        .where(eq(schema.ingredientSections.recipeId, recipe.id));
+
+      const ingredients = [];
+      for (const section of sections) {
+        const sectionIngredients = await db
+          .select()
+          .from(schema.recipeIngredients)
+          .where(eq(schema.recipeIngredients.sectionId, section.id));
+        ingredients.push(...sectionIngredients);
+      }
+
+      for (const ingredient of ingredients.slice(0, 6)) {
+        const normalizedName = normalizeIngredientName(ingredient.name);
+        const itemCreatedAt = randomDateAfter(addedAt, 2);
+        await db.insert(schema.shoppingListItems).values({
+          shoppingListId: shoppingList.id,
+          ingredientName: normalizedName,
+          displayName: ingredient.name,
+          quantity: ingredient.quantity,
+          unit: ingredient.unit,
+          isChecked: Math.random() < 0.15,
+          sourceRecipeId: recipe.id,
+          sourceRecipeName: recipe.name,
+          aisle: classifyIngredientAisle(normalizedName),
+          createdAt: itemCreatedAt,
+          updatedAt: itemCreatedAt,
+        });
+        itemCount++;
+      }
+    }
+  }
+
+  for (const [index, user] of users.entries()) {
+    const createdAt = randomDateAfter(user.createdAt, 10);
+    const [shoppingList] = await db
+      .insert(schema.shoppingLists)
+      .values({
+        userId: user.id,
+        name: "Shopping List",
+        isDefault: true,
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .returning();
+
+    if (!shoppingList) continue;
+    seededLists.push(shoppingList);
+
+    const userRecipes = shuffle(allRecipes.filter((r) => r.ownerId === user.id));
+    await addRecipesToList(shoppingList, userRecipes, randomInt(1, 3));
+
+    if (index % 3 === 1 && userRecipes.length > 2) {
+      const extraListCreatedAt = randomDateAfter(createdAt, 5);
+      const [extraList] = await db
+        .insert(schema.shoppingLists)
+        .values({
+          userId: user.id,
+          name: extraListNames[index % extraListNames.length]!,
+          isDefault: false,
+          createdAt: extraListCreatedAt,
+          updatedAt: extraListCreatedAt,
+        })
+        .returning();
+
+      if (extraList) {
+        seededLists.push(extraList);
+        await addRecipesToList(extraList, shuffle(userRecipes), randomInt(2, 4));
+      }
+    }
+  }
+
+  console.log(
+    `✅ Seeded ${seededLists.length} shopping lists, ${recipeCount} list recipes, ${itemCount} items`
+  );
+  return seededLists;
 }
 
 async function seedImportedRecipes(
@@ -585,7 +903,10 @@ async function seedImportedRecipes(
     const userCollection = collections.find((c) => c.userId === user.id);
 
     for (const sourceRecipe of recipesToImport) {
-      const importedAt = randomDate(30);
+      const importedAt = randomDateAfter(
+        maxDate(user.createdAt, sourceRecipe.createdAt),
+        30
+      );
 
       // Create imported recipe copy
       const [importedRecipe] = await db
@@ -788,7 +1109,7 @@ async function seedActivityFeed(
     const recipesToReview = shuffle(userRecipes).slice(0, randomInt(1, 3));
 
     for (const recipe of recipesToReview) {
-      const reviewCreatedAt = randomDate(20);
+      const reviewCreatedAt = randomDateAfter(recipe.createdAt, 20);
       const rating = randomInt(3, 5);
       const reviewText = randomChoice(reviewTexts);
 
@@ -895,6 +1216,8 @@ async function seedLikesAndComments(
 
   let likesCount = 0;
   let commentsCount = 0;
+  let notificationsCount = 0;
+  const usersById = new Map(users.map((user) => [user.id, user]));
 
   for (const event of activityEvents) {
     // Each activity gets 0-8 likes from random users
@@ -905,13 +1228,26 @@ async function seedLikesAndComments(
     );
 
     for (const liker of likers) {
+      const likeCreatedAt = randomDateAfter(event.createdAt, 14);
       try {
         await db.insert(schema.activityLikes).values({
           userId: liker.id,
           activityEventId: event.id,
-          createdAt: randomDate(14),
+          createdAt: likeCreatedAt,
         });
         likesCount++;
+        if (
+          await seedNotification(db, usersById, {
+            recipientId: event.userId,
+            actorId: liker.id,
+            type: "activity_like",
+            activityEventId: event.id,
+            createdAt: likeCreatedAt,
+            isRead: Math.random() < 0.7,
+          })
+        ) {
+          notificationsCount++;
+        }
       } catch {
         // Skip duplicates
       }
@@ -927,23 +1263,42 @@ async function seedLikesAndComments(
     const commentPool =
       event.type === "cooking_review" ? reviewComments : importComments;
 
-    const insertedComments: { id: number; userId: string }[] = [];
+    const insertedComments: { id: number; userId: string; createdAt: Date }[] =
+      [];
 
     for (const commenter of commenters) {
+      const commentCreatedAt = randomDateAfter(event.createdAt, 14);
       const [comment] = await db
         .insert(schema.comments)
         .values({
           userId: commenter.id,
           activityEventId: event.id,
           content: randomChoice(commentPool),
-          createdAt: randomDate(14),
-          updatedAt: new Date(),
+          createdAt: commentCreatedAt,
+          updatedAt: commentCreatedAt,
         })
         .returning();
 
       if (comment) {
-        insertedComments.push({ id: comment.id, userId: commenter.id });
+        insertedComments.push({
+          id: comment.id,
+          userId: commenter.id,
+          createdAt: commentCreatedAt,
+        });
         commentsCount++;
+        if (
+          await seedNotification(db, usersById, {
+            recipientId: event.userId,
+            actorId: commenter.id,
+            type: "activity_comment",
+            activityEventId: event.id,
+            commentId: comment.id,
+            createdAt: commentCreatedAt,
+            isRead: Math.random() < 0.55,
+          })
+        ) {
+          notificationsCount++;
+        }
       }
     }
 
@@ -957,15 +1312,35 @@ async function seedLikesAndComments(
             : randomChoice(users.filter((u) => u.id !== parentComment.userId));
 
         if (replier) {
-          await db.insert(schema.comments).values({
-            userId: replier.id,
-            activityEventId: event.id,
-            parentCommentId: parentComment.id,
-            content: randomChoice(replyComments),
-            createdAt: randomDate(7),
-            updatedAt: new Date(),
-          });
-          commentsCount++;
+          const replyCreatedAt = randomDateAfter(parentComment.createdAt, 7);
+          const [reply] = await db
+            .insert(schema.comments)
+            .values({
+              userId: replier.id,
+              activityEventId: event.id,
+              parentCommentId: parentComment.id,
+              content: randomChoice(replyComments),
+              createdAt: replyCreatedAt,
+              updatedAt: replyCreatedAt,
+            })
+            .returning();
+
+          if (reply) {
+            commentsCount++;
+            if (
+              await seedNotification(db, usersById, {
+                recipientId: parentComment.userId,
+                actorId: replier.id,
+                type: "comment_reply",
+                activityEventId: event.id,
+                commentId: reply.id,
+                createdAt: replyCreatedAt,
+                isRead: Math.random() < 0.45,
+              })
+            ) {
+              notificationsCount++;
+            }
+          }
         }
       }
     }
@@ -980,7 +1355,113 @@ async function seedLikesAndComments(
       .where(eq(schema.activityEvents.id, event.id));
   }
 
-  console.log(`✅ Seeded ${likesCount} likes and ${commentsCount} comments`);
+  console.log(
+    `✅ Seeded ${likesCount} likes, ${commentsCount} comments, ${notificationsCount} social notifications`
+  );
+}
+
+async function seedSharedResources(
+  db: DbClient,
+  users: (typeof schema.user.$inferSelect)[],
+  mealPlans: (typeof schema.mealPlans.$inferSelect)[],
+  shoppingLists: (typeof schema.shoppingLists.$inferSelect)[]
+) {
+  console.log("🤝 Seeding shared meal plans and shopping lists...");
+
+  const usersById = new Map(users.map((user) => [user.id, user]));
+  const follows = await db.select().from(schema.follows);
+
+  function getFriends(userId: string) {
+    const friendIds = new Set<string>();
+    for (const follow of follows) {
+      if (follow.followerId === userId) {
+        friendIds.add(follow.followingId);
+      }
+      if (follow.followingId === userId) {
+        friendIds.add(follow.followerId);
+      }
+    }
+    friendIds.delete(userId);
+    return shuffle(Array.from(friendIds));
+  }
+
+  let mealInvitesCount = 0;
+  let shoppingInvitesCount = 0;
+  let notificationsCount = 0;
+
+  for (const plan of mealPlans.filter((plan) => !plan.isDefault)) {
+    const owner = usersById.get(plan.userId);
+    if (!owner) continue;
+
+    const friends = getFriends(plan.userId).slice(0, 2);
+    for (const [index, invitedUserId] of friends.entries()) {
+      const createdAt = randomDateAfter(plan.createdAt, 7);
+      const status = index === 0 ? "accepted" : "pending";
+      await db.insert(schema.mealPlanInvitations).values({
+        mealPlanId: plan.id,
+        invitedUserId,
+        invitedByUserId: plan.userId,
+        status,
+        inviterName: owner.name,
+        inviterImage: owner.image,
+        mealPlanName: plan.name,
+        createdAt,
+      });
+      mealInvitesCount++;
+
+      if (
+        await seedNotification(db, usersById, {
+          recipientId: invitedUserId,
+          actorId: plan.userId,
+          type: "meal_plan_invite",
+          mealPlanId: plan.id,
+          createdAt,
+          isRead: status === "accepted",
+        })
+      ) {
+        notificationsCount++;
+      }
+    }
+  }
+
+  for (const shoppingList of shoppingLists.filter((list) => !list.isDefault)) {
+    const owner = usersById.get(shoppingList.userId);
+    if (!owner) continue;
+
+    const friends = getFriends(shoppingList.userId).slice(0, 2);
+    for (const [index, invitedUserId] of friends.entries()) {
+      const createdAt = randomDateAfter(shoppingList.createdAt, 7);
+      const status = index === 0 ? "accepted" : "pending";
+      await db.insert(schema.shoppingListInvitations).values({
+        shoppingListId: shoppingList.id,
+        invitedUserId,
+        invitedByUserId: shoppingList.userId,
+        status,
+        inviterName: owner.name,
+        inviterImage: owner.image,
+        shoppingListName: shoppingList.name,
+        createdAt,
+      });
+      shoppingInvitesCount++;
+
+      if (
+        await seedNotification(db, usersById, {
+          recipientId: invitedUserId,
+          actorId: shoppingList.userId,
+          type: "shopping_list_invite",
+          shoppingListId: shoppingList.id,
+          createdAt,
+          isRead: status === "accepted",
+        })
+      ) {
+        notificationsCount++;
+      }
+    }
+  }
+
+  console.log(
+    `✅ Seeded ${mealInvitesCount} meal plan invites, ${shoppingInvitesCount} shopping list invites, ${notificationsCount} invite notifications`
+  );
 }
 
 async function seedNutrition(
@@ -1028,11 +1509,7 @@ async function main() {
   const db = drizzle(sql, { schema });
 
   try {
-    const answer = await question(
-      "⚠️  Do you want to clear existing data before seeding? (yes/no): "
-    );
-
-    if (answer.toLowerCase() === "yes" || answer.toLowerCase() === "y") {
+    if (await shouldClearDatabase()) {
       await clearDatabase(db);
       console.log("");
     }
@@ -1048,7 +1525,7 @@ async function main() {
     const originalRecipes = await seedRecipes(db, users, allTags);
     console.log("");
 
-    const socialMediaRecipes = await seedSocialRecipes(db, allTags);
+    const socialMediaRecipes = await seedSocialRecipes(db, users, allTags);
     console.log("");
 
     const collections = await seedCollections(db, users);
@@ -1075,12 +1552,23 @@ async function main() {
     await seedNutrition(db, allRecipes);
     console.log("");
 
+    const mealPlans = await seedMealPlans(db, users, allRecipes);
+    console.log("");
+
+    const shoppingLists = await seedShoppingLists(db, users, allRecipes);
+    console.log("");
+
+    await seedSharedResources(db, users, mealPlans, shoppingLists);
+    console.log("");
+
     console.log("✨ Database seeded successfully!");
     console.log("\n📊 Summary:");
     console.log(`   👥 ${users.length} users`);
     console.log(`   🍳 ${originalRecipes.length} original + ${socialMediaRecipes.length} social + ${importedRecipes.length} imported recipes`);
     console.log(`   🏷️  ${allTags.length} tags`);
     console.log(`   📚 ${collections.length} collections`);
+    console.log(`   🗓️  ${mealPlans.length} meal plans`);
+    console.log(`   🛒 ${shoppingLists.length} shopping lists`);
     console.log("\n🔑 All users have password: Password123!");
     console.log("\n📧 Sample login:");
     console.log("   Email: emma.rodriguez@example.com");

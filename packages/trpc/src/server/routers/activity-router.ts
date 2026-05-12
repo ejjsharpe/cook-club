@@ -43,22 +43,23 @@ export const activityRouter = router({
         const response = await feedDO.fetch(new Request(url.toString()));
         let result = (await response.json()) as GetFeedIdsResponse;
 
-        // Auto-hydrate feed if empty and no cursor (first page request)
-        if (result.activityIds.length === 0 && !cursor) {
-          await hydrateFeed(ctx.db, ctx.env, ctx.user.id);
-          // Re-fetch after hydration
-          const hydratedResponse = await feedDO.fetch(
-            new Request(url.toString()),
-          );
-          result = (await hydratedResponse.json()) as GetFeedIdsResponse;
-        }
-
         // Hydrate activity IDs into full FeedItems
-        const items = await hydrateActivityIds(
+        let items = await hydrateActivityIds(
           ctx.db,
           result.activityIds,
           ctx.user.id,
         );
+
+        // Auto-hydrate on first page when the DO is empty, or when it contains
+        // stale IDs from a local/dev database reset.
+        if (!cursor && (result.activityIds.length === 0 || items.length === 0)) {
+          await hydrateFeed(ctx.db, ctx.env, ctx.user.id);
+          const hydratedResponse = await feedDO.fetch(
+            new Request(url.toString()),
+          );
+          result = (await hydratedResponse.json()) as GetFeedIdsResponse;
+          items = await hydrateActivityIds(ctx.db, result.activityIds, ctx.user.id);
+        }
 
         return {
           items,

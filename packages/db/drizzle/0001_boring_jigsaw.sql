@@ -1,1 +1,0 @@
-ALTER TABLE "recipe_instructions" ADD COLUMN "image_url" text;

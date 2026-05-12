@@ -206,12 +206,23 @@ export const userRouter = router({
       const destinationKey = `avatars/${userId}.${ext}`;
 
       // Move from temp to permanent location
-      await ctx.env.IMAGE_WORKER.move([
-        {
-          from: input.imageKey,
-          to: destinationKey,
-        },
-      ]);
+      const moveResult = await ctx.env.IMAGE_SERVICE.move(
+        [
+          {
+            from: input.imageKey,
+            to: destinationKey,
+          },
+        ],
+        userId,
+      );
+
+      if (!moveResult.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            moveResult.results[0]?.error || "Failed to store avatar image",
+        });
+      }
 
       // Construct public URL
       const imageUrl = `${ctx.env.IMAGE_PUBLIC_URL}/${destinationKey}`;
