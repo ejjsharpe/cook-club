@@ -10,6 +10,21 @@ import type {
 } from "../schema";
 import { normalizeUnit } from "./unit-normalizer";
 
+function decodeHtmlEntities(value: string): string {
+  if (!value.includes("&")) return value;
+  return cheerio.load("<textarea></textarea>")("textarea").html(value).text();
+}
+
+function normalizeStructuredText(value: string): string {
+  return decodeHtmlEntities(value)
+    .replace(/\u00a0/g, " ")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u2026/g, "...")
+    .trim();
+}
+
 /**
  * Parse ISO 8601 duration string (e.g., "PT30M", "PT1H30M") to minutes
  * Returns null if the duration string is invalid or missing
@@ -198,11 +213,11 @@ function normalizeImages(
   return images
     .map((img) => {
       if (typeof img === "string") {
-        return resolveUrl(baseUrl, img);
+        return resolveUrl(baseUrl, normalizeStructuredText(img));
       }
       if (img && typeof img === "object") {
         const url = img.url || img.contentUrl || img["@id"];
-        return url ? resolveUrl(baseUrl, url) : "";
+        return url ? resolveUrl(baseUrl, normalizeStructuredText(url)) : "";
       }
       return "";
     })
@@ -218,7 +233,10 @@ function normalizeToArray<T>(x?: OneOrMany<T>): T[] {
 }
 
 function normalizeStrings(x?: OneOrMany<string>): string[] {
-  return normalizeToArray(x).filter((s) => typeof s === "string");
+  return normalizeToArray(x)
+    .filter((s) => typeof s === "string")
+    .map(normalizeStructuredText)
+    .filter((s) => s !== "");
 }
 
 function extractServingsFromYield(
@@ -244,6 +262,7 @@ function extractServingsFromYield(
 }
 
 function parseServingsFromString(yieldStr: string): number | null {
+  const normalizedYield = normalizeStructuredText(yieldStr);
   const patterns = [
     /(\d+)\s*servings?/i,
     /serves?\s*(\d+)/i,
@@ -256,7 +275,7 @@ function parseServingsFromString(yieldStr: string): number | null {
   ];
 
   for (const pattern of patterns) {
-    const match = yieldStr.match(pattern);
+    const match = normalizedYield.match(pattern);
     if (match) {
       const num = parseInt(match[1]!, 10);
       if (!isNaN(num) && num > 0) {
@@ -277,7 +296,7 @@ function parseIngredient(ingredientStr: string): {
   unit: string | null;
   name: string;
 } {
-  const str = ingredientStr.trim();
+  const str = normalizeStructuredText(ingredientStr);
 
   // Match patterns like "1 1/2 cups flour", "2 tbsp sugar", "3 large eggs"
   // Pattern: optional quantity (number, fraction, or mixed), optional unit, then the rest is the name
@@ -379,7 +398,7 @@ function extractInstructionSections(
   for (const item of items) {
     if (typeof item === "string") {
       // Plain string instruction - add to default section
-      const trimmed = item.trim();
+      const trimmed = normalizeStructuredText(item);
       if (trimmed) {
         defaultSectionItems.push({
           index: defaultIndex++,
@@ -391,14 +410,16 @@ function extractInstructionSections(
       if (item["@type"] === "HowToSection" && "itemListElement" in item) {
         // HowToSection contains nested steps - create a named section
         const section = item as HowToSection;
-        const sectionName = section.name?.trim() || null;
+        const sectionName = section.name
+          ? normalizeStructuredText(section.name)
+          : null;
         const sectionInstructions: Instruction[] = [];
         let sectionIndex = 0;
 
         const nestedSteps = normalizeToArray(section.itemListElement);
         for (const nested of nestedSteps) {
           if (typeof nested === "string") {
-            const trimmed = nested.trim();
+            const trimmed = normalizeStructuredText(nested);
             if (trimmed) {
               sectionInstructions.push({
                 index: sectionIndex++,
@@ -408,7 +429,7 @@ function extractInstructionSections(
             }
           } else if (nested && typeof nested === "object") {
             const step = nested as HowToStep;
-            const text = (step.text || step.name || "").trim();
+            const text = normalizeStructuredText(step.text || step.name || "");
             if (text) {
               sectionInstructions.push({
                 index: sectionIndex++,
@@ -428,7 +449,7 @@ function extractInstructionSections(
       } else {
         // HowToStep without section - add to default section
         const step = item as HowToStep;
-        const text = (step.text || step.name || "").trim();
+        const text = normalizeStructuredText(step.text || step.name || "");
         if (text) {
           defaultSectionItems.push({
             index: defaultIndex++,
@@ -495,7 +516,8 @@ function toParsedRecipe(
   const rawIngredients = normalizeToArray(raw.recipeIngredient);
   const ingredients: Ingredient[] = rawIngredients
     .filter(
-      (ing): ing is string => typeof ing === "string" && ing.trim() !== "",
+      (ing): ing is string =>
+        typeof ing === "string" && normalizeStructuredText(ing) !== "",
     )
     .map((ing, index) => {
       const parsed = parseIngredient(ing);
@@ -522,8 +544,10 @@ function toParsedRecipe(
     : [];
 
   return {
-    name: raw.name || "",
-    description: raw.description || null,
+    name: raw.name ? normalizeStructuredText(raw.name) : "",
+    description: raw.description
+      ? normalizeStructuredText(raw.description)
+      : null,
     prepTime: parseIsoDurationToMinutes(raw.prepTime),
     cookTime: parseIsoDurationToMinutes(raw.cookTime),
     totalTime: parseIsoDurationToMinutes(raw.totalTime),
