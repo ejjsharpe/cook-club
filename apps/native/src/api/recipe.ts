@@ -72,7 +72,12 @@ export const useGetUserRecipes = ({
     { getNextPageParam: (lastPage) => lastPage?.nextCursor },
   );
 
-  return useInfiniteQuery(infiniteQueryOptions);
+  return useInfiniteQuery({
+    ...infiniteQueryOptions,
+    staleTime: 1000 * 60 * 5,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
 };
 
 // Get recipe detail
@@ -147,7 +152,12 @@ export const useGetUserRecipesById = ({
       { getNextPageParam: (lastPage) => lastPage?.nextCursor },
     );
 
-  return useInfiniteQuery(infiniteQueryOptions);
+  return useInfiniteQuery({
+    ...infiniteQueryOptions,
+    staleTime: 1000 * 60 * 5,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
 };
 
 // Import a recipe from another user

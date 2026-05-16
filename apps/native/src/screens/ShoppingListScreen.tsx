@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMemo, useCallback, useState, useEffect, memo, useRef } from "react";
@@ -9,9 +9,8 @@ import {
   TextInput,
   Alert,
   FlatList,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   type ListRenderItemInfo,
+  type GestureResponderEvent,
 } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import {
@@ -27,6 +26,7 @@ import Animated, {
   interpolateColor,
   Extrapolation,
   LinearTransition,
+  useAnimatedScrollHandler,
   type SharedValue,
 } from "react-native-reanimated";
 import {
@@ -71,6 +71,7 @@ import {
   type ShoppingListItem,
 } from "@/hooks/useShoppingListData";
 import { useSelectedShoppingList } from "@/lib/shoppingListPreferences";
+import { getImageUrl } from "@/utils/imageUrl";
 
 interface Recipe {
   id: number;
@@ -80,6 +81,9 @@ interface Recipe {
 
 const INPUT_SECTION_HEIGHT = 68;
 const HEADER_HEIGHT = 52; // Height of the title row
+const ReanimatedFlatList = Animated.createAnimatedComponent(
+  FlatList<ShoppingListFlashItem>,
+);
 
 interface SwipeableItemProps {
   item: ShoppingListFlashItem & { type: "item" };
@@ -255,11 +259,85 @@ const SwipeableItem = memo(
 
 SwipeableItem.displayName = "SwipeableItem";
 
+const ShoppingRecipeCard = memo(
+  ({
+    recipe,
+    onRecipePress,
+    onRemoveRecipe,
+  }: {
+    recipe: Recipe;
+    onRecipePress: (recipeId: number) => void;
+    onRemoveRecipe: (recipeId: number, recipeName: string) => void;
+  }) => {
+    const handlePress = useCallback(() => {
+      onRecipePress(recipe.id);
+    }, [onRecipePress, recipe.id]);
+
+    const handleRemovePress = useCallback(
+      (event: GestureResponderEvent) => {
+        event.stopPropagation();
+        onRemoveRecipe(recipe.id, recipe.name);
+      },
+      [onRemoveRecipe, recipe.id, recipe.name],
+    );
+
+    return (
+      <TouchableOpacity
+        style={styles.recipeCard}
+        onPress={handlePress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.recipeCardImageContainer}>
+          {recipe.imageUrl ? (
+            <Image
+              source={{ uri: getImageUrl(recipe.imageUrl, "recipe-thumb") }}
+              style={styles.recipeCardImage}
+              contentFit="cover"
+            />
+          ) : (
+            <View
+              style={[
+                styles.recipeCardImage,
+                styles.recipeCardImagePlaceholder,
+              ]}
+            >
+              <Ionicons
+                name="restaurant-outline"
+                size={32}
+                style={styles.placeholderIcon}
+              />
+            </View>
+          )}
+          <TouchableOpacity
+            style={styles.recipeCardRemove}
+            onPress={handleRemovePress}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View style={styles.removeButtonBackground}>
+              <Ionicons
+                name="close"
+                size={14}
+                style={styles.removeButtonIcon}
+              />
+            </View>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.recipeCardText} numberOfLines={2}>
+          {recipe.name}
+        </Text>
+      </TouchableOpacity>
+    );
+  },
+);
+
+ShoppingRecipeCard.displayName = "ShoppingRecipeCard";
+
 const TAB_BAR_HEIGHT = 76; // Approximate native tab bar height
 const LIST_BOTTOM_CLEARANCE = 180;
 
 export const ShoppingListScreen = () => {
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const insets = UnistylesRuntime.insets;
   const addRecipeSheetRef = useRef<AddRecipeToShoppingListSheetRef>(null);
   const shareSheetRef = useRef<ShoppingListShareSheetRef>(null);
@@ -323,24 +401,19 @@ export const ShoppingListScreen = () => {
     opacity: clearButtonOpacity.value,
   }));
 
-  // Scroll handler with header fade
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const y = event.nativeEvent.contentOffset.y;
+  // Scroll handler with header fade, kept on the UI thread.
+  const handleScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const y = event.contentOffset.y;
 
-      // Fade out when scrolling past the header
-      const titleShouldHide = y > 5;
-      titleOpacity.value = withTiming(titleShouldHide ? 0 : 1, {
+      titleOpacity.value = withTiming(y > 5 ? 0 : 1, {
         duration: 150,
       });
-
-      const clearShouldHide = y > 10;
-      clearButtonOpacity.value = withTiming(clearShouldHide ? 0 : 1, {
+      clearButtonOpacity.value = withTiming(y > 10 ? 0 : 1, {
         duration: 150,
       });
     },
-    [titleOpacity, clearButtonOpacity],
-  );
+  });
 
   // Compute active list from stored selection or fall back to default
   const activeList = useMemo(() => {
@@ -394,7 +467,7 @@ export const ShoppingListScreen = () => {
     [removeMutation],
   );
 
-  const handleClearChecked = () => {
+  const handleClearChecked = useCallback(() => {
     if (checkedCount === 0) return;
 
     Alert.alert(
@@ -411,26 +484,29 @@ export const ShoppingListScreen = () => {
         },
       ],
     );
-  };
+  }, [checkedCount, clearMutation]);
 
-  const handleRemoveRecipe = (recipeId: number, recipeName: string) => {
-    Alert.alert(
-      "Remove Recipe",
-      `Remove all ingredients from "${recipeName}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => {
-            removeRecipeMutation.mutate({ recipeId });
+  const handleRemoveRecipe = useCallback(
+    (recipeId: number, recipeName: string) => {
+      Alert.alert(
+        "Remove Recipe",
+        `Remove all ingredients from "${recipeName}"?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: () => {
+              removeRecipeMutation.mutate({ recipeId });
+            },
           },
-        },
-      ],
-    );
-  };
+        ],
+      );
+    },
+    [removeRecipeMutation],
+  );
 
-  const handleAddManualItem = () => {
+  const handleAddManualItem = useCallback(() => {
     if (!manualItemText.trim()) return;
 
     addManualMutation.mutate(
@@ -441,15 +517,18 @@ export const ShoppingListScreen = () => {
         },
       },
     );
-  };
+  }, [addManualMutation, manualItemText]);
 
-  const handleRecipePress = (recipeId: number) => {
-    navigation.navigate("RecipeDetail", { recipeId });
-  };
+  const handleRecipePress = useCallback(
+    (recipeId: number) => {
+      navigation.navigate("RecipeDetail", { recipeId });
+    },
+    [navigation],
+  );
 
-  const handleAddRecipePress = () => {
+  const handleAddRecipePress = useCallback(() => {
     addRecipeSheetRef.current?.present();
-  };
+  }, []);
 
   // Pending list ID for newly created lists that aren't in the query cache yet
   const [pendingListId, setPendingListId] = useState<number | null>(null);
@@ -481,6 +560,21 @@ export const ShoppingListScreen = () => {
     listPickerSheetRef.current?.present();
   }, []);
 
+  const scrollToTop = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  useEffect(() => {
+    // @ts-expect-error navigation type
+    const unsubscribe = navigation.addListener("tabPress", () => {
+      if (isFocused) {
+        scrollToTop();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isFocused, scrollToTop]);
+
   const handleSharePress = useCallback(() => {
     if (activeList?.isDefault && activeList?.isOwner) {
       Alert.alert(
@@ -499,60 +593,20 @@ export const ShoppingListScreen = () => {
     shareSheetRef.current?.present();
   }, [activeList]);
 
-  const renderRecipeCard = ({ item }: { item: Recipe }) => (
-    <TouchableOpacity
-      style={styles.recipeCard}
-      onPress={() => handleRecipePress(item.id)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.recipeCardImageContainer}>
-        {item.imageUrl ? (
-          <Image
-            source={{ uri: item.imageUrl }}
-            style={styles.recipeCardImage}
-            contentFit="cover"
-          />
-        ) : (
-          <View
-            style={[styles.recipeCardImage, styles.recipeCardImagePlaceholder]}
-          >
-            <Ionicons
-              name="restaurant-outline"
-              size={32}
-              style={styles.placeholderIcon}
-            />
-          </View>
-        )}
-        <TouchableOpacity
-          style={styles.recipeCardRemove}
-          onPress={(e) => {
-            e.stopPropagation();
-            handleRemoveRecipe(item.id, item.name);
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <View style={styles.removeButtonBackground}>
-            <Ionicons name="close" size={14} style={styles.removeButtonIcon} />
-          </View>
-        </TouchableOpacity>
-      </View>
-      <Text style={styles.recipeCardText} numberOfLines={2}>
-        {item.name}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const renderAddRecipeCard = () => (
-    <TouchableOpacity
-      style={styles.addRecipeCard}
-      onPress={handleAddRecipePress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.addRecipeImagePlaceholder}>
-        <Ionicons name="add" size={36} style={styles.addRecipeIcon} />
-      </View>
-      <Text style={styles.addRecipeText}>Add Recipe</Text>
-    </TouchableOpacity>
+  const renderAddRecipeCard = useCallback(
+    () => (
+      <TouchableOpacity
+        style={styles.addRecipeCard}
+        onPress={handleAddRecipePress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.addRecipeImagePlaceholder}>
+          <Ionicons name="add" size={36} style={styles.addRecipeIcon} />
+        </View>
+        <Text style={styles.addRecipeText}>Add Recipe</Text>
+      </TouchableOpacity>
+    ),
+    [handleAddRecipePress],
   );
 
   // FlatList render item - switch on type
@@ -638,7 +692,12 @@ export const ShoppingListScreen = () => {
           contentContainerStyle={styles.recipeCardsContainer}
         >
           {recipes.map((recipe: Recipe) => (
-            <View key={recipe.id}>{renderRecipeCard({ item: recipe })}</View>
+            <ShoppingRecipeCard
+              key={recipe.id}
+              recipe={recipe}
+              onRecipePress={handleRecipePress}
+              onRemoveRecipe={handleRemoveRecipe}
+            />
           ))}
           {renderAddRecipeCard()}
         </ScrollView>
@@ -651,6 +710,9 @@ export const ShoppingListScreen = () => {
       pendingInvitations,
       acceptInvitation,
       declineInvitation,
+      handleRecipePress,
+      handleRemoveRecipe,
+      renderAddRecipeCard,
     ],
   );
 
@@ -673,7 +735,7 @@ export const ShoppingListScreen = () => {
           />
         }
       >
-        <FlatList
+        <ReanimatedFlatList
           ref={listRef}
           data={flattenedData}
           renderItem={renderItem}

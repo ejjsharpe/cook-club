@@ -6,6 +6,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { Text } from "./Text";
 
 import { Ionicons } from "@/components/Ionicons";
+import { getImageUrl } from "@/utils/imageUrl";
 
 const GRID_GAP = 20;
 
@@ -64,7 +65,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
     return (
       <View style={containerStyle} onLayout={handleLayout}>
         <Image
-          source={{ uri: images[0] }}
+          source={{ uri: getImageUrl(images[0], "recipe-thumb") }}
           style={gridStyles.fullImage}
           contentFit="cover"
           cachePolicy="memory-disk"
@@ -79,7 +80,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
         <View style={gridStyles.row}>
           <View style={gridStyles.imageWrapper}>
             <Image
-              source={{ uri: images[0] }}
+              source={{ uri: getImageUrl(images[0], "recipe-thumb") }}
               style={gridStyles.image}
               contentFit="cover"
               cachePolicy="memory-disk"
@@ -87,7 +88,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
           </View>
           <View style={gridStyles.imageWrapper}>
             <Image
-              source={{ uri: images[1] }}
+              source={{ uri: getImageUrl(images[1], "recipe-thumb") }}
               style={gridStyles.image}
               contentFit="cover"
               cachePolicy="memory-disk"
@@ -104,7 +105,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
         <View style={gridStyles.threeImageLayout}>
           <View style={gridStyles.largeImageWrapper}>
             <Image
-              source={{ uri: images[0] }}
+              source={{ uri: getImageUrl(images[0], "recipe-thumb") }}
               style={gridStyles.image}
               contentFit="cover"
               cachePolicy="memory-disk"
@@ -113,7 +114,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
           <View style={gridStyles.smallImagesColumn}>
             <View style={gridStyles.imageWrapper}>
               <Image
-                source={{ uri: images[1] }}
+                source={{ uri: getImageUrl(images[1], "recipe-thumb") }}
                 style={gridStyles.image}
                 contentFit="cover"
                 cachePolicy="memory-disk"
@@ -121,7 +122,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
             </View>
             <View style={gridStyles.imageWrapper}>
               <Image
-                source={{ uri: images[2] }}
+                source={{ uri: getImageUrl(images[2], "recipe-thumb") }}
                 style={gridStyles.image}
                 contentFit="cover"
                 cachePolicy="memory-disk"
@@ -138,7 +139,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
       <View style={gridStyles.row}>
         <View style={gridStyles.imageWrapper}>
           <Image
-            source={{ uri: images[0] }}
+            source={{ uri: getImageUrl(images[0], "recipe-thumb") }}
             style={gridStyles.image}
             contentFit="cover"
             cachePolicy="memory-disk"
@@ -146,7 +147,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
         </View>
         <View style={gridStyles.imageWrapper}>
           <Image
-            source={{ uri: images[1] }}
+            source={{ uri: getImageUrl(images[1], "recipe-thumb") }}
             style={gridStyles.image}
             contentFit="cover"
             cachePolicy="memory-disk"
@@ -156,7 +157,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
       <View style={gridStyles.row}>
         <View style={gridStyles.imageWrapper}>
           <Image
-            source={{ uri: images[2] }}
+            source={{ uri: getImageUrl(images[2], "recipe-thumb") }}
             style={gridStyles.image}
             contentFit="cover"
             cachePolicy="memory-disk"
@@ -164,7 +165,7 @@ const ImageGrid = ({ images, width }: { images: string[]; width?: number }) => {
         </View>
         <View style={gridStyles.imageWrapper}>
           <Image
-            source={{ uri: images[3] }}
+            source={{ uri: getImageUrl(images[3], "recipe-thumb") }}
             style={gridStyles.image}
             contentFit="cover"
             cachePolicy="memory-disk"

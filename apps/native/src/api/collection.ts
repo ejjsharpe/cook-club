@@ -21,9 +21,12 @@ export const useGetUserCollections = ({
 }: UseGetUserCollectionsParams = {}) => {
   const trpc = useTRPC();
 
-  return useQuery(
-    trpc.collection.getUserCollections.queryOptions({ recipeId }),
-  );
+  return useQuery({
+    ...trpc.collection.getUserCollections.queryOptions({ recipeId }),
+    staleTime: 1000 * 60 * 5,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
 };
 
 // Create a new collection
@@ -55,12 +58,15 @@ export const useGetUserCollectionsWithMetadata = ({
 }: UseGetUserCollectionsWithMetadataParams = {}) => {
   const trpc = useTRPC();
 
-  return useQuery(
-    trpc.collection.getUserCollections.queryOptions({
+  return useQuery({
+    ...trpc.collection.getUserCollections.queryOptions({
       includeMetadata: true,
       search: search.trim() || undefined,
     }),
-  );
+    staleTime: 1000 * 60 * 5,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
 };
 
 // Get collection detail with recipes

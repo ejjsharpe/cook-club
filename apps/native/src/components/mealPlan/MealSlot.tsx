@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { useCallback } from "react";
+import { memo, useCallback } from "react";
 import { Pressable, View } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
@@ -16,6 +16,7 @@ import { useAnimatedTheme } from "react-native-unistyles/reanimated";
 
 import { Ionicons } from "@/components/Ionicons";
 import { Text } from "@/components/Text";
+import { getImageUrl } from "@/utils/imageUrl";
 
 interface MealSlotProps {
   mealType: "breakfast" | "lunch" | "dinner";
@@ -126,9 +127,12 @@ const SlotContent = ({
             {entry ? (
               entry.recipeImageUrl ? (
                 <Image
-                  source={{ uri: entry.recipeImageUrl }}
+                  source={{
+                    uri: getImageUrl(entry.recipeImageUrl, "avatar-sm"),
+                  }}
                   style={styles.recipeImage}
                   contentFit="cover"
+                  cachePolicy="memory-disk"
                 />
               ) : (
                 <View style={styles.iconContainer}>
@@ -184,13 +188,13 @@ const SlotContent = ({
   );
 };
 
-export const MealSlot = ({
+export const MealSlot = memo(function MealSlot({
   mealType,
   entry,
   onPress,
   onDelete,
   disabled = false,
-}: MealSlotProps) => {
+}: MealSlotProps) {
   const swipeProgress = useSharedValue(0);
 
   const renderRightActions = useCallback(
@@ -232,7 +236,7 @@ export const MealSlot = ({
       />
     </Swipeable>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
   slot: {

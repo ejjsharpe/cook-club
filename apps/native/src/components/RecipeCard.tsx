@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { memo } from "react";
 import { Pressable, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -38,7 +39,7 @@ interface Props {
   onPress?: () => void;
 }
 
-export const RecipeCard = ({ recipe, onPress }: Props) => {
+export const RecipeCard = memo(function RecipeCard({ recipe, onPress }: Props) {
   return (
     <Pressable style={styles.card} onPress={onPress}>
       {({ pressed }) => (
@@ -104,7 +105,7 @@ export const RecipeCard = ({ recipe, onPress }: Props) => {
       )}
     </Pressable>
   );
-};
+});
 
 const styles = StyleSheet.create((theme) => ({
   card: {

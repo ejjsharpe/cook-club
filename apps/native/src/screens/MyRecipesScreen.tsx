@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { useIsFocused, useNavigation } from "@react-navigation/native";
 import { useCallback, useMemo, useRef, useState, useEffect, memo } from "react";
 import {
   View,
@@ -312,7 +312,9 @@ const AnimatedCollectionOverlay = memo(function AnimatedCollectionOverlay({
 
 export const MyRecipesScreen = () => {
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const insets = UnistylesRuntime.insets;
+  const browseScrollRef = useRef<ScrollView>(null);
 
   // ─── State ────────────────────────────────────────────────────────────────────
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -762,6 +764,26 @@ export const MyRecipesScreen = () => {
     collections,
   ]);
 
+  const scrollToTop = useCallback(() => {
+    if (isSearchActive) {
+      setIsSearchActive(false);
+      setSearchQuery("");
+    }
+
+    browseScrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, [isSearchActive]);
+
+  useEffect(() => {
+    // @ts-expect-error navigation type
+    const unsubscribe = navigation.addListener("tabPress", () => {
+      if (isFocused) {
+        scrollToTop();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, isFocused, scrollToTop]);
+
   // Collection cards in browse mode stay hidden only when overlay is actually visible
   const collectionCardsStyle = useAnimatedStyle(() => {
     "worklet";
@@ -980,6 +1002,7 @@ export const MyRecipesScreen = () => {
         pointerEvents={isSearchActive ? "none" : "auto"}
       >
         <AnimatedScrollView
+          ref={browseScrollRef}
           contentContainerStyle={styles.browseContent}
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}

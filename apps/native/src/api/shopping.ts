@@ -19,17 +19,25 @@ export type PendingShoppingListInvitation =
 // Get user's shopping list (optionally by ID)
 export const useGetShoppingList = (params?: { shoppingListId?: number }) => {
   const trpc = useTRPC();
-  return useQuery(
-    trpc.shopping.getShoppingList.queryOptions(
+  return useQuery({
+    ...trpc.shopping.getShoppingList.queryOptions(
       params?.shoppingListId ? { shoppingListId: params.shoppingListId } : {},
     ),
-  );
+    staleTime: 1000 * 60 * 2,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
 };
 
 // Get all user's shopping lists
 export const useGetUserShoppingLists = () => {
   const trpc = useTRPC();
-  return useQuery(trpc.shopping.getUserShoppingLists.queryOptions());
+  return useQuery({
+    ...trpc.shopping.getUserShoppingLists.queryOptions(),
+    staleTime: 1000 * 60 * 5,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
 };
 
 // Create a new shopping list
