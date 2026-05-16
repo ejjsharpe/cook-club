@@ -8,6 +8,12 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import Animated, {
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
@@ -28,16 +34,23 @@ import {
 } from "@/api/shopping";
 import { NavigationHeader } from "@/components/NavigationHeader";
 import { NotificationCard } from "@/components/NotificationCard";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import { setSelectedMealPlan } from "@/lib/mealPlanPreferences";
+
+const NAVIGATION_HEADER_HEIGHT = 60;
+
+const ReanimatedFlatList = Animated.createAnimatedComponent(
+  FlatList<NotificationItem>,
+);
 
 export const NotificationsScreen = () => {
   const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const headerOpacity = useSharedValue(1);
+  const headerHidden = useSharedValue(false);
 
   const {
     data,
@@ -341,39 +354,63 @@ export const NotificationsScreen = () => {
     );
   }, [isFetchingNextPage]);
 
+  const handleScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const nextHeaderHidden = event.contentOffset.y > 5;
+      if (headerHidden.value !== nextHeaderHidden) {
+        headerHidden.value = nextHeaderHidden;
+        headerOpacity.value = withTiming(nextHeaderHidden ? 0 : 1, {
+          duration: 150,
+        });
+      }
+    },
+  });
+
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+  }));
+
   return (
     <View style={styles.screen}>
-      <SafeAreaView edges={["top", "left", "right"]} style={styles.container}>
+      <ReanimatedFlatList
+        data={notifications}
+        renderItem={renderNotification}
+        keyExtractor={keyExtractor}
+        ListEmptyComponent={renderEmpty}
+        ListFooterComponent={renderFooter}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.listContent,
+          {
+            paddingTop: insets.top + NAVIGATION_HEADER_HEIGHT,
+            paddingBottom: insets.bottom,
+          },
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
+        }
+      />
+      <Animated.View style={[styles.fixedHeader, headerAnimatedStyle]}>
         <NavigationHeader title="Notifications" />
-        <FlatList
-          data={notifications}
-          renderItem={renderNotification}
-          keyExtractor={keyExtractor}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: insets.bottom },
-          ]}
-          refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
-          }
-        />
-      </SafeAreaView>
+      </Animated.View>
     </View>
   );
 };
 
-const styles = StyleSheet.create((theme) => ({
+const styles = StyleSheet.create((theme, rt) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  container: {
-    flex: 1,
+  fixedHeader: {
+    position: "absolute",
+    top: rt.insets.top,
+    left: rt.insets.left,
+    right: rt.insets.right,
   },
   listContent: {
     flexGrow: 1,
