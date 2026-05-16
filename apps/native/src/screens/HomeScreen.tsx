@@ -170,6 +170,7 @@ const BACK_BUTTON_WIDTH = 44;
 const HEADER_GAP = 6;
 const HEADER_HEIGHT = 52; // Height of the cook club title + avatar row
 const SCROLLED_DOWN_LIMIT = 200;
+const TAB_BAR_LIST_CLEARANCE = 112;
 
 const ActivitySeparator = () => <VSpace size={16} />;
 const ReanimatedFlashList = Animated.createAnimatedComponent(
@@ -203,6 +204,7 @@ export const HomeScreen = () => {
   useScrollToTop(browseScrollRef);
   const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
+  const listBottomPadding = TAB_BAR_LIST_CLEARANCE;
   const trpc = useTRPC();
   const parseRecipeFromUrl = useMutation(
     trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
@@ -683,7 +685,10 @@ export const HomeScreen = () => {
                 data={[]}
                 renderItem={() => null}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.feedContent}
+                contentContainerStyle={[
+                  styles.feedContent,
+                  { paddingBottom: listBottomPadding },
+                ]}
               />
             }
           >
@@ -701,7 +706,10 @@ export const HomeScreen = () => {
               onEndReached={handleActivityLoadMore}
               onEndReachedThreshold={0.5}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.feedContent}
+              contentContainerStyle={[
+                styles.feedContent,
+                { paddingBottom: listBottomPadding },
+              ]}
               drawDistance={1200}
               onScroll={handleScroll}
               scrollEventThrottle={16}
@@ -774,7 +782,10 @@ export const HomeScreen = () => {
             />
           }
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.searchResultsContent}
+          contentContainerStyle={[
+            styles.searchResultsContent,
+            { paddingBottom: listBottomPadding },
+          ]}
         />
       </Animated.View>
 

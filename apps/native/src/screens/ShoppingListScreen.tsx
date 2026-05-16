@@ -256,6 +256,7 @@ const SwipeableItem = memo(
 SwipeableItem.displayName = "SwipeableItem";
 
 const TAB_BAR_HEIGHT = 76; // Approximate native tab bar height
+const LIST_BOTTOM_CLEARANCE = 180;
 
 export const ShoppingListScreen = () => {
   const navigation = useNavigation();
@@ -665,7 +666,10 @@ export const ShoppingListScreen = () => {
             ListHeaderComponent={listHeaderComponent}
             ListEmptyComponent={ShoppingListSkeleton}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: LIST_BOTTOM_CLEARANCE },
+            ]}
           />
         }
       >
@@ -677,11 +681,13 @@ export const ShoppingListScreen = () => {
           ListHeaderComponent={listHeaderComponent}
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            ...styles.listContent,
-            paddingBottom: INPUT_SECTION_HEIGHT + insets.bottom,
-            ...(flattenedData.length === 0 && { flexGrow: 1 }),
-          }}
+          contentContainerStyle={[
+            styles.listContent,
+            {
+              paddingBottom: LIST_BOTTOM_CLEARANCE,
+              ...(flattenedData.length === 0 && { flexGrow: 1 }),
+            },
+          ]}
           onScroll={handleScroll}
           scrollEventThrottle={16}
           windowSize={5}
