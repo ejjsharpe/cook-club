@@ -53,9 +53,6 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.inputBackground,
     fontFamily: theme.fonts.regular,
     fontSize: 17,
-    lineHeight: 22,
-    includeFontPadding: false,
-    textAlignVertical: "center",
     color: theme.colors.text,
   },
   inputWithRight: {
