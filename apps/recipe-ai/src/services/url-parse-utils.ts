@@ -208,6 +208,7 @@ export async function tryAiRecipeCandidate(
   source: RecipeQualitySource,
   parseMethod: UrlParseMethod,
   logPrefix: string,
+  options: Pick<CandidateOptions, "cache"> = {},
 ): Promise<AiRecipeAttempt> {
   if (!content || content.trim().length < 50) {
     return { result: null, error: null };
@@ -224,6 +225,7 @@ export async function tryAiRecipeCandidate(
     return {
       result: await acceptedCandidate(env, url, recipe, source, {
         parseMethod,
+        cache: options.cache,
       }),
       error: null,
     };
@@ -241,12 +243,13 @@ export async function trySocialCaptionRecipe(
   url: string,
   content: string | null,
   images: string[],
+  options: Pick<CandidateOptions, "cache"> = {},
 ): Promise<ParseResult | null> {
   return acceptedCandidate(
     env,
     url,
     extractSocialCaptionRecipe(content, url, images),
     "social_ai",
-    { parseMethod: "caption_rules" },
+    { parseMethod: "caption_rules", cache: options.cache },
   );
 }

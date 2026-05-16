@@ -675,6 +675,70 @@ describe("RecipeAI.parse()", () => {
       }
     });
 
+    it("uses plain metadata fetch before browser rendering for generic social links", async () => {
+      const youtubeHtml = `
+        <html>
+          <head>
+            <meta property="og:title" content="Tomato pasta short">
+            <meta property="og:description" content="Recipe: 200 g spaghetti, 1 cup tomato sauce. Boil pasta and toss with sauce.">
+            <meta property="og:image" content="https://example.com/youtube.jpg">
+          </head>
+          <body></body>
+        </html>
+      `;
+
+      (mockEnv as any).BROWSER = { id: "browser-binding" };
+      mockEnv.AI.run = vi.fn().mockResolvedValue({
+        response: JSON.stringify({
+          name: "Tomato Pasta",
+          description: null,
+          prepTime: null,
+          cookTime: 15,
+          totalTime: null,
+          servings: 2,
+          ingredientSections: [
+            {
+              name: null,
+              ingredients: [
+                { index: 0, quantity: 200, unit: "g", name: "spaghetti" },
+                { index: 1, quantity: 1, unit: "cup", name: "tomato sauce" },
+              ],
+            },
+          ],
+          instructionSections: [
+            {
+              name: null,
+              instructions: [
+                { index: 0, instruction: "Boil the pasta." },
+                { index: 1, instruction: "Toss with tomato sauce." },
+              ],
+            },
+          ],
+        }),
+      });
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/html" }),
+        arrayBuffer: () =>
+          Promise.resolve(new TextEncoder().encode(youtubeHtml).buffer),
+        text: () => Promise.resolve(youtubeHtml),
+      });
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://www.youtube.com/watch?v=abc123",
+      });
+
+      expect(result.success).toBe(true);
+      expect(global.fetch).toHaveBeenCalled();
+      if (result.success) {
+        expect(result.data.name).toBe("Tomato Pasta");
+        expect(result.metadata.parseMethod).toBe("ai_only");
+      }
+    });
+
     it("reuploads YouTube social images with the youtube destination prefix", async () => {
       const youtubeHtml = `
         <html>
@@ -751,6 +815,58 @@ describe("RecipeAI.parse()", () => {
           ),
         ]);
       }
+    });
+
+    it("does not reupload social images when no recipe candidate is accepted", async () => {
+      const youtubeHtml = `
+        <html>
+          <head>
+            <meta property="og:title" content="A tomato tasting short">
+            <meta property="og:description" content="A behind the scenes kitchen video with plating notes, restaurant chatter, and no usable ingredient list or cooking method.">
+            <meta property="og:image" content="https://example.com/youtube.jpg">
+          </head>
+          <body></body>
+        </html>
+      `;
+      const uploadFromUrl = vi.fn(
+        async (_sourceUrl: string, destinationKey: string) => ({
+          success: true,
+          publicUrl: `https://images.example.com/${destinationKey}`,
+          key: destinationKey,
+        }),
+      );
+
+      (mockEnv as any).IMAGE_SERVICE = { uploadFromUrl };
+      mockEnv.AI.run = vi.fn().mockResolvedValue({
+        response: JSON.stringify({
+          name: "Tomato Tasting",
+          description: null,
+          prepTime: null,
+          cookTime: null,
+          totalTime: null,
+          servings: null,
+          ingredientSections: [{ name: null, ingredients: [] }],
+          instructionSections: [{ name: null, instructions: [] }],
+          suggestedTags: [],
+        }),
+      });
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/html" }),
+        arrayBuffer: () =>
+          Promise.resolve(new TextEncoder().encode(youtubeHtml).buffer),
+        text: () => Promise.resolve(youtubeHtml),
+      });
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://www.youtube.com/watch?v=abc123",
+      });
+
+      expect(result.success).toBe(false);
+      expect(uploadFromUrl).not.toHaveBeenCalled();
     });
 
     it("rejects social links during structured-only basic import without fetching", async () => {

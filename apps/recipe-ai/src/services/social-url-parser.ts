@@ -77,6 +77,37 @@ function socialPrefix(platform: SocialPlatform): string {
   return `social/${platform}`;
 }
 
+async function finalizeSocialResult(
+  env: Env,
+  url: string,
+  platform: SocialPlatform,
+  result: ParseResult,
+  images: string[],
+): Promise<ParseResult> {
+  if (!result.success) return result;
+
+  const permanentImages = await reuploadImagesToR2(
+    env,
+    images,
+    socialPrefix(platform),
+  );
+  const finalResult = await acceptedCandidate(
+    env,
+    url,
+    { ...result.data, images: permanentImages },
+    "social_ai",
+    { parseMethod: result.metadata.parseMethod },
+  );
+
+  if (finalResult) return finalResult;
+
+  return (
+    (await acceptedCandidate(env, url, result.data, "social_ai", {
+      parseMethod: result.metadata.parseMethod,
+    })) ?? result
+  );
+}
+
 async function parseSocialTextRecipe(
   env: Env,
   options: {
@@ -98,30 +129,42 @@ async function parseSocialTextRecipe(
     };
   }
 
-  const permanentImages = await reuploadImagesToR2(
-    env,
-    options.images,
-    socialPrefix(options.platform),
-  );
-
   const aiAttempt = await tryAiRecipeCandidate(
     env,
     options.url,
     options.content,
-    permanentImages,
+    options.images,
     "social_ai",
     "ai_only",
     `[${options.platform}]`,
+    { cache: false },
   );
-  if (aiAttempt.result) return aiAttempt.result;
+  if (aiAttempt.result) {
+    return finalizeSocialResult(
+      env,
+      options.url,
+      options.platform,
+      aiAttempt.result,
+      options.images,
+    );
+  }
 
   const fallbackResult = await trySocialCaptionRecipe(
     env,
     options.url,
     options.content,
-    permanentImages,
+    options.images,
+    { cache: false },
   );
-  if (fallbackResult) return fallbackResult;
+  if (fallbackResult) {
+    return finalizeSocialResult(
+      env,
+      options.url,
+      options.platform,
+      fallbackResult,
+      options.images,
+    );
+  }
 
   return {
     success: false,
@@ -265,50 +308,80 @@ function extractGenericSocialText(
   return parts.join("\n\n");
 }
 
-async function parseGenericSocialUrl(
+function parseGenericSocialHtml(
   env: Env,
   url: string,
   platform: SocialPlatform,
+  html: string,
 ): Promise<ParseResult> {
-  let html: string;
-  try {
-    html = env.BROWSER
-      ? await fetchHtmlWithBrowser(env.BROWSER, url)
-      : await fetchHtml(url, 1);
-  } catch (error) {
-    return {
-      success: false,
-      error: {
-        code: "FETCH_FAILED",
-        message:
-          error instanceof Error
-            ? error.message
-            : `Failed to fetch ${platform} content`,
-      },
-    };
-  }
-
-  const contentForAi = extractGenericSocialText(html, platform);
-  if (contentForAi.length < 50) {
-    return {
-      success: false,
-      error: {
-        code: "NO_CONTENT",
-        message:
-          "Could not extract recipe content from this social media link.",
-      },
-    };
-  }
-
   return parseSocialTextRecipe(env, {
     url,
     platform,
-    content: contentForAi,
+    content: extractGenericSocialText(html, platform),
     images: extractImageUrls(html, url),
     noContentMessage:
       "Could not extract recipe content from this social media link.",
     aiErrorCode: "AI_PARSE_FAILED",
   });
+}
+
+async function parseGenericSocialUrl(
+  env: Env,
+  url: string,
+  platform: SocialPlatform,
+): Promise<ParseResult> {
+  let plainResult: ParseResult | null = null;
+  let fetchError: unknown = null;
+
+  try {
+    plainResult = await parseGenericSocialHtml(
+      env,
+      url,
+      platform,
+      await fetchHtml(url, 1),
+    );
+    if (plainResult.success) return plainResult;
+  } catch (error) {
+    fetchError = error;
+  }
+
+  if (env.BROWSER) {
+    try {
+      const browserResult = await parseGenericSocialHtml(
+        env,
+        url,
+        platform,
+        await fetchHtmlWithBrowser(env.BROWSER, url),
+      );
+      if (browserResult.success || !plainResult) return browserResult;
+    } catch (browserError) {
+      if (!plainResult) {
+        return {
+          success: false,
+          error: {
+            code: "FETCH_FAILED",
+            message:
+              browserError instanceof Error
+                ? browserError.message
+                : `Failed to fetch ${platform} content`,
+          },
+        };
+      }
+    }
+  }
+
+  if (plainResult) return plainResult;
+
+  return {
+    success: false,
+    error: {
+      code: "FETCH_FAILED",
+      message:
+        fetchError instanceof Error
+          ? fetchError.message
+          : `Failed to fetch ${platform} content`,
+    },
+  };
 }
 
 function mergeUniqueStrings(...groups: string[][]): string[] {
@@ -358,7 +431,6 @@ async function tryTikTokBrowserMedia(
     return null;
   }
 }
-
 function mergeTikTokContent(
   current: TikTokContent,
   next: TikTokContent,
@@ -428,29 +500,25 @@ async function parseTikTokUrl(env: Env, url: string): Promise<ParseResult> {
       };
     }
 
-    console.log(
-      `[TikTok] Re-uploading ${result.images.length} image(s) to R2...`,
-    );
-    const permanentImages = await reuploadImagesToR2(
-      env,
-      result.images,
-      "social/tiktok",
-    );
-
-    const permanentFallbackRecipe = fallbackRecipe
-      ? { ...fallbackRecipe, images: permanentImages }
-      : null;
-
     const captionAiAttempt = await tryAiRecipeCandidate(
       env,
       url,
       result.caption,
-      permanentImages,
+      result.images,
       "social_ai",
       "ai_only",
       "[TikTok]",
+      { cache: false },
     );
-    if (captionAiAttempt.result) return captionAiAttempt.result;
+    if (captionAiAttempt.result) {
+      return finalizeSocialResult(
+        env,
+        url,
+        "tiktok",
+        captionAiAttempt.result,
+        result.images,
+      );
+    }
 
     if (
       result.transcript ||
@@ -483,25 +551,29 @@ async function parseTikTokUrl(env: Env, url: string): Promise<ParseResult> {
       });
 
       if (enrichment.transcript || enrichment.frameText) {
-        const enrichedImages =
-          result.images.length > permanentImages.length
-            ? await reuploadImagesToR2(env, result.images, "social/tiktok")
-            : permanentImages;
-
         const enrichedAiAttempt = await tryAiRecipeCandidate(
           env,
           url,
           enrichment.enrichedText,
-          enrichedImages,
+          result.images,
           "social_ai",
           "media_enriched",
           "[TikTok]",
+          { cache: false },
         );
-        if (enrichedAiAttempt.result) return enrichedAiAttempt.result;
+        if (enrichedAiAttempt.result) {
+          return finalizeSocialResult(
+            env,
+            url,
+            "tiktok",
+            enrichedAiAttempt.result,
+            result.images,
+          );
+        }
       }
     }
 
-    if (permanentFallbackRecipe) {
+    if (fallbackRecipe) {
       console.log(
         "[TikTok] Falling back to caption ingredient extraction after AI/media parsing did not produce a valid recipe.",
       );
@@ -510,11 +582,19 @@ async function parseTikTokUrl(env: Env, url: string): Promise<ParseResult> {
     const fallbackResult = await acceptedCandidate(
       env,
       url,
-      permanentFallbackRecipe,
+      fallbackRecipe,
       "social_ai",
-      { parseMethod: "caption_rules" },
+      { parseMethod: "caption_rules", cache: false },
     );
-    if (fallbackResult) return fallbackResult;
+    if (fallbackResult) {
+      return finalizeSocialResult(
+        env,
+        url,
+        "tiktok",
+        fallbackResult,
+        result.images,
+      );
+    }
 
     return {
       success: false,
