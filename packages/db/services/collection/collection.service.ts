@@ -5,7 +5,17 @@ import {
   recipeImages,
   user,
 } from "../../schemas";
-import { eq, and, desc, ilike, sql, inArray, isNotNull, ne } from "drizzle-orm";
+import {
+  eq,
+  and,
+  desc,
+  asc,
+  ilike,
+  sql,
+  inArray,
+  isNotNull,
+  ne,
+} from "drizzle-orm";
 
 import { ServiceError } from "../errors";
 import type { DbClient } from "../types";
@@ -175,24 +185,37 @@ export async function getUserCollectionsWithMetadata(
     const previewData = await db
       .select({
         collectionId: recipeCollections.collectionId,
+        recipeId: recipes.id,
         imageUrl: recipeImages.url,
       })
       .from(recipeCollections)
       .innerJoin(recipes, eq(recipeCollections.recipeId, recipes.id))
       .innerJoin(recipeImages, eq(recipes.id, recipeImages.recipeId))
       .where(inArray(recipeCollections.collectionId, collectionIds))
-      .orderBy(desc(recipeCollections.createdAt));
+      .orderBy(desc(recipeCollections.createdAt), asc(recipeImages.id));
 
-    // Group images by collection and limit to 4 per collection
+    const seenRecipeIdsByCollection = new Map<number, Set<number>>();
+
+    // Group images by collection and limit to one image from up to 4 recipes
     for (const row of previewData) {
       const images = previewImagesMap.get(row.collectionId) || [];
-      if (images.length < 4) {
-        // Avoid duplicate images
-        if (!images.includes(row.imageUrl)) {
-          images.push(row.imageUrl);
-          previewImagesMap.set(row.collectionId, images);
-        }
+      if (images.length >= 4) {
+        continue;
       }
+
+      let seenRecipeIds = seenRecipeIdsByCollection.get(row.collectionId);
+      if (!seenRecipeIds) {
+        seenRecipeIds = new Set<number>();
+        seenRecipeIdsByCollection.set(row.collectionId, seenRecipeIds);
+      }
+
+      if (seenRecipeIds.has(row.recipeId)) {
+        continue;
+      }
+
+      seenRecipeIds.add(row.recipeId);
+      images.push(row.imageUrl);
+      previewImagesMap.set(row.collectionId, images);
     }
   }
 
