@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TRPCError } from "@trpc/server";
 
 import { createMockEnv } from "../__mocks__/env";
@@ -120,14 +120,22 @@ import { activityRouter } from "./activity-router";
 describe("activityRouter", () => {
   let mockDb: MockDb;
   let mockEnv: ReturnType<typeof createMockEnv>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     mockDbServices.hydrateActivityIds.mockResolvedValue([]);
     mockActivityServices.hydrateFeed.mockResolvedValue(0);
     mockActivityServices.propagateActivityToFollowers.mockResolvedValue(undefined);
     mockDb = createMockDb();
     mockEnv = createMockEnv();
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   describe("getFeed", () => {

@@ -157,6 +157,7 @@ describe("RecipeAI.parse()", () => {
     });
 
     it("returns error on fetch failure", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 404,
@@ -318,6 +319,8 @@ describe("RecipeAI.parse()", () => {
     });
 
     it("catches and returns AI errors gracefully", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      vi.spyOn(console, "log").mockImplementation(() => undefined);
       mockEnv.AI.run = vi.fn().mockRejectedValue(new Error("AI service down"));
 
       const result = await parser.parse({

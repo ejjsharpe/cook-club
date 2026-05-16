@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { recipeRouter } from "./recipe-router";
 import { createMockEnv } from "../__mocks__/env";
@@ -139,9 +139,13 @@ function createMockContext(
 describe("recipeRouter - activity integration", () => {
   let mockDb: ReturnType<typeof createMockDb>;
   let mockEnv: ReturnType<typeof createMockEnv>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     mocks.propagateActivityToFollowers.mockResolvedValue(undefined);
     mockDb = createMockDb();
     mockEnv = createMockEnv();
@@ -192,6 +196,10 @@ describe("recipeRouter - activity integration", () => {
       ],
       tags: [],
     });
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   describe("postRecipe - activity integration", () => {

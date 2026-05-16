@@ -38,5 +38,5 @@ jobs:
       - name: Run tests
         run: |
           bun run --cwd packages/trpc test
-          bun run --cwd apps/server test
-          bun run --cwd apps/recipe-parser test
+          bun run --cwd apps/api test
+          bun run --cwd apps/recipe-ai test

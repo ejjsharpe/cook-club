@@ -114,6 +114,7 @@ describe("personalizeRecipe", () => {
   });
 
   it("returns a failure response for invalid JSON", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const mockAi = createMockAi({ response: "not json" });
 
     const result = await personalizeRecipe(mockAi as any, {

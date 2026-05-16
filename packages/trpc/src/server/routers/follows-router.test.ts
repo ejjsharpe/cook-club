@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { followsRouter } from "./follows-router";
 import { createMockEnv } from "../__mocks__/env";
@@ -81,9 +81,13 @@ function createMockContext(
 
 describe("followsRouter - activity integration", () => {
   let mockEnv: ReturnType<typeof createMockEnv>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     mockEnv = createMockEnv();
     mocks.backfillFeedFromUser.mockResolvedValue(undefined);
     mocks.removeUserFromFeed.mockResolvedValue(undefined);
@@ -93,6 +97,10 @@ describe("followsRouter - activity integration", () => {
       isNewFollow: true,
     });
     mocks.unfollowUser.mockResolvedValue({ success: true });
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   describe("followUser - activity integration", () => {

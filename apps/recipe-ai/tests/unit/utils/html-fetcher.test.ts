@@ -38,6 +38,7 @@ describe("fetchHtml", () => {
   });
 
   it("throws on HTTP error", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -78,6 +79,7 @@ describe("fetchHtml", () => {
   });
 
   it("rejects local hosts", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     await expect(fetchHtml("http://localhost/test", 0)).rejects.toThrow(
       "This URL host is not supported",
     );
