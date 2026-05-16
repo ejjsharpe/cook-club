@@ -310,7 +310,6 @@ const BackgroundImportCard = ({
 export const AddRecipeScreen = () => {
   const { navigate } = useNavigation();
   const insets = UnistylesRuntime.insets;
-  const { width } = useWindowDimensions();
 
   // Sheet refs
   const smartImportSheetRef = useRef<SmartImportSheetRef>(null);
@@ -328,8 +327,6 @@ export const AddRecipeScreen = () => {
     removeImport,
   } = useBackgroundImportQueue();
   const personalizeRecipeMutation = usePersonalizeRecipe();
-  const importingSectionTitle =
-    width < 360 ? "Smart import" : "Smart import queue";
 
   // Scroll tracking for header fade
   const titleOpacity = useSharedValue(1);
@@ -455,7 +452,6 @@ export const AddRecipeScreen = () => {
 
         {backgroundImports.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>{importingSectionTitle}</Text>
             <VSpace size={8} />
             <View style={styles.importQueue}>
               <ImportQueueSummary

@@ -119,7 +119,13 @@ describe("RecipeAI.parse()", () => {
       const cachedRecipe = {
         name: "Cached Recipe",
         ingredientSections: [
-          { name: null, ingredients: [{ index: 0, name: "cached" }] },
+          {
+            name: null,
+            ingredients: [
+              { index: 0, name: "cached" },
+              { index: 1, name: "extra cached ingredient" },
+            ],
+          },
         ],
         instructionSections: [
           { name: null, instructions: [{ index: 0, instruction: "cached" }] },
@@ -353,7 +359,7 @@ describe("RecipeAI.parse()", () => {
       expect(mockEnv.AI.run).not.toHaveBeenCalled();
     });
 
-    it("falls back to deterministic TikTok caption extraction when AI cannot produce instructions", async () => {
+    it("rejects deterministic TikTok fallbacks that only contain a placeholder method", async () => {
       const tiktokCaption =
         "fudgy browniess🤤 recipe by Handle the Heat: 5 tbsp butter 1 1/4 cups sugar 2 eggs plus 1 egg yolk 1 tsp vanilla 1/3 cup vegetable oil 3/4 cup cocoa powder 1/2 cup flour 1/8 tsp baking soda 1 tbsp cornstarch 1/4 tsp salt 3/4 cup chocolate chips #brownies #fudgybrownies #brownierecipe";
 
@@ -394,19 +400,254 @@ describe("RecipeAI.parse()", () => {
         data: "https://www.tiktok.com/@thelittlecakela/video/7208369840007007531",
       });
 
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.name).toBe("Fudgy Brownies");
-        expect(result.data.ingredientSections[0]?.ingredients).toHaveLength(11);
-        expect(
-          result.data.instructionSections[0]?.instructions[0]?.instruction,
-        ).toBe(
-          "Follow the method shown in the source video using the listed ingredients.",
-        );
-        expect(result.data.images).toEqual(["https://example.com/tiktok.jpg"]);
-        expect(result.metadata.parseMethod).toBe("structured_data");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe("VALIDATION_FAILED");
       }
       expect(mockEnv.AI.run).toHaveBeenCalled();
+    });
+
+    it("uses TikTok audio transcript enrichment when a video has no caption", async () => {
+      const enrichedAiRecipe = {
+        name: "Spoken Tomato Pasta",
+        description: null,
+        prepTime: null,
+        cookTime: 15,
+        totalTime: null,
+        servings: 2,
+        ingredientSections: [
+          {
+            name: null,
+            ingredients: [
+              { index: 0, quantity: 200, unit: "g", name: "spaghetti" },
+              { index: 1, quantity: 1, unit: "cup", name: "tomato sauce" },
+            ],
+          },
+        ],
+        instructionSections: [
+          {
+            name: null,
+            instructions: [
+              { index: 0, instruction: "Boil the spaghetti." },
+              { index: 1, instruction: "Toss with tomato sauce." },
+            ],
+          },
+        ],
+      };
+
+      mockEnv.AI.run = vi.fn((model: string) => {
+        if (model === "@cf/openai/whisper") {
+          return Promise.resolve({
+            text: "Boil spaghetti, warm tomato sauce, then toss everything together.",
+          });
+        }
+
+        return Promise.resolve({ response: JSON.stringify(enrichedAiRecipe) });
+      });
+
+      global.fetch = vi.fn((requestUrl: string | URL) => {
+        const url = String(requestUrl);
+        if (url.startsWith("https://www.tiktok.com/oembed")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-type": "application/json" }),
+            json: () =>
+              Promise.resolve({
+                thumbnail_url: "https://example.com/tiktok.jpg",
+                video_url: "https://cdn.example.com/video.mp4",
+              }),
+          });
+        }
+
+        if (url === "https://cdn.example.com/video.mp4") {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-length": "4" }),
+            arrayBuffer: () =>
+              Promise.resolve(new Uint8Array([1, 2, 3, 4]).buffer),
+          });
+        }
+
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          headers: new Headers({ "content-type": "text/html" }),
+          text: () => Promise.resolve(""),
+        });
+      }) as any;
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://www.tiktok.com/@cook/video/123",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Spoken Tomato Pasta");
+        expect(result.metadata.parseMethod).toBe("ai_enhanced");
+      }
+      expect(mockEnv.AI.run).toHaveBeenCalledWith(
+        "@cf/openai/whisper",
+        expect.objectContaining({ audio: [1, 2, 3, 4] }),
+      );
+    });
+
+    it("falls back to deterministic Instagram caption parsing when AI output is incomplete", async () => {
+      const instagramCaption =
+        "Easy tomato pasta Ingredients: 200 g spaghetti 1 cup tomato sauce Directions: 1. Boil the spaghetti. 2. Toss with tomato sauce and serve.";
+
+      mockEnv.AI.run = vi.fn().mockResolvedValue({
+        response: JSON.stringify({
+          name: "Easy Tomato Pasta",
+          description: null,
+          prepTime: null,
+          cookTime: null,
+          totalTime: null,
+          servings: null,
+          ingredientSections: [
+            {
+              name: null,
+              ingredients: [
+                { index: 0, quantity: 200, unit: "g", name: "spaghetti" },
+              ],
+            },
+          ],
+          instructionSections: [],
+          suggestedTags: [],
+        }),
+      });
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: () =>
+          Promise.resolve({
+            title: instagramCaption,
+            thumbnail_url: "https://example.com/instagram.jpg",
+          }),
+      });
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://www.instagram.com/reel/ABC123/",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Easy Tomato Pasta");
+        expect(result.data.instructionSections[0]?.instructions).toHaveLength(
+          2,
+        );
+        expect(result.metadata.parseMethod).toBe("structured_data");
+      }
+    });
+
+    it("routes non-Instagram/TikTok social links through generic social parsing", async () => {
+      const youtubeHtml = `
+        <html>
+          <head>
+            <meta property="og:title" content="Tomato pasta short">
+            <meta property="og:description" content="Recipe: 200 g spaghetti, 1 cup tomato sauce. Boil pasta and toss with sauce.">
+            <meta property="og:image" content="https://example.com/youtube.jpg">
+          </head>
+          <body></body>
+        </html>
+      `;
+
+      mockEnv.AI.run = vi.fn().mockResolvedValue({
+        response: JSON.stringify({
+          name: "Tomato Pasta",
+          description: null,
+          prepTime: null,
+          cookTime: 15,
+          totalTime: null,
+          servings: 2,
+          ingredientSections: [
+            {
+              name: null,
+              ingredients: [
+                { index: 0, quantity: 200, unit: "g", name: "spaghetti" },
+                { index: 1, quantity: 1, unit: "cup", name: "tomato sauce" },
+              ],
+            },
+          ],
+          instructionSections: [
+            {
+              name: null,
+              instructions: [
+                { index: 0, instruction: "Boil the pasta." },
+                { index: 1, instruction: "Toss with tomato sauce." },
+              ],
+            },
+          ],
+        }),
+      });
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/html" }),
+        arrayBuffer: () =>
+          Promise.resolve(new TextEncoder().encode(youtubeHtml).buffer),
+        text: () => Promise.resolve(youtubeHtml),
+      });
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://www.youtube.com/watch?v=abc123",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Tomato Pasta");
+        expect(result.data.images).toEqual(["https://example.com/youtube.jpg"]);
+        expect(result.metadata.parseMethod).toBe("ai_only");
+      }
+    });
+
+    it("rejects social links during structured-only basic import without fetching", async () => {
+      const result = await parser.parse({
+        type: "url",
+        data: "https://www.youtube.com/watch?v=abc123",
+        structuredOnly: true,
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe("UNSUPPORTED_URL");
+      }
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("evicts unusable cached recipes and retries live parsing", async () => {
+      const cachedRecipe = {
+        name: "Stale Recipe",
+        ingredientSections: [
+          { name: null, ingredients: [{ index: 0, name: "stale" }] },
+        ],
+        instructionSections: [],
+      };
+
+      mockEnv.RECIPE_CACHE.get = vi.fn().mockResolvedValue(cachedRecipe);
+      (mockEnv.RECIPE_CACHE as any).delete = vi
+        .fn()
+        .mockResolvedValue(undefined);
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://example.com/stale-cache",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Recipe Title");
+        expect(result.metadata.cached).toBe(false);
+      }
+      expect((mockEnv.RECIPE_CACHE as any).delete).toHaveBeenCalled();
+      expect(global.fetch).toHaveBeenCalled();
     });
 
     it("uses TikTok audio transcript enrichment before caption fallback", async () => {

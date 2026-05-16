@@ -2,7 +2,20 @@ import puppeteer from "@cloudflare/puppeteer";
 
 import { validateFetchUrl } from "./html-fetcher";
 
-const BROWSER_REQUIRED_DOMAINS = ["instagram.com", "tiktok.com"];
+const BROWSER_REQUIRED_DOMAINS = [
+  "instagram.com",
+  "tiktok.com",
+  "facebook.com",
+  "fb.com",
+  "youtube.com",
+  "youtu.be",
+  "pinterest.com",
+  "pin.it",
+  "threads.net",
+  "x.com",
+  "twitter.com",
+  "reddit.com",
+];
 
 export function requiresBrowserRendering(url: string): boolean {
   try {
@@ -287,17 +300,46 @@ export async function extractTikTokBrowserContent(
     };
 
     const frameImages: Uint8Array[] = [];
-    try {
-      const screenshot = toUint8Array(
-        await page.screenshot({
-          type: "jpeg",
-          quality: 70,
-          fullPage: false,
-        }),
-      );
-      if (screenshot) frameImages.push(screenshot);
-    } catch {
-      // Screenshot capture is best effort.
+    const captureFrame = async () => {
+      try {
+        const screenshot = toUint8Array(
+          await page.screenshot({
+            type: "jpeg",
+            quality: 70,
+            fullPage: false,
+          }),
+        );
+        if (screenshot) frameImages.push(screenshot);
+      } catch {
+        // Screenshot capture is best effort.
+      }
+    };
+
+    await captureFrame();
+
+    for (const ratio of [0.35, 0.7]) {
+      try {
+        await page.evaluate(`
+          (function() {
+            const positionRatio = ${ratio};
+            document.querySelectorAll("video").forEach(function(video) {
+              try {
+                const duration = Number.isFinite(video.duration)
+                  ? video.duration
+                  : 0;
+                video.currentTime = duration
+                  ? Math.max(0.5, duration * positionRatio)
+                  : 2 + positionRatio * 4;
+                video.pause();
+              } catch {}
+            });
+          })()
+        `);
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        await captureFrame();
+      } catch {
+        // Seeking is best effort; keep any frames already captured.
+      }
     }
 
     const html = await page.content();

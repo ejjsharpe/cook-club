@@ -59,9 +59,11 @@ export function parseIngredientText(value: string): Omit<Ingredient, "index"> {
     ? remaining.slice(parentheticalAmount[0].length)
     : remaining;
   const unitMatch = unitSearchText.match(
-    /^(cups?|c|tablespoons?|tbsps?|tbsp|teaspoons?|tsps?|tsp|ounces?|oz|fluid ounces?|fl oz|pounds?|lbs?|lb|grams?|g|kilograms?|kg|ml|milliliters?|liters?|litres?|l|pinch(?:es)?|dash(?:es)?|cloves?|cans?|containers?|cartons?|packages?|packets?|boxes?|box|sticks?|slices?|pieces?|heads?|stalks?|sprigs?|bunch(?:es)?|sheets?)\b/i,
+    /^(cups?|c|tablespoons?|tbsps?\.?|tbsp\.?|tbs\.?|teaspoons?|tsps?\.?|tsp\.?|ounces?|oz|fluid ounces?|fl oz|pounds?|lbs?|lb|grams?|g|kilograms?|kg|ml|milliliters?|liters?|litres?|l|pinch(?:es)?|dash(?:es)?|cloves?|cans?|containers?|cartons?|packages?|packets?|boxes?|box|sticks?|slices?|pieces?|heads?|stalks?|sprigs?|bunch(?:es)?|sheets?)(?=\s|$)/i,
   );
-  const unit = unitMatch ? normalizeUnit(unitMatch[1]!) : null;
+  const unit = unitMatch
+    ? normalizeUnit(unitMatch[1]!.replace(/\.$/, ""))
+    : null;
 
   if (unitMatch) {
     if (parentheticalAmount) {

@@ -52,6 +52,9 @@ const TRACKING_PARAMS = new Set([
   "ref",
 ]);
 
+const GENERIC_SOCIAL_INSTRUCTION_PATTERN =
+  /follow the method shown in the source video using the listed ingredients/i;
+
 function countIngredients(sections: IngredientSection[]): number {
   return sections.reduce((sum, section) => sum + section.ingredients.length, 0);
 }
@@ -225,6 +228,20 @@ export function evaluateRecipeQuality(
   if (isBadDescription(inputRecipe.description)) {
     reasons.push("bad_description");
     score -= 12;
+  }
+
+  const allInstructions = recipe.instructionSections.flatMap(
+    (section) => section.instructions,
+  );
+  const hasOnlyGenericSocialInstruction =
+    source === "social_ai" &&
+    allInstructions.length === 1 &&
+    GENERIC_SOCIAL_INSTRUCTION_PATTERN.test(
+      allInstructions[0]?.instruction ?? "",
+    );
+  if (hasOnlyGenericSocialInstruction) {
+    reasons.push("generic_social_instruction");
+    score -= 35;
   }
 
   if (ingredientCount === 0) reasons.push("missing_ingredients");

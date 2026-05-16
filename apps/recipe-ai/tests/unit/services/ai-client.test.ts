@@ -101,6 +101,41 @@ describe("parseRecipeFromText", () => {
     expect(result.name).toBe("Test Recipe");
   });
 
+  it("normalizes nested section quantity and timing strings", async () => {
+    const recipeWithStringValues = JSON.stringify({
+      name: "String Values Recipe",
+      prepTime: "1 hour 5 minutes",
+      servings: "Serves 4-6",
+      ingredientSections: [
+        {
+          name: "",
+          ingredients: [
+            { index: 0, quantity: "1 1/2", unit: "cups", name: "flour" },
+            { index: 1, quantity: "1/2", unit: "tsp", name: "salt" },
+          ],
+        },
+      ],
+      instructionSections: [
+        {
+          name: "",
+          instructions: [{ index: 0, text: "Mix everything together." }],
+        },
+      ],
+    });
+    const mockAi = createMockAi(recipeWithStringValues);
+    const result = await parseRecipeFromText(mockAi as any, "Recipe text");
+
+    expect(result.prepTime).toBe(65);
+    expect(result.servings).toBe(5);
+    expect(result.ingredientSections[0]?.name).toBeNull();
+    expect(result.ingredientSections[0]?.ingredients[0]?.quantity).toBe(1.5);
+    expect(result.ingredientSections[0]?.ingredients[1]?.quantity).toBe(0.5);
+    expect(result.instructionSections[0]?.name).toBeNull();
+    expect(result.instructionSections[0]?.instructions[0]?.instruction).toBe(
+      "Mix everything together.",
+    );
+  });
+
   it("handles string response directly", async () => {
     const mockAi = {
       run: vi.fn().mockResolvedValue(validRecipeJson),

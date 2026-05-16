@@ -77,95 +77,197 @@ function parseJsonString(response: string): AiRecipeResult {
 }
 
 function durationToMinutes(value: unknown): number | null {
-  if (typeof value === "number") return value;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value !== "string") return null;
 
-  const isoMatch = value.match(/^PT(?:(\d+)H)?(?:(\d+)M)?$/i);
+  const isoMatch = value.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i);
   if (isoMatch) {
-    return Number(isoMatch[1] ?? 0) * 60 + Number(isoMatch[2] ?? 0);
+    const minutes =
+      Number(isoMatch[1] ?? 0) * 60 +
+      Number(isoMatch[2] ?? 0) +
+      Math.ceil(Number(isoMatch[3] ?? 0) / 60);
+    return minutes > 0 ? minutes : null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  let totalMinutes = 0;
+  for (const match of normalized.matchAll(
+    /(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr|h)\b/g,
+  )) {
+    totalMinutes += Math.round(Number(match[1]) * 60);
+  }
+  for (const match of normalized.matchAll(
+    /(\d+(?:\.\d+)?)\s*(?:minutes?|mins?|min|m)\b/g,
+  )) {
+    totalMinutes += Math.round(Number(match[1]));
+  }
+  if (totalMinutes > 0) {
+    return totalMinutes;
   }
 
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+function quantityToNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  const mixed = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) {
+    const whole = Number(mixed[1]);
+    const numerator = Number(mixed[2]);
+    const denominator = Number(mixed[3]);
+    return denominator > 0 ? whole + numerator / denominator : null;
+  }
+
+  const fraction = trimmed.match(/^(\d+)\/(\d+)$/);
+  if (fraction) {
+    const numerator = Number(fraction[1]);
+    const denominator = Number(fraction[2]);
+    return denominator > 0 ? numerator / denominator : null;
+  }
+
+  const numeric = Number(trimmed);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function normalizeIngredient(ingredient: unknown, index: number): AiIngredient {
+  if (typeof ingredient === "string") {
+    return {
+      index,
+      quantity: null,
+      unit: null,
+      name: ingredient,
+      preparation: null,
+    };
+  }
+
+  const record =
+    ingredient && typeof ingredient === "object"
+      ? (ingredient as Record<string, unknown>)
+      : {};
+
+  return {
+    index,
+    quantity: quantityToNumber(record.quantity),
+    unit: nullableString(record.unit),
+    name: String(record.name ?? ""),
+    preparation: nullableString(record.preparation),
+  };
+}
+
+function normalizeInstruction(
+  instruction: unknown,
+  index: number,
+): AiInstruction {
+  if (typeof instruction === "string") {
+    return {
+      index,
+      instruction,
+      imageUrl: null,
+    };
+  }
+
+  const record =
+    instruction && typeof instruction === "object"
+      ? (instruction as Record<string, unknown>)
+      : {};
+
+  return {
+    index,
+    instruction: String(record.instruction ?? record.text ?? ""),
+    imageUrl: nullableString(record.imageUrl),
+  };
+}
+
+function normalizeIngredientSections(recipe: Record<string, unknown>) {
+  if (Array.isArray(recipe.ingredientSections)) {
+    return recipe.ingredientSections.map((section) => {
+      const record =
+        section && typeof section === "object"
+          ? (section as Record<string, unknown>)
+          : {};
+
+      return {
+        name: nullableString(record.name),
+        ingredients: Array.isArray(record.ingredients)
+          ? record.ingredients.map(normalizeIngredient)
+          : [],
+      };
+    });
+  }
+
+  return [
+    {
+      name: null,
+      ingredients: Array.isArray(recipe.ingredients)
+        ? recipe.ingredients.map(normalizeIngredient)
+        : [],
+    },
+  ];
+}
+
+function normalizeInstructionSections(recipe: Record<string, unknown>) {
+  if (Array.isArray(recipe.instructionSections)) {
+    return recipe.instructionSections.map((section) => {
+      const record =
+        section && typeof section === "object"
+          ? (section as Record<string, unknown>)
+          : {};
+
+      return {
+        name: nullableString(record.name),
+        instructions: Array.isArray(record.instructions)
+          ? record.instructions.map(normalizeInstruction)
+          : [],
+      };
+    });
+  }
+
+  return [
+    {
+      name: null,
+      instructions: Array.isArray(recipe.instructions)
+        ? recipe.instructions.map(normalizeInstruction)
+        : [],
+    },
+  ];
+}
+
+function servingsToNumber(value: unknown): number | null {
+  if (typeof value === "number") return value > 0 ? value : null;
+  if (typeof value !== "string") return null;
+
+  const range = value.match(/(\d+)\s*(?:-|to)\s*(\d+)/i);
+  if (range) {
+    return Math.round((Number(range[1]) + Number(range[2])) / 2);
+  }
+
+  const single = value.match(/\d+/);
+  if (!single?.[0]) return null;
+
+  const servings = Number(single[0]);
+  return servings > 0 ? servings : null;
+}
+
 function normalizeAiRecipeResult(value: unknown): AiRecipeResult {
   const recipe = value as Record<string, unknown>;
-  const ingredientSections =
-    Array.isArray(recipe.ingredientSections)
-      ? recipe.ingredientSections
-      : [
-          {
-            name: null,
-            ingredients: Array.isArray(recipe.ingredients)
-              ? recipe.ingredients.map((ingredient, index) => ({
-                  index,
-                  quantity:
-                    typeof ingredient === "object" && ingredient
-                      ? ((ingredient as Record<string, unknown>)
-                          .quantity as number | null) ?? null
-                      : null,
-                  unit:
-                    typeof ingredient === "object" && ingredient
-                      ? ((ingredient as Record<string, unknown>).unit as
-                          | string
-                          | null) ?? null
-                      : null,
-                  name:
-                    typeof ingredient === "string"
-                      ? ingredient
-                      : String(
-                          ((ingredient as Record<string, unknown>)?.name ??
-                            "") as string,
-                        ),
-                  preparation:
-                    typeof ingredient === "object" && ingredient
-                      ? ((ingredient as Record<string, unknown>).preparation as
-                          | string
-                          | null) ?? null
-                      : null,
-                }))
-              : [],
-          },
-        ];
-
-  const instructionSections =
-    Array.isArray(recipe.instructionSections)
-      ? recipe.instructionSections
-      : [
-          {
-            name: null,
-            instructions: Array.isArray(recipe.instructions)
-              ? recipe.instructions.map((instruction, index) => ({
-                  index,
-                  instruction:
-                    typeof instruction === "string"
-                      ? instruction
-                      : String(
-                          ((instruction as Record<string, unknown>)
-                            ?.instruction ?? "") as string,
-                        ),
-                  imageUrl:
-                    typeof instruction === "object" && instruction
-                      ? ((instruction as Record<string, unknown>).imageUrl as
-                          | string
-                          | null) ?? null
-                      : null,
-                }))
-              : [],
-          },
-        ];
 
   return {
     name: String(recipe.name ?? ""),
-    description: (recipe.description as string | null | undefined) ?? null,
+    description: nullableString(recipe.description),
     prepTime: durationToMinutes(recipe.prepTime),
     cookTime: durationToMinutes(recipe.cookTime),
     totalTime: durationToMinutes(recipe.totalTime),
-    servings:
-      typeof recipe.servings === "number" ? recipe.servings : Number(recipe.servings) || null,
-    ingredientSections: ingredientSections as AiIngredientSection[],
-    instructionSections: instructionSections as AiInstructionSection[],
+    servings: servingsToNumber(recipe.servings),
+    ingredientSections: normalizeIngredientSections(recipe),
+    instructionSections: normalizeInstructionSections(recipe),
     suggestedTags: recipe.suggestedTags as AiRecipeResult["suggestedTags"],
   };
 }

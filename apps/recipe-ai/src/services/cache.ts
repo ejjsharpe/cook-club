@@ -47,3 +47,17 @@ export async function cacheRecipe(
     expirationTtl: CACHE_TTL_SECONDS,
   });
 }
+
+/**
+ * Delete a cached recipe for a URL.
+ */
+export async function deleteCachedRecipe(
+  kv: Env["RECIPE_CACHE"],
+  url: string,
+): Promise<void> {
+  const deleteFn = (kv as { delete?: (key: string) => Promise<void> }).delete;
+  if (typeof deleteFn !== "function") return;
+
+  const key = await urlToKey(url);
+  await deleteFn.call(kv, key);
+}
