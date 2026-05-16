@@ -24,7 +24,15 @@ export type PersonalizationGoal =
 
 export interface ParseMetadata {
   source: "url" | "text" | "image";
-  parseMethod?: "structured_data" | "ai_enhanced" | "ai_only";
+  parseMethod?:
+    | "structured_data"
+    | "schema_org"
+    | "visible_card"
+    | "reader"
+    | "caption_rules"
+    | "ai_enhanced"
+    | "media_enriched"
+    | "ai_only";
   confidence: "high" | "medium" | "low";
   cached?: boolean;
 }

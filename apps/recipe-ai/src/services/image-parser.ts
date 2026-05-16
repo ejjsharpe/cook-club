@@ -1,60 +1,10 @@
-import type {
-  ParsedRecipe,
-  IngredientSection,
-  InstructionSection,
-} from "../schema";
 import { ParsedRecipeSchema } from "../schema";
 import type { Env, ParseResult } from "../types";
-import { parseRecipeFromImage, type AiRecipeResult } from "./ai-client";
-import { normalizeUnit } from "../utils/unit-normalizer";
+import { parseRecipeFromImage } from "./ai-client";
+import { aiResultToRecipe } from "./recipe-mapper";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 const VALID_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-
-/**
- * Convert AI result to ParsedRecipe format
- */
-function aiResultToRecipe(ai: AiRecipeResult): ParsedRecipe {
-  // Map AI ingredient sections to our format
-  const ingredientSections: IngredientSection[] = ai.ingredientSections.map(
-    (section) => ({
-      name: section.name,
-      ingredients: section.ingredients.map((ing, index) => ({
-        index,
-        quantity: ing.quantity,
-        unit: ing.unit ? normalizeUnit(ing.unit) : null,
-        name: ing.name,
-      })),
-    }),
-  );
-
-  // Map AI instruction sections to our format
-  const instructionSections: InstructionSection[] = ai.instructionSections.map(
-    (section) => ({
-      name: section.name,
-      instructions: section.instructions.map((inst, index) => ({
-        index,
-        instruction: inst.instruction,
-        imageUrl: inst.imageUrl || null,
-      })),
-    }),
-  );
-
-  return {
-    name: ai.name,
-    description: ai.description,
-    prepTime: ai.prepTime,
-    cookTime: ai.cookTime,
-    totalTime: ai.totalTime,
-    servings: ai.servings,
-    sourceUrl: null,
-    sourceType: "image" as const,
-    ingredientSections,
-    instructionSections,
-    images: [],
-    suggestedTags: ai.suggestedTags,
-  };
-}
 
 async function uploadSourceImage(
   env: Env,
@@ -134,7 +84,10 @@ export async function parseImage(
 
   try {
     const aiResult = await parseRecipeFromImage(env.AI, imageData, mimeType);
-    const recipe = aiResultToRecipe(aiResult);
+    const recipe = aiResultToRecipe(aiResult, {
+      sourceType: "image",
+      sourceUrl: null,
+    });
     recipe.images = await uploadSourceImage(env, imageData, mimeType);
 
     // Validate against schema

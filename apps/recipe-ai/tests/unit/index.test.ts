@@ -156,7 +156,7 @@ describe("RecipeAI.parse()", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.name).toBe("Recipe Title");
-        expect(result.metadata.parseMethod).toBe("structured_data");
+        expect(result.metadata.parseMethod).toBe("visible_card");
         expect(result.metadata.confidence).toBe("medium");
         expect(mockEnv.AI.run).not.toHaveBeenCalled();
       }
@@ -225,7 +225,74 @@ describe("RecipeAI.parse()", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.name).toBe("Structured Cake");
-        expect(result.metadata.parseMethod).toBe("structured_data");
+        expect(result.metadata.parseMethod).toBe("schema_org");
+      }
+      expect(mockEnv.AI.run).not.toHaveBeenCalled();
+    });
+
+    it("chooses the strongest structured candidate when a page exposes several", async () => {
+      const structuredHtml = `
+        <html>
+          <head>
+            <script type="application/ld+json">
+              {
+                "@context": "https://schema.org",
+                "@type": "Recipe",
+                "name": "Sparse Cake",
+                "recipeIngredient": ["1 cup flour"],
+                "recipeInstructions": ["Mix."]
+              }
+            </script>
+            <script type="application/json">
+              {
+                "props": {
+                  "pageProps": {
+                    "recipe": {
+                      "@context": "https://schema.org",
+                      "@type": "Recipe",
+                      "name": "Detailed Cake",
+                      "description": "A richer structured candidate.",
+                      "recipeYield": "Serves 8",
+                      "totalTime": "PT45M",
+                      "recipeIngredient": [
+                        "1 cup flour",
+                        "2 eggs",
+                        "1 cup sugar",
+                        "1 tsp vanilla"
+                      ],
+                      "recipeInstructions": [
+                        "Mix the dry ingredients.",
+                        "Whisk in the eggs.",
+                        "Bake until golden."
+                      ]
+                    }
+                  }
+                }
+              }
+            </script>
+          </head>
+          <body></body>
+        </html>
+      `;
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/html" }),
+        arrayBuffer: () =>
+          Promise.resolve(new TextEncoder().encode(structuredHtml).buffer),
+        text: () => Promise.resolve(structuredHtml),
+      });
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://example.com/multiple-structured-candidates",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Detailed Cake");
+        expect(result.metadata.parseMethod).toBe("schema_org");
       }
       expect(mockEnv.AI.run).not.toHaveBeenCalled();
     });
@@ -288,7 +355,7 @@ describe("RecipeAI.parse()", () => {
         expect(result.data.images).toEqual([
           "https://example.com/amp-cake.jpg",
         ]);
-        expect(result.metadata.parseMethod).toBe("structured_data");
+        expect(result.metadata.parseMethod).toBe("schema_org");
       }
       expect(mockEnv.AI.run).not.toHaveBeenCalled();
     });
@@ -354,7 +421,7 @@ describe("RecipeAI.parse()", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.name).toBe("WP Rest Pie");
-        expect(result.metadata.parseMethod).toBe("structured_data");
+        expect(result.metadata.parseMethod).toBe("visible_card");
       }
       expect(mockEnv.AI.run).not.toHaveBeenCalled();
     });
@@ -486,7 +553,7 @@ describe("RecipeAI.parse()", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.name).toBe("Spoken Tomato Pasta");
-        expect(result.metadata.parseMethod).toBe("ai_enhanced");
+        expect(result.metadata.parseMethod).toBe("media_enriched");
       }
       expect(mockEnv.AI.run).toHaveBeenCalledWith(
         "@cf/openai/whisper",
@@ -541,7 +608,7 @@ describe("RecipeAI.parse()", () => {
         expect(result.data.instructionSections[0]?.instructions).toHaveLength(
           2,
         );
-        expect(result.metadata.parseMethod).toBe("structured_data");
+        expect(result.metadata.parseMethod).toBe("caption_rules");
       }
     });
 
@@ -818,7 +885,7 @@ describe("RecipeAI.parse()", () => {
         expect(
           result.data.instructionSections[0]?.instructions[0]?.instruction,
         ).toBe("Melt the butter.");
-        expect(result.metadata.parseMethod).toBe("ai_enhanced");
+        expect(result.metadata.parseMethod).toBe("media_enriched");
       }
       expect(mockEnv.AI.run).toHaveBeenCalledWith(
         "@cf/openai/whisper",
@@ -959,7 +1026,7 @@ Bake the brownies for 40 minutes.
         expect(result.data.instructionSections[0]?.instructions).toHaveLength(
           2,
         );
-        expect(result.metadata.parseMethod).toBe("ai_enhanced");
+        expect(result.metadata.parseMethod).toBe("media_enriched");
       }
       expect(mockEnv.AI.run).not.toHaveBeenCalledWith(
         "@cf/openai/whisper",
@@ -1043,7 +1110,7 @@ Serves 4
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.name).toBe("Reader Fallback Cake");
-        expect(result.metadata.parseMethod).toBe("structured_data");
+        expect(result.metadata.parseMethod).toBe("reader");
         expect(mockEnv.AI.run).not.toHaveBeenCalled();
       }
     });

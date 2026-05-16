@@ -1,57 +1,7 @@
-import type {
-  ParsedRecipe,
-  IngredientSection,
-  InstructionSection,
-} from "../schema";
 import { ParsedRecipeSchema } from "../schema";
 import type { Env, ParseResult } from "../types";
-import { parseRecipeFromText, type AiRecipeResult } from "./ai-client";
-import { normalizeUnit } from "../utils/unit-normalizer";
-
-/**
- * Convert AI result to ParsedRecipe format
- */
-function aiResultToRecipe(ai: AiRecipeResult): ParsedRecipe {
-  // Map AI ingredient sections to our format
-  const ingredientSections: IngredientSection[] = ai.ingredientSections.map(
-    (section) => ({
-      name: section.name,
-      ingredients: section.ingredients.map((ing, index) => ({
-        index,
-        quantity: ing.quantity,
-        unit: ing.unit ? normalizeUnit(ing.unit) : null,
-        name: ing.name,
-      })),
-    }),
-  );
-
-  // Map AI instruction sections to our format
-  const instructionSections: InstructionSection[] = ai.instructionSections.map(
-    (section) => ({
-      name: section.name,
-      instructions: section.instructions.map((inst, index) => ({
-        index,
-        instruction: inst.instruction,
-        imageUrl: inst.imageUrl || null,
-      })),
-    }),
-  );
-
-  return {
-    name: ai.name,
-    description: ai.description,
-    prepTime: ai.prepTime,
-    cookTime: ai.cookTime,
-    totalTime: ai.totalTime,
-    servings: ai.servings,
-    sourceUrl: null,
-    sourceType: "text" as const,
-    ingredientSections,
-    instructionSections,
-    images: [],
-    suggestedTags: ai.suggestedTags,
-  };
-}
+import { parseRecipeFromText } from "./ai-client";
+import { aiResultToRecipe } from "./recipe-mapper";
 
 /**
  * Parse a recipe from free-form text
@@ -80,7 +30,10 @@ export async function parseText(env: Env, text: string): Promise<ParseResult> {
 
   try {
     const aiResult = await parseRecipeFromText(env.AI, text.trim());
-    const recipe = aiResultToRecipe(aiResult);
+    const recipe = aiResultToRecipe(aiResult, {
+      sourceType: "text",
+      sourceUrl: null,
+    });
 
     // Validate against schema
     const validation = ParsedRecipeSchema(recipe);

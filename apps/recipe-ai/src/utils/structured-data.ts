@@ -139,6 +139,13 @@ export function extractStructuredRecipe(
   html: string,
   sourceUrl: string,
 ): ParsedRecipe | null {
+  return extractStructuredRecipeCandidates(html, sourceUrl)[0] ?? null;
+}
+
+export function extractStructuredRecipeCandidates(
+  html: string,
+  sourceUrl: string,
+): ParsedRecipe[] {
   try {
     const $ = cheerio.load(html);
 
@@ -149,17 +156,13 @@ export function extractStructuredRecipe(
       parseRecipePluginCard($),
     ];
 
-    for (const candidate of candidates) {
+    return candidates.flatMap((candidate) => {
       const raw = normalizeRawRecipe(candidate, sourceUrl);
-      if (hasMinimumRecipeData(raw)) {
-        return toParsedRecipe(raw, sourceUrl);
-      }
-    }
-
-    return null;
+      return hasMinimumRecipeData(raw) ? [toParsedRecipe(raw, sourceUrl)] : [];
+    });
   } catch (error) {
     console.error("Error extracting structured recipe data:", error);
-    return null;
+    return [];
   }
 }
 
