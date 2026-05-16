@@ -4,6 +4,8 @@ import type { Env, PresignedUrlRequest, PresignedUrlResponse } from "./types";
 
 const PRESIGN_EXPIRY_SECONDS = 300; // 5 minutes
 const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const SOCIAL_IMAGE_PLATFORM_PATTERN =
+  "(instagram|tiktok|facebook|youtube|pinterest|threads|x|reddit)";
 
 function getR2S3BucketUrl(env: Env): string {
   const configured = env.R2_S3_API_URL?.replace(/\/+$/, "");
@@ -106,8 +108,9 @@ export function validateKey(key: string): boolean {
     /^recipes\/covers\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.[a-z]+$/, // recipes/covers/{recipeId}/{imageId}.{ext}
     /^recipes\/instructions\/[a-zA-Z0-9-]+\/\d+\/[a-zA-Z0-9-]+\.[a-z]+$/, // recipes/instructions/{recipeId}/{stepIndex}/{imageId}.{ext}
     /^avatars\/[a-zA-Z0-9_-]+\.[a-z]+$/, // avatars/{userId}.{ext}
-    /^social\/instagram\/[a-zA-Z0-9-]+\.[a-z]+$/, // social/instagram/{imageId}.{ext}
-    /^social\/tiktok\/[a-zA-Z0-9-]+\.[a-z]+$/, // social/tiktok/{imageId}.{ext}
+    new RegExp(
+      `^social\\/${SOCIAL_IMAGE_PLATFORM_PATTERN}\\/[a-zA-Z0-9-]+\\.[a-z]+$`,
+    ), // social/{platform}/{imageId}.{ext}
   ];
 
   return allowedPatterns.some((pattern) => pattern.test(key));
