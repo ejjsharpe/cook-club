@@ -1,18 +1,17 @@
 import { useNavigation } from "@react-navigation/native";
 import { useShareIntentContext } from "expo-share-intent";
-import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Modal, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
-
-import { VSpace } from "./Space";
-import { Text } from "./Text";
+import { useCallback, useEffect, useRef } from "react";
+import { Alert } from "react-native";
 
 import {
   useParseRecipeFromUrl,
   useParseRecipeFromText,
   useParseRecipeFromImage,
-  type ParsedRecipe,
 } from "@/api/recipe";
+import {
+  createBackgroundImportId,
+  useBackgroundImportQueue,
+} from "@/lib/backgroundImportQueue";
 import {
   getPendingShareIntent,
   clearPendingShareIntent,
@@ -20,88 +19,63 @@ import {
 } from "@/lib/pendingShareIntent";
 import { imageToBase64 } from "@/utils/imageUtils";
 
-type ParsedRecipeResult = ParsedRecipe;
-
 export function ShareIntentHandler() {
   const { hasShareIntent, shareIntent, resetShareIntent } =
     useShareIntentContext();
   const navigation = useNavigation();
-
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingMessage, setProcessingMessage] = useState("");
   const hasProcessedRef = useRef(false);
   const hasCheckedPendingRef = useRef(false);
 
   const parseFromUrl = useParseRecipeFromUrl();
   const parseFromText = useParseRecipeFromText();
   const parseFromImage = useParseRecipeFromImage();
+  const { startImport } = useBackgroundImportQueue();
 
   // Process a share intent (either new or pending)
-  const processShareIntent = async (intent: PendingShareIntent) => {
-    setIsProcessing(true);
+  const processShareIntent = useCallback(
+    (intent: PendingShareIntent) => {
+      const id = createBackgroundImportId(intent.type);
+      const mimeType = (intent.mimeType || "image/jpeg") as
+        | "image/jpeg"
+        | "image/png"
+        | "image/webp";
 
-    try {
-      let result: ParsedRecipeResult | null = null;
+      startImport({
+        id,
+        mode: intent.type,
+        title:
+          intent.type === "url"
+            ? intent.content
+            : intent.type === "text"
+              ? "Shared recipe text"
+              : "Shared recipe image",
+        run: () => {
+          if (intent.type === "url") {
+            return parseFromUrl.mutateAsync({ url: intent.content });
+          }
+          if (intent.type === "text") {
+            return parseFromText.mutateAsync({ text: intent.content });
+          }
+          return parseFromImage.mutateAsync({
+            imageBase64: intent.content,
+            mimeType,
+          });
+        },
+      });
 
-      if (intent.type === "url") {
-        setProcessingMessage("Fetching recipe from URL...");
-        const urlResult = await parseFromUrl.mutateAsync({
-          url: intent.content,
-        });
-        if (urlResult.success) {
-          result = urlResult;
-        }
-      } else if (intent.type === "text") {
-        setProcessingMessage("Parsing recipe from text...");
-        const textResult = await parseFromText.mutateAsync({
-          text: intent.content,
-        });
-        if (textResult.success) {
-          result = textResult;
-        }
-      } else if (intent.type === "image") {
-        setProcessingMessage("Analyzing recipe image...");
-        const mimeType = (intent.mimeType || "image/jpeg") as
-          | "image/jpeg"
-          | "image/png"
-          | "image/webp";
-        const imageResult = await parseFromImage.mutateAsync({
-          imageBase64: intent.content,
-          mimeType,
-        });
-        if (imageResult.success) {
-          result = imageResult;
-        }
-      }
-
-      if (result) {
-        clearPendingShareIntent();
-        navigation.navigate("RecipeDetail", {
-          parsedRecipe: result,
-          mode: "edit",
-        });
-      } else {
-        Alert.alert(
-          "Couldn't parse recipe",
-          "We couldn't extract a recipe from the shared content. Please try again or enter the recipe manually.",
-          [{ text: "OK" }],
-        );
-        clearPendingShareIntent();
-      }
-    } catch (error) {
-      console.error("Error processing share intent:", error);
-      Alert.alert(
-        "Error",
-        "Something went wrong while processing the shared content. Please try again.",
-        [{ text: "OK" }],
-      );
       clearPendingShareIntent();
-    } finally {
-      setIsProcessing(false);
-      setProcessingMessage("");
       resetShareIntent();
-    }
-  };
+      navigation.navigate("Add recipe");
+    },
+    [
+      navigation,
+      parseFromImage,
+      parseFromText,
+      parseFromUrl,
+      resetShareIntent,
+      startImport,
+    ],
+  );
 
   // Detect content type from share intent
   const detectContentType = (
@@ -154,7 +128,7 @@ export function ShareIntentHandler() {
         processShareIntent(pendingIntent);
       }, 500);
     }
-  }, []);
+  }, [processShareIntent]);
 
   // Handle new share intents
   useEffect(() => {
@@ -175,7 +149,7 @@ export function ShareIntentHandler() {
           const { base64, mimeType } = await imageToBase64(
             detectedIntent.content,
           );
-          await processShareIntent({
+          processShareIntent({
             ...detectedIntent,
             content: base64,
             mimeType,
@@ -189,7 +163,7 @@ export function ShareIntentHandler() {
     } else {
       processShareIntent(detectedIntent);
     }
-  }, [hasShareIntent, shareIntent]);
+  }, [hasShareIntent, processShareIntent, resetShareIntent, shareIntent]);
 
   // Reset the processed flag when share intent is cleared
   useEffect(() => {
@@ -198,43 +172,5 @@ export function ShareIntentHandler() {
     }
   }, [hasShareIntent]);
 
-  // Loading modal
-  if (isProcessing) {
-    return (
-      <Modal transparent visible={isProcessing} animationType="fade">
-        <View style={styles.overlay}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#000" />
-            <VSpace size={16} />
-            <Text type="heading">Importing Recipe</Text>
-            <VSpace size={8} />
-            <Text type="bodyFaded" style={styles.message}>
-              {processingMessage || "Processing..."}
-            </Text>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
-
   return null;
 }
-
-const styles = StyleSheet.create((theme) => ({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingContainer: {
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.large,
-    padding: 32,
-    alignItems: "center",
-    minWidth: 200,
-  },
-  message: {
-    textAlign: "center",
-  },
-}));

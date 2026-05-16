@@ -6,7 +6,6 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   Alert,
   ScrollView,
 } from "react-native";
@@ -23,12 +22,17 @@ import {
   useParseRecipeFromUrl,
   useParseRecipeFromText,
   useParseRecipeFromImage,
-  type ParsedRecipe,
 } from "@/api/recipe";
 import { Ionicons } from "@/components/Ionicons";
+import {
+  createBackgroundImportId,
+  type BackgroundImportMode,
+  type BackgroundImportTask,
+} from "@/lib/backgroundImportQueue";
 import { imageToBase64 } from "@/utils/imageUtils";
 
-type ImportMode = "url" | "text" | "image";
+export type SmartImportMode = BackgroundImportMode;
+export type SmartImportTask = BackgroundImportTask;
 
 const ModeOption = ({
   icon,
@@ -108,7 +112,7 @@ const modeStyles = StyleSheet.create((theme) => ({
 }));
 
 export interface SmartImportSheetProps {
-  onRecipeParsed?: (data: ParsedRecipe) => void;
+  onImportStarted?: (task: SmartImportTask) => void;
 }
 
 export interface SmartImportSheetRef {
@@ -119,14 +123,14 @@ export interface SmartImportSheetRef {
 export const SmartImportSheet = forwardRef<
   SmartImportSheetRef,
   SmartImportSheetProps
->(({ onRecipeParsed }, ref) => {
+>(({ onImportStarted }, ref) => {
   const theme = UnistylesRuntime.getTheme();
   const sheetRef = useRef<TrueSheet>(null);
-  const [mode, setMode] = useState<ImportMode>("url");
+  const [mode, setMode] = useState<SmartImportMode>("url");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   const parseFromUrl = useParseRecipeFromUrl();
   const parseFromText = useParseRecipeFromText();
@@ -173,64 +177,91 @@ export const SmartImportSheet = forwardRef<
     }
   };
 
-  const handleImport = async () => {
-    setIsLoading(true);
+  const handleImport = () => {
+    setIsStarting(true);
 
     try {
+      const taskId = createBackgroundImportId(mode);
+
       if (mode === "url") {
-        if (!url.trim()) {
+        const submittedUrl = url.trim();
+        if (!submittedUrl) {
           Alert.alert("Error", "Please enter a URL");
           return;
         }
-        const result = await parseFromUrl.mutateAsync({ url });
-        if (result.success) {
-          onRecipeParsed?.(result);
-          handleClose();
-        } else {
-          Alert.alert("Error", "Failed to parse recipe from URL");
-        }
-      } else if (mode === "text") {
-        if (!text.trim() || text.length < 50) {
+
+        const task: SmartImportTask = {
+          id: taskId,
+          mode,
+          title: submittedUrl,
+          run: async () => {
+            return parseFromUrl.mutateAsync({
+              url: submittedUrl,
+            });
+          },
+        };
+
+        onImportStarted?.(task);
+        handleClose();
+        return;
+      }
+
+      if (mode === "text") {
+        const submittedText = text.trim();
+        if (!submittedText || submittedText.length < 50) {
           Alert.alert(
             "Error",
             "Please enter at least 50 characters of recipe text",
           );
           return;
         }
-        const result = await parseFromText.mutateAsync({ text });
-        if (result.success) {
-          onRecipeParsed?.(result);
-          handleClose();
-        } else {
-          Alert.alert("Error", "Failed to parse recipe from text");
-        }
-      } else if (mode === "image") {
-        if (!imageUri) {
+
+        const task: SmartImportTask = {
+          id: taskId,
+          mode,
+          title: "Pasted recipe text",
+          run: async () => {
+            return parseFromText.mutateAsync({
+              text: submittedText,
+            });
+          },
+        };
+
+        onImportStarted?.(task);
+        handleClose();
+        return;
+      }
+
+      if (mode === "image") {
+        const submittedImageUri = imageUri;
+        if (!submittedImageUri) {
           Alert.alert("Error", "Please select an image");
           return;
         }
-        const { base64, mimeType } = await imageToBase64(imageUri);
-        const result = await parseFromImage.mutateAsync({
-          imageBase64: base64,
-          mimeType,
-        });
-        if (result.success) {
-          onRecipeParsed?.(result);
-          handleClose();
-        } else {
-          Alert.alert("Error", "Failed to parse recipe from image");
-        }
+
+        const task: SmartImportTask = {
+          id: taskId,
+          mode,
+          title: "Recipe image",
+          run: async () => {
+            const { base64, mimeType } = await imageToBase64(submittedImageUri);
+            return parseFromImage.mutateAsync({
+              imageBase64: base64,
+              mimeType,
+            });
+          },
+        };
+
+        onImportStarted?.(task);
+        handleClose();
       }
-    } catch (error) {
-      console.error("Import error:", error);
-      Alert.alert("Error", "Something went wrong. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsStarting(false);
     }
   };
 
   const getButtonLabel = () => {
-    if (isLoading) return "Processing...";
+    if (isStarting) return "Starting...";
     switch (mode) {
       case "url":
         return "Import from URL";
@@ -246,9 +277,9 @@ export const SmartImportSheet = forwardRef<
       ref={sheetRef}
       title="Smart Import"
       detents={["auto"]}
-      dismissible={!isLoading}
+      dismissible={!isStarting}
       backgroundColor={theme.colors.background}
-      closeDisabled={isLoading}
+      closeDisabled={isStarting}
     >
       <ScrollView keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
@@ -291,7 +322,7 @@ export const SmartImportSheet = forwardRef<
                 onSubmitEditing={handleImport}
                 autoCapitalize="none"
                 autoCorrect={false}
-                editable={!isLoading}
+                editable={!isStarting}
               />
               <VSpace size={8} />
               <Text type="caption" style={styles.hint}>
@@ -315,7 +346,7 @@ export const SmartImportSheet = forwardRef<
                 multiline
                 numberOfLines={10}
                 textAlignVertical="top"
-                editable={!isLoading}
+                editable={!isStarting}
               />
               <VSpace size={8} />
               <Text type="caption" style={styles.hint}>
@@ -340,14 +371,14 @@ export const SmartImportSheet = forwardRef<
                     <TouchableOpacity
                       style={styles.changeImageButton}
                       onPress={handleTakePhoto}
-                      disabled={isLoading}
+                      disabled={isStarting}
                     >
                       <Ionicons name="camera" size={16} color="white" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.changeImageButton}
                       onPress={handlePickImage}
-                      disabled={isLoading}
+                      disabled={isStarting}
                     >
                       <Ionicons name="images" size={16} color="white" />
                     </TouchableOpacity>
@@ -358,7 +389,7 @@ export const SmartImportSheet = forwardRef<
                   <TouchableOpacity
                     style={styles.imagePickerOption}
                     onPress={handleTakePhoto}
-                    disabled={isLoading}
+                    disabled={isStarting}
                   >
                     <Ionicons
                       name="camera-outline"
@@ -373,7 +404,7 @@ export const SmartImportSheet = forwardRef<
                   <TouchableOpacity
                     style={styles.imagePickerOption}
                     onPress={handlePickImage}
-                    disabled={isLoading}
+                    disabled={isStarting}
                   >
                     <Ionicons
                       name="images-outline"
@@ -397,21 +428,10 @@ export const SmartImportSheet = forwardRef<
           <Animated.View layout={LinearTransition.duration(200)}>
             <VSpace size={24} />
 
-            <PrimaryButton onPress={handleImport} disabled={isLoading}>
+            <PrimaryButton onPress={handleImport} disabled={isStarting}>
               {getButtonLabel()}
             </PrimaryButton>
           </Animated.View>
-
-          {isLoading && (
-            <View style={styles.loadingContainer}>
-              <VSpace size={16} />
-              <ActivityIndicator size="small" />
-              <VSpace size={8} />
-              <Text type="caption" style={styles.loadingText}>
-                Analyzing with AI...
-              </Text>
-            </View>
-          )}
         </View>
       </ScrollView>
     </AppSheet>
@@ -488,11 +508,5 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
-  },
-  loadingContainer: {
-    alignItems: "center",
-  },
-  loadingText: {
-    color: theme.colors.textSecondary,
   },
 }));

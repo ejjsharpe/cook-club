@@ -56,6 +56,41 @@ function aiResultToRecipe(ai: AiRecipeResult): ParsedRecipe {
   };
 }
 
+async function uploadSourceImage(
+  env: Env,
+  imageData: string,
+  mimeType: string,
+): Promise<string[]> {
+  if (!env.IMAGE_SERVICE) return [];
+
+  try {
+    const binaryString = atob(imageData);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const imageBuffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    );
+    const uploadResult = await env.IMAGE_SERVICE.uploadImage(
+      imageBuffer,
+      mimeType as "image/jpeg" | "image/png" | "image/webp",
+    );
+
+    return uploadResult.success && uploadResult.publicUrl
+      ? [uploadResult.publicUrl]
+      : [];
+  } catch (error) {
+    console.log(
+      "Source image upload failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return [];
+  }
+}
+
 /**
  * Parse a recipe from an image
  */
@@ -100,6 +135,7 @@ export async function parseImage(
   try {
     const aiResult = await parseRecipeFromImage(env.AI, imageData, mimeType);
     const recipe = aiResultToRecipe(aiResult);
+    recipe.images = await uploadSourceImage(env, imageData, mimeType);
 
     // Validate against schema
     const validation = ParsedRecipeSchema(recipe);

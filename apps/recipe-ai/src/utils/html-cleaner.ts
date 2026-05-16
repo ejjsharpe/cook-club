@@ -24,6 +24,39 @@ export function cleanHtml(rawHtml: string): string {
 }
 
 /**
+ * Prefer the actual recipe card when a long page contains lots of intro text.
+ * Many recipe sites place the full ingredient/instruction list late in the page,
+ * so sending only the first 15k characters can miss the usable recipe.
+ */
+export function focusRecipeContent(text: string, maxChars = 15000): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const lower = normalized.toLowerCase();
+  const instructionIndex = lower.indexOf("instructions");
+
+  if (instructionIndex === -1) {
+    return normalized.slice(0, maxChars);
+  }
+
+  const ingredientsBeforeInstructions: number[] = [];
+  let searchIndex = 0;
+  while (searchIndex < instructionIndex) {
+    const index = lower.indexOf("ingredients", searchIndex);
+    if (index === -1 || index > instructionIndex) break;
+    ingredientsBeforeInstructions.push(index);
+    searchIndex = index + "ingredients".length;
+  }
+
+  const ingredientIndex = ingredientsBeforeInstructions.at(-1);
+  if (ingredientIndex == null) {
+    return normalized.slice(0, maxChars);
+  }
+
+  const leadInChars = Math.min(1800, Math.floor(maxChars * 0.2));
+  const contextStart = Math.max(0, ingredientIndex - leadInChars);
+  return normalized.slice(contextStart, contextStart + maxChars);
+}
+
+/**
  * Extract raw text from HTML without aggressive cleaning
  * Useful when structured data extraction fails and we need more context
  */
@@ -51,6 +84,29 @@ export function extractImageUrls(rawHtml: string, baseUrl: string): string[] {
 
   const imageUrls: string[] = [];
   const seen = new Set<string>();
+  const addImageUrl = (rawUrl: string | null | undefined) => {
+    if (!rawUrl || rawUrl.startsWith("data:")) return;
+
+    const absoluteUrl = makeAbsoluteUrl(rawUrl, baseUrl);
+    if (!absoluteUrl || seen.has(absoluteUrl)) return;
+
+    seen.add(absoluteUrl);
+    imageUrls.push(absoluteUrl);
+  };
+
+  // Open Graph/Twitter images are often the most reliable hero image,
+  // especially when the recipe card lazy-loads images via JavaScript.
+  $(
+    [
+      'meta[property="og:image"]',
+      'meta[property="og:image:url"]',
+      'meta[name="twitter:image"]',
+      'meta[name="twitter:image:src"]',
+      'link[rel="image_src"]',
+    ].join(","),
+  ).each((_, el) => {
+    addImageUrl($(el).attr("content") || $(el).attr("href"));
+  });
 
   // Focus on main content area
   const mainContent = $(
@@ -65,8 +121,8 @@ export function extractImageUrls(rawHtml: string, baseUrl: string): string[] {
       $(el).attr("data-src") ||
       $(el).attr("data-lazy-src") ||
       $(el).attr("data-original") ||
-      $(el).attr("data-srcset")?.split(",")[0]?.trim().split(" ")[0] ||
-      $(el).attr("srcset")?.split(",")[0]?.trim().split(" ")[0] ||
+      chooseLargestSrcsetUrl($(el).attr("data-srcset")) ||
+      chooseLargestSrcsetUrl($(el).attr("srcset")) ||
       $(el).attr("src");
 
     if (!src) return;
@@ -100,10 +156,7 @@ export function extractImageUrls(rawHtml: string, baseUrl: string): string[] {
       return;
     }
 
-    if (!seen.has(absoluteUrl)) {
-      seen.add(absoluteUrl);
-      imageUrls.push(absoluteUrl);
-    }
+    addImageUrl(absoluteUrl);
   });
 
   // Also check for images in JSON-LD schema
@@ -116,11 +169,7 @@ export function extractImageUrls(rawHtml: string, baseUrl: string): string[] {
       const images = extractImagesFromJsonLd(data);
 
       for (const imgUrl of images) {
-        const absoluteUrl = makeAbsoluteUrl(imgUrl, baseUrl);
-        if (absoluteUrl && !seen.has(absoluteUrl)) {
-          seen.add(absoluteUrl);
-          imageUrls.push(absoluteUrl);
-        }
+        addImageUrl(imgUrl);
       }
     } catch {
       // Ignore invalid JSON
@@ -128,6 +177,28 @@ export function extractImageUrls(rawHtml: string, baseUrl: string): string[] {
   });
 
   return imageUrls;
+}
+
+function chooseLargestSrcsetUrl(
+  srcset: string | null | undefined,
+): string | null {
+  if (!srcset) return null;
+
+  const candidates = srcset
+    .split(",")
+    .map((candidate) => {
+      const [url, descriptor] = candidate.trim().split(/\s+/, 2);
+      const width = descriptor?.endsWith("w")
+        ? Number(descriptor.slice(0, -1))
+        : 0;
+      return { url, width: Number.isFinite(width) ? width : 0 };
+    })
+    .filter((candidate): candidate is { url: string; width: number } =>
+      Boolean(candidate.url),
+    );
+
+  candidates.sort((a, b) => b.width - a.width);
+  return candidates[0]?.url || null;
 }
 
 /**
@@ -206,8 +277,8 @@ export function extractStepImageContext(
       $img.attr("data-src") ||
       $img.attr("data-lazy-src") ||
       $img.attr("data-original") ||
-      $img.attr("data-srcset")?.split(",")[0]?.trim().split(" ")[0] ||
-      $img.attr("srcset")?.split(",")[0]?.trim().split(" ")[0] ||
+      chooseLargestSrcsetUrl($img.attr("data-srcset")) ||
+      chooseLargestSrcsetUrl($img.attr("srcset")) ||
       $img.attr("src");
 
     if (!src || src.startsWith("data:")) return null;

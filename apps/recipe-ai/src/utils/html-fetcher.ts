@@ -23,6 +23,23 @@ const BLOCKED_HOSTNAMES = new Set([
   "0.0.0.0",
 ]);
 
+const BOT_BLOCK_STATUS_CODES = new Set([401, 403, 406, 429, 503]);
+
+export class HtmlFetchError extends Error {
+  status?: number;
+  statusText?: string;
+
+  constructor(
+    message: string,
+    options?: { status?: number; statusText?: string },
+  ) {
+    super(message);
+    this.name = "HtmlFetchError";
+    this.status = options?.status;
+    this.statusText = options?.statusText;
+  }
+}
+
 export function getRandomUserAgent(): string {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]!;
 }
@@ -70,6 +87,18 @@ export function validateFetchUrl(url: string): URL {
   }
 
   return parsed;
+}
+
+export function isLikelyBotBlockedError(error: unknown): boolean {
+  if (error instanceof HtmlFetchError && error.status) {
+    return BOT_BLOCK_STATUS_CODES.has(error.status);
+  }
+
+  if (error instanceof Error) {
+    return /\b(401|403|406|429|503)\b/.test(error.message);
+  }
+
+  return false;
 }
 
 function validateContentType(response: Response) {
@@ -127,6 +156,13 @@ export async function fetchHtml(url: string, retries = 2): Promise<string> {
             Accept:
               "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Upgrade-Insecure-Requests": "1",
           },
           redirect: "manual",
         });
@@ -154,8 +190,9 @@ export async function fetchHtml(url: string, retries = 2): Promise<string> {
       }
 
       if (!response.ok) {
-        throw new Error(
+        throw new HtmlFetchError(
           `Failed to fetch URL: ${response.status} ${response.statusText}`,
+          { status: response.status, statusText: response.statusText },
         );
       }
 

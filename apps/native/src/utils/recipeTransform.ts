@@ -155,11 +155,6 @@ export function validateRecipeForSave(
     errors.push("Recipe must have at least one instruction");
   }
 
-  // Required: at least 1 image
-  if (!data.images || data.images.length === 0) {
-    errors.push("Recipe must have at least one image");
-  }
-
   return {
     isValid: errors.length === 0,
     errors,

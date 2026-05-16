@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 
-import { cleanHtml, extractText } from "../../../src/utils/html-cleaner";
+import {
+  cleanHtml,
+  extractImageUrls,
+  extractText,
+  focusRecipeContent,
+} from "../../../src/utils/html-cleaner";
 
 describe("cleanHtml", () => {
   describe("noise removal", () => {
@@ -215,5 +220,49 @@ describe("extractText", () => {
     expect(result).toContain("Content");
     expect(result).not.toContain("alert");
     expect(result).not.toContain("color");
+  });
+});
+
+describe("focusRecipeContent", () => {
+  it("keeps the real recipe card when ingredients appear late in the page", () => {
+    const intro = "Story ".repeat(4000);
+    const text = `${intro} Key Ingredients Pecans and honey are useful. Recipe Ingredients 1 cup flour 2 eggs Instructions Mix everything. Bake until done.`;
+
+    const focused = focusRecipeContent(text, 500);
+
+    expect(focused).toContain("Recipe Ingredients");
+    expect(focused).toContain("Instructions Mix everything");
+    expect(focused.length).toBeLessThanOrEqual(500);
+  });
+});
+
+describe("extractImageUrls", () => {
+  it("uses social meta images and the largest srcset candidate", () => {
+    const html = `
+      <html>
+        <head>
+          <meta property="og:image" content="/hero.jpg">
+          <meta name="twitter:image" content="/twitter.jpg">
+        </head>
+        <body>
+          <article>
+            <img
+              src="/small.jpg"
+              srcset="/small.jpg 320w, /large.jpg 1200w"
+              width="1200"
+              height="800"
+            >
+          </article>
+        </body>
+      </html>
+    `;
+
+    const images = extractImageUrls(html, "https://example.com/recipe");
+
+    expect(images).toEqual([
+      "https://example.com/hero.jpg",
+      "https://example.com/twitter.jpg",
+      "https://example.com/large.jpg",
+    ]);
   });
 });

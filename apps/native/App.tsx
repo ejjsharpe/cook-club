@@ -27,6 +27,7 @@ import startImage9 from "@/assets/images/start-food-9.jpg";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ShareIntentStorageHandler } from "@/components/ShareIntentStorageHandler";
 import { WelcomeOverlayProvider } from "@/components/WelcomeOverlay";
+import { BackgroundImportQueueProvider } from "@/lib/backgroundImportQueue";
 import { ReactQueryProvider } from "@/lib/reactQuery";
 import { SessionProvider } from "@/lib/sessionContext";
 import { SignedInProvider } from "@/lib/signedInContext";
@@ -128,17 +129,19 @@ export default function App() {
                   <SignedInProvider>
                     <ShareIntentStorageHandler />
                     <GestureHandlerRootView style={styles.rootView}>
-                      <WelcomeOverlayProvider>
-                        <OfflineIndicator />
-                        <Navigation
-                          key={navigationKey}
-                          onReady={onNavigationReady}
-                          initialState={navigationState}
-                          onStateChange={setNavigationState}
-                          linking={linking}
-                          theme={navigationTheme}
-                        />
-                      </WelcomeOverlayProvider>
+                      <BackgroundImportQueueProvider>
+                        <WelcomeOverlayProvider>
+                          <OfflineIndicator />
+                          <Navigation
+                            key={navigationKey}
+                            onReady={onNavigationReady}
+                            initialState={navigationState}
+                            onStateChange={setNavigationState}
+                            linking={linking}
+                            theme={navigationTheme}
+                          />
+                        </WelcomeOverlayProvider>
+                      </BackgroundImportQueueProvider>
                     </GestureHandlerRootView>
                   </SignedInProvider>
                 </TRPCProvider>

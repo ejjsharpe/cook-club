@@ -3,7 +3,7 @@ import { useTRPC } from "@repo/trpc/client";
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list";
 import { useMutation } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { useMemo, useCallback, useState, useRef } from "react";
+import { useCallback, useState, useRef } from "react";
 import {
   View,
   ActivityIndicator,
@@ -35,6 +35,10 @@ import { Text } from "@/components/Text";
 import { BackButton } from "@/components/buttons/BackButton";
 import { PrimaryButton } from "@/components/buttons/PrimaryButton";
 import { ScalePressable } from "@/components/buttons/ScalePressable";
+import {
+  createBackgroundImportId,
+  useBackgroundImportQueue,
+} from "@/lib/backgroundImportQueue";
 
 type UserProfileScreenParams = {
   UserProfile: {
@@ -57,10 +61,10 @@ export const UserProfileScreen = () => {
     trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
   );
   const importRecipeMutation = useImportRecipe();
+  const { startImport } = useBackgroundImportQueue();
 
   const commentsSheetRef = useRef<CommentsSheetRef>(null);
 
-  const [isImporting, setIsImporting] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [commentActivityId, setCommentActivityId] = useState<number>(0);
 
@@ -119,29 +123,16 @@ export const UserProfileScreen = () => {
   }, [hasMoreActivities, isFetchingNextActivities, fetchNextActivities]);
 
   const handleImportRecipe = useCallback(
-    async (sourceUrl: string) => {
-      if (isImporting) return;
-
-      setIsImporting(true);
-      try {
-        const result = await parseRecipeFromUrl.mutateAsync({ url: sourceUrl });
-
-        if (result.success) {
-          navigation.navigate("RecipeDetail", {
-            parsedRecipe: result,
-            mode: "edit",
-          });
-        } else {
-          Alert.alert("Error", "Failed to parse recipe from URL");
-        }
-      } catch (error) {
-        console.error("Import error:", error);
-        Alert.alert("Error", "Something went wrong. Please try again.");
-      } finally {
-        setIsImporting(false);
-      }
+    (sourceUrl: string) => {
+      startImport({
+        id: createBackgroundImportId("url"),
+        mode: "url",
+        title: sourceUrl,
+        run: () => parseRecipeFromUrl.mutateAsync({ url: sourceUrl }),
+      });
+      navigation.navigate("Add recipe");
     },
-    [isImporting, parseRecipeFromUrl, navigation],
+    [navigation, parseRecipeFromUrl, startImport],
   );
 
   const handleImportExistingRecipe = useCallback(

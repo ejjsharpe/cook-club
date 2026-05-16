@@ -1,16 +1,22 @@
 import { useNavigation } from "@react-navigation/native";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   View,
   ScrollView,
+  useWindowDimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
 import Animated, {
+  FadeIn,
+  LinearTransition,
+  Easing,
   useSharedValue,
   useAnimatedStyle,
+  withRepeat,
   withTiming,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
@@ -35,12 +41,19 @@ import {
 } from "@/components/RecipeBrowserSheet";
 import {
   SmartImportSheet,
+  type SmartImportTask,
   type SmartImportSheetRef,
 } from "@/components/SmartImportSheet";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+import {
+  useBackgroundImportQueue,
+  type BackgroundImport,
+} from "@/lib/backgroundImportQueue";
 
 const HEADER_HEIGHT = 52;
+const IMPORT_PROGRESS_TRACK_WIDTH = 160;
+const IMPORT_PROGRESS_BAR_WIDTH = 56;
 
 const ActionRow = ({
   icon,
@@ -104,9 +117,200 @@ const ActionRow = ({
   );
 };
 
+const getImportIcon = (
+  mode: SmartImportTask["mode"],
+): keyof typeof Ionicons.glyphMap => {
+  switch (mode) {
+    case "url":
+      return "link-outline";
+    case "text":
+      return "document-text-outline";
+    case "image":
+      return "image-outline";
+  }
+};
+
+const getImportStatusCopy = (importItem: BackgroundImport) => {
+  if (importItem.status === "ready") return "Recipe ready";
+  if (importItem.status === "failed")
+    return importItem.error || "Import failed";
+  return "AI is reading the recipe";
+};
+
+const ImportProgressBar = ({ active }: { active: boolean }) => {
+  const progress = useSharedValue(0);
+  const { width } = useWindowDimensions();
+  const trackWidth = Math.max(IMPORT_PROGRESS_TRACK_WIDTH, width - 72);
+
+  useEffect(() => {
+    if (active) {
+      progress.value = withRepeat(
+        withTiming(1, {
+          duration: 1400,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        -1,
+        true,
+      );
+    } else {
+      progress.value = withTiming(1, { duration: 220 });
+    }
+  }, [active, progress]);
+
+  const indicatorStyle = useAnimatedStyle(
+    () => ({
+      transform: [
+        {
+          translateX: progress.value * (trackWidth - IMPORT_PROGRESS_BAR_WIDTH),
+        },
+      ],
+    }),
+    [trackWidth],
+  );
+
+  return (
+    <View style={styles.importProgressTrack}>
+      <Animated.View
+        style={[
+          styles.importProgressIndicator,
+          !active && styles.importProgressIndicatorDone,
+          active && indicatorStyle,
+        ]}
+      />
+    </View>
+  );
+};
+
+const ImportQueueSummary = ({
+  pendingCount,
+  readyCount,
+}: {
+  pendingCount: number;
+  readyCount: number;
+}) => {
+  const active = pendingCount > 0;
+
+  return (
+    <Animated.View
+      entering={FadeIn.duration(180)}
+      layout={LinearTransition.duration(180)}
+      style={styles.importSummary}
+    >
+      <View style={styles.importSummaryTopRow}>
+        <View style={styles.importSummaryTitleRow}>
+          <Ionicons
+            name={active ? "sparkles" : "checkmark"}
+            size={18}
+            style={styles.importSummaryIconGlyph}
+          />
+          <Text type="headline">
+            {active ? "Smart import is working" : "Import ready"}
+          </Text>
+        </View>
+        <Text type="caption" style={styles.importProgressLabel}>
+          {active ? "Analyzing" : "Complete"}
+        </Text>
+      </View>
+      <View style={styles.importSummaryText}>
+        <Text type="subheadline" style={styles.importSummarySubtitle}>
+          {active
+            ? "You can keep using Cook Club. Your recipe will appear here when it is ready."
+            : `${readyCount} recipe${readyCount === 1 ? "" : "s"} ready to review.`}
+        </Text>
+      </View>
+      <ImportProgressBar active={active} />
+    </Animated.View>
+  );
+};
+
+const BackgroundImportCard = ({
+  importItem,
+  onReview,
+  onDismiss,
+}: {
+  importItem: BackgroundImport;
+  onReview: (id: string) => void;
+  onDismiss: (id: string) => void;
+}) => {
+  const theme = UnistylesRuntime.getTheme();
+  const isReady = importItem.status === "ready";
+  const isFailed = importItem.status === "failed";
+  const isPending = importItem.status === "pending";
+
+  return (
+    <Animated.View
+      entering={FadeIn.duration(180)}
+      layout={LinearTransition.duration(180)}
+      style={[
+        styles.importCard,
+        !isReady && styles.importCardWithSeparator,
+        isReady && styles.importCardReady,
+        isFailed && styles.importCardFailed,
+      ]}
+    >
+      {isPending && <View pointerEvents="none" style={styles.importCardGlow} />}
+      <View
+        style={[
+          styles.importIconContainer,
+          isFailed && styles.importIconContainerFailed,
+          isReady && styles.importIconContainerReady,
+        ]}
+      >
+        {importItem.status === "pending" ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        ) : (
+          <Ionicons
+            name={
+              isFailed ? "alert-circle-outline" : getImportIcon(importItem.mode)
+            }
+            size={22}
+            color={isFailed ? theme.colors.destructive : theme.colors.primary}
+          />
+        )}
+      </View>
+
+      <View style={styles.importTextContainer}>
+        <Text type="body" numberOfLines={1} style={styles.importTitle}>
+          {importItem.title}
+        </Text>
+        <Text
+          type="subheadline"
+          numberOfLines={2}
+          style={[
+            styles.importSubtitle,
+            isFailed && styles.importSubtitleFailed,
+          ]}
+        >
+          {getImportStatusCopy(importItem)}
+        </Text>
+      </View>
+
+      {isReady ? (
+        <Pressable
+          style={styles.importReviewButton}
+          onPress={() => onReview(importItem.id)}
+        >
+          <Text type="caption" style={styles.importReviewButtonText}>
+            Review
+          </Text>
+        </Pressable>
+      ) : isFailed ? (
+        <Pressable
+          style={styles.importDismissButton}
+          onPress={() => onDismiss(importItem.id)}
+          accessibilityLabel="Dismiss failed import"
+        >
+          <Ionicons name="close" size={18} style={styles.importDismissIcon} />
+        </Pressable>
+      ) : null}
+    </Animated.View>
+  );
+};
+
 export const AddRecipeScreen = () => {
   const { navigate } = useNavigation();
   const insets = UnistylesRuntime.insets;
+  const { width } = useWindowDimensions();
 
   // Sheet refs
   const smartImportSheetRef = useRef<SmartImportSheetRef>(null);
@@ -115,7 +319,17 @@ export const AddRecipeScreen = () => {
   const personaliseRecipeSheetRef = useRef<PersonaliseRecipeSheetRef>(null);
   const [selectedPersonaliseRecipeId, setSelectedPersonaliseRecipeId] =
     useState<number | null>(null);
+  const {
+    imports: backgroundImports,
+    pendingCount: pendingImportCount,
+    readyCount: readyImportCount,
+    startImport,
+    dismissImport,
+    removeImport,
+  } = useBackgroundImportQueue();
   const personalizeRecipeMutation = usePersonalizeRecipe();
+  const importingSectionTitle =
+    width < 360 ? "Smart import" : "Smart import queue";
 
   // Scroll tracking for header fade
   const titleOpacity = useSharedValue(1);
@@ -140,6 +354,34 @@ export const AddRecipeScreen = () => {
       navigate("RecipeDetail", { parsedRecipe: result, mode: "edit" });
     }
   };
+
+  const handleSmartImportStarted = useCallback(
+    (task: SmartImportTask) => {
+      startImport(task);
+    },
+    [startImport],
+  );
+
+  const handleReviewImport = useCallback(
+    (id: string) => {
+      const importItem = backgroundImports.find((item) => item.id === id);
+      if (!importItem?.recipe) return;
+
+      removeImport(id);
+      navigate("RecipeDetail", {
+        parsedRecipe: importItem.recipe,
+        mode: "edit",
+      });
+    },
+    [backgroundImports, navigate, removeImport],
+  );
+
+  const handleDismissImport = useCallback(
+    (id: string) => {
+      dismissImport(id);
+    },
+    [dismissImport],
+  );
 
   const onPressSmartImport = () => {
     smartImportSheetRef.current?.present();
@@ -211,6 +453,28 @@ export const AddRecipeScreen = () => {
       >
         <VSpace size={insets.top + HEADER_HEIGHT + 8} />
 
+        {backgroundImports.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>{importingSectionTitle}</Text>
+            <VSpace size={8} />
+            <View style={styles.importQueue}>
+              <ImportQueueSummary
+                pendingCount={pendingImportCount}
+                readyCount={readyImportCount}
+              />
+              {backgroundImports.map((importItem) => (
+                <BackgroundImportCard
+                  key={importItem.id}
+                  importItem={importItem}
+                  onReview={handleReviewImport}
+                  onDismiss={handleDismissImport}
+                />
+              ))}
+            </View>
+            <VSpace size={24} />
+          </>
+        )}
+
         {/* Import Section */}
         <Text style={styles.sectionTitle}>Import</Text>
         <VSpace size={8} />
@@ -277,7 +541,7 @@ export const AddRecipeScreen = () => {
       {/* Sheets */}
       <SmartImportSheet
         ref={smartImportSheetRef}
-        onRecipeParsed={handleRecipeParsed}
+        onImportStarted={handleSmartImportStarted}
       />
       <BasicImportSheet
         ref={basicImportSheetRef}
@@ -326,6 +590,137 @@ const styles = StyleSheet.create((theme, rt) => ({
     backgroundColor: theme.colors.inputBackground,
     borderRadius: theme.borderRadius.large,
     overflow: "hidden",
+  },
+  importQueue: {
+    marginHorizontal: 20,
+    backgroundColor: theme.colors.inputBackground,
+    borderRadius: theme.borderRadius.large,
+    overflow: "hidden",
+  },
+  importSummary: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 16,
+    gap: 10,
+    backgroundColor: theme.colors.inputBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  importSummaryTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  importSummaryTitleRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  importSummaryIconGlyph: {
+    color: theme.colors.primary,
+  },
+  importSummaryText: {
+    gap: 4,
+  },
+  importSummarySubtitle: {
+    color: theme.colors.textSecondary,
+  },
+  importProgressTrack: {
+    width: "100%",
+    height: 8,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.background,
+    overflow: "hidden",
+  },
+  importProgressIndicator: {
+    width: IMPORT_PROGRESS_BAR_WIDTH,
+    height: "100%",
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.primary,
+  },
+  importProgressIndicatorDone: {
+    width: IMPORT_PROGRESS_TRACK_WIDTH,
+  },
+  importProgressLabel: {
+    color: theme.colors.primary,
+    fontFamily: theme.fonts.semiBold,
+    fontVariant: ["tabular-nums"],
+  },
+  importCard: {
+    minHeight: 74,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    backgroundColor: theme.colors.inputBackground,
+    overflow: "hidden",
+  },
+  importCardWithSeparator: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  importCardReady: {
+    backgroundColor: theme.colors.inputBackground,
+  },
+  importCardFailed: {
+    backgroundColor: theme.colors.inputBackground,
+  },
+  importCardGlow: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.primary + "04",
+  },
+  importIconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary + "18",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  importIconContainerReady: {
+    backgroundColor: theme.colors.primary + "22",
+  },
+  importIconContainerFailed: {
+    backgroundColor: theme.colors.destructive + "16",
+  },
+  importTextContainer: {
+    flex: 1,
+    gap: 2,
+  },
+  importTitle: {
+    position: "relative",
+  },
+  importSubtitle: {
+    color: theme.colors.textSecondary,
+  },
+  importSubtitleFailed: {
+    color: theme.colors.destructive,
+  },
+  importReviewButton: {
+    minWidth: 72,
+    height: 34,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  importReviewButtonText: {
+    color: theme.colors.buttonText,
+    fontFamily: theme.fonts.semiBold,
+  },
+  importDismissButton: {
+    width: 34,
+    height: 34,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.pressHighlight,
+  },
+  importDismissIcon: {
+    color: theme.colors.textSecondary,
   },
   row: {
     flexDirection: "row",

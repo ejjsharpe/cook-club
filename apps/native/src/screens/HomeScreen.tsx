@@ -57,6 +57,10 @@ import { Text } from "@/components/Text";
 import { UserSearchCard } from "@/components/UserSearchCard";
 import { ScalePressable } from "@/components/buttons/ScalePressable";
 import { useDebounce } from "@/hooks/useDebounce";
+import {
+  createBackgroundImportId,
+  useBackgroundImportQueue,
+} from "@/lib/backgroundImportQueue";
 
 // ─── Header Component ─────────────────────────────────────────────────────────
 
@@ -210,13 +214,13 @@ export const HomeScreen = () => {
     trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
   );
   const importRecipeMutation = useImportRecipe();
+  const { startImport } = useBackgroundImportQueue();
 
   // ─── State ────────────────────────────────────────────────────────────────────
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [showFloatingSearch, setShowFloatingSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isImporting, setIsImporting] = useState(false);
   const [commentActivityId, setCommentActivityId] = useState<number>(0);
   const [showLoadLatest, setShowLoadLatest] = useState(false);
 
@@ -401,29 +405,16 @@ export const HomeScreen = () => {
   }, [searchBarY]);
 
   const handleImportRecipe = useCallback(
-    async (sourceUrl: string) => {
-      if (isImporting) return;
-
-      setIsImporting(true);
-      try {
-        const result = await parseRecipeFromUrl.mutateAsync({ url: sourceUrl });
-
-        if (result.success) {
-          navigation.navigate("RecipeDetail", {
-            parsedRecipe: result,
-            mode: "edit",
-          });
-        } else {
-          Alert.alert("Error", "Failed to parse recipe from URL");
-        }
-      } catch (error) {
-        console.error("Import error:", error);
-        Alert.alert("Error", "Something went wrong. Please try again.");
-      } finally {
-        setIsImporting(false);
-      }
+    (sourceUrl: string) => {
+      startImport({
+        id: createBackgroundImportId("url"),
+        mode: "url",
+        title: sourceUrl,
+        run: () => parseRecipeFromUrl.mutateAsync({ url: sourceUrl }),
+      });
+      navigation.navigate("Add recipe");
     },
-    [isImporting, parseRecipeFromUrl, navigation],
+    [navigation, parseRecipeFromUrl, startImport],
   );
 
   const handleImportExistingRecipe = useCallback(

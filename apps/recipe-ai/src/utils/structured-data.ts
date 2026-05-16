@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { AnyNode } from "domhandler";
 
 import type {
   ParsedRecipe,
@@ -8,7 +9,7 @@ import type {
   InstructionSection,
   Tag,
 } from "../schema";
-import { normalizeUnit } from "./unit-normalizer";
+import { parseIngredientText } from "./ingredient-parser";
 
 function decodeHtmlEntities(value: string): string {
   if (!value.includes("&")) return value;
@@ -48,7 +49,33 @@ function parseIsoDurationToMinutes(
   return totalMinutes > 0 ? totalMinutes : null;
 }
 
+function parseDurationToMinutes(
+  duration: string | null | undefined,
+): number | null {
+  const isoMinutes = parseIsoDurationToMinutes(duration);
+  if (isoMinutes) return isoMinutes;
+  if (!duration) return null;
+
+  const normalized = normalizeStructuredText(duration).toLowerCase();
+  let totalMinutes = 0;
+
+  for (const match of normalized.matchAll(
+    /(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr|h)\b/g,
+  )) {
+    totalMinutes += Math.round(Number(match[1]) * 60);
+  }
+
+  for (const match of normalized.matchAll(
+    /(\d+(?:\.\d+)?)\s*(?:minutes?|mins?|min|m)\b/g,
+  )) {
+    totalMinutes += Math.round(Number(match[1]));
+  }
+
+  return totalMinutes > 0 ? totalMinutes : null;
+}
+
 type OneOrMany<T> = T | T[];
+type CheerioSelection = cheerio.Cheerio<AnyNode>;
 
 /**
  * Schema.org ImageObject
@@ -104,8 +131,9 @@ interface SchemaOrgRecipe {
 }
 
 /**
- * Extract recipe structured data from HTML (JSON-LD only)
- * Returns null if no valid recipe data found
+ * Extract deterministic recipe data from HTML.
+ * Sources are tried from most explicit to most heuristic:
+ * JSON-LD, framework hydration JSON, microdata/RDFa, and known recipe cards.
  */
 export function extractStructuredRecipe(
   html: string,
@@ -114,15 +142,21 @@ export function extractStructuredRecipe(
   try {
     const $ = cheerio.load(html);
 
-    const raw = parseJsonLd($, sourceUrl);
+    const candidates = [
+      parseJsonLd($),
+      parseHydrationData($),
+      parseMicrodataRecipe($),
+      parseRecipePluginCard($),
+    ];
 
-    // Validate we have minimum required data per schema.org Recipe
-    const ingredients = normalizeToArray(raw.recipeIngredient);
-    if (!raw.name || ingredients.length === 0 || !raw.recipeInstructions) {
-      return null;
+    for (const candidate of candidates) {
+      const raw = normalizeRawRecipe(candidate, sourceUrl);
+      if (hasMinimumRecipeData(raw)) {
+        return toParsedRecipe(raw, sourceUrl);
+      }
     }
 
-    return toParsedRecipe(raw, sourceUrl);
+    return null;
   } catch (error) {
     console.error("Error extracting structured recipe data:", error);
     return null;
@@ -140,10 +174,24 @@ function resolveUrl(baseUrl: string, relative: string): string {
 /**
  * Parse JSON-LD script tags to find schema.org Recipe data
  */
-function parseJsonLd(
-  $: cheerio.CheerioAPI,
+function normalizeRawRecipe(
+  raw: Partial<SchemaOrgRecipe>,
   baseUrl: string,
 ): Partial<SchemaOrgRecipe> {
+  if (!raw.image) return raw;
+  return {
+    ...raw,
+    image: normalizeImages(raw.image, baseUrl),
+  };
+}
+
+function hasMinimumRecipeData(raw: Partial<SchemaOrgRecipe>): boolean {
+  const ingredients = normalizeStrings(raw.recipeIngredient);
+  const instructions = normalizeToArray(raw.recipeInstructions);
+  return Boolean(raw.name && ingredients.length > 0 && instructions.length > 0);
+}
+
+function parseJsonLd($: cheerio.CheerioAPI): Partial<SchemaOrgRecipe> {
   let result: Partial<SchemaOrgRecipe> = {};
 
   $('script[type="application/ld+json"]').each((_i, el) => {
@@ -154,7 +202,7 @@ function parseJsonLd(
     try {
       data = JSON.parse($(el).text());
     } catch {
-      return;
+      // Ignore invalid JSON-LD.
     }
 
     const recipe = findRecipeInJsonLd(data);
@@ -163,9 +211,52 @@ function parseJsonLd(
     }
   });
 
-  // Resolve relative image URLs
-  if (result.image) {
-    result.image = normalizeImages(result.image, baseUrl);
+  return result;
+}
+
+function parseHydrationData($: cheerio.CheerioAPI): Partial<SchemaOrgRecipe> {
+  let result: Partial<SchemaOrgRecipe> = {};
+  const selectors = [
+    "script#__NEXT_DATA__",
+    "script#___gatsby",
+    'script[type="application/json"]',
+  ].join(",");
+
+  $(selectors).each((_i, el) => {
+    if (result.name) return;
+
+    const text = $(el).text().trim();
+    if (!text || text.length > 2_000_000) return;
+
+    try {
+      const recipe = findRecipeInJsonLd(JSON.parse(text));
+      if (recipe) {
+        result = recipe;
+      }
+    } catch {
+      // Ignore non-JSON hydration scripts.
+    }
+  });
+
+  if (!result.name) {
+    $("script:not([src])").each((_i, el) => {
+      if (result.name) return;
+
+      const text = $(el).text();
+      if (!text.includes("@type") || !text.includes("Recipe")) return;
+
+      for (const jsonText of extractAssignedJsonBlocks(text)) {
+        try {
+          const recipe = findRecipeInJsonLd(JSON.parse(jsonText));
+          if (recipe) {
+            result = recipe;
+            return;
+          }
+        } catch {
+          continue;
+        }
+      }
+    });
   }
 
   return result;
@@ -193,13 +284,570 @@ function findRecipeInJsonLd(data: unknown): Partial<SchemaOrgRecipe> | null {
     return findRecipeInJsonLd(obj["@graph"]);
   }
 
-  // Check if this object is a Recipe
-  const types = normalizeToArray(obj["@type"] as string | string[] | undefined);
-  if (types.includes("Recipe")) {
+  if (isRecipeType(obj["@type"] as OneOrMany<string> | undefined)) {
     return obj as Partial<SchemaOrgRecipe>;
   }
 
+  for (const value of Object.values(obj)) {
+    const recipe = findRecipeInJsonLd(value);
+    if (recipe) return recipe;
+  }
+
   return null;
+}
+
+function isRecipeType(type: OneOrMany<string> | undefined): boolean {
+  return normalizeToArray(type).some((value) => {
+    if (typeof value !== "string") return false;
+    return /(^|[/#:])Recipe$/i.test(value.trim());
+  });
+}
+
+function propertySelector(prop: string): string {
+  return [
+    `[itemprop~="${prop}"]`,
+    `[property~="${prop}"]`,
+    `[property~="schema:${prop}"]`,
+    `[property~="https://schema.org/${prop}"]`,
+  ].join(",");
+}
+
+function readElementValue($: cheerio.CheerioAPI, el: AnyNode): string {
+  const $el = $(el);
+  const value =
+    $el.attr("content") ||
+    $el.attr("datetime") ||
+    $el.attr("value") ||
+    $el.attr("src") ||
+    $el.attr("data-src") ||
+    $el.attr("href") ||
+    $el.text();
+
+  return normalizeStructuredText(value || "");
+}
+
+function readElementUrl($: cheerio.CheerioAPI, el: AnyNode): string | null {
+  const $el = $(el);
+  const srcset =
+    $el.attr("data-srcset") ||
+    $el.attr("srcset") ||
+    $el.find("[data-srcset], [srcset]").first().attr("data-srcset") ||
+    $el.find("[data-srcset], [srcset]").first().attr("srcset");
+  const value =
+    $el.attr("content") ||
+    $el.attr("src") ||
+    $el.attr("data-src") ||
+    $el.attr("data-lazy-src") ||
+    $el.attr("href") ||
+    chooseLargestSrcsetUrl(srcset || "");
+
+  const normalized = normalizeStructuredText(value || "");
+  return normalized && !normalized.startsWith("data:") ? normalized : null;
+}
+
+function chooseLargestSrcsetUrl(srcset: string): string | null {
+  if (!srcset) return null;
+
+  const candidates = srcset
+    .split(",")
+    .map((candidate) => {
+      const [url, descriptor] = candidate.trim().split(/\s+/, 2);
+      const width = descriptor?.endsWith("w")
+        ? Number(descriptor.slice(0, -1))
+        : 0;
+      return { url, width: Number.isFinite(width) ? width : 0 };
+    })
+    .filter((candidate): candidate is { url: string; width: number } =>
+      Boolean(candidate.url),
+    );
+
+  candidates.sort((a, b) => b.width - a.width);
+  return candidates[0]?.url || null;
+}
+
+function readFirstPropertyValue(
+  $: cheerio.CheerioAPI,
+  $scope: CheerioSelection,
+  props: string[],
+): string | undefined {
+  for (const prop of props) {
+    const el = $scope.find(propertySelector(prop)).toArray()[0];
+    if (!el) continue;
+
+    const value = readElementValue($, el);
+    if (value) return value;
+  }
+
+  return undefined;
+}
+
+function uniqueUsefulValues(values: string[], maxLength = 500): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    const normalized = normalizeStructuredText(value);
+    const dedupeKey = normalized.toLowerCase();
+    if (
+      !normalized ||
+      normalized.length > maxLength ||
+      seen.has(dedupeKey) ||
+      /^(ingredients|instructions|directions|method|nutrition)$/i.test(
+        normalized,
+      ) ||
+      /\b(advertisement|sponsored|sign up|log in|print recipe)\b/i.test(
+        normalized,
+      )
+    ) {
+      continue;
+    }
+
+    seen.add(dedupeKey);
+    result.push(normalized);
+  }
+
+  return result;
+}
+
+function readPropertyValues(
+  $: cheerio.CheerioAPI,
+  $scope: CheerioSelection,
+  props: string[],
+  maxLength = 500,
+): string[] {
+  const values: string[] = [];
+
+  for (const prop of props) {
+    $scope.find(propertySelector(prop)).each((_i, el) => {
+      const value = readElementValue($, el);
+      if (value) values.push(value);
+    });
+  }
+
+  return uniqueUsefulValues(values, maxLength);
+}
+
+function readPropertyImageValues(
+  $: cheerio.CheerioAPI,
+  $scope: CheerioSelection,
+): string[] {
+  const values: string[] = [];
+
+  $scope.find(propertySelector("image")).each((_i, el) => {
+    const url = readElementUrl($, el);
+    if (url) values.push(url);
+  });
+
+  return uniqueUsefulValues(values, 1_000);
+}
+
+function isStructuredType($el: CheerioSelection, typeName: string): boolean {
+  const itemType = $el.attr("itemtype") || "";
+  const rdfType = $el.attr("typeof") || "";
+  return (
+    itemType.toLowerCase().includes(typeName.toLowerCase()) ||
+    rdfType
+      .split(/\s+/)
+      .some((value) => value.toLowerCase().endsWith(typeName.toLowerCase()))
+  );
+}
+
+function instructionTextFromElement(
+  $: cheerio.CheerioAPI,
+  el: AnyNode,
+): string[] {
+  const $el = $(el);
+  const textProps = $el.find(propertySelector("text")).toArray();
+  if (textProps.length > 0) {
+    return uniqueUsefulValues(
+      textProps.map((textEl) => readElementValue($, textEl)),
+    );
+  }
+
+  const listItems = $el.find("li").toArray();
+  if (listItems.length > 0) {
+    return uniqueUsefulValues(listItems.map((li) => readElementValue($, li)));
+  }
+
+  return uniqueUsefulValues([readElementValue($, el)]);
+}
+
+function readInstructionValues(
+  $: cheerio.CheerioAPI,
+  $scope: CheerioSelection,
+): OneOrMany<string | HowToStep | HowToSection> | undefined {
+  const instructions: (string | HowToStep | HowToSection)[] = [];
+
+  $scope.find(propertySelector("recipeInstructions")).each((_i, el) => {
+    const $el = $(el);
+    if (isStructuredType($el, "HowToSection")) {
+      const steps = instructionTextFromElement($, el).map<HowToStep>(
+        (text) => ({
+          "@type": "HowToStep",
+          text,
+        }),
+      );
+      if (steps.length > 0) {
+        instructions.push({
+          "@type": "HowToSection",
+          name: readFirstPropertyValue($, $el, ["name"]),
+          itemListElement: steps,
+        });
+      }
+      return;
+    }
+
+    for (const text of instructionTextFromElement($, el)) {
+      instructions.push({ "@type": "HowToStep", text });
+    }
+  });
+
+  if (instructions.length === 0) return undefined;
+
+  const seen = new Set<string>();
+  return instructions.filter((instruction) => {
+    let text: string | undefined;
+    if (typeof instruction === "string") {
+      text = instruction;
+    } else if (instruction["@type"] === "HowToSection") {
+      const section = instruction as HowToSection;
+      text = normalizeToArray(section.itemListElement)
+        .map((step) => (typeof step === "string" ? step : step.text))
+        .join(" ");
+    } else {
+      const step = instruction as HowToStep;
+      text = step.text;
+    }
+    const key = normalizeStructuredText(text || "").toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function parseMicrodataRecipe($: cheerio.CheerioAPI): Partial<SchemaOrgRecipe> {
+  const scopes = $(
+    [
+      '[itemscope][itemtype*="schema.org/Recipe"]',
+      '[itemscope][itemtype*="schema.org/recipe"]',
+      '[typeof~="Recipe"]',
+      '[typeof~="schema:Recipe"]',
+      '[typeof*="schema.org/Recipe"]',
+    ].join(","),
+  ).toArray();
+
+  for (const scope of scopes) {
+    const $scope = $(scope);
+    const candidate: Partial<SchemaOrgRecipe> = {
+      name: readFirstPropertyValue($, $scope, ["name"]),
+      description: readFirstPropertyValue($, $scope, ["description"]),
+      image: readPropertyImageValues($, $scope),
+      prepTime: readFirstPropertyValue($, $scope, ["prepTime"]),
+      cookTime: readFirstPropertyValue($, $scope, ["cookTime"]),
+      totalTime: readFirstPropertyValue($, $scope, ["totalTime"]),
+      recipeYield: readFirstPropertyValue($, $scope, ["recipeYield", "yield"]),
+      recipeCategory: readPropertyValues($, $scope, ["recipeCategory"], 100),
+      recipeCuisine: readPropertyValues($, $scope, ["recipeCuisine"], 100),
+      keywords: readPropertyValues($, $scope, ["keywords"], 250),
+      recipeIngredient: readPropertyValues(
+        $,
+        $scope,
+        ["recipeIngredient"],
+        300,
+      ),
+      recipeInstructions: readInstructionValues($, $scope),
+    };
+
+    if (hasMinimumRecipeData(candidate)) {
+      return candidate;
+    }
+  }
+
+  return {};
+}
+
+interface RecipePluginConfig {
+  cardSelectors: string[];
+  nameSelectors: string[];
+  descriptionSelectors?: string[];
+  imageSelectors?: string[];
+  ingredientSelectors: string[];
+  instructionSelectors: string[];
+  prepTimeSelectors?: string[];
+  cookTimeSelectors?: string[];
+  totalTimeSelectors?: string[];
+  yieldSelectors?: string[];
+}
+
+const RECIPE_PLUGIN_CONFIGS: RecipePluginConfig[] = [
+  {
+    cardSelectors: [".wprm-recipe"],
+    nameSelectors: [".wprm-recipe-name"],
+    descriptionSelectors: [".wprm-recipe-summary"],
+    imageSelectors: [".wprm-recipe-image img"],
+    ingredientSelectors: [".wprm-recipe-ingredient"],
+    instructionSelectors: [".wprm-recipe-instruction-text"],
+    prepTimeSelectors: [".wprm-recipe-prep_time"],
+    cookTimeSelectors: [".wprm-recipe-cook_time"],
+    totalTimeSelectors: [".wprm-recipe-total_time"],
+    yieldSelectors: [".wprm-recipe-servings"],
+  },
+  {
+    cardSelectors: [".tasty-recipes"],
+    nameSelectors: [".tasty-recipes-title"],
+    descriptionSelectors: [".tasty-recipes-description"],
+    imageSelectors: [".tasty-recipes-image img"],
+    ingredientSelectors: [".tasty-recipes-ingredients li"],
+    instructionSelectors: [".tasty-recipes-instructions li"],
+    prepTimeSelectors: [".tasty-recipes-prep-time"],
+    cookTimeSelectors: [".tasty-recipes-cook-time"],
+    totalTimeSelectors: [".tasty-recipes-total-time"],
+    yieldSelectors: [".tasty-recipes-yield"],
+  },
+  {
+    cardSelectors: [".mv-create-card", ".mv-create-card-recipe"],
+    nameSelectors: [".mv-create-title", ".mv-create-card-title", "h2", "h3"],
+    descriptionSelectors: [".mv-create-description"],
+    imageSelectors: [".mv-create-image img", "img"],
+    ingredientSelectors: [".mv-create-ingredients li"],
+    instructionSelectors: [
+      ".mv-create-instructions li",
+      ".mv-create-directions li",
+    ],
+    prepTimeSelectors: [".mv-create-time-prep"],
+    cookTimeSelectors: [".mv-create-time-active", ".mv-create-time-cook"],
+    totalTimeSelectors: [".mv-create-time-total"],
+    yieldSelectors: [".mv-create-time-yield", ".mv-create-yield"],
+  },
+  {
+    cardSelectors: [
+      ".zip-recipes",
+      ".easyrecipe",
+      ".easy-recipes",
+      ".recipe-card",
+      ".recipe",
+    ],
+    nameSelectors: [
+      ".recipe-title",
+      ".recipe-card-title",
+      ".ERSName",
+      ".easyrecipe-title",
+      "h2",
+      "h3",
+    ],
+    descriptionSelectors: [
+      ".recipe-summary",
+      ".recipe-description",
+      ".ERSDescription",
+      ".summary",
+    ],
+    imageSelectors: [".recipe-image img", ".ERSPhoto img", "img"],
+    ingredientSelectors: [
+      ".ingredients li",
+      ".ingredient-list li",
+      ".ERSIngredients li",
+      ".easyrecipe-ingredients li",
+      "[class*='ingredient'] li",
+    ],
+    instructionSelectors: [
+      ".instructions li",
+      ".directions li",
+      ".method li",
+      ".ERSInstructions li",
+      ".easyrecipe-instructions li",
+      "[class*='instruction'] li",
+      "[class*='direction'] li",
+    ],
+    prepTimeSelectors: [".prep-time", ".ERSTimePrep"],
+    cookTimeSelectors: [".cook-time", ".ERSTimeCook"],
+    totalTimeSelectors: [".total-time", ".ERSTimeTotal"],
+    yieldSelectors: [".yield", ".servings", ".ERSYield"],
+  },
+];
+
+function readFirstSelectorText(
+  $: cheerio.CheerioAPI,
+  $scope: CheerioSelection,
+  selectors: string[] | undefined,
+): string | undefined {
+  if (!selectors) return undefined;
+
+  for (const selector of selectors) {
+    const el = $scope.find(selector).toArray()[0];
+    if (!el) continue;
+
+    const value = readElementValue($, el);
+    if (value) return value;
+  }
+
+  return undefined;
+}
+
+function readSelectorTexts(
+  $: cheerio.CheerioAPI,
+  $scope: CheerioSelection,
+  selectors: string[],
+  maxLength = 500,
+): string[] {
+  const values: string[] = [];
+
+  for (const selector of selectors) {
+    $scope.find(selector).each((_i, el) => {
+      const value = readElementValue($, el);
+      if (value) values.push(value);
+    });
+
+    if (values.length > 0) break;
+  }
+
+  return uniqueUsefulValues(values, maxLength);
+}
+
+function readSelectorImages(
+  $: cheerio.CheerioAPI,
+  $scope: CheerioSelection,
+  selectors: string[] | undefined,
+): string[] {
+  if (!selectors) return [];
+
+  const values: string[] = [];
+  for (const selector of selectors) {
+    $scope.find(selector).each((_i, el) => {
+      const url = readElementUrl($, el);
+      if (url) values.push(url);
+    });
+
+    if (values.length > 0) break;
+  }
+
+  return uniqueUsefulValues(values, 1_000);
+}
+
+function parseRecipePluginCard(
+  $: cheerio.CheerioAPI,
+): Partial<SchemaOrgRecipe> {
+  for (const config of RECIPE_PLUGIN_CONFIGS) {
+    const cards = $(config.cardSelectors.join(",")).toArray();
+
+    for (const card of cards) {
+      const $card = $(card);
+      const candidate: Partial<SchemaOrgRecipe> = {
+        name: readFirstSelectorText($, $card, config.nameSelectors),
+        description: readFirstSelectorText(
+          $,
+          $card,
+          config.descriptionSelectors,
+        ),
+        image: readSelectorImages($, $card, config.imageSelectors),
+        prepTime: readFirstSelectorText($, $card, config.prepTimeSelectors),
+        cookTime: readFirstSelectorText($, $card, config.cookTimeSelectors),
+        totalTime: readFirstSelectorText($, $card, config.totalTimeSelectors),
+        recipeYield: readFirstSelectorText($, $card, config.yieldSelectors),
+        recipeIngredient: readSelectorTexts(
+          $,
+          $card,
+          config.ingredientSelectors,
+          300,
+        ),
+        recipeInstructions: readSelectorTexts(
+          $,
+          $card,
+          config.instructionSelectors,
+          1_000,
+        ),
+      };
+
+      if (hasMinimumRecipeData(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return {};
+}
+
+function extractAssignedJsonBlocks(script: string): string[] {
+  const blocks: string[] = [];
+  const markers = [
+    "__INITIAL_STATE__",
+    "__APOLLO_STATE__",
+    "__NUXT__",
+    "__NEXT_DATA__",
+  ];
+
+  for (const marker of markers) {
+    let searchIndex = 0;
+    while (searchIndex < script.length) {
+      const markerIndex = script.indexOf(marker, searchIndex);
+      if (markerIndex === -1) break;
+
+      const start = findJsonStart(script, markerIndex + marker.length);
+      if (start === -1) {
+        searchIndex = markerIndex + marker.length;
+        continue;
+      }
+
+      const end = findBalancedJsonEnd(script, start);
+      if (end !== -1) {
+        blocks.push(script.slice(start, end + 1));
+        searchIndex = end + 1;
+      } else {
+        searchIndex = start + 1;
+      }
+    }
+  }
+
+  return blocks;
+}
+
+function findJsonStart(script: string, fromIndex: number): number {
+  const objectIndex = script.indexOf("{", fromIndex);
+  const arrayIndex = script.indexOf("[", fromIndex);
+
+  if (objectIndex === -1) return arrayIndex;
+  if (arrayIndex === -1) return objectIndex;
+  return Math.min(objectIndex, arrayIndex);
+}
+
+function findBalancedJsonEnd(script: string, startIndex: number): number {
+  const opening = script[startIndex];
+  const closing = opening === "{" ? "}" : "]";
+  const stack: string[] = [closing];
+  let inString = false;
+  let escaped = false;
+
+  for (let i = startIndex + 1; i < script.length; i += 1) {
+    const char = script[i]!;
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === "{" || char === "[") {
+      stack.push(char === "{" ? "}" : "]");
+      continue;
+    }
+
+    if (char === "}" || char === "]") {
+      if (stack.at(-1) !== char) return -1;
+      stack.pop();
+      if (stack.length === 0) return i;
+    }
+  }
+
+  return -1;
 }
 
 /**
@@ -285,79 +933,6 @@ function parseServingsFromString(yieldStr: string): number | null {
   }
 
   return null;
-}
-
-/**
- * Parse an ingredient string into structured parts
- * e.g., "2 cups flour" -> { quantity: 2, unit: "cup", name: "flour" }
- */
-function parseIngredient(ingredientStr: string): {
-  quantity: number | null;
-  unit: string | null;
-  name: string;
-} {
-  const str = normalizeStructuredText(ingredientStr);
-
-  // Match patterns like "1 1/2 cups flour", "2 tbsp sugar", "3 large eggs"
-  // Pattern: optional quantity (number, fraction, or mixed), optional unit, then the rest is the name
-  const quantityPattern = /^([\d]+(?:\s*[\d/]+)?(?:\/[\d]+)?)\s*/;
-  const quantityMatch = str.match(quantityPattern);
-
-  let quantity: number | null = null;
-  let remaining = str;
-
-  if (quantityMatch) {
-    const quantityStr = quantityMatch[1]!.trim();
-    quantity = parseFraction(quantityStr);
-    remaining = str.slice(quantityMatch[0].length);
-  }
-
-  // Common units to look for
-  const unitPattern =
-    /^(cups?|tablespoons?|tbsps?|teaspoons?|tsps?|ounces?|oz|pounds?|lbs?|grams?|g|kilograms?|kg|ml|milliliters?|liters?|l|pinch(?:es)?|dash(?:es)?|cloves?|cans?|bunche?s?|sprigs?|slices?|pieces?|heads?|stalks?)\s+/i;
-  const unitMatch = remaining.match(unitPattern);
-
-  let unit: string | null = null;
-
-  if (unitMatch) {
-    unit = normalizeUnit(unitMatch[1]!);
-    remaining = remaining.slice(unitMatch[0].length);
-  }
-
-  return {
-    quantity,
-    unit,
-    name: remaining.trim(),
-  };
-}
-
-/**
- * Parse a fraction or mixed number string to a decimal
- * e.g., "1/2" -> 0.5, "1 1/2" -> 1.5, "2" -> 2
- */
-function parseFraction(str: string): number | null {
-  const trimmed = str.trim();
-
-  // Check for mixed number like "1 1/2"
-  const mixedMatch = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-  if (mixedMatch) {
-    const whole = parseInt(mixedMatch[1]!, 10);
-    const num = parseInt(mixedMatch[2]!, 10);
-    const denom = parseInt(mixedMatch[3]!, 10);
-    return denom !== 0 ? whole + num / denom : null;
-  }
-
-  // Check for simple fraction like "1/2"
-  const fractionMatch = trimmed.match(/^(\d+)\/(\d+)$/);
-  if (fractionMatch) {
-    const num = parseInt(fractionMatch[1]!, 10);
-    const denom = parseInt(fractionMatch[2]!, 10);
-    return denom !== 0 ? num / denom : null;
-  }
-
-  // Check for whole number
-  const num = parseFloat(trimmed);
-  return isNaN(num) ? null : num;
 }
 
 /**
@@ -520,7 +1095,7 @@ function toParsedRecipe(
         typeof ing === "string" && normalizeStructuredText(ing) !== "",
     )
     .map((ing, index) => {
-      const parsed = parseIngredient(ing);
+      const parsed = parseIngredientText(normalizeStructuredText(ing));
       return {
         index,
         quantity: parsed.quantity,
@@ -548,9 +1123,9 @@ function toParsedRecipe(
     description: raw.description
       ? normalizeStructuredText(raw.description)
       : null,
-    prepTime: parseIsoDurationToMinutes(raw.prepTime),
-    cookTime: parseIsoDurationToMinutes(raw.cookTime),
-    totalTime: parseIsoDurationToMinutes(raw.totalTime),
+    prepTime: parseDurationToMinutes(raw.prepTime),
+    cookTime: parseDurationToMinutes(raw.cookTime),
+    totalTime: parseDurationToMinutes(raw.totalTime),
     servings: extractServingsFromYield(raw.recipeYield),
     sourceUrl,
     sourceType: "url" as const,

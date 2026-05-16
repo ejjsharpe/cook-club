@@ -53,6 +53,16 @@ const sampleHtml = `
 </html>
 `;
 
+const aiOnlyHtml = `
+<html>
+  <body>
+    <article>
+      ${"This page has a long recipe story with enough content for AI extraction. ".repeat(10)}
+    </article>
+  </body>
+</html>
+`;
+
 // Create mock environment
 function createMockEnv() {
   const kvStore = new Map<string, string>();
@@ -131,7 +141,31 @@ describe("RecipeAI.parse()", () => {
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it("parses recipe using AI", async () => {
+    it("parses visible recipe cards without AI", async () => {
+      const result = await parser.parse({
+        type: "url",
+        data: "https://example.com/recipe",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Recipe Title");
+        expect(result.metadata.parseMethod).toBe("structured_data");
+        expect(result.metadata.confidence).toBe("medium");
+        expect(mockEnv.AI.run).not.toHaveBeenCalled();
+      }
+    });
+
+    it("falls back to AI when deterministic extractors cannot produce a recipe", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/html" }),
+        arrayBuffer: () =>
+          Promise.resolve(new TextEncoder().encode(aiOnlyHtml).buffer),
+        text: () => Promise.resolve(aiOnlyHtml),
+      });
+
       const result = await parser.parse({
         type: "url",
         data: "https://example.com/recipe",
@@ -141,9 +175,477 @@ describe("RecipeAI.parse()", () => {
       if (result.success) {
         expect(result.data.name).toBe("Test Recipe");
         expect(result.metadata.parseMethod).toBe("ai_only");
-        expect(result.metadata.confidence).toBe("medium");
         expect(mockEnv.AI.run).toHaveBeenCalled();
       }
+    });
+
+    it("returns usable structured data without AI when present", async () => {
+      const structuredHtml = `
+        <html>
+          <head>
+            <script type="application/ld+json">
+              {
+                "@context": "https://schema.org",
+                "@type": "Recipe",
+                "name": "Structured Cake",
+                "description": "A structured recipe.",
+                "recipeYield": "Serves 8",
+                "recipeIngredient": ["1 cup flour", "2 eggs"],
+                "recipeInstructions": [
+                  { "@type": "HowToStep", "text": "Mix the batter." },
+                  { "@type": "HowToStep", "text": "Bake the cake." }
+                ]
+              }
+            </script>
+          </head>
+          <body><article>${"Intro ".repeat(4000)}</article></body>
+        </html>
+      `;
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/html" }),
+        arrayBuffer: () =>
+          Promise.resolve(new TextEncoder().encode(structuredHtml).buffer),
+        text: () => Promise.resolve(structuredHtml),
+      });
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://example.com/structured-cake",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Structured Cake");
+        expect(result.metadata.parseMethod).toBe("structured_data");
+      }
+      expect(mockEnv.AI.run).not.toHaveBeenCalled();
+    });
+
+    it("uses AMP and print alternates before AI", async () => {
+      const mainHtml = `
+        <html>
+          <head>
+            <link rel="amphtml" href="https://example.com/amp/alternate-cake">
+          </head>
+          <body><article>${"Intro only. ".repeat(40)}</article></body>
+        </html>
+      `;
+      const ampHtml = `
+        <html>
+          <head>
+            <script type="application/ld+json">
+              {
+                "@context": "https://schema.org",
+                "@type": "Recipe",
+                "name": "AMP Cake",
+                "image": "/amp-cake.jpg",
+                "recipeIngredient": ["1 cup flour", "2 eggs"],
+                "recipeInstructions": [
+                  { "@type": "HowToStep", "text": "Mix the batter." },
+                  { "@type": "HowToStep", "text": "Bake until done." }
+                ]
+              }
+            </script>
+          </head>
+        </html>
+      `;
+
+      global.fetch = vi.fn((requestUrl: string | URL) => {
+        const body = String(requestUrl).includes("/amp/alternate-cake")
+          ? ampHtml
+          : mainHtml;
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "text/html" }),
+          arrayBuffer: () =>
+            Promise.resolve(new TextEncoder().encode(body).buffer),
+          text: () => Promise.resolve(body),
+        });
+      }) as any;
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://example.com/alternate-cake",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("AMP Cake");
+        expect(result.data.sourceUrl).toBe(
+          "https://example.com/alternate-cake",
+        );
+        expect(result.data.images).toEqual([
+          "https://example.com/amp-cake.jpg",
+        ]);
+        expect(result.metadata.parseMethod).toBe("structured_data");
+      }
+      expect(mockEnv.AI.run).not.toHaveBeenCalled();
+    });
+
+    it("uses WordPress REST content before AI", async () => {
+      const mainHtml = `
+        <html>
+          <head><link rel="https://api.w.org/" href="https://example.com/wp-json/"></head>
+          <body>
+            <article class="wp-block-post-content">
+              ${"A WordPress post intro without a recipe card. ".repeat(10)}
+              <img src="/wp-content/uploads/story.jpg">
+            </article>
+          </body>
+        </html>
+      `;
+      const restPost = [
+        {
+          title: { rendered: "WP Rest Pie" },
+          excerpt: { rendered: "<p>A reliable pie.</p>" },
+          content: {
+            rendered: `
+              <h2>Ingredients</h2>
+              <ul>
+                <li>2 cups apples</li>
+                <li>1 cup flour</li>
+              </ul>
+              <h2>Instructions</h2>
+              <ol>
+                <li>Fill the pie.</li>
+                <li>Bake until golden.</li>
+              </ol>
+            `,
+          },
+        },
+      ];
+
+      global.fetch = vi.fn((requestUrl: string | URL) => {
+        if (String(requestUrl).includes("/wp-json/wp/v2/posts")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-type": "application/json" }),
+            json: () => Promise.resolve(restPost),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "text/html" }),
+          arrayBuffer: () =>
+            Promise.resolve(new TextEncoder().encode(mainHtml).buffer),
+          text: () => Promise.resolve(mainHtml),
+        });
+      }) as any;
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://example.com/wp-rest-pie",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("WP Rest Pie");
+        expect(result.metadata.parseMethod).toBe("structured_data");
+      }
+      expect(mockEnv.AI.run).not.toHaveBeenCalled();
+    });
+
+    it("falls back to deterministic TikTok caption extraction when AI cannot produce instructions", async () => {
+      const tiktokCaption =
+        "fudgy browniess🤤 recipe by Handle the Heat: 5 tbsp butter 1 1/4 cups sugar 2 eggs plus 1 egg yolk 1 tsp vanilla 1/3 cup vegetable oil 3/4 cup cocoa powder 1/2 cup flour 1/8 tsp baking soda 1 tbsp cornstarch 1/4 tsp salt 3/4 cup chocolate chips #brownies #fudgybrownies #brownierecipe";
+
+      mockEnv.AI.run = vi.fn().mockResolvedValue({
+        response: JSON.stringify({
+          name: "Fudgy Brownies",
+          description: null,
+          prepTime: null,
+          cookTime: null,
+          totalTime: null,
+          servings: null,
+          ingredientSections: [
+            {
+              name: null,
+              ingredients: [
+                { index: 0, quantity: 5, unit: "tbsp", name: "butter" },
+              ],
+            },
+          ],
+          instructionSections: [],
+          suggestedTags: [],
+        }),
+      });
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: () =>
+          Promise.resolve({
+            title: tiktokCaption,
+            thumbnail_url: "https://example.com/tiktok.jpg",
+          }),
+      });
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://www.tiktok.com/@thelittlecakela/video/7208369840007007531",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Fudgy Brownies");
+        expect(result.data.ingredientSections[0]?.ingredients).toHaveLength(11);
+        expect(
+          result.data.instructionSections[0]?.instructions[0]?.instruction,
+        ).toBe(
+          "Follow the method shown in the source video using the listed ingredients.",
+        );
+        expect(result.data.images).toEqual(["https://example.com/tiktok.jpg"]);
+        expect(result.metadata.parseMethod).toBe("structured_data");
+      }
+      expect(mockEnv.AI.run).toHaveBeenCalled();
+    });
+
+    it("uses TikTok audio transcript enrichment before caption fallback", async () => {
+      const tiktokCaption =
+        "fudgy browniess recipe by Handle the Heat: 5 tbsp butter 1 1/4 cups sugar 2 eggs plus 1 egg yolk #brownies";
+      const invalidAiRecipe = {
+        name: "Fudgy Brownies",
+        description: null,
+        prepTime: null,
+        cookTime: null,
+        totalTime: null,
+        servings: null,
+        ingredientSections: [
+          {
+            name: null,
+            ingredients: [
+              { index: 0, quantity: 5, unit: "tbsp", name: "butter" },
+              { index: 1, quantity: 1.25, unit: "cup", name: "sugar" },
+            ],
+          },
+        ],
+        instructionSections: [],
+        suggestedTags: [],
+      };
+      const enrichedAiRecipe = {
+        ...invalidAiRecipe,
+        instructionSections: [
+          {
+            name: null,
+            instructions: [
+              { index: 0, instruction: "Melt the butter." },
+              { index: 1, instruction: "Whisk in the sugar and eggs." },
+              { index: 2, instruction: "Bake until fudgy." },
+            ],
+          },
+        ],
+      };
+
+      let textModelCalls = 0;
+      mockEnv.AI.run = vi.fn((model: string) => {
+        if (model === "@cf/openai/whisper") {
+          return Promise.resolve({
+            text: "Melt the butter, whisk in the sugar and eggs, then bake until fudgy.",
+          });
+        }
+
+        textModelCalls += 1;
+        return Promise.resolve({
+          response: JSON.stringify(
+            textModelCalls === 1 ? invalidAiRecipe : enrichedAiRecipe,
+          ),
+        });
+      });
+
+      global.fetch = vi.fn((requestUrl: string | URL) => {
+        if (String(requestUrl).includes("cdn.example.com/video.mp4")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-length": "4" }),
+            arrayBuffer: () =>
+              Promise.resolve(new Uint8Array([1, 2, 3, 4]).buffer),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: () =>
+            Promise.resolve({
+              title: tiktokCaption,
+              thumbnail_url: "https://example.com/tiktok.jpg",
+              video_url: "https://cdn.example.com/video.mp4",
+            }),
+        });
+      }) as any;
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://www.tiktok.com/@thelittlecakela/video/7208369840007007531",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Fudgy Brownies");
+        expect(result.data.instructionSections[0]?.instructions).toHaveLength(
+          3,
+        );
+        expect(
+          result.data.instructionSections[0]?.instructions[0]?.instruction,
+        ).toBe("Melt the butter.");
+        expect(result.metadata.parseMethod).toBe("ai_enhanced");
+      }
+      expect(mockEnv.AI.run).toHaveBeenCalledWith(
+        "@cf/openai/whisper",
+        expect.objectContaining({ audio: [1, 2, 3, 4] }),
+      );
+    });
+
+    it("uses TikTok subtitle transcripts before Whisper or OCR", async () => {
+      const tiktokCaption =
+        "fudgy browniess recipe by Handle the Heat: 5 tbsp butter 1 1/4 cups sugar 2 eggs plus 1 egg yolk #brownies";
+      const hydration = {
+        __DEFAULT_SCOPE__: {
+          "webapp.reflow.video.detail": {
+            itemInfo: {
+              itemStruct: {
+                desc: tiktokCaption,
+                video: {
+                  cover: "https://example.com/tiktok.jpg",
+                  subtitleInfos: [
+                    {
+                      Url: "https://subtitle.example.com/brownies.vtt",
+                      Format: "webvtt",
+                      Source: "ASR",
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      };
+      const invalidAiRecipe = {
+        name: "Fudgy Brownies",
+        description: null,
+        prepTime: null,
+        cookTime: null,
+        totalTime: null,
+        servings: null,
+        ingredientSections: [
+          {
+            name: null,
+            ingredients: [
+              { index: 0, quantity: 5, unit: "tbsp", name: "butter" },
+              { index: 1, quantity: 1.25, unit: "cup", name: "sugar" },
+            ],
+          },
+        ],
+        instructionSections: [],
+        suggestedTags: [],
+      };
+      const enrichedAiRecipe = {
+        ...invalidAiRecipe,
+        instructionSections: [
+          {
+            name: null,
+            instructions: [
+              {
+                index: 0,
+                instruction: "Whisk melted butter and sugar together.",
+              },
+              {
+                index: 1,
+                instruction: "Bake the brownies for 40 minutes.",
+              },
+            ],
+          },
+        ],
+      };
+
+      let textModelCalls = 0;
+      mockEnv.AI.run = vi.fn((model: string) => {
+        if (model === "@cf/openai/whisper") {
+          return Promise.resolve({ text: "This should not be used." });
+        }
+
+        textModelCalls += 1;
+        return Promise.resolve({
+          response: JSON.stringify(
+            textModelCalls === 1 ? invalidAiRecipe : enrichedAiRecipe,
+          ),
+        });
+      });
+
+      global.fetch = vi.fn((requestUrl: string | URL) => {
+        const url = String(requestUrl);
+        if (url.startsWith("https://www.tiktok.com/oembed")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-type": "application/json" }),
+            json: () =>
+              Promise.resolve({
+                title: tiktokCaption,
+                thumbnail_url: "https://example.com/tiktok.jpg",
+              }),
+          });
+        }
+
+        if (
+          url ===
+          "https://www.tiktok.com/@thelittlecakela/video/7208369840007007531"
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () =>
+              Promise.resolve(`
+                <script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">
+                  ${JSON.stringify(hydration)}
+                </script>
+              `),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(`
+WEBVTT
+
+00:00:00.000 --> 00:00:01.000
+Whisk melted butter and sugar together.
+
+00:00:01.001 --> 00:00:02.000
+Bake the brownies for 40 minutes.
+            `),
+        });
+      }) as any;
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://www.tiktok.com/@thelittlecakela/video/7208369840007007531",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.instructionSections[0]?.instructions).toHaveLength(
+          2,
+        );
+        expect(result.metadata.parseMethod).toBe("ai_enhanced");
+      }
+      expect(mockEnv.AI.run).not.toHaveBeenCalledWith(
+        "@cf/openai/whisper",
+        expect.anything(),
+      );
     });
 
     it("caches successful results", async () => {
@@ -173,6 +675,57 @@ describe("RecipeAI.parse()", () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe("FETCH_FAILED");
+      }
+    });
+
+    it("uses reader fallback when regular fetch is blocked", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      vi.spyOn(console, "log").mockImplementation(() => undefined);
+      const readerMarkdown = `
+Markdown Content:
+This reader fallback cake is reliable and easy to make.
+
+Serves 4
+
+### Ingredients
+
+*   2 cups flour
+*   1 cup sugar
+
+### Instructions
+
+1.   Mix the ingredients.
+2.   Bake until golden.
+      `;
+
+      global.fetch = vi.fn((requestUrl: string | URL) => {
+        if (String(requestUrl).startsWith("https://r.jina.ai/")) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-type": "text/plain" }),
+            text: () => Promise.resolve(readerMarkdown),
+          });
+        }
+
+        return Promise.resolve({
+          ok: false,
+          status: 403,
+          statusText: "Forbidden",
+          headers: new Headers({ "content-type": "text/html" }),
+        });
+      }) as any;
+
+      const result = await parser.parse({
+        type: "url",
+        data: "https://example.com/reader-fallback-cake-recipe-123",
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.name).toBe("Reader Fallback Cake");
+        expect(result.metadata.parseMethod).toBe("structured_data");
+        expect(mockEnv.AI.run).not.toHaveBeenCalled();
       }
     });
 
@@ -321,6 +874,14 @@ describe("RecipeAI.parse()", () => {
     it("catches and returns AI errors gracefully", async () => {
       vi.spyOn(console, "error").mockImplementation(() => undefined);
       vi.spyOn(console, "log").mockImplementation(() => undefined);
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/html" }),
+        arrayBuffer: () =>
+          Promise.resolve(new TextEncoder().encode(aiOnlyHtml).buffer),
+        text: () => Promise.resolve(aiOnlyHtml),
+      });
       mockEnv.AI.run = vi.fn().mockRejectedValue(new Error("AI service down"));
 
       const result = await parser.parse({
@@ -337,6 +898,15 @@ describe("RecipeAI.parse()", () => {
 
   describe("metadata accuracy", () => {
     it("reports medium confidence for AI-parsed URLs", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "text/html" }),
+        arrayBuffer: () =>
+          Promise.resolve(new TextEncoder().encode(aiOnlyHtml).buffer),
+        text: () => Promise.resolve(aiOnlyHtml),
+      });
+
       const result = await parser.parse({
         type: "url",
         data: "https://example.com/recipe",

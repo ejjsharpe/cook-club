@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { getRandomUserAgent, fetchHtml } from "../../../src/utils/html-fetcher";
+import {
+  getRandomUserAgent,
+  fetchHtml,
+  isLikelyBotBlockedError,
+} from "../../../src/utils/html-fetcher";
 
 describe("getRandomUserAgent", () => {
   it("returns a string", () => {
@@ -52,6 +56,28 @@ describe("fetchHtml", () => {
     await expect(fetchHtml("https://example.com/404", 0)).rejects.toThrow(
       "Failed to fetch URL: 404 Not Found",
     );
+  });
+
+  it("marks 403 fetch errors as likely bot blocking", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        statusText: "Forbidden",
+        headers: new Headers({ "content-type": "text/html" }),
+      }),
+    );
+
+    let caught: unknown;
+    try {
+      await fetchHtml("https://example.com/blocked", 0);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(isLikelyBotBlockedError(caught)).toBe(true);
   });
 
   it("sends browser user agent header", async () => {

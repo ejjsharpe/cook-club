@@ -303,10 +303,6 @@ function getDraftErrors(draft: RecipeDraft) {
     errors.push("Recipe title is required.");
   }
 
-  if (draft.images.length === 0) {
-    errors.push("Add at least one recipe photo.");
-  }
-
   const hasIngredients = draft.ingredientSections.some((section) =>
     section.ingredients.some((ingredient) => ingredient.text.trim()),
   );
@@ -529,7 +525,12 @@ export const RecipeDetailScreen = () => {
 
   useEffect(() => {
     const index = pendingImageScrollIndexRef.current;
-    if (!isEditing || !draft || index === null || draft.images.length <= index) {
+    if (
+      !isEditing ||
+      !draft ||
+      index === null ||
+      draft.images.length <= index
+    ) {
       return;
     }
 
@@ -754,7 +755,10 @@ export const RecipeDetailScreen = () => {
     if (!draft) return;
 
     if (!draft.name.trim()) {
-      Alert.alert("Add a title", "Add a recipe title before creating an image.");
+      Alert.alert(
+        "Add a title",
+        "Add a recipe title before creating an image.",
+      );
       return;
     }
 
@@ -1345,7 +1349,10 @@ export const RecipeDetailScreen = () => {
           </View>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.heroEditButton, isCreatingImage && styles.heroButtonDisabled]}
+          style={[
+            styles.heroEditButton,
+            isCreatingImage && styles.heroButtonDisabled,
+          ]}
           onPress={handleGenerateRecipeImage}
           activeOpacity={0.78}
           disabled={isCreatingImage}
