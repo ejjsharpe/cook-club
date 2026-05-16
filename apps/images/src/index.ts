@@ -11,7 +11,12 @@ import {
   validateKey,
 } from "./presign";
 import type { UploadFromUrlResponse, UploadImageResponse } from "./service";
-import { buildCfImageOptions, parseTransformOptions } from "./transform";
+import {
+  buildCfImageOptions,
+  hasTransformParams,
+  isAllowedTransform,
+  parseTransformOptions,
+} from "./transform";
 import type {
   Env,
   PresignedUrlResponse,
@@ -33,6 +38,7 @@ export type { UploadFromUrlResponse, UploadImageResponse } from "./service";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_REMOTE_IMAGE_REDIRECTS = 3;
 const ORIGIN_FETCH_HEADER = "x-cookclub-origin-fetch";
+const TRANSFORM_STATUS_HEADER = "x-cookclub-image-transform";
 
 function isPrivateIpv4(hostname: string): boolean {
   const parts = hostname.split(".").map((part) => Number(part));
@@ -431,6 +437,7 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 async function getOriginalImageResponse(
   env: Env,
   key: string,
+  transformStatus: "original" | "origin" = "original",
 ): Promise<Response> {
   const object = await env.IMAGES.get(key);
 
@@ -445,6 +452,7 @@ async function getOriginalImageResponse(
     headers: {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=31536000, immutable",
+      [TRANSFORM_STATUS_HEADER]: transformStatus,
       ETag: object.etag,
     },
   });
@@ -466,11 +474,34 @@ app.get("/*", async (c) => {
   }
 
   if (c.req.header(ORIGIN_FETCH_HEADER) === "1") {
-    return getOriginalImageResponse(c.env, key);
+    return getOriginalImageResponse(c.env, key, "origin");
   }
 
   // Parse transformation options
   const transformOptions = parseTransformOptions(url.searchParams);
+  const transformRequested = hasTransformParams(url.searchParams);
+
+  if (transformRequested && !transformOptions) {
+    return c.json(
+      { error: "Invalid image transformation parameters" },
+      400,
+      {
+        [TRANSFORM_STATUS_HEADER]: "invalid",
+        "Cache-Control": "no-store",
+      },
+    );
+  }
+
+  if (transformOptions && !isAllowedTransform(transformOptions)) {
+    return c.json(
+      { error: "Unsupported image transformation preset" },
+      400,
+      {
+        [TRANSFORM_STATUS_HEADER]: "unsupported",
+        "Cache-Control": "no-store",
+      },
+    );
+  }
 
   // If transformations requested, use Cloudflare Image Resizing via R2 origin
   if (transformOptions) {
@@ -496,15 +527,38 @@ app.get("/*", async (c) => {
       if (transformedResponse.ok) {
         const headers = new Headers(transformedResponse.headers);
         headers.set("Cache-Control", "public, max-age=31536000, immutable");
+        headers.set("Vary", "Accept");
+        headers.set(TRANSFORM_STATUS_HEADER, "transformed");
         return new Response(transformedResponse.body, { headers });
       }
-      // Fall through to serve original if transformation fails
-    } catch {
-      // Fall through to serve original
+
+      return c.json(
+        {
+          error: "Image transformation failed",
+          status: transformedResponse.status,
+        },
+        502,
+        {
+          [TRANSFORM_STATUS_HEADER]: "failed",
+          "Cache-Control": "no-store",
+        },
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error: "Image transformation failed",
+          message: error instanceof Error ? error.message : "Unknown error",
+        },
+        502,
+        {
+          [TRANSFORM_STATUS_HEADER]: "failed",
+          "Cache-Control": "no-store",
+        },
+      );
     }
   }
 
-  // Serve original from R2 (no transformation or transformation failed)
+  // Serve original from R2 when no transformation was requested.
   return getOriginalImageResponse(c.env, key);
 });
 

@@ -1,6 +1,10 @@
 import { useNavigation, useScrollToTop } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
-import { FlashList, type FlashListRef } from "@shopify/flash-list";
+import {
+  FlashList,
+  type FlashListRef,
+  type ListRenderItemInfo,
+} from "@shopify/flash-list";
 import { useMutation } from "@tanstack/react-query";
 import { useState, useCallback, useMemo, useRef, memo, useEffect } from "react";
 import {
@@ -11,8 +15,6 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from "react-native";
 import { useKeyboardHandler } from "react-native-keyboard-controller";
 import Animated, {
@@ -23,16 +25,19 @@ import Animated, {
   Easing,
   type SharedValue,
   withSpring,
+  useAnimatedScrollHandler,
+  runOnJS,
 } from "react-native-reanimated";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import {
+  ActivityFeedListItem,
   useActivityFeed,
   useToggleActivityLike,
-  FeedItem,
 } from "@/api/activity";
 import { useSearchUsers, SearchUser } from "@/api/follows";
 import { useUnreadNotificationCount } from "@/api/notification";
+import { useImportRecipe } from "@/api/recipe";
 import { useUser, User } from "@/api/user";
 import { Avatar } from "@/components/Avatar";
 import {
@@ -164,11 +169,34 @@ const HORIZONTAL_PADDING = 20;
 const BACK_BUTTON_WIDTH = 44;
 const HEADER_GAP = 6;
 const HEADER_HEIGHT = 52; // Height of the cook club title + avatar row
+const SCROLLED_DOWN_LIMIT = 200;
+
+const ActivitySeparator = () => <VSpace size={16} />;
+const ReanimatedFlashList = Animated.createAnimatedComponent(
+  FlashList<ActivityFeedListItem>,
+);
+
+interface SearchUserRowProps {
+  user: SearchUser;
+  onUserPress: (userId: string) => void;
+}
+
+const SearchUserRow = memo(({ user, onUserPress }: SearchUserRowProps) => {
+  const handlePress = useCallback(() => {
+    onUserPress(user.id);
+  }, [user.id, onUserPress]);
+
+  return (
+    <View style={styles.userCardWrapper}>
+      <UserSearchCard user={user} onUserPress={handlePress} />
+    </View>
+  );
+});
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const HomeScreen = () => {
-  const browseScrollRef = useRef<FlashListRef<FeedItem>>(null);
+  const browseScrollRef = useRef<FlashListRef<ActivityFeedListItem>>(null);
   const searchListRef = useRef<FlatList>(null);
   const searchBarRef = useRef<View>(null);
   const commentsSheetRef = useRef<CommentsSheetRef>(null);
@@ -179,6 +207,7 @@ export const HomeScreen = () => {
   const parseRecipeFromUrl = useMutation(
     trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
   );
+  const importRecipeMutation = useImportRecipe();
 
   // ─── State ────────────────────────────────────────────────────────────────────
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -187,6 +216,7 @@ export const HomeScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [commentActivityId, setCommentActivityId] = useState<number>(0);
+  const [showLoadLatest, setShowLoadLatest] = useState(false);
 
   // Track the search bar's Y position relative to the screen
   const searchBarY = useSharedValue(0);
@@ -199,6 +229,9 @@ export const HomeScreen = () => {
   const scrollY = useSharedValue(0);
   const titleOpacity = useSharedValue(1);
   const avatarOpacity = useSharedValue(1);
+  const titleHidden = useSharedValue(false);
+  const avatarHidden = useSharedValue(false);
+  const isScrolledDown = useSharedValue(false);
 
   // Keyboard height as animated value for empty state centering
   const keyboardHeight = useSharedValue(0);
@@ -255,7 +288,7 @@ export const HomeScreen = () => {
 
   // Activity feed
   const {
-    data: activityData,
+    data: activityFeedItems = [],
     isPending: activityPending,
     isFetchingNextPage: activityFetchingNext,
     hasNextPage: activityHasNext,
@@ -274,11 +307,6 @@ export const HomeScreen = () => {
   } = useSearchUsers({
     query: debouncedSearch,
   });
-
-  // ─── Flatten Data ─────────────────────────────────────────────────────────────
-  const activityFeedItems = useMemo(() => {
-    return activityData?.pages.flatMap((page) => page?.items ?? []) ?? [];
-  }, [activityData]);
 
   const toggleLike = useToggleActivityLike();
 
@@ -330,13 +358,30 @@ export const HomeScreen = () => {
     setIsRefreshing(true);
     if (isSearchActive) {
       if (shouldFetchUsers) {
-        await usersRefetch();
+        try {
+          await usersRefetch();
+        } finally {
+          setIsRefreshing(false);
+        }
+        return;
       }
     } else {
-      await activityRefetch();
+      setShowLoadLatest(false);
+      try {
+        await activityRefetch();
+      } finally {
+        setIsRefreshing(false);
+      }
+      return;
     }
     setIsRefreshing(false);
   }, [isSearchActive, shouldFetchUsers, usersRefetch, activityRefetch]);
+
+  const handleLoadLatest = useCallback(async () => {
+    browseScrollRef.current?.scrollToOffset({ offset: 0, animated: true });
+    setShowLoadLatest(false);
+    await activityRefetch();
+  }, [activityRefetch]);
 
   const handleActivityLoadMore = useCallback(() => {
     if (activityHasNext && !activityFetchingNext) {
@@ -379,6 +424,18 @@ export const HomeScreen = () => {
     [isImporting, parseRecipeFromUrl, navigation],
   );
 
+  const handleImportExistingRecipe = useCallback(
+    async (recipeId: number) => {
+      try {
+        await importRecipeMutation.mutateAsync({ recipeId });
+        Alert.alert("Success", "Recipe added to your collection!");
+      } catch (err: any) {
+        Alert.alert("Error", err?.message || "Failed to import recipe");
+      }
+    },
+    [importRecipeMutation],
+  );
+
   const handleLikePress = useCallback(
     (activityEventId: number) => {
       toggleLike.mutate({ activityEventId });
@@ -392,52 +449,63 @@ export const HomeScreen = () => {
   }, []);
 
   // ─── Scroll Handler with Header Fade ────────────────────────────────────────────
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const y = event.nativeEvent.contentOffset.y;
+  const handleScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const y = event.contentOffset.y;
       scrollY.value = y;
 
-      // Fade out when search bar would collide with header
-      // Title fades first, avatar fades slightly after
-      const titleShouldHide = y > 5;
-      titleOpacity.value = withTiming(titleShouldHide ? 0 : 1, {
-        duration: 150,
-      });
+      const nextTitleHidden = y > 5;
+      if (titleHidden.value !== nextTitleHidden) {
+        titleHidden.value = nextTitleHidden;
+        titleOpacity.value = withTiming(nextTitleHidden ? 0 : 1, {
+          duration: 150,
+        });
+      }
 
-      const avatarShouldHide = y > 10;
-      avatarOpacity.value = withTiming(avatarShouldHide ? 0 : 1, {
-        duration: 150,
-      });
+      const nextAvatarHidden = y > 10;
+      if (avatarHidden.value !== nextAvatarHidden) {
+        avatarHidden.value = nextAvatarHidden;
+        avatarOpacity.value = withTiming(nextAvatarHidden ? 0 : 1, {
+          duration: 150,
+        });
+      }
+
+      const nextScrolledDown = y > SCROLLED_DOWN_LIMIT;
+      if (isScrolledDown.value !== nextScrolledDown) {
+        isScrolledDown.value = nextScrolledDown;
+        runOnJS(setShowLoadLatest)(nextScrolledDown);
+      }
     },
-    [scrollY, titleOpacity, avatarOpacity],
-  );
+  });
 
   // ─── Render Functions ─────────────────────────────────────────────────────────
-  const renderUser = ({ item }: { item: SearchUser }) => (
-    <View style={styles.userCardWrapper}>
-      <UserSearchCard
-        user={item}
-        onUserPress={() => handleUserPress(item.id)}
-      />
-    </View>
+  const renderUser = useCallback(
+    ({ item }: { item: SearchUser }) => (
+      <SearchUserRow user={item} onUserPress={handleUserPress} />
+    ),
+    [handleUserPress],
   );
 
   // ─── Activity Feed Render Function ────────────────────────────────────────────
-  const getActivityItemType = useCallback((item: FeedItem) => item.type, []);
+  const getActivityItemType = useCallback(
+    (item: ActivityFeedListItem) => item.type,
+    [],
+  );
 
   const renderActivityItem = useCallback(
-    ({ item }: { item: FeedItem }) => {
-      const activityId = parseInt(item.id, 10);
-
+    ({ item }: ListRenderItemInfo<ActivityFeedListItem>) => {
       if (item.type === "cooking_review") {
         return (
           <ReviewActivityCard
             activity={item}
-            onPress={() => handleRecipePress(item.recipe.id)}
-            onUserPress={() => handleUserPress(item.actor.id)}
-            onLikePress={() => handleLikePress(activityId)}
-            onCommentPress={() => handleCommentPress(activityId)}
+            onRecipePress={handleRecipePress}
+            onUserPress={handleUserPress}
+            onLikePress={handleLikePress}
+            onCommentPress={handleCommentPress}
             onImportPress={handleImportRecipe}
+            onImportRecipePress={handleImportExistingRecipe}
+            timeAgo={item._display.timeAgo}
+            userInitials={item._display.userInitials}
           />
         );
       }
@@ -445,11 +513,15 @@ export const HomeScreen = () => {
       return (
         <ImportActivityCard
           activity={item}
-          onPress={() => handleRecipePress(item.recipe.id)}
-          onUserPress={() => handleUserPress(item.actor.id)}
-          onLikePress={() => handleLikePress(activityId)}
-          onCommentPress={() => handleCommentPress(activityId)}
+          onRecipePress={handleRecipePress}
+          onUserPress={handleUserPress}
+          onLikePress={handleLikePress}
+          onCommentPress={handleCommentPress}
           onImportPress={handleImportRecipe}
+          onImportRecipePress={handleImportExistingRecipe}
+          timeAgo={item._display.timeAgo}
+          userInitials={item._display.userInitials}
+          sourceDescription={item._display.sourceDescription}
         />
       );
     },
@@ -459,10 +531,14 @@ export const HomeScreen = () => {
       handleLikePress,
       handleCommentPress,
       handleImportRecipe,
+      handleImportExistingRecipe,
     ],
   );
 
-  const activityKeyExtractor = useCallback((item: FeedItem) => item.id, []);
+  const activityKeyExtractor = useCallback(
+    (item: ActivityFeedListItem) => item.id,
+    [],
+  );
 
   // ─── Browse Mode Header ───────────────────────────────────────────────────────
   // The Header is rendered as a fixed element outside the list
@@ -611,7 +687,7 @@ export const HomeScreen = () => {
               />
             }
           >
-            <FlashList
+            <ReanimatedFlashList
               maintainVisibleContentPosition={{ disabled: true }}
               ref={browseScrollRef}
               data={activityFeedItems}
@@ -621,11 +697,12 @@ export const HomeScreen = () => {
               ListHeaderComponent={BrowseListHeader}
               ListEmptyComponent={renderActivityEmpty}
               ListFooterComponent={renderActivityFooter}
-              ItemSeparatorComponent={() => <VSpace size={16} />}
+              ItemSeparatorComponent={ActivitySeparator}
               onEndReached={handleActivityLoadMore}
               onEndReachedThreshold={0.5}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.feedContent}
+              drawDistance={1200}
               onScroll={handleScroll}
               scrollEventThrottle={16}
               refreshControl={
@@ -649,6 +726,26 @@ export const HomeScreen = () => {
             avatarOpacity={avatarOpacity}
           />
         </View>
+
+        {showLoadLatest && (
+          <View style={styles.loadLatestContainer} pointerEvents="box-none">
+            <ScalePressable
+              onPress={handleLoadLatest}
+              style={styles.loadLatestButton}
+              accessibilityRole="button"
+              accessibilityLabel="Load latest activity"
+            >
+              <Ionicons
+                name="arrow-up"
+                size={16}
+                style={styles.loadLatestIcon}
+              />
+              <Text type="subheadline" style={styles.loadLatestText}>
+                Latest
+              </Text>
+            </ScalePressable>
+          </View>
+        )}
       </Animated.View>
 
       {/* Search Mode */}
@@ -811,5 +908,33 @@ const styles = StyleSheet.create((theme, rt) => ({
   footerLoader: {
     paddingVertical: 20,
     alignItems: "center",
+  },
+  loadLatestContainer: {
+    position: "absolute",
+    top: rt.insets.top,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  loadLatestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primary,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loadLatestIcon: {
+    color: theme.colors.buttonText,
+  },
+  loadLatestText: {
+    color: theme.colors.buttonText,
+    fontWeight: "600",
   },
 }));

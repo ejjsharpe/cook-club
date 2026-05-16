@@ -3,23 +3,27 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
 import { memo, useMemo, useCallback } from "react";
-import { View, TouchableOpacity, Alert } from "react-native";
+import { View, TouchableOpacity } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
 import type { RecipeImportFeedItem } from "@/api/activity";
-import { useImportRecipe } from "@/api/recipe";
-import { Ionicons } from "@/components/Ionicons";
+import { ActivityActionRow } from "@/components/ActivityActionRow";
+import { getImageUrl } from "@/utils/imageUrl";
 
 interface Props {
   activity: RecipeImportFeedItem;
-  onPress?: () => void;
-  onUserPress?: () => void;
-  onLikePress?: () => void;
+  onRecipePress?: (recipeId: number) => void;
+  onUserPress?: (userId: string) => void;
+  onLikePress?: (activityEventId: number) => void;
   onImportPress?: (sourceUrl: string) => void;
+  onImportRecipePress?: (recipeId: number) => void;
   onViewSourcePress?: () => void;
   onCommentPress?: (activityEventId: number) => void;
+  timeAgo?: string;
+  userInitials?: string;
+  sourceDescription?: string;
 }
 
 const getInitials = (name: string): string => {
@@ -37,26 +41,127 @@ const getInitials = (name: string): string => {
   return name.substring(0, 2).toUpperCase();
 };
 
+const ImportUserHeader = memo(
+  ({
+    actor,
+    timeAgo,
+    userInitials,
+    sourceDescription,
+    onPress,
+  }: {
+    actor: RecipeImportFeedItem["actor"];
+    timeAgo: string;
+    userInitials: string;
+    sourceDescription: string;
+    onPress: () => void;
+  }) => (
+    <TouchableOpacity
+      style={styles.userHeader}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.avatar}>
+        {actor.image ? (
+          <Image
+            source={{ uri: getImageUrl(actor.image, "avatar-sm") }}
+            style={styles.avatarImage}
+            cachePolicy="memory-disk"
+            transition={100}
+          />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarInitials}>{userInitials}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.userInfo}>
+        <View style={styles.userNameRow}>
+          <View style={styles.nameGroup}>
+            <Text type="headline" style={styles.userName}>
+              {actor.name}
+            </Text>
+            {actor.username && (
+              <Text type="footnote" style={styles.username}>
+                @{actor.username}
+              </Text>
+            )}
+          </View>
+          <Text type="footnote" style={styles.timeAgo}>
+            {timeAgo}
+          </Text>
+        </View>
+        <Text type="subheadline" style={styles.activityText}>
+          imported from {sourceDescription}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  ),
+);
+
+const ImportRecipeHero = memo(
+  ({
+    recipe,
+    onRecipePress,
+    onViewSource,
+  }: {
+    recipe: RecipeImportFeedItem["recipe"];
+    onRecipePress: () => void;
+    onViewSource: () => void;
+  }) => (
+    <TouchableOpacity
+      style={styles.imageContainer}
+      onPress={recipe.sourceType === "url" ? onViewSource : onRecipePress}
+      activeOpacity={0.9}
+    >
+      {recipe.image && (
+        <Image
+          source={{ uri: getImageUrl(recipe.image, "recipe-card") }}
+          style={styles.recipeImage}
+          cachePolicy="memory-disk"
+        />
+      )}
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.6)"]}
+        style={styles.imageGradient}
+      >
+        <Text type="title3" numberOfLines={2} style={styles.recipeTitle}>
+          {recipe.name}
+        </Text>
+        {recipe.sourceType === "url" && (
+          <Text type="caption" style={styles.recipeSource}>
+            {recipe.sourceDomain}
+          </Text>
+        )}
+      </LinearGradient>
+    </TouchableOpacity>
+  ),
+);
+
 export const ImportActivityCard = memo(
   ({
     activity,
-    onPress,
+    onRecipePress,
     onUserPress,
     onLikePress,
     onImportPress,
+    onImportRecipePress,
     onCommentPress,
+    timeAgo: providedTimeAgo,
+    userInitials: providedUserInitials,
+    sourceDescription: providedSourceDescription,
   }: Props) => {
-    const importMutation = useImportRecipe();
+    const activityId = useMemo(() => parseInt(activity.id, 10), [activity.id]);
 
     const timeAgo = useMemo(
       () =>
+        providedTimeAgo ??
         formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true }),
-      [activity.createdAt],
+      [activity.createdAt, providedTimeAgo],
     );
 
     const userInitials = useMemo(
-      () => getInitials(activity.actor.name),
-      [activity.actor.name],
+      () => providedUserInitials ?? getInitials(activity.actor.name),
+      [activity.actor.name, providedUserInitials],
     );
 
     const handleViewSource = useCallback(async () => {
@@ -65,24 +170,24 @@ export const ImportActivityCard = memo(
       }
     }, [activity.recipe]);
 
-    const handleImport = useCallback(async () => {
+    const handleRecipePress = useCallback(() => {
+      onRecipePress?.(activity.recipe.id);
+    }, [activity.recipe.id, onRecipePress]);
+
+    const handleUserPress = useCallback(() => {
+      onUserPress?.(activity.actor.id);
+    }, [activity.actor.id, onUserPress]);
+
+    const handleImport = useCallback(() => {
       if (activity.recipe.sourceType === "url") {
         onImportPress?.(activity.recipe.sourceUrl);
       } else {
-        try {
-          await importMutation.mutateAsync({ recipeId: activity.recipe.id });
-          Alert.alert("Success", "Recipe added to your collection!");
-        } catch (err: any) {
-          Alert.alert("Error", err?.message || "Failed to import recipe");
-        }
+        onImportRecipePress?.(activity.recipe.id);
       }
-    }, [activity.recipe, onImportPress, importMutation]);
+    }, [activity.recipe, onImportPress, onImportRecipePress]);
 
-    const handleComment = useCallback(() => {
-      onCommentPress?.(parseInt(activity.id, 10));
-    }, [activity.id, onCommentPress]);
-
-    const getSourceDescription = () => {
+    const sourceDescription = useMemo(() => {
+      if (providedSourceDescription) return providedSourceDescription;
       if (activity.recipe.sourceType === "url") {
         return activity.recipe.sourceDomain;
       }
@@ -100,127 +205,32 @@ export const ImportActivityCard = memo(
         default:
           return "their collection";
       }
-    };
+    }, [activity.recipe, providedSourceDescription]);
 
     return (
       <View style={styles.card}>
-        {/* User Header */}
-        <TouchableOpacity
-          style={styles.userHeader}
-          onPress={onUserPress}
-          activeOpacity={0.7}
-        >
-          <View style={styles.avatar}>
-            {activity.actor.image ? (
-              <Image
-                source={{ uri: activity.actor.image }}
-                style={styles.avatarImage}
-                cachePolicy="memory-disk"
-                transition={100}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitials}>{userInitials}</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.userInfo}>
-            <View style={styles.userNameRow}>
-              <View style={styles.nameGroup}>
-                <Text type="headline" style={styles.userName}>
-                  {activity.actor.name}
-                </Text>
-                {activity.actor.username && (
-                  <Text type="footnote" style={styles.username}>
-                    @{activity.actor.username}
-                  </Text>
-                )}
-              </View>
-              <Text type="footnote" style={styles.timeAgo}>
-                {timeAgo}
-              </Text>
-            </View>
-            <Text type="subheadline" style={styles.activityText}>
-              imported from {getSourceDescription()}
-            </Text>
-          </View>
-        </TouchableOpacity>
+        <ImportUserHeader
+          actor={activity.actor}
+          timeAgo={timeAgo}
+          userInitials={userInitials}
+          sourceDescription={sourceDescription}
+          onPress={handleUserPress}
+        />
 
-        {/* Recipe Image with title overlay */}
-        <TouchableOpacity
-          style={styles.imageContainer}
-          onPress={
-            activity.recipe.sourceType === "url" ? handleViewSource : onPress
-          }
-          activeOpacity={0.9}
-        >
-          {activity.recipe.image && (
-            <Image
-              source={{ uri: activity.recipe.image }}
-              style={styles.recipeImage}
-              cachePolicy="memory-disk"
-              transition={200}
-            />
-          )}
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.6)"]}
-            style={styles.imageGradient}
-          >
-            <Text type="title3" numberOfLines={2} style={styles.recipeTitle}>
-              {activity.recipe.name}
-            </Text>
-            {activity.recipe.sourceType === "url" && (
-              <Text type="caption" style={styles.recipeSource}>
-                {activity.recipe.sourceDomain}
-              </Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+        <ImportRecipeHero
+          recipe={activity.recipe}
+          onRecipePress={handleRecipePress}
+          onViewSource={handleViewSource}
+        />
 
-        {/* Action buttons */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.actionPill}
-            activeOpacity={0.7}
-            onPress={onLikePress}
-          >
-            <Ionicons
-              name={activity.isLiked ? "heart" : "heart-outline"}
-              size={16}
-              style={[
-                styles.actionIcon,
-                activity.isLiked && styles.actionIconLiked,
-              ]}
-            />
-            <Text type="subheadline" style={styles.actionText}>
-              {activity.likeCount || "Like"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionPill}
-            activeOpacity={0.7}
-            onPress={handleComment}
-          >
-            <Ionicons
-              name="chatbubble-outline"
-              size={14}
-              style={styles.actionIcon}
-            />
-            <Text type="subheadline" style={styles.actionText}>
-              Comment
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionPillPrimary}
-            onPress={handleImport}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add" size={16} style={styles.actionIconPrimary} />
-            <Text type="subheadline" style={styles.actionTextPrimary}>
-              Import
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ActivityActionRow
+          activityId={activityId}
+          isLiked={activity.isLiked}
+          likeCount={activity.likeCount}
+          onLikePress={onLikePress}
+          onCommentPress={onCommentPress}
+          onImportPress={handleImport}
+        />
       </View>
     );
   },
@@ -308,45 +318,5 @@ const styles = StyleSheet.create((theme) => ({
   },
   recipeSource: {
     color: "rgba(255,255,255,0.8)",
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 20,
-  },
-  actionPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    minHeight: 32,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.full,
-  },
-  actionIcon: {
-    color: theme.colors.text,
-  },
-  actionIconLiked: {
-    color: theme.colors.primary,
-  },
-  actionText: {
-    color: theme.colors.text,
-  },
-  actionPillPrimary: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    minHeight: 32,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.full,
-  },
-  actionIconPrimary: {
-    color: theme.colors.buttonText,
-  },
-  actionTextPrimary: {
-    color: theme.colors.buttonText,
   },
 }));

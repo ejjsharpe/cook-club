@@ -7,6 +7,7 @@ export type ImagePreset =
   | "avatar-sm" // 100x100 (for 40-50px display)
   | "avatar-lg" // 200x200 (for 100px display)
   | "recipe-thumb" // 200x200 (compact cards)
+  | "feed-review" // 900x675 (home review carousel)
   | "recipe-card" // 800x533 (feed cards)
   | "recipe-hero" // 1200x800 (detail screen carousel)
   | "step-thumb" // 240x180 (instruction thumbnails)
@@ -17,16 +18,16 @@ const PRESETS: Record<Exclude<ImagePreset, "full">, string> = {
   "avatar-sm": "w=100&h=100&fit=cover&format=auto",
   "avatar-lg": "w=200&h=200&fit=cover&format=auto",
   "recipe-thumb": "w=200&h=200&fit=cover&format=auto",
+  "feed-review": "w=900&h=675&fit=cover&format=auto&q=78",
   "recipe-card": "w=800&h=533&fit=cover&format=auto",
   "recipe-hero": "w=1200&h=800&fit=cover&format=auto",
   "step-thumb": "w=240&h=180&fit=cover&format=auto",
   "step-full": "w=1600&fit=scale-down&format=auto",
 };
 
-// Image hosts that support Cloudflare Image Resizing
+// Image hosts that support the image worker's Cloudflare Image Resizing route.
 const TRANSFORMABLE_HOSTS = [
   "images.cookclub.app", // Production
-  "pub-f28c31fccf774b38b72b758fe11b56bb.r2.dev", // Dev R2 bucket
 ];
 
 /**

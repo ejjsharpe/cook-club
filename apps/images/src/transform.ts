@@ -1,5 +1,34 @@
 import type { TransformOptions } from "./types";
 
+const TRANSFORM_PARAM_NAMES = new Set(["w", "h", "fit", "format", "q"]);
+
+const ALLOWED_TRANSFORMS: TransformOptions[] = [
+  { width: 100, height: 100, fit: "cover", format: "auto" },
+  { width: 200, height: 200, fit: "cover", format: "auto" },
+  { width: 900, height: 675, fit: "cover", format: "auto", quality: 78 },
+  { width: 800, height: 533, fit: "cover", format: "auto" },
+  { width: 1200, height: 800, fit: "cover", format: "auto" },
+  { width: 240, height: 180, fit: "cover", format: "auto" },
+  { width: 1600, fit: "scale-down", format: "auto" },
+];
+
+export function hasTransformParams(searchParams: URLSearchParams): boolean {
+  return Array.from(searchParams.keys()).some((key) =>
+    TRANSFORM_PARAM_NAMES.has(key),
+  );
+}
+
+export function isAllowedTransform(options: TransformOptions): boolean {
+  return ALLOWED_TRANSFORMS.some(
+    (allowed) =>
+      options.width === allowed.width &&
+      options.height === allowed.height &&
+      options.fit === allowed.fit &&
+      options.format === allowed.format &&
+      options.quality === allowed.quality,
+  );
+}
+
 /**
  * Parse transformation options from URL query parameters.
  */

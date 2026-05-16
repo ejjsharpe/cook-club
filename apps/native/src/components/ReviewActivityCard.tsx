@@ -3,27 +3,30 @@ import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { memo, useMemo, useCallback } from "react";
 import {
+  ScrollView,
   View,
   TouchableOpacity,
-  Alert,
   useWindowDimensions,
 } from "react-native";
-import Animated from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Text } from "./Text";
 
 import type { CookingReviewFeedItem } from "@/api/activity";
-import { useImportRecipe } from "@/api/recipe";
+import { ActivityActionRow } from "@/components/ActivityActionRow";
 import { Ionicons } from "@/components/Ionicons";
+import { getImageUrl } from "@/utils/imageUrl";
 
 interface Props {
   activity: CookingReviewFeedItem;
-  onPress?: () => void;
-  onUserPress?: () => void;
-  onLikePress?: () => void;
+  onRecipePress?: (recipeId: number) => void;
+  onUserPress?: (userId: string) => void;
+  onLikePress?: (activityEventId: number) => void;
   onImportPress?: (sourceUrl: string) => void;
+  onImportRecipePress?: (recipeId: number) => void;
   onCommentPress?: (activityEventId: number) => void;
+  timeAgo?: string;
+  userInitials?: string;
 }
 
 const getInitials = (name: string): string => {
@@ -69,30 +72,177 @@ const starStyles = StyleSheet.create((theme) => ({
   },
 }));
 
-const AnimatedFlatList = Animated.FlatList;
+const ReviewImageCarousel = memo(
+  ({ images, imageWidth }: { images: string[]; imageWidth: number }) => {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={imageWidth + 8}
+        decelerationRate="fast"
+        contentContainerStyle={styles.carouselContent}
+      >
+        {images.map((imageUrl, index) => (
+          <View
+            key={`${imageUrl}-${index}`}
+            style={[
+              styles.imageWrapper,
+              { width: imageWidth },
+              index < images.length - 1 && styles.imageItemGap,
+            ]}
+          >
+            <Image
+              source={{
+                uri: getImageUrl(imageUrl, "feed-review") ?? imageUrl,
+              }}
+              style={styles.reviewImage}
+              cachePolicy="memory-disk"
+            />
+          </View>
+        ))}
+      </ScrollView>
+    );
+  },
+);
+
+const ActivityUserHeader = memo(
+  ({
+    actor,
+    timeAgo,
+    userInitials,
+    actionText,
+    onPress,
+  }: {
+    actor: CookingReviewFeedItem["actor"];
+    timeAgo: string;
+    userInitials: string;
+    actionText: string;
+    onPress: () => void;
+  }) => (
+    <TouchableOpacity
+      style={styles.userHeader}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.avatar}>
+        {actor.image ? (
+          <Image
+            source={{ uri: getImageUrl(actor.image, "avatar-sm") }}
+            style={styles.avatarImage}
+            cachePolicy="memory-disk"
+            transition={100}
+          />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarInitials}>{userInitials}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.userInfo}>
+        <View style={styles.userNameRow}>
+          <View style={styles.nameGroup}>
+            <Text type="headline" style={styles.userName}>
+              {actor.name}
+            </Text>
+            {actor.username && (
+              <Text type="footnote" style={styles.username}>
+                @{actor.username}
+              </Text>
+            )}
+          </View>
+          <Text type="footnote" style={styles.timeAgo}>
+            {timeAgo}
+          </Text>
+        </View>
+        <Text type="subheadline" style={styles.activityText}>
+          {actionText}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  ),
+);
+
+const ReviewContentCard = memo(
+  ({
+    review,
+    recipe,
+    onRecipePress,
+    onViewSource,
+  }: {
+    review: CookingReviewFeedItem["review"];
+    recipe: CookingReviewFeedItem["recipe"];
+    onRecipePress: () => void;
+    onViewSource: () => void;
+  }) => (
+    <View style={styles.contentCardWrapper}>
+      <View style={styles.contentCard}>
+        <View style={styles.reviewContent}>
+          <View style={styles.ratingRow}>
+            <StarRating rating={review.rating} />
+            <Text type="footnote" style={styles.ratingText}>
+              {review.rating}/5
+            </Text>
+          </View>
+
+          {review.text && (
+            <Text type="body" style={styles.reviewText}>
+              {review.text}
+            </Text>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.recipePreview}
+          onPress={recipe.sourceType === "url" ? onViewSource : onRecipePress}
+          activeOpacity={0.7}
+        >
+          {recipe.image && (
+            <Image
+              source={{ uri: getImageUrl(recipe.image, "recipe-thumb") }}
+              style={styles.recipeImage}
+              cachePolicy="memory-disk"
+            />
+          )}
+          <View style={styles.recipeInfo}>
+            <Text type="headline" numberOfLines={2} style={styles.recipeTitle}>
+              {recipe.name}
+            </Text>
+            <Text type="footnote" style={styles.recipeSource}>
+              {recipe.sourceType === "url" ? recipe.sourceDomain : "View recipe"}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    </View>
+  ),
+);
 
 export const ReviewActivityCard = memo(
   ({
     activity,
-    onPress,
+    onRecipePress,
     onUserPress,
     onLikePress,
     onImportPress,
+    onImportRecipePress,
     onCommentPress,
+    timeAgo: providedTimeAgo,
+    userInitials: providedUserInitials,
   }: Props) => {
     const { width: screenWidth } = useWindowDimensions();
     const imageWidth = screenWidth - 40; // 20px padding on each side
-    const importMutation = useImportRecipe();
+    const activityId = useMemo(() => parseInt(activity.id, 10), [activity.id]);
 
     const timeAgo = useMemo(
       () =>
+        providedTimeAgo ??
         formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true }),
-      [activity.createdAt],
+      [activity.createdAt, providedTimeAgo],
     );
 
     const userInitials = useMemo(
-      () => getInitials(activity.actor.name),
-      [activity.actor.name],
+      () => providedUserInitials ?? getInitials(activity.actor.name),
+      [activity.actor.name, providedUserInitials],
     );
 
     const hasImages = activity.review.images.length > 0;
@@ -103,194 +253,57 @@ export const ReviewActivityCard = memo(
       }
     }, [activity.recipe]);
 
-    const handleImport = useCallback(async () => {
+    const handleRecipePress = useCallback(() => {
+      onRecipePress?.(activity.recipe.id);
+    }, [activity.recipe.id, onRecipePress]);
+
+    const handleUserPress = useCallback(() => {
+      onUserPress?.(activity.actor.id);
+    }, [activity.actor.id, onUserPress]);
+
+    const handleImport = useCallback(() => {
       if (activity.recipe.sourceType === "url") {
         onImportPress?.(activity.recipe.sourceUrl);
       } else {
-        try {
-          await importMutation.mutateAsync({ recipeId: activity.recipe.id });
-          Alert.alert("Success", "Recipe added to your collection!");
-        } catch (err: any) {
-          Alert.alert("Error", err?.message || "Failed to import recipe");
-        }
+        onImportRecipePress?.(activity.recipe.id);
       }
-    }, [activity.recipe, onImportPress, importMutation]);
-
-    const handleComment = useCallback(() => {
-      onCommentPress?.(parseInt(activity.id, 10));
-    }, [activity.id, onCommentPress]);
+    }, [activity.recipe, onImportPress, onImportRecipePress]);
 
     return (
       <View style={styles.card}>
-        {/* User Header */}
-        <TouchableOpacity
-          style={styles.userHeader}
-          onPress={onUserPress}
-          activeOpacity={0.7}
-        >
-          <View style={styles.avatar}>
-            {activity.actor.image ? (
-              <Image
-                source={{ uri: activity.actor.image }}
-                style={styles.avatarImage}
-                cachePolicy="memory-disk"
-                transition={100}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitials}>{userInitials}</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.userInfo}>
-            <View style={styles.userNameRow}>
-              <View style={styles.nameGroup}>
-                <Text type="headline" style={styles.userName}>
-                  {activity.actor.name}
-                </Text>
-                {activity.actor.username && (
-                  <Text type="footnote" style={styles.username}>
-                    @{activity.actor.username}
-                  </Text>
-                )}
-              </View>
-              <Text type="footnote" style={styles.timeAgo}>
-                {timeAgo}
-              </Text>
-            </View>
-            <Text type="subheadline" style={styles.activityText}>
-              cooked {activity.recipe.name}
-            </Text>
-          </View>
-        </TouchableOpacity>
+        <ActivityUserHeader
+          actor={activity.actor}
+          timeAgo={timeAgo}
+          userInitials={userInitials}
+          actionText={`cooked ${activity.recipe.name}`}
+          onPress={handleUserPress}
+        />
 
         {/* Review Images Carousel */}
         {hasImages && (
           <View style={styles.carouselContainer}>
-            <AnimatedFlatList
-              data={activity.review.images}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(_, index) => index.toString()}
-              snapToInterval={imageWidth + 8}
-              decelerationRate="fast"
-              contentContainerStyle={styles.carouselContent}
-              ItemSeparatorComponent={() => (
-                <View style={styles.imageSeparator} />
-              )}
-              renderItem={({ item: imageUrl }) => (
-                <View style={styles.imageWrapper}>
-                  <Image
-                    source={{ uri: imageUrl }}
-                    style={[styles.reviewImage, { width: imageWidth }]}
-                    cachePolicy="memory-disk"
-                    transition={200}
-                  />
-                </View>
-              )}
+            <ReviewImageCarousel
+              images={activity.review.images}
+              imageWidth={imageWidth}
             />
           </View>
         )}
 
-        {/* Review Content Card */}
-        <View style={styles.contentCardWrapper}>
-          <View style={styles.contentCard}>
-            {/* Rating and Review Text */}
-            <View style={styles.reviewContent}>
-              <View style={styles.ratingRow}>
-                <StarRating rating={activity.review.rating} />
-                <Text type="footnote" style={styles.ratingText}>
-                  {activity.review.rating}/5
-                </Text>
-              </View>
+        <ReviewContentCard
+          review={activity.review}
+          recipe={activity.recipe}
+          onRecipePress={handleRecipePress}
+          onViewSource={handleViewSource}
+        />
 
-              {activity.review.text && (
-                <Text type="body" style={styles.reviewText}>
-                  {activity.review.text}
-                </Text>
-              )}
-            </View>
-
-            {/* Recipe Preview */}
-            <TouchableOpacity
-              style={styles.recipePreview}
-              onPress={
-                activity.recipe.sourceType === "url"
-                  ? handleViewSource
-                  : onPress
-              }
-              activeOpacity={0.7}
-            >
-              {activity.recipe.image && (
-                <Image
-                  source={{ uri: activity.recipe.image }}
-                  style={styles.recipeImage}
-                  cachePolicy="memory-disk"
-                  transition={200}
-                />
-              )}
-              <View style={styles.recipeInfo}>
-                <Text
-                  type="headline"
-                  numberOfLines={2}
-                  style={styles.recipeTitle}
-                >
-                  {activity.recipe.name}
-                </Text>
-                <Text type="footnote" style={styles.recipeSource}>
-                  {activity.recipe.sourceType === "url"
-                    ? activity.recipe.sourceDomain
-                    : "View recipe"}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Action buttons */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.actionPill}
-            activeOpacity={0.7}
-            onPress={onLikePress}
-          >
-            <Ionicons
-              name={activity.isLiked ? "heart" : "heart-outline"}
-              size={16}
-              style={[
-                styles.actionIcon,
-                activity.isLiked && styles.actionIconLiked,
-              ]}
-            />
-            <Text type="subheadline" style={styles.actionText}>
-              {activity.likeCount || "Like"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionPill}
-            activeOpacity={0.7}
-            onPress={handleComment}
-          >
-            <Ionicons
-              name="chatbubble-outline"
-              size={14}
-              style={styles.actionIcon}
-            />
-            <Text type="subheadline" style={styles.actionText}>
-              Comment
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionPillPrimary}
-            onPress={handleImport}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add" size={16} style={styles.actionIconPrimary} />
-            <Text type="subheadline" style={styles.actionTextPrimary}>
-              Import
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <ActivityActionRow
+          activityId={activityId}
+          isLiked={activity.isLiked}
+          likeCount={activity.likeCount}
+          onLikePress={onLikePress}
+          onCommentPress={onCommentPress}
+          onImportPress={handleImport}
+        />
       </View>
     );
   },
@@ -359,14 +372,15 @@ const styles = StyleSheet.create((theme) => ({
   carouselContent: {
     paddingHorizontal: 20,
   },
-  imageSeparator: {
-    width: 8,
-  },
   imageWrapper: {
     borderRadius: theme.borderRadius.large,
     overflow: "hidden",
   },
+  imageItemGap: {
+    marginRight: 8,
+  },
   reviewImage: {
+    width: "100%",
     aspectRatio: 4 / 3,
   },
   contentCardWrapper: {
@@ -410,45 +424,5 @@ const styles = StyleSheet.create((theme) => ({
   recipeTitle: {},
   recipeSource: {
     color: theme.colors.textSecondary,
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 20,
-  },
-  actionPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    minHeight: 32,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: theme.colors.inputBackground,
-    borderRadius: theme.borderRadius.full,
-  },
-  actionIcon: {
-    color: theme.colors.text,
-  },
-  actionIconLiked: {
-    color: theme.colors.primary,
-  },
-  actionText: {
-    color: theme.colors.text,
-  },
-  actionPillPrimary: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    minHeight: 32,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.full,
-  },
-  actionIconPrimary: {
-    color: theme.colors.buttonText,
-  },
-  actionTextPrimary: {
-    color: theme.colors.buttonText,
   },
 }));

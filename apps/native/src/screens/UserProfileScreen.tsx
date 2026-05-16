@@ -1,6 +1,6 @@
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useTRPC } from "@repo/trpc/client";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list";
 import { useMutation } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useMemo, useCallback, useState, useRef } from "react";
@@ -14,12 +14,13 @@ import {
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 
 import type {
-  FeedItem,
+  ActivityFeedListItem,
   CookingReviewFeedItem,
   RecipeImportFeedItem,
 } from "@/api/activity";
 import { useUserActivities } from "@/api/activity";
 import { useUserProfile, useFollowUser, useUnfollowUser } from "@/api/follows";
+import { useImportRecipe } from "@/api/recipe";
 import { useUser } from "@/api/user";
 import {
   CommentsSheet,
@@ -44,7 +45,7 @@ type UserProfileScreenParams = {
 const ThemedActivityIndicator = withUnistyles(ActivityIndicator, (theme) => ({
   color: theme.colors.primary,
 }));
-const ThemedFlashList = withUnistyles(FlashList<FeedItem>);
+const ThemedFlashList = withUnistyles(FlashList<ActivityFeedListItem>);
 const HEADER_HEIGHT = 52;
 
 export const UserProfileScreen = () => {
@@ -55,6 +56,7 @@ export const UserProfileScreen = () => {
   const parseRecipeFromUrl = useMutation(
     trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
   );
+  const importRecipeMutation = useImportRecipe();
 
   const commentsSheetRef = useRef<CommentsSheetRef>(null);
 
@@ -69,7 +71,7 @@ export const UserProfileScreen = () => {
 
   // Fetch user activities
   const {
-    data: activitiesData,
+    data: activities = [],
     fetchNextPage: fetchNextActivities,
     hasNextPage: hasMoreActivities,
     isFetchingNextPage: isFetchingNextActivities,
@@ -77,10 +79,6 @@ export const UserProfileScreen = () => {
   } = useUserActivities({ userId });
 
   const isOwnProfile = currentUser?.user?.id === userId;
-
-  const activities = useMemo(() => {
-    return activitiesData?.pages.flatMap((page) => page?.items ?? []) ?? [];
-  }, [activitiesData]);
 
   const handleFollow = () => {
     followMutation.mutate({ userId });
@@ -146,49 +144,74 @@ export const UserProfileScreen = () => {
     [isImporting, parseRecipeFromUrl, navigation],
   );
 
+  const handleImportExistingRecipe = useCallback(
+    async (recipeId: number) => {
+      try {
+        await importRecipeMutation.mutateAsync({ recipeId });
+        Alert.alert("Success", "Recipe added to your collection!");
+      } catch (err: any) {
+        Alert.alert("Error", err?.message || "Failed to import recipe");
+      }
+    },
+    [importRecipeMutation],
+  );
+
+  const handleRecipePress = useCallback(
+    (recipeId: number) => {
+      navigation.navigate("RecipeDetail", { recipeId });
+    },
+    [navigation],
+  );
+
+  const handleUserPress = useCallback(
+    (pressedUserId: string) => {
+      navigation.navigate("UserProfile", { userId: pressedUserId });
+    },
+    [navigation],
+  );
+
   const handleCommentPress = useCallback((activityEventId: number) => {
     setCommentActivityId(activityEventId);
     commentsSheetRef.current?.present();
   }, []);
 
   const renderActivityItem = useCallback(
-    ({ item }: { item: FeedItem }) => {
-      const activityId = parseInt(item.id, 10);
-
+    ({ item }: ListRenderItemInfo<ActivityFeedListItem>) => {
       if (item.type === "cooking_review") {
         return (
           <ReviewActivityCard
             activity={item satisfies CookingReviewFeedItem}
-            onPress={() =>
-              navigation.navigate("RecipeDetail", {
-                recipeId: item.recipe.id,
-              })
-            }
-            onUserPress={() =>
-              navigation.navigate("UserProfile", { userId: item.actor.id })
-            }
-            onCommentPress={() => handleCommentPress(activityId)}
+            onRecipePress={handleRecipePress}
+            onUserPress={handleUserPress}
+            onCommentPress={handleCommentPress}
             onImportPress={handleImportRecipe}
+            onImportRecipePress={handleImportExistingRecipe}
+            timeAgo={item._display.timeAgo}
+            userInitials={item._display.userInitials}
           />
         );
       }
       return (
         <ImportActivityCard
           activity={item satisfies RecipeImportFeedItem}
-          onPress={() =>
-            navigation.navigate("RecipeDetail", {
-              recipeId: item.recipe.id,
-            })
-          }
-          onUserPress={() =>
-            navigation.navigate("UserProfile", { userId: item.actor.id })
-          }
-          onCommentPress={() => handleCommentPress(activityId)}
+          onRecipePress={handleRecipePress}
+          onUserPress={handleUserPress}
+          onCommentPress={handleCommentPress}
           onImportPress={handleImportRecipe}
+          onImportRecipePress={handleImportExistingRecipe}
+          timeAgo={item._display.timeAgo}
+          userInitials={item._display.userInitials}
+          sourceDescription={item._display.sourceDescription}
         />
       );
     },
-    [navigation, handleImportRecipe, handleCommentPress],
+    [
+      handleRecipePress,
+      handleUserPress,
+      handleImportRecipe,
+      handleImportExistingRecipe,
+      handleCommentPress,
+    ],
   );
 
   const renderEmpty = () => {

@@ -343,9 +343,8 @@ export const NotificationsScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView edges={["top", "left", "right"]} style={styles.container}>
         <NavigationHeader title="Notifications" />
-
         <FlatList
           data={notifications}
           renderItem={renderNotification}
