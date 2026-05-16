@@ -18,9 +18,6 @@ export const useGetMealPlans = () => {
   const trpc = useTRPC();
   return useQuery({
     ...trpc.mealPlan.getMealPlans.queryOptions(),
-    staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
   });
 };
 
@@ -81,9 +78,7 @@ export const useGetMealPlanEntries = ({
       { mealPlanId, startDate, endDate },
       { enabled },
     ),
-    staleTime: 1000 * 60 * 2,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+
     // Keep previous data while loading new date range to prevent flash
     placeholderData: (previousData) => previousData,
   });

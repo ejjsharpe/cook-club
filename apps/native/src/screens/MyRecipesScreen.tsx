@@ -6,6 +6,7 @@ import {
   Pressable,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
   Dimensions,
   type TextInput,
 } from "react-native";
@@ -319,6 +320,7 @@ export const MyRecipesScreen = () => {
   // ─── State ────────────────────────────────────────────────────────────────────
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRefreshingBrowse, setIsRefreshingBrowse] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
 
   // Filter state from RecipeCollectionBrowser
@@ -428,10 +430,13 @@ export const MyRecipesScreen = () => {
   const createCollectionMutation = useCreateCollection();
 
   // Collections for horizontal list
-  const { data: collectionsData, isLoading: isLoadingCollections } =
-    useGetUserCollectionsWithMetadata({
-      search: "",
-    });
+  const {
+    data: collectionsData,
+    isLoading: isLoadingCollections,
+    refetch: refetchCollections,
+  } = useGetUserCollectionsWithMetadata({
+    search: "",
+  });
   const collections = (collectionsData ?? []) as CollectionWithMetadata[];
 
   // Memoize collections list with create button to avoid recreating array every render
@@ -445,11 +450,23 @@ export const MyRecipesScreen = () => {
   );
 
   // Recent recipes (first 5)
-  const { data: recentRecipesData, isLoading: isLoadingRecipes } =
-    useGetUserRecipes({}); // Use default params (same as search mode initial state)
+  const {
+    data: recentRecipesData,
+    isLoading: isLoadingRecipes,
+    refetch: refetchRecentRecipes,
+  } = useGetUserRecipes({}); // Use default params (same as search mode initial state)
   const recentRecipes = useMemo(() => {
     return (recentRecipesData?.pages[0]?.items ?? []).slice(0, 5);
   }, [recentRecipesData]);
+
+  const handleBrowseRefresh = useCallback(async () => {
+    setIsRefreshingBrowse(true);
+    try {
+      await Promise.all([refetchCollections(), refetchRecentRecipes()]);
+    } finally {
+      setIsRefreshingBrowse(false);
+    }
+  }, [refetchCollections, refetchRecentRecipes]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────────
   const handleRecipePress = useCallback(
@@ -1007,6 +1024,12 @@ export const MyRecipesScreen = () => {
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshingBrowse}
+              onRefresh={handleBrowseRefresh}
+            />
+          }
         >
           {/* Pressable Search Bar Button (not a real input) */}
           <AnimatedPressable

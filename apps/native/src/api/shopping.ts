@@ -23,9 +23,6 @@ export const useGetShoppingList = (params?: { shoppingListId?: number }) => {
     ...trpc.shopping.getShoppingList.queryOptions(
       params?.shoppingListId ? { shoppingListId: params.shoppingListId } : {},
     ),
-    staleTime: 1000 * 60 * 2,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
   });
 };
 
@@ -34,9 +31,6 @@ export const useGetUserShoppingLists = () => {
   const trpc = useTRPC();
   return useQuery({
     ...trpc.shopping.getUserShoppingLists.queryOptions(),
-    staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
   });
 };
 
@@ -209,7 +203,10 @@ export const useToggleItemChecked = (params?: { shoppingListId?: number }) => {
     onError: (_err, _variables, context) => {
       // Rollback on error
       if (context?.shoppingListQueryKey) {
-        queryClient.setQueryData(context.shoppingListQueryKey, context.previous);
+        queryClient.setQueryData(
+          context.shoppingListQueryKey,
+          context.previous,
+        );
       }
     },
     onSettled: () => {

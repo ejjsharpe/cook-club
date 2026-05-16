@@ -74,9 +74,6 @@ export const useGetUserRecipes = ({
 
   return useInfiniteQuery({
     ...infiniteQueryOptions,
-    staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
   });
 };
 
@@ -104,7 +101,6 @@ export const useUserPreferences = () => {
 
   return useQuery({
     ...trpc.recipe.getUserPreferences.queryOptions(),
-    staleTime: 1000 * 60 * 30, // 30 minutes - preferences change slowly
   });
 };
 
@@ -118,7 +114,6 @@ export const useAllTags = ({ type }: UseAllTagsParams = {}) => {
 
   return useQuery({
     ...trpc.recipe.getAllTags.queryOptions({ type }),
-    staleTime: 1000 * 60 * 60, // 1 hour - tags change very rarely
   });
 };
 
@@ -128,7 +123,6 @@ export const useUserRecipeTags = () => {
 
   return useQuery({
     ...trpc.recipe.getUserRecipeTags.queryOptions(),
-    staleTime: 1000 * 60 * 5, // 5 minutes - changes when recipes are added/removed
   });
 };
 
@@ -154,9 +148,6 @@ export const useGetUserRecipesById = ({
 
   return useInfiniteQuery({
     ...infiniteQueryOptions,
-    staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
   });
 };
 

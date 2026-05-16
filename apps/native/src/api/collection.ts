@@ -23,9 +23,6 @@ export const useGetUserCollections = ({
 
   return useQuery({
     ...trpc.collection.getUserCollections.queryOptions({ recipeId }),
-    staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
   });
 };
 
@@ -63,9 +60,6 @@ export const useGetUserCollectionsWithMetadata = ({
       includeMetadata: true,
       search: search.trim() || undefined,
     }),
-    staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
   });
 };
 
