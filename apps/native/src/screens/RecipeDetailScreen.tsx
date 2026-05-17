@@ -868,7 +868,7 @@ export const RecipeDetailScreen = () => {
                     ? section.ingredients.filter(
                         (ingredient) => ingredient.id !== ingredientId,
                       )
-                    : [{ ...section.ingredients[0]!, text: "" }],
+                    : [{ id: createDraftId("ingredient"), text: "" }],
               }
             : section,
         ),
@@ -987,7 +987,7 @@ export const RecipeDetailScreen = () => {
                       )
                     : [
                         {
-                          ...section.instructions[0]!,
+                          id: createDraftId("instruction"),
                           instruction: "",
                           imageUrl: null,
                         },
@@ -1437,7 +1437,7 @@ export const RecipeDetailScreen = () => {
             >
               <View style={styles.overlayTitleInputFrame}>
                 <TextInput
-                  value={draft.name}
+                  defaultValue={draft.name}
                   onChangeText={(name) =>
                     updateDraft((current) => ({ ...current, name }))
                   }
@@ -1489,7 +1489,7 @@ export const RecipeDetailScreen = () => {
             {renderImageEditOverlay()}
             <View style={styles.overlayTitleInputFrame}>
               <TextInput
-                value={draft.name}
+                defaultValue={draft.name}
                 onChangeText={(name) =>
                   updateDraft((current) => ({ ...current, name }))
                 }
@@ -1631,22 +1631,17 @@ export const RecipeDetailScreen = () => {
             style={sectionIndex > 0 ? styles.contentSectionGroup : null}
           >
             <View style={styles.editSectionHeader}>
-              <View style={styles.editSectionTitleField}>
-                <Ionicons
-                  name="pencil-outline"
-                  size={14}
-                  style={styles.editSectionTitleIcon}
-                />
-                <TextInput
-                  value={section.name}
-                  onChangeText={(name) =>
-                    updateIngredientSectionName(section.id, name)
-                  }
-                  placeholder="Section name"
-                  placeholderTextColor={styles.placeholderText.color}
-                  style={styles.editSectionInput}
-                />
-              </View>
+              <TextInput
+                defaultValue={section.name}
+                onChangeText={(name) =>
+                  updateIngredientSectionName(section.id, name)
+                }
+                placeholder="Section name"
+                placeholderTextColor={styles.placeholderText.color}
+                style={styles.editSectionInput}
+                multiline
+                textAlignVertical="top"
+              />
               <TouchableOpacity
                 style={styles.editRemoveIcon}
                 onPress={() => removeIngredientSection(section.id)}
@@ -1669,7 +1664,7 @@ export const RecipeDetailScreen = () => {
                 style={styles.editIngredientRow}
               >
                 <TextInput
-                  value={ingredient.text}
+                  defaultValue={ingredient.text}
                   onChangeText={(text) =>
                     updateIngredient(section.id, ingredient.id, text)
                   }
@@ -1784,23 +1779,17 @@ export const RecipeDetailScreen = () => {
             style={sectionIndex > 0 ? styles.contentSectionGroup : null}
           >
             <View style={styles.editSectionHeader}>
-              <View style={styles.editSectionTitleField}>
-                <Ionicons
-                  name="pencil-outline"
-                  size={14}
-                  style={styles.editSectionTitleIcon}
-                />
-                <TextInput
-                  value={section.name}
-                  onChangeText={(name) =>
-                    updateInstructionSectionName(section.id, name)
-                  }
-                  placeholder="Section name"
-                  placeholderTextColor={styles.placeholderText.color}
-                  style={styles.editSectionInput}
-                  multiline
-                />
-              </View>
+              <TextInput
+                defaultValue={section.name}
+                onChangeText={(name) =>
+                  updateInstructionSectionName(section.id, name)
+                }
+                placeholder="Section name"
+                placeholderTextColor={styles.placeholderText.color}
+                style={styles.editSectionInput}
+                multiline
+                textAlignVertical="top"
+              />
               <TouchableOpacity
                 style={styles.editRemoveIcon}
                 onPress={() => removeInstructionSection(section.id)}
@@ -1831,7 +1820,7 @@ export const RecipeDetailScreen = () => {
                   </View>
                   <View style={styles.instructionContent}>
                     <TextInput
-                      value={instruction.instruction}
+                      defaultValue={instruction.instruction}
                       onChangeText={(text) =>
                         updateInstruction(section.id, instruction.id, text)
                       }
@@ -1910,7 +1899,7 @@ export const RecipeDetailScreen = () => {
           <Ionicons name="leaf-outline" size={16} style={styles.metaIcon} />
           <Text style={styles.recipeMetaLabel}>Prep</Text>
           <TextInput
-            value={draft.prepTime?.toString() ?? ""}
+            defaultValue={draft.prepTime?.toString() ?? ""}
             onChangeText={(value) =>
               updateDraft((current) => ({
                 ...current,
@@ -1927,7 +1916,7 @@ export const RecipeDetailScreen = () => {
           <Ionicons name="flame-outline" size={16} style={styles.metaIcon} />
           <Text style={styles.recipeMetaLabel}>Cook</Text>
           <TextInput
-            value={draft.cookTime?.toString() ?? ""}
+            defaultValue={draft.cookTime?.toString() ?? ""}
             onChangeText={(value) =>
               updateDraft((current) => ({
                 ...current,
@@ -1944,7 +1933,7 @@ export const RecipeDetailScreen = () => {
           <Ionicons name="people-outline" size={16} style={styles.metaIcon} />
           <Text style={styles.recipeMetaLabel}>Serves</Text>
           <TextInput
-            value={draft.servings.toString()}
+            defaultValue={draft.servings.toString()}
             onChangeText={(value) =>
               updateDraft((current) => ({
                 ...current,
@@ -2053,7 +2042,7 @@ export const RecipeDetailScreen = () => {
               >
                 {isEditing && draft ? (
                   <TextInput
-                    value={draft.description}
+                    defaultValue={draft.description}
                     onChangeText={(description) =>
                       updateDraft((current) => ({ ...current, description }))
                     }
@@ -2661,7 +2650,6 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.inputBackground,
     color: theme.colors.text,
     fontSize: 17,
-    lineHeight: 24,
     fontFamily: theme.fonts.regular,
     textAlignVertical: "top",
   },
@@ -2953,34 +2941,22 @@ const styles = StyleSheet.create((theme) => ({
   },
   editSectionHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8,
     paddingBottom: 10,
   },
-  editSectionTitleField: {
-    flex: 1,
-    minHeight: 40,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: theme.colors.inputBackground,
-  },
-  editSectionTitleIcon: {
-    color: theme.colors.textSecondary,
-  },
   editSectionInput: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 50,
+    paddingHorizontal: 20,
+    paddingTop: 13,
+    paddingBottom: 13,
+    borderRadius: 25,
+    backgroundColor: theme.colors.inputBackground,
     color: theme.colors.text,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 17,
     fontFamily: theme.fonts.semiBold,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-    textAlignVertical: "center",
-    includeFontPadding: false,
+    textAlignVertical: "top",
   },
   editIngredientRow: {
     flexDirection: "row",
@@ -2998,7 +2974,6 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.inputBackground,
     color: theme.colors.text,
     fontSize: 17,
-    lineHeight: 24,
     fontFamily: theme.fonts.regular,
     textAlignVertical: "top",
   },
@@ -3015,7 +2990,6 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.inputBackground,
     color: theme.colors.text,
     fontSize: 17,
-    lineHeight: 27,
     fontFamily: theme.fonts.regular,
     textAlignVertical: "top",
   },
