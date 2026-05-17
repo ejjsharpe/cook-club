@@ -47,7 +47,7 @@ export const useMarkNotificationsAsRead = () => {
     ...trpc.notification.markAsRead.mutationOptions(),
     onSuccess: () => {
       // Invalidate both notifications list and unread count
-      queryClient.invalidateQueries({ queryKey: ["notification"] });
+      queryClient.invalidateQueries(trpc.notification.pathFilter());
     },
   });
 };

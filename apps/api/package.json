@@ -16,6 +16,7 @@
     "@hono/trpc-server": "^0.4.0",
     "@repo/auth": "workspace:*",
     "@repo/contracts": "workspace:*",
+    "@repo/db": "workspace:*",
     "@repo/trpc": "workspace:*",
     "hono": "^4.10.6"
   },

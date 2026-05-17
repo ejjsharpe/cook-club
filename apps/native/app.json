@@ -39,7 +39,8 @@
         }
       ],
       "expo-build-properties",
-      "expo-image"
+      "expo-image",
+      "expo-notifications"
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",

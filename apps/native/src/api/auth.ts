@@ -1,9 +1,11 @@
+import { useTRPC } from "@repo/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { authClient } from "@/lib/authClient";
 import { clearSelectedMealPlan } from "@/lib/mealPlanPreferences";
 import { storage } from "@/lib/mmkv";
 import { clearPendingShareIntent } from "@/lib/pendingShareIntent";
+import { getCurrentExpoPushToken } from "@/lib/pushNotifications";
 import {
   setThemePreference,
   applyThemePreference,
@@ -82,9 +84,26 @@ export const useSignInWithSocial = () => {
 };
 
 export const useSignOut = () => {
+  const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const unregisterPushToken = useMutation(
+    trpc.notification.unregisterPushToken.mutationOptions(),
+  );
+
   return useMutation({
-    mutationFn: () => authClient.signOut(),
+    mutationFn: async () => {
+      try {
+        const token = await getCurrentExpoPushToken();
+
+        if (token) {
+          await unregisterPushToken.mutateAsync({ token });
+        }
+      } catch (error) {
+        console.warn("Failed to unregister push notifications", error);
+      }
+
+      return authClient.signOut();
+    },
     onSuccess: () => {
       queryClient.setQueryData(["session"], null);
       queryClient.clear();

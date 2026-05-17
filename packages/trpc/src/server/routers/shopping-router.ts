@@ -22,7 +22,6 @@ import {
   getPendingShoppingListInvitations as getPendingShoppingListInvitationsService,
   getShoppingListInvitationStatus as getShoppingListInvitationStatusService,
   getShoppingListShareStatus as getShoppingListShareStatusService,
-  createNotification,
 } from "@repo/db/services";
 import {
   classifyIngredientAisle,
@@ -34,6 +33,7 @@ import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, and, desc, sql } from "drizzle-orm";
 
+import { createAndSendNotificationInBackground } from "../services/push-notification.service";
 import { router, authedProcedure } from "../trpc";
 import { mapServiceError } from "../utils";
 
@@ -1057,17 +1057,16 @@ export const shoppingRouter = router({
         });
 
         // Fire-and-forget notification
-        createNotification(ctx.db, {
-          recipientId: input.userId,
-          actorId: ctx.user.id,
-          type: "shopping_list_invite",
-          shoppingListId: input.shoppingListId,
-        }).catch((err) => {
-          console.error(
-            "Error creating shopping list invite notification:",
-            err,
-          );
-        });
+        createAndSendNotificationInBackground(
+          ctx,
+          {
+            recipientId: input.userId,
+            actorId: ctx.user.id,
+            type: "shopping_list_invite",
+            shoppingListId: input.shoppingListId,
+          },
+          "Error creating shopping list invite notification:",
+        );
 
         return result;
       } catch (err) {

@@ -8,6 +8,13 @@
       "when": 1778622075062,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779010811550,
+      "tag": "0001_sudden_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

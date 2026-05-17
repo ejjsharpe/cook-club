@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
   followUser: vi.fn(),
   unfollowUser: vi.fn(),
   getFollowList: vi.fn(),
-  createNotification: vi.fn().mockResolvedValue(undefined),
+  createAndSendNotification: vi.fn().mockResolvedValue(undefined),
+  createAndSendNotificationInBackground: vi.fn(),
   ServiceError: class ServiceError extends Error {
     code = "INTERNAL_ERROR";
   },
@@ -20,11 +21,16 @@ vi.mock("../services/activity", () => ({
   removeUserFromFeed: mocks.removeUserFromFeed,
 }));
 
+vi.mock("../services/push-notification.service", () => ({
+  createAndSendNotification: mocks.createAndSendNotification,
+  createAndSendNotificationInBackground:
+    mocks.createAndSendNotificationInBackground,
+}));
+
 vi.mock("@repo/db/services", () => ({
   followUser: mocks.followUser,
   unfollowUser: mocks.unfollowUser,
   getFollowList: mocks.getFollowList,
-  createNotification: mocks.createNotification,
   ServiceError: mocks.ServiceError,
 }));
 
@@ -91,7 +97,8 @@ describe("followsRouter - activity integration", () => {
     mockEnv = createMockEnv();
     mocks.backfillFeedFromUser.mockResolvedValue(undefined);
     mocks.removeUserFromFeed.mockResolvedValue(undefined);
-    mocks.createNotification.mockResolvedValue(undefined);
+    mocks.createAndSendNotification.mockResolvedValue(undefined);
+    mocks.createAndSendNotificationInBackground.mockReturnValue(undefined);
     mocks.followUser.mockResolvedValue({
       success: true,
       isNewFollow: true,
@@ -170,7 +177,9 @@ describe("followsRouter - activity integration", () => {
     });
 
     it("unfollow succeeds even if cleanup fails", async () => {
-      mocks.removeUserFromFeed.mockRejectedValueOnce(new Error("Cleanup failed"));
+      mocks.removeUserFromFeed.mockRejectedValueOnce(
+        new Error("Cleanup failed"),
+      );
 
       const ctx = createMockContext({ env: mockEnv });
       const caller = followsRouter.createCaller(ctx as any);

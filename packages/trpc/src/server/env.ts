@@ -32,6 +32,7 @@ export interface TRPCEnv extends AuthEnv {
   USER_FEED: DurableObjectNamespace;
   IMAGE_SERVICE: ImageService;
   IMAGE_PUBLIC_URL: string;
+  EXPO_ACCESS_TOKEN?: string;
   API_RATE_LIMITER?: RateLimitBinding;
   AI_RATE_LIMITER?: RateLimitBinding;
   IMAGE_AI_RATE_LIMITER?: RateLimitBinding;

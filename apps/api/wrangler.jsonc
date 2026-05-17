@@ -8,6 +8,9 @@
   "dev": {
     "port": 8787
   },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
   "services": [
     { "binding": "RECIPE_AI", "service": "cookclub-recipe-ai", "entrypoint": "RecipeAI" },
     { "binding": "IMAGE_SERVICE", "service": "cookclub-images", "entrypoint": "ImageService" }

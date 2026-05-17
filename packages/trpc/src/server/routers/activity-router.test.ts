@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+/* eslint-disable import/order */
 import { TRPCError } from "@trpc/server";
-
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createMockEnv } from "../__mocks__/env";
 
 const mockActivityServices = vi.hoisted(() => ({
@@ -10,10 +10,14 @@ const mockActivityServices = vi.hoisted(() => ({
 
 const mockDbServices = vi.hoisted(() => ({
   hydrateActivityIds: vi.fn().mockResolvedValue([]),
-  createNotification: vi.fn().mockResolvedValue(undefined),
   ServiceError: class ServiceError extends Error {
     code = "INTERNAL_ERROR";
   },
+}));
+
+const mockPushServices = vi.hoisted(() => ({
+  createAndSendNotification: vi.fn().mockResolvedValue(undefined),
+  createAndSendNotificationInBackground: vi.fn(),
 }));
 
 // Mock the activity propagation service (now in tRPC layer)
@@ -21,6 +25,8 @@ vi.mock("../services/activity", () => mockActivityServices);
 
 // Mock the db services (only hydrateActivityIds remains here)
 vi.mock("@repo/db/services", () => mockDbServices);
+
+vi.mock("../services/push-notification.service", () => mockPushServices);
 
 // Mock @repo/db/schemas to provide table objects
 vi.mock("@repo/db/schemas", () => ({
@@ -62,10 +68,12 @@ function createMockDb() {
     chain.where = vi.fn().mockImplementation(() => chain);
     chain.orderBy = vi.fn().mockImplementation(() => chain);
     chain.limit = vi.fn().mockImplementation(() => chain);
-    chain.then = vi.fn().mockImplementation((callback: (rows: unknown[]) => unknown) => {
-      const results = queryResults.get(currentQueryTable || "") || [];
-      return Promise.resolve(callback(results));
-    });
+    chain.then = vi
+      .fn()
+      .mockImplementation((callback: (rows: unknown[]) => unknown) => {
+        const results = queryResults.get(currentQueryTable || "") || [];
+        return Promise.resolve(callback(results));
+      });
 
     return chain;
   };
@@ -101,20 +109,28 @@ function createMockDb() {
 type MockDb = ReturnType<typeof createMockDb>;
 
 // Helper to create a mock context
-function createMockContext(db: MockDb, overrides: Partial<{
-  user: { id: string; name: string; image: string | null };
-  env: ReturnType<typeof createMockEnv>;
-}> = {}) {
+function createMockContext(
+  db: MockDb,
+  overrides: Partial<{
+    user: { id: string; name: string; image: string | null };
+    env: ReturnType<typeof createMockEnv>;
+  }> = {},
+) {
   return {
     db: db as any,
-    env: overrides.env ?? createMockEnv() as any,
-    user: overrides.user ?? { id: "test-user-id", name: "Test User", image: null },
+    env: overrides.env ?? (createMockEnv() as any),
+    user: overrides.user ?? {
+      id: "test-user-id",
+      name: "Test User",
+      image: null,
+    },
     req: new Request("http://localhost"),
     resHeaders: new Headers(),
   };
 }
 
 // Import after mocks
+// eslint-disable-next-line import/first, import/order
 import { activityRouter } from "./activity-router";
 
 describe("activityRouter", () => {
@@ -129,7 +145,9 @@ describe("activityRouter", () => {
       .mockImplementation(() => undefined);
     mockDbServices.hydrateActivityIds.mockResolvedValue([]);
     mockActivityServices.hydrateFeed.mockResolvedValue(0);
-    mockActivityServices.propagateActivityToFollowers.mockResolvedValue(undefined);
+    mockActivityServices.propagateActivityToFollowers.mockResolvedValue(
+      undefined,
+    );
     mockDb = createMockDb();
     mockEnv = createMockEnv();
   });
@@ -153,10 +171,9 @@ describe("activityRouter", () => {
 
       // Mock the DO fetch response
       mockEnv.USER_FEED._stub.fetch.mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ activityIds: [1], nextCursor: null }),
-          { headers: { "Content-Type": "application/json" } }
-        )
+        new Response(JSON.stringify({ activityIds: [1], nextCursor: null }), {
+          headers: { "Content-Type": "application/json" },
+        }),
       );
 
       const ctx = createMockContext(mockDb, { env: mockEnv });
@@ -180,10 +197,9 @@ describe("activityRouter", () => {
 
     it("passes cursor parameter to Durable Object", async () => {
       mockEnv.USER_FEED._stub.fetch.mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ activityIds: [], nextCursor: null }),
-          { headers: { "Content-Type": "application/json" } }
-        )
+        new Response(JSON.stringify({ activityIds: [], nextCursor: null }), {
+          headers: { "Content-Type": "application/json" },
+        }),
       );
 
       const ctx = createMockContext(mockDb, { env: mockEnv });
@@ -191,7 +207,8 @@ describe("activityRouter", () => {
 
       await caller.getFeed({ cursor: "some-cursor", limit: 10 });
 
-      const fetchCall = mockEnv.USER_FEED._stub.fetch.mock.calls[0]![0] as Request;
+      const fetchCall = mockEnv.USER_FEED._stub.fetch.mock
+        .calls[0]![0] as Request;
       const url = new URL(fetchCall.url);
       expect(url.searchParams.get("cursor")).toBe("some-cursor");
       expect(url.searchParams.get("limit")).toBe("10");
@@ -210,8 +227,8 @@ describe("activityRouter", () => {
       mockEnv.USER_FEED._stub.fetch.mockResolvedValueOnce(
         new Response(
           JSON.stringify({ activityIds: [2], nextCursor: "next-page-cursor" }),
-          { headers: { "Content-Type": "application/json" } }
-        )
+          { headers: { "Content-Type": "application/json" } },
+        ),
       );
 
       const ctx = createMockContext(mockDb, { env: mockEnv });
@@ -264,7 +281,9 @@ describe("activityRouter", () => {
     });
 
     it("throws error when DO fetch fails", async () => {
-      mockEnv.USER_FEED._stub.fetch.mockRejectedValueOnce(new Error("DO unavailable"));
+      mockEnv.USER_FEED._stub.fetch.mockRejectedValueOnce(
+        new Error("DO unavailable"),
+      );
 
       const ctx = createMockContext(mockDb, { env: mockEnv });
       const caller = activityRouter.createCaller(ctx as any);
@@ -292,7 +311,7 @@ describe("activityRouter", () => {
           returning: vi.fn().mockResolvedValue(
             insertCount === 1
               ? [{ id: 100 }] // activity event
-              : [{ id: 200 }] // review
+              : [{ id: 200 }], // review
           ),
         };
       });
@@ -314,11 +333,11 @@ describe("activityRouter", () => {
         insertCount++;
         return {
           values: vi.fn().mockReturnThis(),
-          returning: vi.fn().mockResolvedValue(
-            insertCount === 1
-              ? [{ id: 100 }]
-              : [{ id: 200 }]
-          ),
+          returning: vi
+            .fn()
+            .mockResolvedValue(
+              insertCount === 1 ? [{ id: 100 }] : [{ id: 200 }],
+            ),
         };
       });
 
@@ -342,13 +361,15 @@ describe("activityRouter", () => {
         insertCount++;
         return {
           values: vi.fn().mockReturnThis(),
-          returning: vi.fn().mockResolvedValue(
-            insertCount === 1
-              ? [{ id: 100 }]
-              : insertCount === 2
-              ? [{ id: 200 }]
-              : []
-          ),
+          returning: vi
+            .fn()
+            .mockResolvedValue(
+              insertCount === 1
+                ? [{ id: 100 }]
+                : insertCount === 2
+                  ? [{ id: 200 }]
+                  : [],
+            ),
         };
       });
 
@@ -358,7 +379,10 @@ describe("activityRouter", () => {
       await caller.createCookingReview({
         recipeId: 1,
         rating: 4,
-        imageUrls: ["http://example.com/photo1.jpg", "http://example.com/photo2.jpg"],
+        imageUrls: [
+          "http://example.com/photo1.jpg",
+          "http://example.com/photo2.jpg",
+        ],
       });
 
       // Should have 3 insert calls: activity event, review, images
@@ -372,7 +396,7 @@ describe("activityRouter", () => {
       const caller = activityRouter.createCaller(ctx as any);
 
       await expect(
-        caller.createCookingReview({ recipeId: 999, rating: 4 })
+        caller.createCookingReview({ recipeId: 999, rating: 4 }),
       ).rejects.toThrow(TRPCError);
 
       try {
@@ -394,11 +418,11 @@ describe("activityRouter", () => {
         insertCount++;
         return {
           values: vi.fn().mockReturnThis(),
-          returning: vi.fn().mockResolvedValue(
-            insertCount === 1
-              ? [{ id: 100 }]
-              : [{ id: 200 }]
-          ),
+          returning: vi
+            .fn()
+            .mockResolvedValue(
+              insertCount === 1 ? [{ id: 100 }] : [{ id: 200 }],
+            ),
         };
       });
 
@@ -476,7 +500,12 @@ describe("activityRouter", () => {
     it("returns paginated results with nextCursor", async () => {
       // Return more than limit to trigger nextCursor
       const reviews = Array.from({ length: 3 }, (_, i) => ({
-        review: { id: i + 1, rating: 4, reviewText: null, createdAt: new Date() },
+        review: {
+          id: i + 1,
+          rating: 4,
+          reviewText: null,
+          createdAt: new Date(),
+        },
         user: { id: `user-${i}`, name: `User ${i}`, image: null },
       }));
 
@@ -523,10 +552,7 @@ describe("activityRouter", () => {
     });
 
     it("rounds average to one decimal place", async () => {
-      mockDb._setResults("cooking_reviews", [
-        { rating: 5 },
-        { rating: 4 },
-      ]);
+      mockDb._setResults("cooking_reviews", [{ rating: 5 }, { rating: 4 }]);
 
       const ctx = createMockContext(mockDb, { env: mockEnv });
       const caller = activityRouter.createCaller(ctx as any);

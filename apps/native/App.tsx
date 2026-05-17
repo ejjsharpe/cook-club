@@ -28,11 +28,12 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ShareIntentStorageHandler } from "@/components/ShareIntentStorageHandler";
 import { WelcomeOverlayProvider } from "@/components/WelcomeOverlay";
 import { BackgroundImportQueueProvider } from "@/lib/backgroundImportQueue";
+import { PushNotificationsProvider } from "@/lib/pushNotifications";
 import { ReactQueryProvider } from "@/lib/reactQuery";
 import { SessionProvider } from "@/lib/sessionContext";
 import { SignedInProvider } from "@/lib/signedInContext";
 import { TRPCProvider } from "@/lib/trpc";
-import { Navigation } from "@/navigation/RootStack";
+import { Navigation, navigationRef } from "@/navigation/RootStack";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -127,22 +128,25 @@ export default function App() {
               <SessionProvider>
                 <TRPCProvider>
                   <SignedInProvider>
-                    <ShareIntentStorageHandler />
-                    <GestureHandlerRootView style={styles.rootView}>
-                      <BackgroundImportQueueProvider>
-                        <WelcomeOverlayProvider>
-                          <OfflineIndicator />
-                          <Navigation
-                            key={navigationKey}
-                            onReady={onNavigationReady}
-                            initialState={navigationState}
-                            onStateChange={setNavigationState}
-                            linking={linking}
-                            theme={navigationTheme}
-                          />
-                        </WelcomeOverlayProvider>
-                      </BackgroundImportQueueProvider>
-                    </GestureHandlerRootView>
+                    <PushNotificationsProvider>
+                      <ShareIntentStorageHandler />
+                      <GestureHandlerRootView style={styles.rootView}>
+                        <BackgroundImportQueueProvider>
+                          <WelcomeOverlayProvider>
+                            <OfflineIndicator />
+                            <Navigation
+                              ref={navigationRef}
+                              key={navigationKey}
+                              onReady={onNavigationReady}
+                              initialState={navigationState}
+                              onStateChange={setNavigationState}
+                              linking={linking}
+                              theme={navigationTheme}
+                            />
+                          </WelcomeOverlayProvider>
+                        </BackgroundImportQueueProvider>
+                      </GestureHandlerRootView>
+                    </PushNotificationsProvider>
                   </SignedInProvider>
                 </TRPCProvider>
               </SessionProvider>

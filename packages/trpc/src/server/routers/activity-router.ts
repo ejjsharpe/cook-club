@@ -6,13 +6,17 @@ import {
   recipes,
   user,
 } from "@repo/db/schemas";
-import { hydrateActivityIds, createNotification } from "@repo/db/services";
+import { hydrateActivityIds } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, desc, lt, and, sql, inArray } from "drizzle-orm";
 
+import {
+  propagateActivityToFollowers,
+  hydrateFeed,
+} from "../services/activity";
+import { createAndSendNotificationInBackground } from "../services/push-notification.service";
 import { router, authedProcedure } from "../trpc";
-import { propagateActivityToFollowers, hydrateFeed } from "../services/activity";
 
 interface GetFeedIdsResponse {
   activityIds: number[];
@@ -52,13 +56,20 @@ export const activityRouter = router({
 
         // Auto-hydrate on first page when the DO is empty, or when it contains
         // stale IDs from a local/dev database reset.
-        if (!cursor && (result.activityIds.length === 0 || items.length === 0)) {
+        if (
+          !cursor &&
+          (result.activityIds.length === 0 || items.length === 0)
+        ) {
           await hydrateFeed(ctx.db, ctx.env, ctx.user.id);
           const hydratedResponse = await feedDO.fetch(
             new Request(url.toString()),
           );
           result = (await hydratedResponse.json()) as GetFeedIdsResponse;
-          items = await hydrateActivityIds(ctx.db, result.activityIds, ctx.user.id);
+          items = await hydrateActivityIds(
+            ctx.db,
+            result.activityIds,
+            ctx.user.id,
+          );
         }
 
         return {
@@ -195,7 +206,7 @@ export const activityRouter = router({
         const conditions = cursor
           ? and(
               eq(cookingReviews.recipeId, recipeId),
-              lt(cookingReviews.id, cursor)
+              lt(cookingReviews.id, cursor),
             )
           : eq(cookingReviews.recipeId, recipeId);
 
@@ -229,7 +240,10 @@ export const activityRouter = router({
                 })
                 .from(cookingReviewImages)
                 .where(inArray(cookingReviewImages.reviewId, reviewIds))
-                .orderBy(cookingReviewImages.reviewId, cookingReviewImages.index)
+                .orderBy(
+                  cookingReviewImages.reviewId,
+                  cookingReviewImages.index,
+                )
             : [];
 
         // Group images by reviewId
@@ -246,7 +260,7 @@ export const activityRouter = router({
           rating: item.review.rating,
           reviewText: item.review.reviewText,
           images: (imagesByReview.get(item.review.id) ?? []).map(
-            (img) => img.url
+            (img) => img.url,
           ),
           createdAt: item.review.createdAt,
           user: item.user,
@@ -348,7 +362,11 @@ export const activityRouter = router({
 
         // Hydrate activity IDs into full FeedItems
         const activityIds = activitySlice.map((a) => a.id);
-        const items = await hydrateActivityIds(ctx.db, activityIds, ctx.user.id);
+        const items = await hydrateActivityIds(
+          ctx.db,
+          activityIds,
+          ctx.user.id,
+        );
 
         // Get next cursor from the last item
         const lastActivity = activitySlice[activitySlice.length - 1];
@@ -415,13 +433,16 @@ export const activityRouter = router({
 
           const updated = await ctx.db
             .update(activityEvents)
-            .set({ likeCount: sql`GREATEST(${activityEvents.likeCount} - 1, 0)` })
+            .set({
+              likeCount: sql`GREATEST(${activityEvents.likeCount} - 1, 0)`,
+            })
             .where(eq(activityEvents.id, activityEventId))
             .returning({ likeCount: activityEvents.likeCount });
 
           return {
             liked: false,
-            likeCount: updated[0]?.likeCount ?? Math.max(activity.likeCount - 1, 0),
+            likeCount:
+              updated[0]?.likeCount ?? Math.max(activity.likeCount - 1, 0),
           };
         } else {
           // Like - insert new like and increment count
@@ -437,14 +458,16 @@ export const activityRouter = router({
             .returning({ likeCount: activityEvents.likeCount });
 
           // Create notification for the activity owner
-          createNotification(ctx.db, {
-            recipientId: activity.userId,
-            actorId: ctx.user.id,
-            type: "activity_like",
-            activityEventId,
-          }).catch((err) => {
-            console.error("Error creating like notification:", err);
-          });
+          createAndSendNotificationInBackground(
+            ctx,
+            {
+              recipientId: activity.userId,
+              actorId: ctx.user.id,
+              type: "activity_like",
+              activityEventId,
+            },
+            "Error creating like notification:",
+          );
 
           return {
             liked: true,

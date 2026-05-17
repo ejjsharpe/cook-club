@@ -2,6 +2,8 @@ import {
   getNotifications,
   getUnreadCount,
   markAsRead,
+  registerPushToken,
+  unregisterPushToken,
 } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
@@ -15,7 +17,7 @@ export const notificationRouter = router({
       type({
         "cursor?": "number",
         "limit?": "number",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       try {
@@ -59,7 +61,7 @@ export const notificationRouter = router({
     .input(
       type({
         "notificationIds?": "number[]",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -78,6 +80,52 @@ export const notificationRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to mark notifications as read",
+        });
+      }
+    }),
+
+  registerPushToken: authedProcedure
+    .input(
+      type({
+        token: "string",
+        platform: "'ios' | 'android' | 'web'",
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const pushToken = await registerPushToken(ctx.db, {
+          userId: ctx.user.id,
+          expoPushToken: input.token,
+          platform: input.platform,
+        });
+
+        return { success: true, pushToken };
+      } catch (err) {
+        console.error("Error registering push token:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to register push token",
+        });
+      }
+    }),
+
+  unregisterPushToken: authedProcedure
+    .input(
+      type({
+        token: "string",
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await unregisterPushToken(ctx.db, {
+          userId: ctx.user.id,
+          expoPushToken: input.token,
+        });
+      } catch (err) {
+        console.error("Error unregistering push token:", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to unregister push token",
         });
       }
     }),

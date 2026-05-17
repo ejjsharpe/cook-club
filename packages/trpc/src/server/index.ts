@@ -12,6 +12,7 @@ import { userRouter } from "./routers/user-router";
 import { router } from "./trpc";
 
 export { createContext };
+export { processPushNotificationReceipts } from "./services";
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
 export const appRouter = router({

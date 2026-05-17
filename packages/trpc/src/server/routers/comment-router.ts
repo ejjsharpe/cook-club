@@ -1,9 +1,9 @@
 import { activityEvents, comments, user } from "@repo/db/schemas";
-import { createNotification } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, asc, sql } from "drizzle-orm";
 
+import { createAndSendNotificationInBackground } from "../services/push-notification.service";
 import { router, authedProcedure, publicProcedure } from "../trpc";
 
 export const commentRouter = router({
@@ -49,7 +49,7 @@ export const commentRouter = router({
         }));
 
         return commentsWithReplies;
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch comments",
@@ -121,26 +121,30 @@ export const commentRouter = router({
         if (newComment) {
           if (parentCommentId && parentCommentAuthorId) {
             // Reply notification to the parent comment author
-            createNotification(ctx.db, {
-              recipientId: parentCommentAuthorId,
-              actorId: ctx.user.id,
-              type: "comment_reply",
-              activityEventId,
-              commentId: newComment.id,
-            }).catch((err) => {
-              console.error("Error creating comment reply notification:", err);
-            });
+            createAndSendNotificationInBackground(
+              ctx,
+              {
+                recipientId: parentCommentAuthorId,
+                actorId: ctx.user.id,
+                type: "comment_reply",
+                activityEventId,
+                commentId: newComment.id,
+              },
+              "Error creating comment reply notification:",
+            );
           } else if (activity) {
             // Comment notification to the activity owner
-            createNotification(ctx.db, {
-              recipientId: activity.userId,
-              actorId: ctx.user.id,
-              type: "activity_comment",
-              activityEventId,
-              commentId: newComment.id,
-            }).catch((err) => {
-              console.error("Error creating comment notification:", err);
-            });
+            createAndSendNotificationInBackground(
+              ctx,
+              {
+                recipientId: activity.userId,
+                actorId: ctx.user.id,
+                type: "activity_comment",
+                activityEventId,
+                commentId: newComment.id,
+              },
+              "Error creating comment notification:",
+            );
           }
         }
 
@@ -152,7 +156,7 @@ export const commentRouter = router({
             image: ctx.user.image,
           },
         };
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create comment",
@@ -198,7 +202,9 @@ export const commentRouter = router({
         if (comment.parentCommentId === null) {
           await ctx.db
             .update(activityEvents)
-            .set({ commentCount: sql`GREATEST(${activityEvents.commentCount} - 1, 0)` })
+            .set({
+              commentCount: sql`GREATEST(${activityEvents.commentCount} - 1, 0)`,
+            })
             .where(eq(activityEvents.id, comment.activityEventId));
         }
 

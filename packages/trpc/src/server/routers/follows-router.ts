@@ -3,18 +3,15 @@ import {
   followUser as followUserService,
   unfollowUser as unfollowUserService,
   getFollowList,
-  createNotification,
 } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, and, or, ne, like, sql, notInArray, desc } from "drizzle-orm";
 
+import { backfillFeedFromUser, removeUserFromFeed } from "../services/activity";
+import { createAndSendNotificationInBackground } from "../services/push-notification.service";
 import { router, authedProcedure } from "../trpc";
 import { mapServiceError } from "../utils";
-import {
-  backfillFeedFromUser,
-  removeUserFromFeed,
-} from "../services/activity";
 
 export const followsRouter = router({
   // Follow a user
@@ -33,13 +30,15 @@ export const followsRouter = router({
         );
 
         // Create notification for the followed user
-        createNotification(ctx.db, {
-          recipientId: input.userId,
-          actorId: ctx.user.id,
-          type: "follow",
-        }).catch((err) => {
-          console.error("Error creating follow notification:", err);
-        });
+        createAndSendNotificationInBackground(
+          ctx,
+          {
+            recipientId: input.userId,
+            actorId: ctx.user.id,
+            type: "follow",
+          },
+          "Error creating follow notification:",
+        );
 
         // Backfill feed with recent activities from the followed user
         backfillFeedFromUser(
@@ -93,7 +92,7 @@ export const followsRouter = router({
         userId: ctx.user.id,
         type: "following",
       });
-    } catch (err) {
+    } catch {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to fetch following list",
@@ -108,7 +107,7 @@ export const followsRouter = router({
         userId: ctx.user.id,
         type: "followers",
       });
-    } catch (err) {
+    } catch {
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to fetch followers list",
@@ -157,7 +156,7 @@ export const followsRouter = router({
           .limit(limit);
 
         return users;
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to search users",
@@ -197,16 +196,17 @@ export const followsRouter = router({
           })
           .from(user)
           .where(
-            and(
-              ne(user.id, ctx.user.id),
-              notInArray(user.id, followedIds),
+            and(ne(user.id, ctx.user.id), notInArray(user.id, followedIds)),
+          )
+          .orderBy(
+            desc(
+              sql`(SELECT COUNT(*) FROM follows WHERE following_id = "user"."id")`,
             ),
           )
-          .orderBy(desc(sql`(SELECT COUNT(*) FROM follows WHERE following_id = "user"."id")`))
           .limit(limit);
 
         return suggestedUsers;
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch suggested users",
@@ -320,7 +320,7 @@ export const followsRouter = router({
           },
           followedAt: item.follow.createdAt,
         }));
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch user followers list",
@@ -358,7 +358,7 @@ export const followsRouter = router({
           },
           followedAt: item.follow.createdAt,
         }));
-      } catch (err) {
+      } catch {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to fetch user following list",

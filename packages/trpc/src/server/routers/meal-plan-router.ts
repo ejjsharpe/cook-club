@@ -16,11 +16,11 @@ import {
   getPendingMealPlanInvitations as getPendingMealPlanInvitationsService,
   getMealPlanInvitationStatus as getMealPlanInvitationStatusService,
   getShareStatus as getShareStatusService,
-  createNotification,
 } from "@repo/db/services";
 import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 
+import { createAndSendNotificationInBackground } from "../services/push-notification.service";
 import { router, authedProcedure } from "../trpc";
 import { mapServiceError } from "../utils";
 
@@ -48,7 +48,7 @@ export const mealPlanRouter = router({
     .input(
       type({
         name: "string",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -71,7 +71,7 @@ export const mealPlanRouter = router({
     .input(
       type({
         mealPlanId: "number",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -96,7 +96,7 @@ export const mealPlanRouter = router({
         mealPlanId: "number",
         startDate: "string", // ISO date string YYYY-MM-DD
         endDate: "string", // ISO date string YYYY-MM-DD
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       try {
@@ -124,7 +124,7 @@ export const mealPlanRouter = router({
         recipeId: "number",
         date: "string", // ISO date string YYYY-MM-DD
         mealType: MealTypeValidator,
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -150,7 +150,7 @@ export const mealPlanRouter = router({
     .input(
       type({
         entryId: "number",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -175,7 +175,7 @@ export const mealPlanRouter = router({
         entryId: "number",
         newDate: "string",
         newMealType: MealTypeValidator,
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -215,7 +215,7 @@ export const mealPlanRouter = router({
       type({
         mealPlanId: "number",
         userId: "string",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -226,14 +226,16 @@ export const mealPlanRouter = router({
         });
 
         // Create notification for the invited user
-        createNotification(ctx.db, {
-          recipientId: input.userId,
-          actorId: ctx.user.id,
-          type: "meal_plan_invite",
-          mealPlanId: input.mealPlanId,
-        }).catch((err) => {
-          console.error("Error creating meal plan invite notification:", err);
-        });
+        createAndSendNotificationInBackground(
+          ctx,
+          {
+            recipientId: input.userId,
+            actorId: ctx.user.id,
+            type: "meal_plan_invite",
+            mealPlanId: input.mealPlanId,
+          },
+          "Error creating meal plan invite notification:",
+        );
 
         return result;
       } catch (err) {
@@ -247,7 +249,7 @@ export const mealPlanRouter = router({
       type({
         mealPlanId: "number",
         userId: "string",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -266,7 +268,7 @@ export const mealPlanRouter = router({
     .input(
       type({
         invitationId: "number",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -284,7 +286,7 @@ export const mealPlanRouter = router({
     .input(
       type({
         invitationId: "number",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -303,7 +305,7 @@ export const mealPlanRouter = router({
       type({
         mealPlanId: "number",
         userId: "string",
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -331,7 +333,7 @@ export const mealPlanRouter = router({
     .input(
       type({
         mealPlanId: "number",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       try {
@@ -349,7 +351,7 @@ export const mealPlanRouter = router({
     .input(
       type({
         mealPlanId: "number",
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       try {

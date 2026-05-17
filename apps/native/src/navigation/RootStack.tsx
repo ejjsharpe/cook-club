@@ -1,4 +1,5 @@
 import {
+  createNavigationContainerRef,
   createStaticNavigation,
   type ParamListBase,
 } from "@react-navigation/native";
@@ -85,6 +86,9 @@ declare global {
   }
 }
 
+export const navigationRef = createNavigationContainerRef<AppParamList>();
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const RootNavigator = createNativeStackNavigator<AppParamList>();
 type RootNavigatorType = typeof RootNavigator;
 

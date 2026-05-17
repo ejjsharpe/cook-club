@@ -1,6 +1,11 @@
 import { trpcServer } from "@hono/trpc-server";
 import { getAuth } from "@repo/auth";
-import { appRouter, createContext } from "@repo/trpc/server";
+import { getDb } from "@repo/db";
+import {
+  appRouter,
+  createContext,
+  processPushNotificationReceipts,
+} from "@repo/trpc/server";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 
@@ -73,11 +78,29 @@ app.use(
     router: appRouter,
     endpoint: "/trpc",
     createContext: (opts, c) => {
-      return createContext(opts, c.env);
+      return createContext(opts, c.env, c.executionCtx);
     },
   }),
 );
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-export default app;
+const scheduled: ExportedHandlerScheduledHandler<Env> = async (
+  _event,
+  env,
+  _ctx,
+) => {
+  const result = await processPushNotificationReceipts(getDb(env), env);
+  console.log(
+    JSON.stringify({
+      task: "push-notification-receipts",
+      checked: result.checked,
+      disabledTokens: result.disabledTokens,
+    }),
+  );
+};
+
+export default {
+  fetch: app.fetch,
+  scheduled,
+};
