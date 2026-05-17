@@ -1677,7 +1677,7 @@ export const RecipeDetailScreen = () => {
                   placeholderTextColor={styles.placeholderText.color}
                   style={styles.editIngredientInput}
                   multiline
-                  scrollEnabled={false}
+                  textAlignVertical="top"
                 />
                 <TouchableOpacity
                   style={styles.editRemoveIcon}
@@ -1798,6 +1798,7 @@ export const RecipeDetailScreen = () => {
                   placeholder="Section name"
                   placeholderTextColor={styles.placeholderText.color}
                   style={styles.editSectionInput}
+                  multiline
                 />
               </View>
               <TouchableOpacity
@@ -2555,33 +2556,28 @@ const styles = StyleSheet.create((theme) => ({
   },
   overlayTitle: {
     color: "white",
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   overlayTitleInputFrame: {
-    marginVertical: -6,
-    marginHorizontal: -10,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    marginTop: -5,
+    marginBottom: -9,
+    marginHorizontal: -13,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.42)",
     backgroundColor: "rgba(0,0,0,0.14)",
+    paddingVertical: 4,
+    paddingHorizontal: 12,
   },
   overlayTitleInput: {
-    minHeight: 34,
-    maxHeight: 102,
+    minHeight: 38,
+    maxHeight: 72,
     color: "white",
     fontSize: 28,
-    lineHeight: 34,
     fontFamily: theme.fonts.black,
     letterSpacing: -1,
-    paddingVertical: 0,
+    paddingTop: 0,
+    paddingBottom: 4,
     paddingHorizontal: 0,
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
     backgroundColor: "transparent",
   },
   heroEditRow: {
@@ -2853,7 +2849,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   sectionTitle: {
     fontSize: 15,
-    lineHeight: 20,
     color: theme.colors.text,
     fontFamily: theme.fonts.semiBold,
   },
@@ -2897,7 +2892,6 @@ const styles = StyleSheet.create((theme) => ({
   ingredientName: {
     fontSize: 17,
     color: theme.colors.text,
-    lineHeight: 24,
   },
   ingredientPreparation: {
     fontSize: 14,
@@ -2998,13 +2992,15 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minHeight: 50,
     paddingHorizontal: 20,
-    paddingVertical: 13,
+    paddingTop: 13,
+    paddingBottom: 13,
     borderRadius: 25,
     backgroundColor: theme.colors.inputBackground,
     color: theme.colors.text,
     fontSize: 17,
     lineHeight: 24,
     fontFamily: theme.fonts.regular,
+    textAlignVertical: "top",
   },
   editInstructionItem: {
     flexDirection: "row",
