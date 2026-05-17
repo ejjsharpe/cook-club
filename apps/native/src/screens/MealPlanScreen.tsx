@@ -62,6 +62,7 @@ export const MealPlanScreen = () => {
 
   // Refs
   const flashListRef = useRef<FlashListRef<MealPlanListItem>>(null);
+  const hasAlignedInitialScrollRef = useRef(false);
 
   // Sheet refs
   const recipePickerSheetRef = useRef<RecipePickerSheetRef>(null);
@@ -327,6 +328,7 @@ export const MealPlanScreen = () => {
   }, [loadMoreFuture]);
 
   // Scroll to today helper
+  const todayScrollViewOffset = -(insets.top + HEADER_HEIGHT);
   const scrollToToday = useCallback(
     (animated = true) => {
       if (todayHeaderIndex < 0) return;
@@ -334,11 +336,21 @@ export const MealPlanScreen = () => {
       flashListRef.current?.scrollToIndex({
         index: todayHeaderIndex,
         animated,
-        viewOffset: -(insets.top + HEADER_HEIGHT),
+        viewOffset: todayScrollViewOffset,
       });
     },
-    [todayHeaderIndex, insets.top],
+    [todayHeaderIndex, todayScrollViewOffset],
   );
+
+  const handleListLoad = useCallback(() => {
+    if (hasAlignedInitialScrollRef.current) return;
+
+    hasAlignedInitialScrollRef.current = true;
+    requestAnimationFrame(() => {
+      scrollToToday(false);
+    });
+  }, [scrollToToday]);
+
   const isFocused = useIsFocused();
 
   useEffect(() => {
@@ -425,6 +437,7 @@ export const MealPlanScreen = () => {
           initialScrollIndex={
             todayHeaderIndex >= 0 ? todayHeaderIndex : undefined
           }
+          onLoad={handleListLoad}
         />
       </View>
 

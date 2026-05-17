@@ -1,18 +1,17 @@
-import { View } from "react-native";
+import { type PressableProps, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { BaseButton } from "./BaseButton";
 import { Text } from "../Text";
 import { GoogleLogo } from "../svg/GoogleLogo";
 
-import { useSignInWithSocial } from "@/api/auth";
+interface SignInWithGoogleButtonProps {
+  onPress: PressableProps["onPress"];
+}
 
-export function SignInWithGoogleButton() {
-  const { mutate: signInWithSocial } = useSignInWithSocial();
-  const onPress = () => {
-    signInWithSocial({ provider: "google" });
-  };
-
+export function SignInWithGoogleButton({
+  onPress,
+}: SignInWithGoogleButtonProps) {
   return (
     <BaseButton onPress={onPress} style={styles.container}>
       <View style={styles.content}>

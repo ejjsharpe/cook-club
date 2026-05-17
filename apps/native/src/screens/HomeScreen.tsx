@@ -174,6 +174,8 @@ const BACK_BUTTON_WIDTH = 44;
 const HEADER_GAP = 6;
 const HEADER_HEIGHT = 52; // Height of the cook club title + avatar row
 const SCROLLED_DOWN_LIMIT = 200;
+const LOAD_LATEST_SCROLL_UP_DELAY_MS = 500;
+const SCROLL_DIRECTION_THRESHOLD = 2;
 const TAB_BAR_LIST_CLEARANCE = 112;
 
 const ActivitySeparator = () => <VSpace size={16} />;
@@ -205,6 +207,9 @@ export const HomeScreen = () => {
   const searchListRef = useRef<FlatList>(null);
   const searchBarRef = useRef<View>(null);
   const commentsSheetRef = useRef<CommentsSheetRef>(null);
+  const loadLatestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   useScrollToTop(browseScrollRef);
   const navigation = useNavigation();
   const insets = UnistylesRuntime.insets;
@@ -237,7 +242,8 @@ export const HomeScreen = () => {
   const avatarOpacity = useSharedValue(1);
   const titleHidden = useSharedValue(false);
   const avatarHidden = useSharedValue(false);
-  const isScrolledDown = useSharedValue(false);
+  const previousScrollY = useSharedValue(0);
+  const isScrollingTowardLatest = useSharedValue(false);
 
   // Keyboard height as animated value for empty state centering
   const keyboardHeight = useSharedValue(0);
@@ -278,6 +284,14 @@ export const HomeScreen = () => {
       return () => clearTimeout(timeout);
     }
   }, [isSearchActive, animationConfig, searchProgress]);
+
+  useEffect(() => {
+    return () => {
+      if (loadLatestTimeoutRef.current) {
+        clearTimeout(loadLatestTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Debounce search query
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -360,6 +374,25 @@ export const HomeScreen = () => {
     setSearchQuery("");
   }, []);
 
+  const hideLoadLatest = useCallback(() => {
+    if (loadLatestTimeoutRef.current) {
+      clearTimeout(loadLatestTimeoutRef.current);
+      loadLatestTimeoutRef.current = null;
+    }
+    setShowLoadLatest(false);
+  }, []);
+
+  const scheduleLoadLatest = useCallback(() => {
+    if (loadLatestTimeoutRef.current) {
+      return;
+    }
+
+    loadLatestTimeoutRef.current = setTimeout(() => {
+      loadLatestTimeoutRef.current = null;
+      setShowLoadLatest(true);
+    }, LOAD_LATEST_SCROLL_UP_DELAY_MS);
+  }, []);
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     if (isSearchActive) {
@@ -372,7 +405,7 @@ export const HomeScreen = () => {
         return;
       }
     } else {
-      setShowLoadLatest(false);
+      hideLoadLatest();
       try {
         await activityRefetch();
       } finally {
@@ -381,13 +414,19 @@ export const HomeScreen = () => {
       return;
     }
     setIsRefreshing(false);
-  }, [isSearchActive, shouldFetchUsers, usersRefetch, activityRefetch]);
+  }, [
+    isSearchActive,
+    shouldFetchUsers,
+    usersRefetch,
+    activityRefetch,
+    hideLoadLatest,
+  ]);
 
   const handleLoadLatest = useCallback(async () => {
     browseScrollRef.current?.scrollToOffset({ offset: 0, animated: true });
-    setShowLoadLatest(false);
+    hideLoadLatest();
     await activityRefetch();
-  }, [activityRefetch]);
+  }, [activityRefetch, hideLoadLatest]);
 
   const handleActivityLoadMore = useCallback(() => {
     if (activityHasNext && !activityFetchingNext) {
@@ -463,11 +502,21 @@ export const HomeScreen = () => {
         });
       }
 
-      const nextScrolledDown = y > SCROLLED_DOWN_LIMIT;
-      if (isScrolledDown.value !== nextScrolledDown) {
-        isScrolledDown.value = nextScrolledDown;
-        runOnJS(setShowLoadLatest)(nextScrolledDown);
+      const isAboveLatestThreshold = y > SCROLLED_DOWN_LIMIT;
+      const isScrollingUp =
+        previousScrollY.value - y > SCROLL_DIRECTION_THRESHOLD;
+
+      if (isAboveLatestThreshold && isScrollingUp) {
+        if (!isScrollingTowardLatest.value) {
+          isScrollingTowardLatest.value = true;
+          runOnJS(scheduleLoadLatest)();
+        }
+      } else if (isScrollingTowardLatest.value) {
+        isScrollingTowardLatest.value = false;
+        runOnJS(hideLoadLatest)();
       }
+
+      previousScrollY.value = y;
     },
   });
 

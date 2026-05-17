@@ -1,16 +1,18 @@
-import { View } from "react-native";
+import { type PressableProps, View } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { BaseButton } from "./BaseButton";
 import { Text } from "../Text";
 import { AppleLogo } from "../svg/AppleLogo";
 
-import { useSignInWithSocial } from "@/api/auth";
+interface SignInWithAppleButtonProps {
+  onPress: PressableProps["onPress"];
+}
 
-export const SignInWithAppleButton = () => {
+export const SignInWithAppleButton = ({
+  onPress,
+}: SignInWithAppleButtonProps) => {
   const { colors } = UnistylesRuntime.getTheme();
-  const { mutate: signInWithSocial } = useSignInWithSocial();
-  const onPress = () => signInWithSocial({ provider: "apple" });
 
   return (
     <BaseButton style={styles.container} onPress={onPress}>

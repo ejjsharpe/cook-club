@@ -8,15 +8,24 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import Animated, {
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
 import { useGetCollectionDetail, useDeleteCollection } from "@/api/collection";
 import { Ionicons } from "@/components/Ionicons";
 import { NavigationHeader } from "@/components/NavigationHeader";
 import { RecipeCard } from "@/components/RecipeCard";
-import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
+
+const NAVIGATION_HEADER_HEIGHT = 60;
+
+const ReanimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 type CollectionDetailScreenParams = {
   CollectionDetail: {
@@ -27,7 +36,10 @@ type CollectionDetailScreenParams = {
 export const CollectionDetailScreen = () => {
   const route = useRoute<CollectionDetailScreenParams>("CollectionDetail");
   const navigation = useNavigation();
+  const insets = UnistylesRuntime.insets;
   const { collectionId } = route.params;
+  const headerOpacity = useSharedValue(1);
+  const headerHidden = useSharedValue(false);
 
   const {
     data: collection,
@@ -77,25 +89,45 @@ export const CollectionDetailScreen = () => {
     );
   };
 
+  const handleScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const nextHeaderHidden = event.contentOffset.y > 5;
+      if (headerHidden.value !== nextHeaderHidden) {
+        headerHidden.value = nextHeaderHidden;
+        headerOpacity.value = withTiming(nextHeaderHidden ? 0 : 1, {
+          duration: 150,
+        });
+      }
+    },
+  });
+
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+  }));
+
   if (isPending) {
     return (
-      <SafeAreaView style={styles.container}>
-        <NavigationHeader title="" />
+      <View style={styles.screen}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" />
         </View>
-      </SafeAreaView>
+        <Animated.View style={styles.fixedHeader}>
+          <NavigationHeader title="" />
+        </Animated.View>
+      </View>
     );
   }
 
   if (error || !collection) {
     return (
-      <SafeAreaView style={styles.container}>
-        <NavigationHeader title="" />
+      <View style={styles.screen}>
         <View style={styles.centered}>
           <Text type="bodyFaded">Failed to load collection</Text>
         </View>
-      </SafeAreaView>
+        <Animated.View style={styles.fixedHeader}>
+          <NavigationHeader title="" />
+        </Animated.View>
+      </View>
     );
   }
 
@@ -110,13 +142,20 @@ export const CollectionDetailScreen = () => {
     ) : undefined;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <NavigationHeader title={collection.name} rightElement={deleteButton} />
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
+    <View style={styles.screen}>
+      <ReanimatedScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: insets.top + NAVIGATION_HEADER_HEIGHT,
+            paddingBottom: insets.bottom + 40,
+          },
+        ]}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.recipeCount}>
@@ -166,16 +205,27 @@ export const CollectionDetailScreen = () => {
           </>
         )}
         <VSpace size={40} />
-      </ScrollView>
-    </SafeAreaView>
+      </ReanimatedScrollView>
+      <Animated.View style={[styles.fixedHeader, headerAnimatedStyle]}>
+        <NavigationHeader title={collection.name} rightElement={deleteButton} />
+      </Animated.View>
+    </View>
   );
 };
 
-const styles = StyleSheet.create((theme) => ({
-  container: {
+const styles = StyleSheet.create((theme, rt) => ({
+  screen: {
     flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  fixedHeader: {
+    position: "absolute",
+    top: rt.insets.top,
+    left: rt.insets.left,
+    right: rt.insets.right,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingBottom: 40,
   },
   centered: {

@@ -4,7 +4,7 @@ import { forwardRef, useState, useImperativeHandle, useRef } from "react";
 import { Platform, View, Alert } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { useSignUpWithEmail, AuthError } from "@/api/auth";
+import { useSignUpWithEmail, useSignInWithSocial, AuthError } from "@/api/auth";
 import { Input } from "@/components/Input";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -30,24 +30,27 @@ export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const { mutate: signUpWithEmail } = useSignUpWithEmail();
+    const { mutate: signInWithSocial } = useSignInWithSocial();
 
     useImperativeHandle(ref, () => ({
       present: () => sheetRef.current?.present(),
       dismiss: () => sheetRef.current?.dismiss() ?? Promise.resolve(),
     }));
 
+    const dismissSheet = () => sheetRef.current?.dismiss() ?? Promise.resolve();
+
     const onPressSignUpWithEmail = () =>
       signUpWithEmail(
         { email, password },
         {
           onSuccess: async () => {
-            await sheetRef.current?.dismiss();
+            await dismissSheet();
             navigation.navigate("EmailVerification", { email });
           },
           onError: async (error) => {
             if (error instanceof AuthError && error.status === 403) {
               // Email not verified — send them to verification
-              await sheetRef.current?.dismiss();
+              await dismissSheet();
               navigation.navigate("EmailVerification", { email });
             } else if (error instanceof AuthError && error.status === 422) {
               Alert.alert(
@@ -65,8 +68,12 @@ export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
       );
 
     const onPressSignIn = async () => {
-      await sheetRef.current?.dismiss();
+      await dismissSheet();
       onSwitchToSignIn?.();
+    };
+
+    const onPressSignInWithSocial = (provider: "google" | "apple") => {
+      signInWithSocial({ provider }, { onSuccess: dismissSheet });
     };
 
     return (
@@ -109,9 +116,15 @@ export const SignUpSheet = forwardRef<SignUpSheetRef, SignUpSheetProps>(
             or
           </Text>
           <VSpace size={12} />
-          {Platform.OS === "ios" && <SignInWithAppleButton />}
+          {Platform.OS === "ios" && (
+            <SignInWithAppleButton
+              onPress={() => onPressSignInWithSocial("apple")}
+            />
+          )}
           {Platform.OS === "ios" && <VSpace size={12} />}
-          <SignInWithGoogleButton />
+          <SignInWithGoogleButton
+            onPress={() => onPressSignInWithSocial("google")}
+          />
           <VSpace size={32} />
           <BaseButton onPress={onPressSignIn}>
             <Text>

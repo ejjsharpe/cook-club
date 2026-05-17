@@ -4,7 +4,7 @@ import { forwardRef, useState, useImperativeHandle, useRef } from "react";
 import { Platform, View, Alert } from "react-native";
 import { StyleSheet, UnistylesRuntime } from "react-native-unistyles";
 
-import { useSignInWithEmail, AuthError } from "@/api/auth";
+import { useSignInWithEmail, useSignInWithSocial, AuthError } from "@/api/auth";
 import { Input } from "@/components/Input";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
@@ -30,19 +30,23 @@ export const SignInSheet = forwardRef<SignInSheetRef, SignInSheetProps>(
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const { mutate: signInWithEmail } = useSignInWithEmail();
+    const { mutate: signInWithSocial } = useSignInWithSocial();
 
     useImperativeHandle(ref, () => ({
       present: () => sheetRef.current?.present(),
       dismiss: () => sheetRef.current?.dismiss() ?? Promise.resolve(),
     }));
 
+    const dismissSheet = () => sheetRef.current?.dismiss() ?? Promise.resolve();
+
     const onPressSignInWithEmail = () =>
       signInWithEmail(
         { email, password },
         {
+          onSuccess: dismissSheet,
           onError: async (error) => {
             if (error instanceof AuthError && error.status === 403) {
-              await sheetRef.current?.dismiss();
+              await dismissSheet();
               navigation.navigate("EmailVerification", { email });
             } else {
               Alert.alert(
@@ -55,8 +59,12 @@ export const SignInSheet = forwardRef<SignInSheetRef, SignInSheetProps>(
       );
 
     const onPressSignUp = async () => {
-      await sheetRef.current?.dismiss();
+      await dismissSheet();
       onSwitchToSignUp?.();
+    };
+
+    const onPressSignInWithSocial = (provider: "google" | "apple") => {
+      signInWithSocial({ provider }, { onSuccess: dismissSheet });
     };
 
     return (
@@ -99,9 +107,15 @@ export const SignInSheet = forwardRef<SignInSheetRef, SignInSheetProps>(
             or
           </Text>
           <VSpace size={12} />
-          {Platform.OS === "ios" && <SignInWithAppleButton />}
+          {Platform.OS === "ios" && (
+            <SignInWithAppleButton
+              onPress={() => onPressSignInWithSocial("apple")}
+            />
+          )}
           {Platform.OS === "ios" && <VSpace size={12} />}
-          <SignInWithGoogleButton />
+          <SignInWithGoogleButton
+            onPress={() => onPressSignInWithSocial("google")}
+          />
           <VSpace size={32} />
           <BaseButton onPress={onPressSignUp}>
             <Text>
