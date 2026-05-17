@@ -271,10 +271,24 @@ export const recipeNutrition = pgTable(
     vitaminC: integer("vitamin_c"), // % daily value
     calcium: integer("calcium"), // % daily value
     iron: integer("iron"), // % daily value
+
+    source: text("source").notNull().default("manual"),
+    confidence: text("confidence"),
+    generatedAt: timestamp("generated_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("recipe_nutrition_recipe_id_unique_idx").on(table.recipeId),
     index("recipe_nutrition_calories_idx").on(table.calories),
     index("recipe_nutrition_protein_idx").on(table.protein),
+    check(
+      "recipe_nutrition_source_check",
+      sql`${table.source} IN ('extracted', 'ai_estimated', 'manual', 'imported')`,
+    ),
+    check(
+      "recipe_nutrition_confidence_check",
+      sql`${table.confidence} IS NULL OR ${table.confidence} IN ('high', 'medium', 'low')`,
+    ),
   ]
 );

@@ -15,14 +15,47 @@ vi.mock("../services/activity", () => ({
 const mockCreateRecipe = vi.fn();
 const mockUpdateRecipe = vi.fn();
 const mockGetRecipeDetail = vi.fn();
+const mockGetStoredRecipeNutrition = vi.fn();
+const mockUpsertRecipeNutrition = vi.fn();
 const mockValidateTagIds = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@repo/db/services", () => ({
   createRecipe: (...args: unknown[]) => mockCreateRecipe(...args),
   updateRecipe: (...args: unknown[]) => mockUpdateRecipe(...args),
   getRecipeDetail: (...args: unknown[]) => mockGetRecipeDetail(...args),
+  getStoredRecipeNutrition: (...args: unknown[]) =>
+    mockGetStoredRecipeNutrition(...args),
+  upsertRecipeNutrition: (...args: unknown[]) =>
+    mockUpsertRecipeNutrition(...args),
   importRecipe: vi.fn(),
   queryPopularRecipesThisWeek: vi.fn(),
+  DEFAULT_PRO_ACCESS_LEVEL_ID: "pro",
+  getSubscriptionStatus: vi.fn().mockResolvedValue({
+    isPro: true,
+    accessLevelId: "pro",
+    expiresAt: null,
+    willRenew: true,
+    smartImports: {
+      used: 0,
+      limit: null,
+      remaining: null,
+      periodStart: new Date("2026-05-01T00:00:00.000Z"),
+    },
+  }),
+  consumeSmartImportUsage: vi.fn().mockResolvedValue({
+    isPro: true,
+    accessLevelId: "pro",
+    expiresAt: null,
+    willRenew: true,
+    smartImports: {
+      used: 0,
+      limit: null,
+      remaining: null,
+      periodStart: new Date("2026-05-01T00:00:00.000Z"),
+    },
+  }),
+  upsertSubscriptionEntitlement: vi.fn(),
+  recordAdaptyWebhookEvent: vi.fn(),
   ServiceError: class ServiceError extends Error {
     code = "INTERNAL_ERROR";
   },
@@ -37,6 +70,7 @@ vi.mock("@repo/db/schemas", () => ({
   recipeIngredients: { _name: "recipe_ingredients" },
   recipeInstructions: { _name: "recipe_instructions" },
   recipeCollections: { _name: "recipe_collections" },
+  recipeNutrition: { _name: "recipe_nutrition" },
   collections: { _name: "collections" },
   recipeTags: { _name: "recipe_tags" },
   tags: { _name: "tags" },

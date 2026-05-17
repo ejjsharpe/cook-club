@@ -54,6 +54,34 @@ export interface CreateRecipeImage {
   url: string;
 }
 
+export type RecipeNutritionSource =
+  | "extracted"
+  | "ai_estimated"
+  | "manual"
+  | "imported";
+
+export type RecipeNutritionConfidence = "high" | "medium" | "low";
+
+export interface CreateRecipeNutrition {
+  calories?: number | null;
+  protein?: number | null;
+  carbohydrates?: number | null;
+  fat?: number | null;
+  saturatedFat?: number | null;
+  fiber?: number | null;
+  sugar?: number | null;
+  sodium?: number | null;
+  cholesterol?: number | null;
+  potassium?: number | null;
+  vitaminA?: number | null;
+  vitaminC?: number | null;
+  calcium?: number | null;
+  iron?: number | null;
+  source?: RecipeNutritionSource;
+  confidence?: RecipeNutritionConfidence | null;
+  generatedAt?: Date | string | null;
+}
+
 export type SourceType = "url" | "image" | "text" | "ai" | "manual" | "user";
 
 export interface CreateRecipeInput {
@@ -69,6 +97,7 @@ export interface CreateRecipeInput {
   cookTime?: number; // minutes
   totalTime?: number; // minutes
   servings: number;
+  nutrition?: CreateRecipeNutrition | null;
 }
 
 export interface UpdateRecipeInput extends CreateRecipeInput {
@@ -114,7 +143,112 @@ export type RecipeWithDetails = Omit<typeof recipes.$inferSelect, "ownerId"> & {
   // User's review rating (1-5) if they've reviewed this recipe, null otherwise
   userReviewRating: number | null;
   tags: { id: number; name: string; type: string }[];
+  nutrition: (CreateRecipeNutrition & { generatedAt: Date | null }) | null;
 };
+
+function optionalNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function optionalInteger(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.round(value)
+    : null;
+}
+
+function optionalNumericString(value: number | null | undefined): string | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(2)
+    : null;
+}
+
+function optionalDate(value: Date | string | null | undefined): Date | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function recipeNutritionToValue(
+  row: typeof recipeNutrition.$inferSelect,
+): CreateRecipeNutrition & { generatedAt: Date | null } {
+  return {
+    calories: optionalNumber(row.calories),
+    protein: optionalNumber(row.protein),
+    carbohydrates: optionalNumber(row.carbohydrates),
+    fat: optionalNumber(row.fat),
+    saturatedFat: optionalNumber(row.saturatedFat),
+    fiber: optionalNumber(row.fiber),
+    sugar: optionalNumber(row.sugar),
+    sodium: optionalNumber(row.sodium),
+    cholesterol: optionalNumber(row.cholesterol),
+    potassium: optionalNumber(row.potassium),
+    vitaminA: optionalNumber(row.vitaminA),
+    vitaminC: optionalNumber(row.vitaminC),
+    calcium: optionalNumber(row.calcium),
+    iron: optionalNumber(row.iron),
+    source: row.source as RecipeNutritionSource,
+    confidence: row.confidence as RecipeNutritionConfidence | null,
+    generatedAt: row.generatedAt,
+  };
+}
+
+function nutritionInsertValues(
+  recipeId: number,
+  nutrition: CreateRecipeNutrition,
+) {
+  const now = new Date();
+
+  return {
+    recipeId,
+    calories: optionalInteger(nutrition.calories),
+    protein: optionalNumericString(nutrition.protein),
+    carbohydrates: optionalNumericString(nutrition.carbohydrates),
+    fat: optionalNumericString(nutrition.fat),
+    saturatedFat: optionalNumericString(nutrition.saturatedFat),
+    fiber: optionalNumericString(nutrition.fiber),
+    sugar: optionalNumericString(nutrition.sugar),
+    sodium: optionalInteger(nutrition.sodium),
+    cholesterol: optionalInteger(nutrition.cholesterol),
+    potassium: optionalInteger(nutrition.potassium),
+    vitaminA: optionalInteger(nutrition.vitaminA),
+    vitaminC: optionalInteger(nutrition.vitaminC),
+    calcium: optionalInteger(nutrition.calcium),
+    iron: optionalInteger(nutrition.iron),
+    source: nutrition.source ?? "manual",
+    confidence: nutrition.confidence ?? null,
+    generatedAt: optionalDate(nutrition.generatedAt) ?? now,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function hasNutritionValue(nutrition: CreateRecipeNutrition | null | undefined) {
+  if (!nutrition) return false;
+  return [
+    nutrition.calories,
+    nutrition.protein,
+    nutrition.carbohydrates,
+    nutrition.fat,
+    nutrition.saturatedFat,
+    nutrition.fiber,
+    nutrition.sugar,
+    nutrition.sodium,
+    nutrition.cholesterol,
+    nutrition.potassium,
+    nutrition.vitaminA,
+    nutrition.vitaminC,
+    nutrition.calcium,
+    nutrition.iron,
+  ].some((value) => typeof value === "number" && Number.isFinite(value));
+}
 
 function prepareRecipeIngredient(ing: CreateRecipeIngredient) {
   if (ing.ingredient) {
@@ -375,6 +509,12 @@ export async function createRecipe(
 
     await insertRecipeTagsForRecipe(tx, recipe.id, input.tagIds);
 
+    if (hasNutritionValue(input.nutrition)) {
+      await tx
+        .insert(recipeNutrition)
+        .values(nutritionInsertValues(recipe.id, input.nutrition!));
+    }
+
     // Auto-add to "Want to cook" collection
     const defaultCollections = await getOrCreateDefaultCollections(tx, userId);
     await tx.insert(recipeCollections).values({
@@ -489,6 +629,42 @@ export async function updateRecipe(
     );
     await insertRecipeTagsForRecipe(tx, input.recipeId, input.tagIds);
 
+    if (input.nutrition !== undefined) {
+      if (hasNutritionValue(input.nutrition)) {
+        const values = nutritionInsertValues(input.recipeId, input.nutrition!);
+        await tx
+          .insert(recipeNutrition)
+          .values(values)
+          .onConflictDoUpdate({
+            target: recipeNutrition.recipeId,
+            set: {
+              calories: values.calories,
+              protein: values.protein,
+              carbohydrates: values.carbohydrates,
+              fat: values.fat,
+              saturatedFat: values.saturatedFat,
+              fiber: values.fiber,
+              sugar: values.sugar,
+              sodium: values.sodium,
+              cholesterol: values.cholesterol,
+              potassium: values.potassium,
+              vitaminA: values.vitaminA,
+              vitaminC: values.vitaminC,
+              calcium: values.calcium,
+              iron: values.iron,
+              source: values.source,
+              confidence: values.confidence,
+              generatedAt: values.generatedAt,
+              updatedAt: values.updatedAt,
+            },
+          });
+      } else {
+        await tx
+          .delete(recipeNutrition)
+          .where(eq(recipeNutrition.recipeId, input.recipeId));
+      }
+    }
+
     const imageUrls = input.images!.map((img) => img.url);
     await tx.insert(recipeImages).values(
       imageUrls.map((url) => ({
@@ -598,6 +774,7 @@ export async function getRecipeDetail(
     instructionSectionsData,
     instructionsData,
     tagsData,
+    nutritionData,
   ] = await Promise.all([
     db
       .select({ id: recipeImages.id, url: recipeImages.url })
@@ -663,6 +840,12 @@ export async function getRecipeDetail(
       .from(recipeTags)
       .innerJoin(tags, eq(recipeTags.tagId, tags.id))
       .where(eq(recipeTags.recipeId, recipeId)),
+
+    db
+      .select()
+      .from(recipeNutrition)
+      .where(eq(recipeNutrition.recipeId, recipeId))
+      .then((rows) => rows[0] ?? null),
   ]);
 
   // Group ingredients by section
@@ -730,7 +913,62 @@ export async function getRecipeDetail(
     originalOwner,
     userReviewRating: recipeData.userReviewRating,
     tags: tagsData,
+    nutrition: nutritionData ? recipeNutritionToValue(nutritionData) : null,
   };
+}
+
+export async function getStoredRecipeNutrition(
+  db: DbClient,
+  recipeId: number,
+): Promise<(CreateRecipeNutrition & { generatedAt: Date | null }) | null> {
+  const nutrition = await db
+    .select()
+    .from(recipeNutrition)
+    .where(eq(recipeNutrition.recipeId, recipeId))
+    .then((rows) => rows[0] ?? null);
+
+  return nutrition ? recipeNutritionToValue(nutrition) : null;
+}
+
+export async function upsertRecipeNutrition(
+  db: DbClient,
+  recipeId: number,
+  nutrition: CreateRecipeNutrition,
+) {
+  if (!hasNutritionValue(nutrition)) {
+    throw new ServiceError("BAD_REQUEST", "Nutrition data is empty");
+  }
+
+  const values = nutritionInsertValues(recipeId, nutrition);
+
+  await db
+    .insert(recipeNutrition)
+    .values(values)
+    .onConflictDoUpdate({
+      target: recipeNutrition.recipeId,
+      set: {
+        calories: values.calories,
+        protein: values.protein,
+        carbohydrates: values.carbohydrates,
+        fat: values.fat,
+        saturatedFat: values.saturatedFat,
+        fiber: values.fiber,
+        sugar: values.sugar,
+        sodium: values.sodium,
+        cholesterol: values.cholesterol,
+        potassium: values.potassium,
+        vitaminA: values.vitaminA,
+        vitaminC: values.vitaminC,
+        calcium: values.calcium,
+        iron: values.iron,
+        source: values.source,
+        confidence: values.confidence,
+        generatedAt: values.generatedAt,
+        updatedAt: values.updatedAt,
+      },
+    });
+
+  return getStoredRecipeNutrition(db, recipeId);
 }
 
 // ─── Recipe Import ──────────────────────────────────────────────────────────
@@ -830,6 +1068,11 @@ export async function importRecipe(
         vitaminC: sourceNutrition.vitaminC,
         calcium: sourceNutrition.calcium,
         iron: sourceNutrition.iron,
+        source: sourceNutrition.source,
+        confidence: sourceNutrition.confidence,
+        generatedAt: sourceNutrition.generatedAt,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
     }
 

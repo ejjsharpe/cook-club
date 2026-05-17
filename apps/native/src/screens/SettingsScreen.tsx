@@ -11,6 +11,7 @@ import { SafeAreaView } from "@/components/SafeAreaView";
 import { VSpace } from "@/components/Space";
 import { Text } from "@/components/Text";
 import type { MeasurementSystem } from "@/lib/measurementPreferences";
+import { useSubscription } from "@/lib/subscription";
 import {
   applyThemePreference,
   getThemePreference,
@@ -105,6 +106,8 @@ export const SettingsScreen = () => {
   const [currentTheme, setCurrentTheme] =
     useState<ThemePreference>(getThemePreference);
   const { data: userData } = useUser();
+  const { isPro, smartImportsRemaining, presentPaywall, restorePurchases } =
+    useSubscription();
   const [currentMeasurement, setCurrentMeasurement] =
     useState<MeasurementSystem>(
       (userData?.user?.measurementPreference as MeasurementSystem) ?? "auto",
@@ -186,6 +189,31 @@ export const SettingsScreen = () => {
             label="Original"
             selected={currentMeasurement === "auto"}
             onPress={() => handleMeasurementChange("auto")}
+          />
+        </View>
+
+        {/* Subscription Section */}
+        <VSpace size={32} />
+        <Text type="heading" style={styles.sectionTitle}>
+          Cook Club Pro
+        </Text>
+        <VSpace size={12} />
+        <View style={styles.section}>
+          <SettingsRow
+            icon="sparkles-outline"
+            label={isPro ? "Manage Pro" : "Upgrade to Pro"}
+            value={
+              isPro
+                ? "Active"
+                : `${smartImportsRemaining ?? 0}/5 Smart Imports left`
+            }
+            onPress={presentPaywall}
+          />
+          <View style={styles.separator} />
+          <SettingsRow
+            icon="refresh-outline"
+            label="Restore Purchases"
+            onPress={restorePurchases}
           />
         </View>
 

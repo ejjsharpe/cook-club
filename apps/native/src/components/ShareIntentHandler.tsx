@@ -15,8 +15,10 @@ import {
 import {
   getPendingShareIntent,
   clearPendingShareIntent,
+  setPendingShareIntent,
   type PendingShareIntent,
 } from "@/lib/pendingShareIntent";
+import { useSubscription } from "@/lib/subscription";
 import { imageToBase64 } from "@/utils/imageUtils";
 
 export function ShareIntentHandler() {
@@ -30,10 +32,19 @@ export function ShareIntentHandler() {
   const parseFromText = useParseRecipeFromText();
   const parseFromImage = useParseRecipeFromImage();
   const { startImport } = useBackgroundImportQueue();
+  const { requireSmartImport } = useSubscription();
 
   // Process a share intent (either new or pending)
   const processShareIntent = useCallback(
-    (intent: PendingShareIntent) => {
+    async (intent: PendingShareIntent) => {
+      const allowed = await requireSmartImport();
+      if (!allowed) {
+        setPendingShareIntent(intent);
+        resetShareIntent();
+        navigation.navigate("Add recipe");
+        return;
+      }
+
       const id = createBackgroundImportId(intent.type);
       const mimeType = (intent.mimeType || "image/jpeg") as
         | "image/jpeg"
@@ -72,6 +83,7 @@ export function ShareIntentHandler() {
       parseFromImage,
       parseFromText,
       parseFromUrl,
+      requireSmartImport,
       resetShareIntent,
       startImport,
     ],

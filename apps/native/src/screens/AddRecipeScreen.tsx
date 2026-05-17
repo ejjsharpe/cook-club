@@ -50,6 +50,7 @@ import {
   useBackgroundImportQueue,
   type BackgroundImport,
 } from "@/lib/backgroundImportQueue";
+import { useSubscription } from "@/lib/subscription";
 
 const HEADER_HEIGHT = 52;
 const IMPORT_PROGRESS_TRACK_WIDTH = 160;
@@ -327,6 +328,12 @@ export const AddRecipeScreen = () => {
     removeImport,
   } = useBackgroundImportQueue();
   const personalizeRecipeMutation = usePersonalizeRecipe();
+  const {
+    isPro,
+    smartImportsRemaining,
+    requireSmartImport,
+    requireProFeature,
+  } = useSubscription();
 
   // Scroll tracking for header fade
   const titleOpacity = useSharedValue(1);
@@ -380,7 +387,9 @@ export const AddRecipeScreen = () => {
     [dismissImport],
   );
 
-  const onPressSmartImport = () => {
+  const onPressSmartImport = async () => {
+    const allowed = await requireSmartImport();
+    if (!allowed) return;
     smartImportSheetRef.current?.present();
   };
 
@@ -388,11 +397,15 @@ export const AddRecipeScreen = () => {
     navigate("RecipeDetail", { draft: true, mode: "edit" });
   };
 
-  const onPressAIChef = () => {
+  const onPressAIChef = async () => {
+    const allowed = await requireProFeature("AI Chef");
+    if (!allowed) return;
     navigate("GenerateRecipe");
   };
 
-  const onPressPersonalise = () => {
+  const onPressPersonalise = async () => {
+    const allowed = await requireProFeature("Personalise recipe");
+    if (!allowed) return;
     recipeBrowserSheetRef.current?.present();
   };
 
@@ -485,7 +498,11 @@ export const AddRecipeScreen = () => {
           <ActionRow
             icon="sparkles"
             label="Smart import"
-            subtitle="Import from anywhere including social media using AI."
+            subtitle={
+              isPro
+                ? "Unlimited AI imports from websites, text, images, and social media."
+                : `${smartImportsRemaining ?? 0} of 5 free Smart Imports left this month.`
+            }
             onPress={onPressSmartImport}
             featured
           />
@@ -500,14 +517,22 @@ export const AddRecipeScreen = () => {
           <ActionRow
             icon="restaurant"
             label="AI Chef"
-            subtitle="Describe what you want and AI will create a recipe."
+            subtitle={
+              isPro
+                ? "Describe what you want and AI will create a recipe."
+                : "Cook Club Pro feature."
+            }
             onPress={onPressAIChef}
           />
           <View style={styles.separator} />
           <ActionRow
             icon="sparkles"
             label="Personalise recipe"
-            subtitle="Make it vegan, cheaper, healthier, kid-friendly, or meal-prep ready."
+            subtitle={
+              isPro
+                ? "Make it vegan, cheaper, healthier, kid-friendly, or meal-prep ready."
+                : "Cook Club Pro feature."
+            }
             onPress={onPressPersonalise}
           />
         </View>

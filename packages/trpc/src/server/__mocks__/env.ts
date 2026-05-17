@@ -30,6 +30,7 @@ export function createMockEnv() {
       chat: vi.fn(),
       personalize: vi.fn(),
       generateImage: vi.fn(),
+      nutrition: vi.fn(),
     },
     IMAGE_SERVICE: {
       presign: vi.fn(),

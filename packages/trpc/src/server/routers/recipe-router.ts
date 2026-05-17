@@ -15,7 +15,9 @@ import {
   createRecipe,
   updateRecipe,
   getRecipeDetail,
+  getStoredRecipeNutrition,
   importRecipe,
+  upsertRecipeNutrition,
 } from "@repo/db/services";
 import { parseIngredients } from "@repo/shared";
 import { TRPCError } from "@trpc/server";
@@ -28,6 +30,12 @@ import {
   cleanupMovedRecipeImages,
   prepareRecipeImages,
 } from "../services/recipe-image.service";
+import {
+  assertSmartImportAllowance,
+  consumeSmartImportAllowance,
+  getCurrentSubscriptionStatus,
+  requirePro,
+} from "../services/subscription.service";
 import { router, authedProcedure } from "../trpc";
 import { mapServiceError } from "../utils";
 
@@ -97,6 +105,7 @@ export const RecipePostValidator = type({
   "cookTime?": "number", // minutes
   "totalTime?": "number", // minutes
   servings: "number > 0",
+  "nutrition?": "object | null",
 });
 
 export const RecipeUpdateValidator = type({
@@ -117,6 +126,7 @@ export const RecipeUpdateValidator = type({
   "cookTime?": "number", // minutes
   "totalTime?": "number", // minutes
   servings: "number > 0",
+  "nutrition?": "object | null",
 });
 
 const UrlValidator = type({ url: "string.url" });
@@ -153,6 +163,10 @@ const GenerateRecipeImageValidator = type({
   "description?": "string | null",
   "ingredients?": "string[]",
   "instructions?": "string[]",
+});
+
+const GetNutritionValidator = type({
+  recipeId: "number",
 });
 
 interface RecipePayloadInput {
@@ -229,7 +243,33 @@ function recipeDetailToParsedRecipe(
         type: tag.type as "cuisine" | "meal_type" | "occasion",
         name: tag.name,
       })),
+    nutrition: recipe.nutrition,
   };
+}
+
+function recipeForEntitlement<T extends { nutrition?: unknown }>(
+  recipe: T,
+  isPro: boolean,
+): T {
+  return (isPro ? recipe : { ...recipe, nutrition: null }) as T;
+}
+
+function parseResponseForEntitlement<T extends { success: boolean }>(
+  result: T,
+  isPro: boolean,
+): T {
+  if (!("data" in result) || !result.success || isPro) return result;
+
+  const response = result as T & { data?: ParsedRecipe };
+  if (!response.data) return result;
+
+  return {
+    ...result,
+    data: {
+      ...response.data,
+      nutrition: null,
+    },
+  } as T;
 }
 
 function validateRecipePayload(input: RecipePayloadInput) {
@@ -284,6 +324,7 @@ export const recipeRouter = router({
     .mutation(async ({ ctx, input }) => {
       try {
         await enforceRateLimit(ctx, "recipe_parse_url");
+        await assertSmartImportAllowance(ctx);
         const result = await ctx.env.RECIPE_AI.parse({
           type: "url",
           data: input.url,
@@ -301,7 +342,8 @@ export const recipeRouter = router({
           });
         }
 
-        return result;
+        const subscriptionStatus = await consumeSmartImportAllowance(ctx);
+        return parseResponseForEntitlement(result, subscriptionStatus.isPro);
       } catch (e) {
         if (e instanceof TRPCError) throw e;
         console.error("Smart import error:", e);
@@ -318,6 +360,7 @@ export const recipeRouter = router({
     .mutation(async ({ ctx, input }) => {
       try {
         await enforceRateLimit(ctx, "recipe_parse_url_basic");
+        const subscriptionStatus = await getCurrentSubscriptionStatus(ctx);
         const result = await ctx.env.RECIPE_AI.parse({
           type: "url",
           data: input.url,
@@ -331,7 +374,7 @@ export const recipeRouter = router({
           });
         }
 
-        return result;
+        return parseResponseForEntitlement(result, subscriptionStatus.isPro);
       } catch (e) {
         if (e instanceof TRPCError) throw e;
         console.log(e, "ERROR");
@@ -347,6 +390,7 @@ export const recipeRouter = router({
     .input(type({ text: "string" }))
     .mutation(async ({ ctx, input }) => {
       await enforceRateLimit(ctx, "recipe_parse_text");
+      await assertSmartImportAllowance(ctx);
       const result = await ctx.env.RECIPE_AI.parse({
         type: "text",
         data: input.text,
@@ -359,7 +403,8 @@ export const recipeRouter = router({
         });
       }
 
-      return result;
+      const subscriptionStatus = await consumeSmartImportAllowance(ctx);
+      return parseResponseForEntitlement(result, subscriptionStatus.isPro);
     }),
 
   // Parse recipe from image using AI (mutation due to large payload)
@@ -372,6 +417,7 @@ export const recipeRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await enforceRateLimit(ctx, "recipe_parse_image");
+      await assertSmartImportAllowance(ctx);
       const result = await ctx.env.RECIPE_AI.parse({
         type: "image",
         data: input.imageBase64,
@@ -385,13 +431,15 @@ export const recipeRouter = router({
         });
       }
 
-      return result;
+      const subscriptionStatus = await consumeSmartImportAllowance(ctx);
+      return parseResponseForEntitlement(result, subscriptionStatus.isPro);
     }),
 
   // Generate recipe via AI chat conversation
   generateRecipeChat: authedProcedure
     .input(ChatInputValidator)
     .mutation(async ({ ctx, input }) => {
+      await requirePro(ctx);
       await enforceRateLimit(ctx, "recipe_chat");
       const result = await ctx.env.RECIPE_AI.chat({
         messages: input.messages,
@@ -431,6 +479,7 @@ export const recipeRouter = router({
       }
 
       try {
+        await requirePro(ctx);
         await enforceRateLimit(ctx, "recipe_personalize");
         const recipe = await getRecipeDetail(
           ctx.db,
@@ -469,6 +518,7 @@ export const recipeRouter = router({
         });
       }
 
+      await requirePro(ctx);
       await enforceRateLimit(ctx, "recipe_generate_image");
       const result = await ctx.env.RECIPE_AI.generateImage({
         name: input.name,
@@ -501,6 +551,7 @@ export const recipeRouter = router({
       validateRecipePayload(input);
 
       await validateTagIds(ctx.db, input.tagIds);
+      const subscriptionStatus = await getCurrentSubscriptionStatus(ctx);
 
       let movedKeys: string[] = [];
 
@@ -515,6 +566,9 @@ export const recipeRouter = router({
         const recipe = await createRecipe(ctx.db, ctx.user.id, {
           ...input,
           images: preparedImages.images,
+          nutrition: subscriptionStatus.isPro
+            ? (input.nutrition as any)
+            : undefined,
         });
         movedKeys = [];
 
@@ -564,6 +618,7 @@ export const recipeRouter = router({
 
       validateRecipePayload(input);
       await validateTagIds(ctx.db, input.tagIds);
+      const subscriptionStatus = await getCurrentSubscriptionStatus(ctx);
 
       let movedKeys: string[] = [];
 
@@ -578,6 +633,9 @@ export const recipeRouter = router({
         const recipe = await updateRecipe(ctx.db, ctx.user.id, {
           ...input,
           images: preparedImages.images,
+          nutrition: subscriptionStatus.isPro
+            ? (input.nutrition as any)
+            : undefined,
         });
         movedKeys = [];
 
@@ -796,6 +854,51 @@ export const recipeRouter = router({
       }
     }),
 
+  getNutrition: authedProcedure
+    .input(GetNutritionValidator)
+    .mutation(async ({ ctx, input }) => {
+      if (input instanceof type.errors) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: input.summary,
+        });
+      }
+
+      try {
+        await requirePro(ctx);
+        await enforceRateLimit(ctx, "recipe_nutrition");
+
+        const recipe = await getRecipeDetail(
+          ctx.db,
+          input.recipeId,
+          ctx.user.id,
+        );
+        const stored = await getStoredRecipeNutrition(ctx.db, input.recipeId);
+        if (stored) return stored;
+
+        const result = await ctx.env.RECIPE_AI.nutrition({
+          recipe: recipeDetailToParsedRecipe(recipe),
+          sourceUrl: recipe.sourceUrl,
+        });
+
+        if (!result.success) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: result.error.message,
+          });
+        }
+
+        return await upsertRecipeNutrition(ctx.db, input.recipeId, {
+          ...result.data,
+          generatedAt: new Date(),
+        });
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("Error fetching recipe nutrition:", err);
+        throw mapServiceError(err);
+      }
+    }),
+
   getRecipeDetail: authedProcedure
     .input(
       type({
@@ -804,7 +907,9 @@ export const recipeRouter = router({
     )
     .query(async ({ ctx, input }) => {
       try {
-        return await getRecipeDetail(ctx.db, input.recipeId, ctx.user.id);
+        const recipe = await getRecipeDetail(ctx.db, input.recipeId, ctx.user.id);
+        const subscriptionStatus = await getCurrentSubscriptionStatus(ctx);
+        return recipeForEntitlement(recipe, subscriptionStatus.isPro);
       } catch (err) {
         console.error("Error fetching recipe detail:", err);
         throw mapServiceError(err);

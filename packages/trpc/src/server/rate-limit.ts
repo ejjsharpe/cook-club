@@ -10,6 +10,7 @@ export type RateLimitBucket =
   | "recipe_chat"
   | "recipe_personalize"
   | "recipe_generate_image"
+  | "recipe_nutrition"
   | "upload_presign";
 
 const IMAGE_BUCKETS = new Set<RateLimitBucket>([

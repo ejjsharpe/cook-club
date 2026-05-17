@@ -7,6 +7,7 @@ import type {
   Instruction,
   IngredientSection,
   InstructionSection,
+  Nutrition,
   Tag,
 } from "../schema";
 import { parseIngredientText } from "./ingredient-parser";
@@ -109,6 +110,24 @@ interface HowToSection {
   itemListElement?: OneOrMany<HowToStep | string>;
 }
 
+interface NutritionInformation {
+  "@type"?: OneOrMany<string>;
+  calories?: string | number;
+  proteinContent?: string | number;
+  carbohydrateContent?: string | number;
+  fatContent?: string | number;
+  saturatedFatContent?: string | number;
+  fiberContent?: string | number;
+  sugarContent?: string | number;
+  sodiumContent?: string | number;
+  cholesterolContent?: string | number;
+  potassiumContent?: string | number;
+  vitaminAContent?: string | number;
+  vitaminCContent?: string | number;
+  calciumContent?: string | number;
+  ironContent?: string | number;
+}
+
 /**
  * Schema.org Recipe
  * @see https://schema.org/Recipe
@@ -128,6 +147,7 @@ interface SchemaOrgRecipe {
   keywords?: OneOrMany<string>;
   recipeIngredient?: OneOrMany<string>;
   recipeInstructions?: OneOrMany<string | HowToStep | HowToSection>;
+  nutrition?: NutritionInformation | string;
 }
 
 /**
@@ -938,6 +958,72 @@ function parseServingsFromString(yieldStr: string): number | null {
   return null;
 }
 
+function parseNutritionNumber(value: string | number | undefined): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (!value) return null;
+
+  const normalized = normalizeStructuredText(value).replace(/,/g, "");
+  const match = normalized.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseMilligrams(value: string | number | undefined): number | null {
+  const parsed = parseNutritionNumber(value);
+  if (parsed === null) return null;
+  if (typeof value === "string" && /\bg\b/i.test(value) && !/\bmg\b/i.test(value)) {
+    return Math.round(parsed * 1000);
+  }
+  return Math.round(parsed);
+}
+
+function extractNutrition(raw: Partial<SchemaOrgRecipe>): Nutrition | null {
+  const nutrition =
+    raw.nutrition && typeof raw.nutrition === "object" ? raw.nutrition : null;
+
+  if (!nutrition) return null;
+
+  const result: Nutrition = {
+    calories: parseNutritionNumber(nutrition.calories),
+    protein: parseNutritionNumber(nutrition.proteinContent),
+    carbohydrates: parseNutritionNumber(nutrition.carbohydrateContent),
+    fat: parseNutritionNumber(nutrition.fatContent),
+    saturatedFat: parseNutritionNumber(nutrition.saturatedFatContent),
+    fiber: parseNutritionNumber(nutrition.fiberContent),
+    sugar: parseNutritionNumber(nutrition.sugarContent),
+    sodium: parseMilligrams(nutrition.sodiumContent),
+    cholesterol: parseMilligrams(nutrition.cholesterolContent),
+    potassium: parseMilligrams(nutrition.potassiumContent),
+    vitaminA: parseNutritionNumber(nutrition.vitaminAContent),
+    vitaminC: parseNutritionNumber(nutrition.vitaminCContent),
+    calcium: parseNutritionNumber(nutrition.calciumContent),
+    iron: parseNutritionNumber(nutrition.ironContent),
+    source: "extracted",
+    confidence: "high",
+  };
+
+  const hasValue = [
+    result.calories,
+    result.protein,
+    result.carbohydrates,
+    result.fat,
+    result.saturatedFat,
+    result.fiber,
+    result.sugar,
+    result.sodium,
+    result.cholesterol,
+    result.potassium,
+    result.vitaminA,
+    result.vitaminC,
+    result.calcium,
+    result.iron,
+  ].some((value) => typeof value === "number" && Number.isFinite(value));
+
+  return hasValue ? result : null;
+}
+
 /**
  * Extract image URL from a HowToStep if present
  */
@@ -1136,5 +1222,6 @@ function toParsedRecipe(
     instructionSections,
     images,
     suggestedTags: generateTags(raw),
+    nutrition: extractNutrition(raw),
   };
 }

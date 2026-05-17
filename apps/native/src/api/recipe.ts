@@ -19,10 +19,14 @@ export type Tag = RecipeListItem["tags"][number];
 // Parse recipe from URL using AI (Smart Import)
 export const useParseRecipeFromUrl = () => {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
-  return useMutation(
-    trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
-  );
+  return useMutation({
+    ...trpc.recipe.parseRecipeFromUrl.mutationOptions({ retry: false }),
+    onSettled: () => {
+      queryClient.invalidateQueries(trpc.subscription.getStatus.pathFilter());
+    },
+  });
 };
 
 // Parse recipe from URL using structured data only (Basic Import - no AI)
@@ -37,19 +41,27 @@ export const useParseRecipeFromUrlBasic = () => {
 // Parse recipe from text using AI
 export const useParseRecipeFromText = () => {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
-  return useMutation(
-    trpc.recipe.parseRecipeFromText.mutationOptions({ retry: false }),
-  );
+  return useMutation({
+    ...trpc.recipe.parseRecipeFromText.mutationOptions({ retry: false }),
+    onSettled: () => {
+      queryClient.invalidateQueries(trpc.subscription.getStatus.pathFilter());
+    },
+  });
 };
 
 // Parse recipe from image using AI
 export const useParseRecipeFromImage = () => {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
-  return useMutation(
-    trpc.recipe.parseRecipeFromImage.mutationOptions({ retry: false }),
-  );
+  return useMutation({
+    ...trpc.recipe.parseRecipeFromImage.mutationOptions({ retry: false }),
+    onSettled: () => {
+      queryClient.invalidateQueries(trpc.subscription.getStatus.pathFilter());
+    },
+  });
 };
 
 interface UseGetUserRecipesParams {
@@ -254,4 +266,22 @@ export const useGenerateRecipeImage = () => {
       retry: false,
     }),
   );
+};
+
+export const useGetRecipeNutrition = () => {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    ...trpc.recipe.getNutrition.mutationOptions({
+      retry: false,
+    }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries(
+        trpc.recipe.getRecipeDetail.queryFilter({
+          recipeId: variables.recipeId,
+        }),
+      );
+    },
+  });
 };

@@ -27,15 +27,20 @@ import startImage9 from "@/assets/images/start-food-9.jpg";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ShareIntentStorageHandler } from "@/components/ShareIntentStorageHandler";
 import { WelcomeOverlayProvider } from "@/components/WelcomeOverlay";
+import { activateAdaptyAtStartup } from "@/lib/adapty";
 import { BackgroundImportQueueProvider } from "@/lib/backgroundImportQueue";
 import { PushNotificationsProvider } from "@/lib/pushNotifications";
 import { ReactQueryProvider } from "@/lib/reactQuery";
 import { SessionProvider } from "@/lib/sessionContext";
 import { SignedInProvider } from "@/lib/signedInContext";
+import { SubscriptionProvider } from "@/lib/subscription";
 import { TRPCProvider } from "@/lib/trpc";
 import { Navigation, navigationRef } from "@/navigation/RootStack";
 
 SplashScreen.preventAutoHideAsync();
+activateAdaptyAtStartup()?.catch((error) => {
+  console.log("Adapty activation failed:", error);
+});
 
 const prefix = Linking.createURL("/");
 const linking = {
@@ -128,25 +133,27 @@ export default function App() {
               <SessionProvider>
                 <TRPCProvider>
                   <SignedInProvider>
-                    <PushNotificationsProvider>
-                      <ShareIntentStorageHandler />
-                      <GestureHandlerRootView style={styles.rootView}>
-                        <BackgroundImportQueueProvider>
-                          <WelcomeOverlayProvider>
-                            <OfflineIndicator />
-                            <Navigation
-                              ref={navigationRef}
-                              key={navigationKey}
-                              onReady={onNavigationReady}
-                              initialState={navigationState}
-                              onStateChange={setNavigationState}
-                              linking={linking}
-                              theme={navigationTheme}
-                            />
-                          </WelcomeOverlayProvider>
-                        </BackgroundImportQueueProvider>
-                      </GestureHandlerRootView>
-                    </PushNotificationsProvider>
+                    <SubscriptionProvider>
+                      <PushNotificationsProvider>
+                        <ShareIntentStorageHandler />
+                        <GestureHandlerRootView style={styles.rootView}>
+                          <BackgroundImportQueueProvider>
+                            <WelcomeOverlayProvider>
+                              <OfflineIndicator />
+                              <Navigation
+                                ref={navigationRef}
+                                key={navigationKey}
+                                onReady={onNavigationReady}
+                                initialState={navigationState}
+                                onStateChange={setNavigationState}
+                                linking={linking}
+                                theme={navigationTheme}
+                              />
+                            </WelcomeOverlayProvider>
+                          </BackgroundImportQueueProvider>
+                        </GestureHandlerRootView>
+                      </PushNotificationsProvider>
+                    </SubscriptionProvider>
                   </SignedInProvider>
                 </TRPCProvider>
               </SessionProvider>

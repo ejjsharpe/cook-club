@@ -5,6 +5,8 @@ export type {
   ChatResponse,
   GenerateRecipeImageInput,
   GenerateRecipeImageResponse,
+  NutritionInput,
+  NutritionResponse,
   PersonalizationGoal,
   PersonalizeRecipeInput,
   ParseInput,

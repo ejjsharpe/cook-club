@@ -7,6 +7,7 @@ import { mealPlanRouter } from "./routers/meal-plan-router";
 import { notificationRouter } from "./routers/notification-router";
 import { recipeRouter } from "./routers/recipe-router";
 import { shoppingRouter } from "./routers/shopping-router";
+import { subscriptionRouter } from "./routers/subscription-router";
 import { uploadRouter } from "./routers/upload-router";
 import { userRouter } from "./routers/user-router";
 import { router } from "./trpc";
@@ -26,6 +27,7 @@ export const appRouter = router({
   comment: commentRouter,
   mealPlan: mealPlanRouter,
   notification: notificationRouter,
+  subscription: subscriptionRouter,
 });
 
 export type AppRouter = typeof appRouter;

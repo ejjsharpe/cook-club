@@ -3,6 +3,7 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { parseImage } from "./services/image-parser";
 import { processChat } from "./services/recipe-generator";
 import { generateRecipeImage } from "./services/recipe-image-generator";
+import { generateNutrition } from "./services/nutrition-generator";
 import { personalizeRecipe } from "./services/recipe-personalizer";
 import { parseText } from "./services/text-parser";
 import { parseUrl } from "./services/url-parser";
@@ -14,6 +15,8 @@ import type {
   ChatResponse,
   GenerateRecipeImageInput,
   GenerateRecipeImageResponse,
+  NutritionInput,
+  NutritionResponse,
   PersonalizeRecipeInput,
 } from "./types";
 
@@ -34,6 +37,8 @@ export type {
   RecipeConversationState,
   GenerateRecipeImageInput,
   GenerateRecipeImageResponse,
+  NutritionInput,
+  NutritionResponse,
   PersonalizationGoal,
   PersonalizeRecipeInput,
 } from "./service";
@@ -135,6 +140,10 @@ export class RecipeAI extends WorkerEntrypoint<Env> {
     input: GenerateRecipeImageInput,
   ): Promise<GenerateRecipeImageResponse> {
     return await generateRecipeImage(this.env, input);
+  }
+
+  async nutrition(input: NutritionInput): Promise<NutritionResponse> {
+    return await generateNutrition(this.env, input);
   }
 }
 

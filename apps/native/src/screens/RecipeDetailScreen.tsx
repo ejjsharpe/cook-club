@@ -42,6 +42,7 @@ import {
   useImportRecipe,
   useDeleteRecipe,
   useGenerateRecipeImage,
+  useGetRecipeNutrition,
   usePersonalizeRecipe,
   useSaveRecipe,
   useUpdateRecipe,
@@ -82,6 +83,7 @@ import {
 } from "@/components/mealPlan/AddToMealPlanSheet";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import type { MeasurementSystem } from "@/lib/measurementPreferences";
+import { useSubscription } from "@/lib/subscription";
 import { getImageUrl } from "@/utils/imageUrl";
 import {
   isCompactUnit,
@@ -154,6 +156,7 @@ interface RecipeDraft {
   sourceUrl?: string;
   sourceType: SourceType;
   tagIds: number[];
+  nutrition?: Recipe["nutrition"];
   images: DraftImage[];
   ingredientSections: DraftIngredientSection[];
   instructionSections: DraftInstructionSection[];
@@ -200,6 +203,7 @@ function draftFromRecipe(recipe: RecipeLike): RecipeDraft {
     sourceUrl: recipe.sourceUrl ?? undefined,
     sourceType: (recipe.sourceType ?? "manual") as SourceType,
     tagIds: (recipe.tags ?? []).map((tag) => tag.id),
+    nutrition: recipe.nutrition ?? undefined,
     images: (recipe.images ?? []).map((image, index) => ({
       id: `remote-${image.id ?? index}`,
       uri: image.url,
@@ -328,6 +332,13 @@ function getDraftErrors(draft: RecipeDraft) {
   return errors;
 }
 
+function nutritionForMutation(nutrition: RecipeDraft["nutrition"]) {
+  if (!nutrition) return undefined;
+
+  const { generatedAt: _generatedAt, ...mutationNutrition } = nutrition;
+  return mutationNutrition;
+}
+
 function draftToMutationInput(draft: RecipeDraft) {
   const remoteImages = draft.images
     .filter((image) => image.isRemote)
@@ -335,6 +346,7 @@ function draftToMutationInput(draft: RecipeDraft) {
   const imageUploadIds = draft.images
     .filter((image) => !image.isRemote && image.uploadKey)
     .map((image) => image.uploadKey!);
+  const nutrition = nutritionForMutation(draft.nutrition);
 
   return {
     name: draft.name.trim(),
@@ -371,6 +383,7 @@ function draftToMutationInput(draft: RecipeDraft) {
     ...(imageUploadIds.length > 0 && { imageUploadIds }),
     ...(draft.sourceUrl && { sourceUrl: draft.sourceUrl }),
     sourceType: draft.sourceType,
+    ...(nutrition && { nutrition }),
   };
 }
 
@@ -411,7 +424,9 @@ export const RecipeDetailScreen = () => {
   const deleteMutation = useDeleteRecipe();
   const personalizeRecipeMutation = usePersonalizeRecipe();
   const generateRecipeImageMutation = useGenerateRecipeImage();
+  const nutritionMutation = useGetRecipeNutrition();
   const createCookingReviewMutation = useCreateCookingReview();
+  const { isPro, requireProFeature, presentPaywall } = useSubscription();
 
   const [servings, setServings] = useState(1);
   const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>(
@@ -428,6 +443,7 @@ export const RecipeDetailScreen = () => {
   const hasInitializedServings = useRef(false);
   const draftImageListRef = useRef<FlatList<DraftImage>>(null);
   const pendingImageScrollIndexRef = useRef<number | null>(null);
+  const nutritionRequestRecipeIdRef = useRef<number | null>(null);
   const adjustRecipeSheetRef = useRef<AdjustRecipeSheetRef>(null);
   const personaliseRecipeSheetRef = useRef<PersonaliseRecipeSheetRef>(null);
   const addToMealPlanSheetRef = useRef<AddToMealPlanSheetRef>(null);
@@ -437,6 +453,7 @@ export const RecipeDetailScreen = () => {
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [ratingOverride, setRatingOverride] = useState<number | null>(null);
+  const [nutrition, setNutrition] = useState<Recipe["nutrition"] | null>(null);
 
   const {
     uploadImages,
@@ -512,7 +529,46 @@ export const RecipeDetailScreen = () => {
   useEffect(() => {
     setRatingOverride(null);
     hasInitializedServings.current = false;
+    setNutrition(null);
+    nutritionRequestRecipeIdRef.current = null;
   }, [recipeId]);
+
+  useEffect(() => {
+    setNutrition(recipe?.nutrition ?? null);
+  }, [recipe?.id, recipe?.nutrition]);
+
+  useEffect(() => {
+    if (
+      !isPro ||
+      isEditing ||
+      isPreviewMode ||
+      !recipe ||
+      recipe.id < 0 ||
+      nutrition ||
+      nutritionMutation.isPending ||
+      nutritionRequestRecipeIdRef.current === recipe.id
+    ) {
+      return;
+    }
+
+    nutritionRequestRecipeIdRef.current = recipe.id;
+    nutritionMutation.mutate(
+      { recipeId: recipe.id },
+      {
+        onSuccess: (data) => setNutrition(data),
+        onError: () => {
+          nutritionRequestRecipeIdRef.current = null;
+        },
+      },
+    );
+  }, [
+    isEditing,
+    isPreviewMode,
+    isPro,
+    nutrition,
+    nutritionMutation,
+    recipe,
+  ]);
 
   useEffect(() => {
     const imageCount = isEditing
@@ -622,8 +678,10 @@ export const RecipeDetailScreen = () => {
     shoppingListSheetRef.current?.present();
   };
 
-  const handleOpenPersonaliseSheet = () => {
+  const handleOpenPersonaliseSheet = async () => {
     if (!recipe || isPreviewMode || isEditing) return;
+    const allowed = await requireProFeature("Personalise recipe");
+    if (!allowed) return;
     personaliseRecipeSheetRef.current?.present();
   };
 
@@ -759,6 +817,9 @@ export const RecipeDetailScreen = () => {
   const handleGenerateRecipeImage = useCallback(async () => {
     if (!draft) return;
 
+    const allowed = await requireProFeature("AI image");
+    if (!allowed) return;
+
     if (!draft.name.trim()) {
       Alert.alert(
         "Add a title",
@@ -807,7 +868,7 @@ export const RecipeDetailScreen = () => {
         err?.message || "Something went wrong while creating the image.",
       );
     }
-  }, [draft, generateRecipeImageMutation, updateDraft]);
+  }, [draft, generateRecipeImageMutation, requireProFeature, updateDraft]);
 
   const handleRemoveCurrentImage = useCallback(() => {
     updateDraft((current) => {
@@ -1965,6 +2026,123 @@ export const RecipeDetailScreen = () => {
     );
   };
 
+  const formatNutritionNumber = (
+    value: number | null | undefined,
+    suffix = "",
+  ) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) return null;
+    const formatted =
+      value % 1 === 0 ? value.toString() : value.toFixed(1).replace(/\.0$/, "");
+    return `${formatted}${suffix}`;
+  };
+
+  const renderNutritionMetric = (
+    label: string,
+    value: number | null | undefined,
+    suffix = "",
+  ) => {
+    const formatted = formatNutritionNumber(value, suffix);
+    if (!formatted) return null;
+
+    return (
+      <View style={styles.nutritionMetric}>
+        <Text style={styles.nutritionMetricValue}>{formatted}</Text>
+        <Text style={styles.nutritionMetricLabel}>{label}</Text>
+      </View>
+    );
+  };
+
+  const renderNutritionPanel = () => {
+    if (isEditing || isPreviewMode || !recipe) return null;
+
+    if (!isPro) {
+      return (
+        <TouchableOpacity
+          style={styles.nutritionCard}
+          onPress={presentPaywall}
+          activeOpacity={0.78}
+        >
+          <View style={styles.nutritionHeader}>
+            <View style={styles.nutritionTitleRow}>
+              <Ionicons
+                name="nutrition-outline"
+                size={18}
+                style={styles.nutritionIcon}
+              />
+              <Text style={styles.nutritionTitle}>Nutrition</Text>
+            </View>
+            <View style={styles.proBadge}>
+              <Text style={styles.proBadgeText}>Pro</Text>
+            </View>
+          </View>
+          <Text style={styles.nutritionSubtitle}>
+            Upgrade to see per-serving nutrition.
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    const currentNutrition = nutrition ?? recipe.nutrition;
+    const isLoadingNutrition =
+      nutritionMutation.isPending && !currentNutrition;
+
+    return (
+      <View style={styles.nutritionCard}>
+        <View style={styles.nutritionHeader}>
+          <View style={styles.nutritionTitleRow}>
+            <Ionicons
+              name="nutrition-outline"
+              size={18}
+              style={styles.nutritionIcon}
+            />
+            <Text style={styles.nutritionTitle}>Nutrition</Text>
+          </View>
+          <Text style={styles.nutritionSubtitle}>
+            {currentNutrition?.source === "ai_estimated"
+              ? "Estimated per serving"
+              : "Per serving"}
+          </Text>
+        </View>
+
+        {isLoadingNutrition ? (
+          <View style={styles.nutritionLoadingRow}>
+            <ActivityIndicator size="small" />
+            <Text style={styles.nutritionSubtitle}>Calculating...</Text>
+          </View>
+        ) : currentNutrition ? (
+          <View style={styles.nutritionGrid}>
+            {renderNutritionMetric("Calories", currentNutrition.calories)}
+            {renderNutritionMetric("Protein", currentNutrition.protein, "g")}
+            {renderNutritionMetric(
+              "Carbs",
+              currentNutrition.carbohydrates,
+              "g",
+            )}
+            {renderNutritionMetric("Fat", currentNutrition.fat, "g")}
+            {renderNutritionMetric("Fiber", currentNutrition.fiber, "g")}
+            {renderNutritionMetric("Sugar", currentNutrition.sugar, "g")}
+            {renderNutritionMetric("Sodium", currentNutrition.sodium, "mg")}
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.nutritionRetryButton}
+            onPress={() => {
+              if (recipe.id > 0) {
+                nutritionMutation.mutate(
+                  { recipeId: recipe.id },
+                  { onSuccess: (data) => setNutrition(data) },
+                );
+              }
+            }}
+            activeOpacity={0.76}
+          >
+            <Text style={styles.nutritionRetryText}>Calculate nutrition</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   const renderEditableTags = () => {
     if (!draft) return null;
 
@@ -2342,6 +2520,8 @@ export const RecipeDetailScreen = () => {
                   </TouchableOpacity>
                 </Animated.View>
               )}
+
+              {renderNutritionPanel()}
 
               <View style={styles.pageDivider} />
 
@@ -2783,6 +2963,93 @@ const styles = StyleSheet.create((theme) => ({
   },
   metaIcon: {
     color: theme.colors.textSecondary,
+  },
+  nutritionCard: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: theme.colors.inputBackground,
+    gap: 12,
+  },
+  nutritionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  nutritionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  nutritionIcon: {
+    color: theme.colors.primary,
+  },
+  nutritionTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontFamily: theme.fonts.semiBold,
+  },
+  nutritionSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
+  },
+  nutritionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  nutritionMetric: {
+    minWidth: 78,
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: theme.colors.background,
+    gap: 2,
+  },
+  nutritionMetricValue: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontFamily: theme.fonts.semiBold,
+  },
+  nutritionMetricLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontFamily: theme.fonts.medium,
+  },
+  nutritionLoadingRow: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  nutritionRetryButton: {
+    alignSelf: "flex-start",
+    minHeight: 34,
+    paddingHorizontal: 14,
+    borderRadius: 17,
+    backgroundColor: theme.colors.primary,
+    justifyContent: "center",
+  },
+  nutritionRetryText: {
+    color: "white",
+    fontSize: 13,
+    fontFamily: theme.fonts.semiBold,
+  },
+  proBadge: {
+    height: 24,
+    paddingHorizontal: 9,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proBadgeText: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontFamily: theme.fonts.semiBold,
   },
   starFilled: {
     color: theme.colors.primary,

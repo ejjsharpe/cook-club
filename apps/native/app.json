@@ -38,7 +38,14 @@
           "androidMultiIntentFilters": []
         }
       ],
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.0"
+          }
+        }
+      ],
       "expo-image",
       "expo-notifications"
     ],

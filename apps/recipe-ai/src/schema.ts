@@ -32,6 +32,31 @@ export const SourceTypeSchema = type(
   "'url' | 'image' | 'text' | 'ai' | 'manual'",
 );
 
+export const NutritionSourceSchema = type(
+  "'extracted' | 'ai_estimated' | 'manual' | 'imported'",
+);
+
+export const NutritionConfidenceSchema = type("'high' | 'medium' | 'low'");
+
+export const NutritionSchema = type({
+  "calories?": "number | null",
+  "protein?": "number | null",
+  "carbohydrates?": "number | null",
+  "fat?": "number | null",
+  "saturatedFat?": "number | null",
+  "fiber?": "number | null",
+  "sugar?": "number | null",
+  "sodium?": "number | null",
+  "cholesterol?": "number | null",
+  "potassium?": "number | null",
+  "vitaminA?": "number | null",
+  "vitaminC?": "number | null",
+  "calcium?": "number | null",
+  "iron?": "number | null",
+  "source?": NutritionSourceSchema,
+  "confidence?": "('high' | 'medium' | 'low') | null",
+});
+
 export const ParsedRecipeSchema = type({
   name: "string",
   "description?": "string | null",
@@ -45,6 +70,7 @@ export const ParsedRecipeSchema = type({
   instructionSections: InstructionSectionSchema.array().atLeastLength(1),
   "images?": "string[]",
   "suggestedTags?": TagSchema.array(),
+  "nutrition?": "object | null",
 });
 
 export type ParsedRecipe = typeof ParsedRecipeSchema.infer;
@@ -54,3 +80,4 @@ export type IngredientSection = typeof IngredientSectionSchema.infer;
 export type InstructionSection = typeof InstructionSectionSchema.infer;
 export type Tag = typeof TagSchema.infer;
 export type SourceType = typeof SourceTypeSchema.infer;
+export type Nutrition = typeof NutritionSchema.infer;

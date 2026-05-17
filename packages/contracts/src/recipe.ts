@@ -28,6 +28,33 @@ export interface ParsedRecipeTag {
 
 export type ParsedRecipeSourceType = "url" | "image" | "text" | "ai" | "manual";
 
+export type ParsedRecipeNutritionSource =
+  | "extracted"
+  | "ai_estimated"
+  | "manual"
+  | "imported";
+
+export type ParsedRecipeNutritionConfidence = "high" | "medium" | "low";
+
+export interface ParsedRecipeNutrition {
+  calories?: number | null;
+  protein?: number | null;
+  carbohydrates?: number | null;
+  fat?: number | null;
+  saturatedFat?: number | null;
+  fiber?: number | null;
+  sugar?: number | null;
+  sodium?: number | null;
+  cholesterol?: number | null;
+  potassium?: number | null;
+  vitaminA?: number | null;
+  vitaminC?: number | null;
+  calcium?: number | null;
+  iron?: number | null;
+  source?: ParsedRecipeNutritionSource;
+  confidence?: ParsedRecipeNutritionConfidence | null;
+}
+
 export interface ParsedRecipe {
   name: string;
   description?: string | null;
@@ -41,4 +68,5 @@ export interface ParsedRecipe {
   instructionSections: ParsedInstructionSection[];
   images?: string[];
   suggestedTags?: ParsedRecipeTag[];
+  nutrition?: ParsedRecipeNutrition | null;
 }

@@ -1,4 +1,4 @@
-import type { ParsedRecipe } from "./recipe";
+import type { ParsedRecipe, ParsedRecipeNutrition } from "./recipe";
 
 export type ParseInput =
   | { type: "url"; data: string; structuredOnly?: boolean }
@@ -83,11 +83,29 @@ export interface GenerateRecipeImageInput {
   ownerId?: string;
 }
 
+export interface NutritionInput {
+  recipe: ParsedRecipe;
+  sourceUrl?: string | null;
+}
+
 export type GenerateRecipeImageResponse =
   | {
       success: true;
       imageUploadId: string;
       publicUrl: string;
+    }
+  | {
+      success: false;
+      error: {
+        code: string;
+        message: string;
+      };
+    };
+
+export type NutritionResponse =
+  | {
+      success: true;
+      data: ParsedRecipeNutrition;
     }
   | {
       success: false;
@@ -122,4 +140,5 @@ export interface RecipeAIService {
   generateImage(
     input: GenerateRecipeImageInput,
   ): Promise<GenerateRecipeImageResponse>;
+  nutrition(input: NutritionInput): Promise<NutritionResponse>;
 }

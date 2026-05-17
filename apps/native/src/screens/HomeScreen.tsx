@@ -61,6 +61,7 @@ import {
   createBackgroundImportId,
   useBackgroundImportQueue,
 } from "@/lib/backgroundImportQueue";
+import { useSubscription } from "@/lib/subscription";
 
 // ─── Header Component ─────────────────────────────────────────────────────────
 
@@ -220,6 +221,8 @@ export const HomeScreen = () => {
   );
   const importRecipeMutation = useImportRecipe();
   const { startImport } = useBackgroundImportQueue();
+  const { requireSmartImport, refresh: refreshSubscription } =
+    useSubscription();
 
   // ─── State ────────────────────────────────────────────────────────────────────
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -444,16 +447,34 @@ export const HomeScreen = () => {
   }, [searchBarY]);
 
   const handleImportRecipe = useCallback(
-    (sourceUrl: string) => {
+    async (sourceUrl: string) => {
+      const allowed = await requireSmartImport();
+      if (!allowed) {
+        navigation.navigate("Add recipe");
+        return;
+      }
+
       startImport({
         id: createBackgroundImportId("url"),
         mode: "url",
         title: sourceUrl,
-        run: () => parseRecipeFromUrl.mutateAsync({ url: sourceUrl }),
+        run: async () => {
+          try {
+            return await parseRecipeFromUrl.mutateAsync({ url: sourceUrl });
+          } finally {
+            refreshSubscription().catch(() => {});
+          }
+        },
       });
       navigation.navigate("Add recipe");
     },
-    [navigation, parseRecipeFromUrl, startImport],
+    [
+      navigation,
+      parseRecipeFromUrl,
+      refreshSubscription,
+      requireSmartImport,
+      startImport,
+    ],
   );
 
   const handleImportExistingRecipe = useCallback(

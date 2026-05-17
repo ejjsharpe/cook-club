@@ -108,6 +108,9 @@ export function transformParsedRecipeForPreview(
     originalOwner: null,
     userReviewRating: null,
     tags: [],
+    nutrition: data.nutrition
+      ? { ...data.nutrition, generatedAt: null }
+      : null,
   };
 }
 
@@ -203,5 +206,6 @@ export function transformParsedRecipeForSave(parsedRecipe: ParsedRecipe) {
       | "image"
       | "ai"
       | "manual",
+    nutrition: data.nutrition ?? undefined,
   };
 }

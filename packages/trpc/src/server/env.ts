@@ -33,6 +33,9 @@ export interface TRPCEnv extends AuthEnv {
   IMAGE_SERVICE: ImageService;
   IMAGE_PUBLIC_URL: string;
   EXPO_ACCESS_TOKEN?: string;
+  ADAPTY_SECRET_API_KEY?: string;
+  ADAPTY_WEBHOOK_AUTHORIZATION?: string;
+  ADAPTY_PRO_ACCESS_LEVEL_ID?: string;
   API_RATE_LIMITER?: RateLimitBinding;
   AI_RATE_LIMITER?: RateLimitBinding;
   IMAGE_AI_RATE_LIMITER?: RateLimitBinding;
