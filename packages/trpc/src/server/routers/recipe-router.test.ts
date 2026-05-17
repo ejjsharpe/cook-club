@@ -15,7 +15,7 @@ vi.mock("../services/activity", () => ({
 const mockCreateRecipe = vi.fn();
 const mockUpdateRecipe = vi.fn();
 const mockGetRecipeDetail = vi.fn();
-const mockValidateTags = vi.fn().mockResolvedValue(undefined);
+const mockValidateTagIds = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@repo/db/services", () => ({
   createRecipe: (...args: unknown[]) => mockCreateRecipe(...args),
@@ -26,7 +26,7 @@ vi.mock("@repo/db/services", () => ({
   ServiceError: class ServiceError extends Error {
     code = "INTERNAL_ERROR";
   },
-  validateTags: (...args: unknown[]) => mockValidateTags(...args),
+  validateTagIds: (...args: unknown[]) => mockValidateTagIds(...args),
 }));
 
 // Mock @repo/db/schemas
@@ -221,8 +221,7 @@ describe("recipeRouter - activity integration", () => {
         },
       ],
       images: [{ url: "https://example.com/image.jpg" }],
-      cuisines: [],
-      categories: [],
+      tagIds: [],
     };
 
     it("creates activity event on recipe import", async () => {
@@ -271,6 +270,7 @@ describe("recipeRouter - activity integration", () => {
 
       expect(result.id).toBe(1);
       expect(result.name).toBe("Test Recipe");
+      expect(mockValidateTagIds).toHaveBeenCalledWith(mockDb, []);
     });
 
     it("does not propagate when activity event creation fails", async () => {
@@ -366,8 +366,7 @@ describe("recipeRouter - activity integration", () => {
         },
       ],
       images: [{ url: "https://example.com/image.jpg" }],
-      cuisines: [],
-      categories: [],
+      tagIds: [],
     };
 
     it("updates a recipe through the recipe service", async () => {
@@ -384,8 +383,10 @@ describe("recipeRouter - activity integration", () => {
           recipeId: 1,
           name: "Updated Recipe",
           images: [{ url: "https://example.com/image.jpg" }],
+          tagIds: [],
         }),
       );
+      expect(mockValidateTagIds).toHaveBeenCalledWith(mockDb, []);
       expect(mockDb.insert).not.toHaveBeenCalled();
     });
 
@@ -447,7 +448,9 @@ describe("recipeRouter - activity integration", () => {
           ingredientSections: [
             {
               name: null,
-              ingredients: [{ index: 0, quantity: 1, unit: "cup", name: "cashews" }],
+              ingredients: [
+                { index: 0, quantity: 1, unit: "cup", name: "cashews" },
+              ],
             },
           ],
           instructionSections: [

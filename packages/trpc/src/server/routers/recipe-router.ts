@@ -11,7 +11,7 @@ import {
 } from "@repo/db/schemas";
 import {
   queryPopularRecipesThisWeek,
-  validateTags,
+  validateTagIds,
   createRecipe,
   updateRecipe,
   getRecipeDetail,
@@ -22,12 +22,12 @@ import { TRPCError } from "@trpc/server";
 import { type } from "arktype";
 import { eq, lt, desc, and, ilike, count, inArray, min } from "drizzle-orm";
 
+import { enforceRateLimit } from "../rate-limit";
 import { propagateActivityToFollowers } from "../services/activity";
 import {
   cleanupMovedRecipeImages,
   prepareRecipeImages,
 } from "../services/recipe-image.service";
-import { enforceRateLimit } from "../rate-limit";
 import { router, authedProcedure } from "../trpc";
 import { mapServiceError } from "../utils";
 
@@ -76,8 +76,6 @@ const SourceTypeValidator = type(
   "'url' | 'image' | 'text' | 'ai' | 'manual' | 'user'",
 );
 
-type SourceType = "url" | "image" | "text" | "ai" | "manual" | "user";
-
 const PersonalizationGoalValidator = type(
   "'vegetarian' | 'vegan' | 'gluten_free' | 'dairy_free' | 'low_carb' | 'high_protein' | 'budget' | 'healthier' | 'kid_friendly' | 'batch_cook' | 'meal_prep'",
 );
@@ -92,8 +90,7 @@ export const RecipePostValidator = type({
 
   "sourceUrl?": "string",
   "sourceType?": SourceTypeValidator,
-  "categories?": "string[]",
-  "cuisines?": "string[]",
+  "tagIds?": "number[]",
 
   "description?": "string",
   "prepTime?": "number", // minutes
@@ -113,8 +110,7 @@ export const RecipeUpdateValidator = type({
 
   "sourceUrl?": "string",
   "sourceType?": SourceTypeValidator,
-  "categories?": "string[]",
-  "cuisines?": "string[]",
+  "tagIds?": "number[]",
 
   "description?": "string",
   "prepTime?": "number", // minutes
@@ -504,8 +500,7 @@ export const recipeRouter = router({
 
       validateRecipePayload(input);
 
-      // Validate tags
-      await validateTags(ctx.db, input.categories, input.cuisines);
+      await validateTagIds(ctx.db, input.tagIds);
 
       let movedKeys: string[] = [];
 
@@ -568,6 +563,7 @@ export const recipeRouter = router({
       }
 
       validateRecipePayload(input);
+      await validateTagIds(ctx.db, input.tagIds);
 
       let movedKeys: string[] = [];
 

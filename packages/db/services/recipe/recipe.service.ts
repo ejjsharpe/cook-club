@@ -63,8 +63,7 @@ export interface CreateRecipeInput {
   images?: CreateRecipeImage[];
   sourceUrl?: string;
   sourceType?: SourceType;
-  categories?: string[];
-  cuisines?: string[];
+  tagIds?: number[];
   description?: string;
   prepTime?: number; // minutes
   cookTime?: number; // minutes
@@ -260,59 +259,48 @@ async function insertInstructionSectionsForRecipe(
 
 // ─── Tag Validation ────────────────────────────────────────────────────────
 
-/**
- * Validate that all categories and cuisines exist in the tags table
- */
-export async function validateTags(
+export async function validateTagIds(
   db: DbClient,
-  categories: string[] | undefined,
-  cuisines: string[] | undefined,
+  tagIds: number[] | undefined,
 ): Promise<void> {
-  // Parallelize validation queries
-  const [existingCategoryTags, existingCuisineTags] = await Promise.all([
-    categories && categories.length > 0
-      ? db
-          .select({ name: tags.name })
-          .from(tags)
-          .where(and(eq(tags.type, "category"), inArray(tags.name, categories)))
-      : Promise.resolve([]),
-    cuisines && cuisines.length > 0
-      ? db
-          .select({ name: tags.name })
-          .from(tags)
-          .where(and(eq(tags.type, "cuisine"), inArray(tags.name, cuisines)))
-      : Promise.resolve([]),
-  ]);
+  if (!tagIds || tagIds.length === 0) return;
 
-  // Validate categories
-  if (categories && categories.length > 0) {
-    const existingCategoryNames = existingCategoryTags.map((tag) => tag.name);
-    const invalidCategories = categories.filter(
-      (cat) => !existingCategoryNames.includes(cat),
+  const uniqueTagIds = [...new Set(tagIds)];
+  const existingTags = await db
+    .select({ id: tags.id })
+    .from(tags)
+    .where(inArray(tags.id, uniqueTagIds));
+  const existingTagIds = new Set(existingTags.map((tag) => tag.id));
+  const invalidTagIds = uniqueTagIds.filter(
+    (tagId) => !existingTagIds.has(tagId),
+  );
+
+  if (invalidTagIds.length > 0) {
+    throw new ServiceError(
+      "BAD_REQUEST",
+      `Invalid tag IDs: ${invalidTagIds.join(", ")}.`,
     );
-
-    if (invalidCategories.length > 0) {
-      throw new ServiceError(
-        "BAD_REQUEST",
-        `Invalid categories: ${invalidCategories.join(", ")}.`,
-      );
-    }
   }
+}
 
-  // Validate cuisines
-  if (cuisines && cuisines.length > 0) {
-    const existingCuisineNames = existingCuisineTags.map((tag) => tag.name);
-    const invalidCuisines = cuisines.filter(
-      (cuisine) => !existingCuisineNames.includes(cuisine),
-    );
+async function insertRecipeTagsForRecipe(
+  tx: TransactionClient,
+  recipeId: number,
+  tagIds: number[] | undefined,
+) {
+  const uniqueTagIds = [...new Set(tagIds ?? [])];
 
-    if (invalidCuisines.length > 0) {
-      throw new ServiceError(
-        "BAD_REQUEST",
-        `Invalid cuisines: ${invalidCuisines.join(", ")}.`,
-      );
-    }
-  }
+  if (uniqueTagIds.length === 0) return;
+
+  await tx
+    .insert(recipeTags)
+    .values(
+      uniqueTagIds.map((tagId) => ({
+        recipeId,
+        tagId,
+      })),
+    )
+    .onConflictDoNothing();
 }
 
 // ─── Recipe Creation ───────────────────────────────────────────────────────
@@ -385,6 +373,8 @@ export async function createRecipe(
         url: recipeImages.url,
       });
 
+    await insertRecipeTagsForRecipe(tx, recipe.id, input.tagIds);
+
     // Auto-add to "Want to cook" collection
     const defaultCollections = await getOrCreateDefaultCollections(tx, userId);
     await tx.insert(recipeCollections).values({
@@ -406,8 +396,8 @@ export async function createRecipe(
 
 /**
  * Update a recipe owned by the current user. Editable child content is replaced
- * as a single transaction while collections, tags, source metadata, and reviews
- * are preserved.
+ * as a single transaction while collections, source metadata, and reviews are
+ * preserved. Tags are replaced from tagIds.
  */
 export async function updateRecipe(
   db: DbClient,
@@ -424,14 +414,20 @@ export async function updateRecipe(
     (section) => section.ingredients.length > 0,
   );
   if (!hasIngredients) {
-    throw new ServiceError("BAD_REQUEST", "At least one ingredient is required");
+    throw new ServiceError(
+      "BAD_REQUEST",
+      "At least one ingredient is required",
+    );
   }
 
   const hasInstructions = input.instructionSections.some(
     (section) => section.instructions.length > 0,
   );
   if (!hasInstructions) {
-    throw new ServiceError("BAD_REQUEST", "At least one instruction is required");
+    throw new ServiceError(
+      "BAD_REQUEST",
+      "At least one instruction is required",
+    );
   }
 
   return await db.transaction(async (tx) => {
@@ -470,13 +466,16 @@ export async function updateRecipe(
       throw new ServiceError("INTERNAL_ERROR", "Failed to update recipe");
     }
 
-    await tx.delete(recipeImages).where(eq(recipeImages.recipeId, input.recipeId));
+    await tx
+      .delete(recipeImages)
+      .where(eq(recipeImages.recipeId, input.recipeId));
     await tx
       .delete(ingredientSections)
       .where(eq(ingredientSections.recipeId, input.recipeId));
     await tx
       .delete(instructionSections)
       .where(eq(instructionSections.recipeId, input.recipeId));
+    await tx.delete(recipeTags).where(eq(recipeTags.recipeId, input.recipeId));
 
     await insertIngredientSectionsForRecipe(
       tx,
@@ -488,6 +487,7 @@ export async function updateRecipe(
       input.recipeId,
       input.instructionSections,
     );
+    await insertRecipeTagsForRecipe(tx, input.recipeId, input.tagIds);
 
     const imageUrls = input.images!.map((img) => img.url);
     await tx.insert(recipeImages).values(
@@ -757,7 +757,10 @@ export async function importRecipe(
 
     // Prevent importing own recipe
     if (sourceRecipe.ownerId === userId) {
-      throw new ServiceError("BAD_REQUEST", "You cannot import your own recipe");
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "You cannot import your own recipe",
+      );
     }
 
     // Check for duplicate imports
@@ -773,7 +776,10 @@ export async function importRecipe(
       .then((rows) => rows[0]);
 
     if (existingImport) {
-      throw new ServiceError("CONFLICT", "You have already imported this recipe");
+      throw new ServiceError(
+        "CONFLICT",
+        "You have already imported this recipe",
+      );
     }
 
     // Create the new recipe

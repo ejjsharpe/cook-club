@@ -15,7 +15,7 @@ interface Tag {
 }
 
 interface Props {
-  tagType: string;
+  tagType?: string;
   selectedIds: number[];
   onToggle: (tagId: number) => void;
   placeholder?: string;
@@ -48,12 +48,21 @@ export const AutocompleteTagSelector = ({
           !selectedIds.includes(tag.id) &&
           !excludeIds.includes(tag.id),
       )
-      .slice(0, 5); // Limit dropdown to 5 items
+      .sort((a, b) => {
+        const nameCompare = a.name.localeCompare(b.name);
+        return nameCompare === 0 ? a.type.localeCompare(b.type) : nameCompare;
+      })
+      .slice(0, 8); // Limit dropdown to a compact set of useful matches
   }, [searchText, allTags, selectedIds, excludeIds]);
 
   // Get selected tags for display
   const selectedTags = useMemo(() => {
-    return allTags.filter((tag) => selectedIds.includes(tag.id));
+    return allTags
+      .filter((tag) => selectedIds.includes(tag.id))
+      .sort((a, b) => {
+        const typeCompare = a.type.localeCompare(b.type);
+        return typeCompare === 0 ? a.name.localeCompare(b.name) : typeCompare;
+      });
   }, [allTags, selectedIds]);
 
   const handleSelectTag = (tag: Tag) => {
@@ -148,9 +157,9 @@ export const AutocompleteTagSelector = ({
                 <Text style={[styles.chipText, chipTextStyle]}>{tag.name}</Text>
                 <Ionicons
                   name="close"
-                  size={14}
-                  color={variant === "default" ? "#666" : "#fff"}
-                  style={styles.chipIcon}
+                  size={12}
+                  color="#fff"
+                  style={[styles.chipIcon, chipTextStyle]}
                 />
               </TouchableOpacity>
             ))}
@@ -203,6 +212,7 @@ const styles = StyleSheet.create((theme) => ({
     borderBottomColor: theme.colors.border,
   },
   dropdownText: {
+    flex: 1,
     fontSize: 16,
     fontFamily: theme.fonts.regular,
     color: theme.colors.text,
@@ -215,14 +225,12 @@ const styles = StyleSheet.create((theme) => ({
   chip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: theme.borderRadius.full,
   },
   chipDefault: {
-    backgroundColor: "#f0f0f0",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.primary,
   },
   chipLike: {
     backgroundColor: "#22c55e",
@@ -231,11 +239,13 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: "#ef4444",
   },
   chipText: {
-    fontSize: 14,
+    fontSize: 12,
+    lineHeight: 14,
     fontFamily: theme.fonts.medium,
+    includeFontPadding: false,
   },
   chipTextDefault: {
-    color: theme.colors.text,
+    color: "#fff",
   },
   chipTextLike: {
     color: "#fff",
@@ -244,6 +254,7 @@ const styles = StyleSheet.create((theme) => ({
     color: "#fff",
   },
   chipIcon: {
-    marginLeft: 6,
+    marginLeft: 4,
+    lineHeight: 14,
   },
 }));

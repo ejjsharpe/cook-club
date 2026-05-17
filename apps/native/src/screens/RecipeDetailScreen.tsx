@@ -53,6 +53,7 @@ import {
   AdjustRecipeSheet,
   type AdjustRecipeSheetRef,
 } from "@/components/AdjustRecipeSheet";
+import { AutocompleteTagSelector } from "@/components/AutocompleteTagSelector";
 import {
   CollectionSelectorSheet,
   type CollectionSelectorSheetRef,
@@ -152,6 +153,7 @@ interface RecipeDraft {
   servings: number;
   sourceUrl?: string;
   sourceType: SourceType;
+  tagIds: number[];
   images: DraftImage[];
   ingredientSections: DraftIngredientSection[];
   instructionSections: DraftInstructionSection[];
@@ -197,6 +199,7 @@ function draftFromRecipe(recipe: RecipeLike): RecipeDraft {
     servings: recipe.servings ?? 4,
     sourceUrl: recipe.sourceUrl ?? undefined,
     sourceType: (recipe.sourceType ?? "manual") as SourceType,
+    tagIds: (recipe.tags ?? []).map((tag) => tag.id),
     images: (recipe.images ?? []).map((image, index) => ({
       id: `remote-${image.id ?? index}`,
       uri: image.url,
@@ -272,6 +275,7 @@ function createBlankDraft(): RecipeDraft {
     totalTime: null,
     servings: 4,
     sourceType: "manual",
+    tagIds: [],
     images: [],
     ingredientSections: [
       {
@@ -339,6 +343,7 @@ function draftToMutationInput(draft: RecipeDraft) {
     cookTime: draft.cookTime ?? undefined,
     totalTime: draft.totalTime ?? undefined,
     servings: Math.max(1, draft.servings),
+    tagIds: draft.tagIds,
     ingredientSections: draft.ingredientSections
       .map((section) => ({
         name: section.name.trim() || null,
@@ -1078,6 +1083,18 @@ export const RecipeDetailScreen = () => {
               }
             : section,
         ),
+      }));
+    },
+    [updateDraft],
+  );
+
+  const toggleDraftTag = useCallback(
+    (tagId: number) => {
+      updateDraft((current) => ({
+        ...current,
+        tagIds: current.tagIds.includes(tagId)
+          ? current.tagIds.filter((id) => id !== tagId)
+          : [...current.tagIds, tagId],
       }));
     },
     [updateDraft],
@@ -1948,6 +1965,29 @@ export const RecipeDetailScreen = () => {
     );
   };
 
+  const renderEditableTags = () => {
+    if (!draft) return null;
+
+    return (
+      <Animated.View
+        entering={FadeIn.duration(160)}
+        exiting={FadeOut.duration(120)}
+        layout={LinearTransition.duration(180)}
+        style={styles.tagEditor}
+      >
+        <View style={styles.tagEditorHeader}>
+          <Ionicons name="pricetag-outline" size={16} style={styles.tagsIcon} />
+          <Text style={styles.tagEditorTitle}>Tags</Text>
+        </View>
+        <AutocompleteTagSelector
+          selectedIds={draft.tagIds}
+          onToggle={toggleDraftTag}
+          placeholder="Search tags"
+        />
+      </Animated.View>
+    );
+  };
+
   const isLoading = !isPreviewMode && !isBlankDraftMode && isPending;
   const ingredientCount = isEditing
     ? (draft?.ingredientSections.reduce(
@@ -2076,6 +2116,8 @@ export const RecipeDetailScreen = () => {
                     ))}
                   </Animated.View>
                 )}
+
+                {isEditing && draft ? renderEditableTags() : null}
 
                 {isEditing && draft ? (
                   renderEditableMeta()
@@ -2637,6 +2679,20 @@ const styles = StyleSheet.create((theme) => ({
   },
   tagsIcon: {
     color: theme.colors.textSecondary,
+  },
+  tagEditor: {
+    gap: 10,
+    marginBottom: 4,
+  },
+  tagEditorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  tagEditorTitle: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontFamily: theme.fonts.semiBold,
   },
   recipeDescription: {
     lineHeight: 22,
